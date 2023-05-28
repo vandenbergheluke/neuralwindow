@@ -1,0 +1,5 @@
+add_executable(test_tensor test_tensor.c)
+target_link_libraries(test_tensor neuralwindow check pthread subunit m rt)
+add_test(NAME test_tensor COMMAND test_tensor WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/Testing)
+set_tests_properties(test_tensor PROPERTIES TIMEOUT 30) 
+add_custom_target(valgrind_test_tensor COMMAND valgrind --leak-check=full $<TARGET_FILE:test_tensor> DEPENDS test_tensor)
