@@ -1,23 +1,23 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <check.h>
-#include <tensor.h>
+#include <device.h>
 
-tensor_t *x;
+buffer_t buffer;
 
 void setup(void)
 {
-    x = construct_tensor(NULL, FLOAT32, (shape_t) {NULL, 0, NULL, 0});
+    error_t error = memory_allocate(&buffer, 10, DEVICE_CUDA);
 }
 
 void teardown(void)
 {
-    destroy_tensor(x);
+    error_t error = memory_free(buffer, DEVICE_CUDA);
 }
 
-START_TEST(test_tensor_construct)
+START_TEST(test_memory_allocate)
 {
-    ck_assert_int_eq(x->datatype, FLOAT32);
+    ck_assert_ptr_nonnull(buffer);
 }
 END_TEST
 
@@ -26,10 +26,10 @@ Suite *make_sample_creation_suite(void)
     Suite *s;
     TCase *tc_core;
 
-    s = suite_create("Tensor Construct Test Suite");
+    s = suite_create("Device Test Suite");
     tc_core = tcase_create("Case 1");
     tcase_add_checked_fixture(tc_core, setup, teardown);
-    tcase_add_test(tc_core, test_tensor_construct);
+    tcase_add_test(tc_core, test_memory_allocate);
     suite_add_tcase(s, tc_core);
 
     return s;
@@ -43,8 +43,8 @@ int main(void)
     sr = srunner_create(make_sample_creation_suite());
     srunner_set_fork_status(sr, CK_NOFORK);
     // srunner_add_suite(sr, suite());
-    srunner_set_log(sr, "test_tensor.log");
-    srunner_set_xml(sr, "test_tensor.xml");
+    srunner_set_log(sr, "test_device.log");
+    srunner_set_xml(sr, "test_device.xml");
     srunner_run_all(sr, CK_VERBOSE);
 
     number_failed = srunner_ntests_failed(sr);
