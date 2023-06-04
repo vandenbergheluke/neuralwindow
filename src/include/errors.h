@@ -4,16 +4,37 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
-typedef enum error_t
+typedef char * message_t;
+
+typedef enum error_type_t
 {
-    STATUS_SUCCESS,
-    STATUS_MEMORY_ALLOCATION_FAILURE,
-    STATUS_MEMORY_FREE_FAILURE,
-    STATUS_UNKNOWN_DEVICE,
-    STATUS_NULL_POINTER
+    ERROR_MEMORY_ALLOCATION,
+    ERROR_MEMORY_FREE,
+    ERROR_UNKNOWN_DEVICE,
+    ERROR_NULL_POINTER,
+    ERROR_DATATYPE_CONFLICT,
+    ERROR_SHAPE_CONFLICT,
+    ERROR_CREATE,
+    ERROR_DESTROY
+} error_type_t;
+
+typedef struct error_t
+{
+    error_type_t type;
+    const char *file;
+    unsigned int line_number;
+    const char *function;
+    message_t message;
+    struct error_t *next_error;
 } error_t;
 
-char *get_error_string(error_t error);
+message_t create_message(const char *format, ...);
+void destory_message(message_t message);
+error_t *create_error(error_type_t type, const char *file, unsigned int line_number, const char *function, message_t message, error_t *next_error);
+void destroy_error(error_t *error);
+void print_error(error_t *error);
+char *error_type_string(error_type_t error_type);
 
 #endif
