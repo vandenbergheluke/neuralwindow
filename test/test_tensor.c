@@ -2,18 +2,28 @@
 #include <stdint.h>
 #include <check.h>
 #include <tensor.h>
-#include <device.h>
 
 tensor_t *tensor;
+error_t *error;
 
 void setup(void)
 {
-    error_t *error = create_tensor(tensor, DEVICE_CUDA);
+    error = create_tensor(&tensor, C);
+    if (error != NULL)
+    {
+        print_error(error);
+        destroy_error(error);
+    }
 }
 
 void teardown(void)
 {
-    error_t *error = memory_free(tensor, DEVICE_CUDA);
+    error = destroy_tensor(tensor, C);
+    if (error != NULL)
+    {
+        print_error(error);
+        destroy_error(error);
+    }
 }
 
 START_TEST(test_memory_allocate)
@@ -42,7 +52,7 @@ int main(void)
     SRunner *sr;
 
     sr = srunner_create(make_sample_creation_suite());
-    srunner_set_fork_status(sr, CK_FORK);
+    srunner_set_fork_status(sr, CK_NOFORK);
     srunner_run_all(sr, CK_VERBOSE);
 
     number_failed = srunner_ntests_failed(sr);
