@@ -21,7 +21,10 @@ error_t *create_buffer(buffer_t **buffer, runtime_t runtime)
 
 error_t *destroy_buffer(buffer_t *buffer, runtime_t runtime)
 {
-    CHECK_NULL_POINTER(buffer, "buffer");
+    if (buffer == NULL)
+    {
+        return NULL;
+    }
 
     error_t *error = destroy_view(buffer->view, runtime);
     if (error != NULL)

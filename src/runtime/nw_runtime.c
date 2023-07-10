@@ -21,8 +21,7 @@ error_t *nw_malloc(void **pp, size_t size, runtime_t runtime)
         error = cu_malloc(pp, size);
         break;
     default:
-        string_t message = create_string("unknown runtime argument.");
-        error = create_error(ERROR_UNKNOWN_RUNTIME, __FILE__, __LINE__, __FUNCTION__, message, NULL);
+        error = create_error(ERROR_UNKNOWN_RUNTIME, __FILE__, __LINE__, __FUNCTION__, create_string("unknown runtime argument."), NULL);
         break;
     }
 
@@ -50,8 +49,7 @@ error_t *nw_free(void *p, runtime_t runtime)
         error = cu_free(p);
         break;
     default:
-        string_t message = create_string("unknown runtime argument.");
-        error = create_error(ERROR_UNKNOWN_RUNTIME, __FILE__, __LINE__, __FUNCTION__, message, NULL);
+        error = create_error(ERROR_UNKNOWN_RUNTIME, __FILE__, __LINE__, __FUNCTION__, create_string("unknown runtime argument."), NULL);
         break;
     }
     

@@ -2,12 +2,14 @@ set(UTIL_DIR "util")
 set(TENSOR_DIR "tensor")
 set(RUNTIME_DIR "runtime")
 set(NN_DIR "nn")
+set(MKL_DIR "/usr/include/mkl")
 
 set(
     SOURCE 
     "${TENSOR_DIR}/buffer.c"
     "${TENSOR_DIR}/tensor.c"
     "${TENSOR_DIR}/view.c"
+    "${TENSOR_DIR}/operation.c"
     "${UTIL_DIR}/datatype.c"
     "${UTIL_DIR}/errors.c"
     "${UTIL_DIR}/measure.c"
@@ -24,6 +26,7 @@ set(
     "${TENSOR_DIR}/buffer.h"
     "${TENSOR_DIR}/tensor.h"
     "${TENSOR_DIR}/view.h"
+    "${TENSOR_DIR}/operation.h"
     "${UTIL_DIR}/datatype.h"
     "${UTIL_DIR}/errors.h"
     "${UTIL_DIR}/measure.h"
@@ -37,11 +40,11 @@ set(
 
 add_library(${PROJECT_NAME} STATIC ${SOURCE})
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${TENSOR_DIR} ${UTIL_DIR} ${RUNTIME_DIR})
+target_include_directories(${PROJECT_NAME} PUBLIC ${TENSOR_DIR} ${UTIL_DIR} ${RUNTIME_DIR} ${MKL_DIR})
 set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${HEADERS}")
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(${PROJECT_NAME} PROPERTIES SOVERSION 1)
-target_link_libraries(${TEST} ${PROJECT_NAME} openblas)
+target_link_libraries(${TEST} ${PROJECT_NAME} openblas mkl_core)
 install(
     TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION bin
