@@ -2,15 +2,11 @@
 
 error_t *c_malloc(void **pp, size_t size)
 {
-    CHECK_NULL_POINTER(pp, "pp");
+    CHECK_NULL(pp, "pp");
 
     *pp = malloc(size);
-
     if (*pp == NULL)
-    {
-        string_t message = create_string("failed to allocate %zu bytes.", size);
-        return create_error(ERROR_MEMORY_ALLOCATION, __FILE__, __LINE__, __FUNCTION__, message, NULL);
-    }
+        return ERROR(ERROR_MEMORY_ALLOCATION, create_string("failed to allocate %zu bytes.", size), NULL);
 
     return NULL;
 }

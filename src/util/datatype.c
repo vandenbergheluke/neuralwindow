@@ -20,9 +20,7 @@ string_t datatype_string(datatype_t datatype)
 string_t create_string(string_t format, ...)
 {
     if (format == NULL)
-    {
         return NULL;
-    }
 
     va_list arguments;
 

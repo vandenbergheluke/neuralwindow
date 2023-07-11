@@ -6,10 +6,9 @@
 
 error_t *nw_malloc(void **pp, size_t size, runtime_t runtime)
 {
-    CHECK_NULL_POINTER(pp, "pp");
+    CHECK_NULL(pp, "pp");
 
     error_t *error;
-
     switch (runtime)
     {
     case C:
@@ -21,23 +20,22 @@ error_t *nw_malloc(void **pp, size_t size, runtime_t runtime)
         error = cu_malloc(pp, size);
         break;
     default:
-        error = create_error(ERROR_UNKNOWN_RUNTIME, __FILE__, __LINE__, __FUNCTION__, create_string("unknown runtime argument."), NULL);
+        error = ERROR(ERROR_UNKNOWN_RUNTIME, create_string("unknown runtime argument."), NULL);
         break;
     }
 
     if (error != NULL)
-    {
-        string_t message = create_string("failed to allocate %zu bytes for runtime %s.", size, runtime_string(runtime));
-        return create_error(ERROR_MEMORY_ALLOCATION, __FILE__, __LINE__, __FUNCTION__, message, error);
-    }
+        return ERROR(ERROR_MEMORY_ALLOCATION, create_string("failed to allocate %zu bytes for runtime %s.", size, runtime_string(runtime)), error);
     
     return NULL;
 }
 
 error_t *nw_free(void *p, runtime_t runtime)
 {
-    error_t *error;
+    if (p == NULL)
+        return NULL;
 
+    error_t *error;
     switch (runtime)
     {
     case C:
@@ -49,15 +47,12 @@ error_t *nw_free(void *p, runtime_t runtime)
         error = cu_free(p);
         break;
     default:
-        error = create_error(ERROR_UNKNOWN_RUNTIME, __FILE__, __LINE__, __FUNCTION__, create_string("unknown runtime argument."), NULL);
+        error = ERROR(ERROR_UNKNOWN_RUNTIME, create_string("unknown runtime argument."), NULL);
         break;
     }
     
     if (error != NULL)
-    {
-        string_t message = create_string("failed to free memory for runtime %s.", runtime_string(runtime));
-        return create_error(ERROR_MEMORY_ALLOCATION, __FILE__, __LINE__, __FUNCTION__, message, error);
-    }
+        return ERROR(ERROR_MEMORY_ALLOCATION, create_string("failed to free memory for runtime %s.", runtime_string(runtime)), error);
 
     return NULL;
 }

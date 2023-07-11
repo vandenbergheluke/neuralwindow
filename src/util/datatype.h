@@ -15,6 +15,7 @@ typedef char char_t;
 
 typedef enum datatype_t
 {
+    NONE,
     INT32,
     INT64,
     FLOAT32,

@@ -36,7 +36,9 @@ void destroy_error(error_t *error);
 void print_error(error_t *error);
 string_t error_type_string(error_type_t error_type);
 
-#define CHECK_NULL_POINTER(p, s) ({\
+#define ERROR(t, s, e) (create_error(t, __FILE__, __LINE__, __FUNCTION__, s, e))
+
+#define CHECK_NULL(p, s) ({\
             if (p == NULL)\
             {\
                 string_t message = create_string("received null pointer argument for %s.", s);\

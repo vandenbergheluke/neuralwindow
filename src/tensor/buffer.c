@@ -2,19 +2,21 @@
 
 error_t *create_buffer(buffer_t **buffer, runtime_t runtime)
 {
-    CHECK_NULL_POINTER(buffer, "buffer");
+    CHECK_NULL(buffer, "buffer");
 
-    error_t *error = nw_malloc((void **) buffer, sizeof(buffer_t), runtime);
+    error_t *error;
+    error = nw_malloc((void **) buffer, sizeof(buffer_t), runtime);
     if (error != NULL)
-    {
-        return create_error(ERROR_CREATE, __FILE__, __LINE__, __FUNCTION__, create_string("failed to create buffer."), error);
-    }
+        return ERROR(ERROR_CREATE, create_string("failed to create buffer."), error);
 
     error = create_view(&(*buffer)->view, runtime);
     if (error != NULL)
-    {
-        return create_error(ERROR_CREATE, __FILE__, __LINE__, __FUNCTION__, create_string("failed to create buffer."), error);
-    }
+        return ERROR(ERROR_CREATE, create_string("failed to create buffer->view."), error);
+
+    // Initialize
+    (*buffer)->data = NULL;
+    (*buffer)->datatype = NONE;
+    (*buffer)->runtime = runtime;
 
     return NULL;
 }
@@ -22,27 +24,20 @@ error_t *create_buffer(buffer_t **buffer, runtime_t runtime)
 error_t *destroy_buffer(buffer_t *buffer, runtime_t runtime)
 {
     if (buffer == NULL)
-    {
         return NULL;
-    }
 
-    error_t *error = destroy_view(buffer->view, runtime);
+    error_t *error;
+    error = destroy_view(buffer->view, runtime);
     if (error != NULL)
-    {
-        return create_error(ERROR_DESTROY, __FILE__, __LINE__, __FUNCTION__, create_string("failed to destroy buffer."), error);
-    }
+        return ERROR(ERROR_DESTROY, create_string("failed to destroy buffer->view."), error);
 
     error = nw_free(buffer->data, runtime);
     if (error != NULL)
-    {
-        return create_error(ERROR_DESTROY, __FILE__, __LINE__, __FUNCTION__, create_string("failed to destroy buffer."), error);
-    }
+        return ERROR(ERROR_DESTROY, create_string("failed to destroy buffer->data."), error);
 
     error = nw_free(buffer, runtime);
     if (error != NULL)
-    {
-        return create_error(ERROR_DESTROY, __FILE__, __LINE__, __FUNCTION__, create_string("failed to destroy buffer."), error);
-    }
+        return ERROR(ERROR_DESTROY, create_string("failed to destroy buffer."), error);
 
     return NULL;
 }

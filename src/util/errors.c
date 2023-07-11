@@ -4,9 +4,7 @@ error_t *create_error(error_type_t error_type, string_t file, uint32_t line_numb
 {
     error_t *error = (error_t *) malloc(sizeof(error_t));
     if (error == NULL)
-    {
         return NULL;
-    }
 
     error->error_type = error_type;
     error->file = file;

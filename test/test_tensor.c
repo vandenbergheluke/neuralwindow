@@ -28,6 +28,7 @@ void teardown(void)
 
 START_TEST(test_memory_allocate)
 {
+    ck_assert_ptr_null(error);
     ck_assert_ptr_nonnull(tensor);
 }
 END_TEST
