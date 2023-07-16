@@ -10,14 +10,20 @@ typedef enum error_type_t
     ERROR_MEMORY_ALLOCATION,
     ERROR_MEMORY_FREE,
     ERROR_UNKNOWN_RUNTIME,
-    ERROR_NULL_POINTER,
+    ERROR_UKNOWN_OPERATION_TYPE,
+    ERROR_NULL,
     ERROR_DATATYPE_CONFLICT,
     ERROR_SHAPE_CONFLICT,
     ERROR_CREATE,
     ERROR_DESTROY,
     ERROR_BROADCAST,
     ERROR_INITIALIZATION,
-    ERROR_UNKNOWN_INSTANCE_TYPE
+    ERROR_DATATYPE,
+    ERROR_COPY,
+    ERROR_ADDITION,
+    ERROR_CONTIGUOUS,
+    ERROR_FORWARD,
+    ERROR_BACKWARD
 } error_type_t;
 
 typedef struct error_t
@@ -42,7 +48,7 @@ string_t error_type_string(error_type_t error_type);
             if (p == NULL)\
             {\
                 string_t message = create_string("received null pointer argument for %s.", s);\
-                return create_error(ERROR_NULL_POINTER, __FILE__, __LINE__, __FUNCTION__, message, NULL);\
+                return create_error(ERROR_NULL, __FILE__, __LINE__, __FUNCTION__, message, NULL);\
             }\
         })
 

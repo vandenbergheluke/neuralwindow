@@ -1,42 +1,87 @@
 #include <view.h>
 
-error_t *create_view(view_t **view, runtime_t runtime)
+error_t *create_view(view_t **view, uint32_t offset, uint32_t rank, uint32_t *shape, uint32_t *strides)
 {
     CHECK_NULL(view, "view");
 
     error_t *error;
-    error = nw_malloc((void **) view, sizeof(view_t), runtime);
+    error = nw_malloc((void **) view, sizeof(view_t), C_RUNTIME);
     if (error != NULL)
         return ERROR(ERROR_CREATE, create_string("failed to create view."), error);
 
     // Initialize
-    (*view)->offset = 0;
-    (*view)->rank = 0;
-    (*view)->shape = NULL;
-    (*view)->strides = NULL;
+    (*view)->offset = offset;
+    (*view)->rank = rank;
+    (*view)->shape = shape;
+    (*view)->strides = strides;
 
     return NULL;
 }
 
-error_t *destroy_view(view_t *view, runtime_t runtime)
+error_t *destroy_view(view_t *view)
 {
     if (view == NULL)
         return NULL;
 
     error_t *error;
-    error = nw_free(view->shape, runtime);
+    error = nw_free(view->shape, C_RUNTIME);
     if (error != NULL)
         return ERROR(ERROR_DESTROY, create_string("failed to destroy view->shape."), error);
 
-    error = nw_free(view->strides, runtime);
+    error = nw_free(view->strides, C_RUNTIME);
     if (error != NULL)
         return ERROR(ERROR_DESTROY, create_string("failed to destroy view->strides."), error);
 
-    error = nw_free(view, runtime);
+    error = nw_free(view, C_RUNTIME);
     if (error != NULL)
         return ERROR(ERROR_DESTROY, create_string("failed to destroy view."), error);
 
     return NULL;
+}
+
+bool_t is_contiguous(const view_t *view)
+{
+    if (view == NULL || view->shape == NULL || view->strides == NULL)
+        return false;
+    
+    for (uint32_t i = view->rank - 1; i > 0; i--)
+    {
+        if ((i == view->rank - 1 && view->strides[i] != 1) || 
+            (i < view->rank - 1 && view->strides[i] != view->shape[i + 1] * view->strides[i + 1]))
+            return false;
+    }
+
+    return true;
+}
+
+bool_t equal_shape(const view_t *view_x, const view_t *view_y)
+{
+    if (view_x == NULL ||
+        view_y == NULL ||
+        view_x->rank != view_y->rank ||
+        view_x->shape == NULL ||
+        view_y->shape == NULL)
+        return false;
+
+    for (uint32_t i = 0; i < view_x->rank; i++)
+    {
+        if (view_x->shape[i] != view_y->shape[i])
+            return false;
+    }
+
+    return true;
+}
+
+uint32_t size(const view_t *view)
+{
+    if (view == NULL || view->shape == NULL)
+        return 0;
+
+    uint32_t total = 0;
+    for (uint32_t i = 0; i < view->rank; i++)
+        total = (i == 0) ? view->shape[i] : total * view->shape[i];
+    
+    return total;
 }
 
 error_t *get_strides_from_shape(uint32_t *strides, const uint32_t *shape, uint32_t rank)

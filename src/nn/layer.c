@@ -1,6 +1,7 @@
 #include <layer.h>
 #include <nw_runtime.h>
 
+
 error_t *initialize(module_t *module, datatype_t datatype, runtime_t runtime)
 {
     CHECK_NULL(module, "module");

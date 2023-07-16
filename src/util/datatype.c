@@ -4,10 +4,6 @@ string_t datatype_string(datatype_t datatype)
 {
     switch (datatype)
     {
-    case INT32:
-        return "INT32";
-    case INT64:
-        return "INT64";
     case FLOAT32:
         return "FLOAT32";
     case FLOAT64:

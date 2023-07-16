@@ -36,8 +36,10 @@ string_t error_type_string(error_type_t error_type)
         return "ERROR_MEMORY_FREE";
     case ERROR_UNKNOWN_RUNTIME:
         return "ERROR_UNKNOWN_RUNTIME";
-    case ERROR_NULL_POINTER:
-        return "ERROR_NULL_POINTER";
+    case ERROR_UKNOWN_OPERATION_TYPE:
+        return "ERROR_UKNOWN_OPERATION_TYPE";
+    case ERROR_NULL:
+        return "ERROR_NULL";
     case ERROR_DATATYPE_CONFLICT:
         return "ERROR_DATATYPE_CONFLICT";
     case ERROR_SHAPE_CONFLICT:
@@ -50,8 +52,18 @@ string_t error_type_string(error_type_t error_type)
         return "ERROR_BROADCAST";
     case ERROR_INITIALIZATION:
         return "ERROR_INITIALIZATION";
-    case ERROR_UNKNOWN_INSTANCE_TYPE:
-        return "ERROR_UNKNOWN_INSTANCE_TYPE";
+    case ERROR_DATATYPE:
+        return "ERROR_DATATYPE";
+    case ERROR_COPY:
+        return "ERROR_COPY";
+    case ERROR_ADDITION:
+        return "ERROR_ADDITION";
+    case ERROR_CONTIGUOUS:
+        return "ERROR_CONTIGUOUS";
+    case ERROR_FORWARD:
+        return "ERROR_FORWARD";
+    case ERROR_BACKWARD:
+        return "ERROR_BACKWARD";
     default:
         return "ERROR";
     }

@@ -12,7 +12,7 @@ typedef struct buffer_t
     void *data;
 } buffer_t;
 
-error_t *create_buffer(buffer_t **buffer, runtime_t runtime);
-error_t *destroy_buffer(buffer_t *buffer, runtime_t runtime);
+error_t *create_buffer(buffer_t **buffer, runtime_t runtime, datatype_t datatype, view_t *view, void *data);
+error_t *destroy_buffer(buffer_t *buffer);
 
 #endif
