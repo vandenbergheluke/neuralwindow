@@ -6,53 +6,54 @@ extern "C" {
 
 extern "C" error_t *cu_malloc(void **pp, size_t size)
 {
-    CHECK_NULL(pp, "pp");
+    CHECK_NULL_ARGUMENT(pp, "pp");
 
     cudaError_t error = cudaMallocManaged(pp, size);
     if (error != cudaSuccess)
-        return ERROR(ERROR_MEMORY_ALLOCATION, create_string("failed to allocate %zu bytes, %s.", size, cudaGetErrorString(error)), NULL);
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate %zu bytes, %s.", size, cudaGetErrorString(error)),
+                     NULL);
+    }
 
     return NULL;
 }
 
-extern "C" error_t *cu_free(void *p)
+extern "C" void cu_free(void *p)
 {
-    CHECK_NULL(p, "p");
+    cudaFree(p);
+}
 
-    cudaError_t error = cudaFree(p);
-    if (error != cudaSuccess)
-        return ERROR(ERROR_MEMORY_FREE, create_string("failed to free memory, %s.", cudaGetErrorString(error)), NULL);
+extern "C" error_t *cu_copy(const void *src, void *dst, size_t size)
+{
+    CHECK_NULL_ARGUMENT(src, "src");
+    CHECK_NULL_ARGUMENT(dst, "dst");
+
+    cudaMemcpy(dst, src, size, cudaMemcpyDeviceToDevice);
 
     return NULL;
 }
 
-extern "C" error_t *cu_copy(const void *in_p, void *out_p, size_t size)
+extern "C" error_t *cu_addition(datatype_t datatype, uint32_t size, const void *x_data, const void *y_data, void *z_data)
 {
-    CHECK_NULL(in_p, "in_p");
-    CHECK_NULL(out_p, "out_p");
-
-    cudaMemcpy(out_p, in_p, size, cudaMemcpyDeviceToDevice);
-
-    return NULL;
-}
-
-extern "C" error_t *cu_addition(datatype_t datatype, uint32_t size, const void *in_data_x, const void *in_data_y, void *out_data)
-{
-    CHECK_NULL(in_data_x, "in_data_x");
-    CHECK_NULL(in_data_y, "in_data_y");
-    CHECK_NULL(out_data, "out_data");
+    CHECK_NULL_ARGUMENT(x_data, "x_data");
+    CHECK_NULL_ARGUMENT(y_data, "y_data");
+    CHECK_NULL_ARGUMENT(z_data, "z_data");
 
     switch (datatype)
     {
     case FLOAT32:
-        cublasScopy(size, (float32_t *) in_data_y, 1, (float32_t *) out_data, 1); 
-        cublasSaxpy(size, 1.0, (float32_t *) in_data_x, 1, (float32_t *) out_data, 1);
+        cublasScopy(size, (float32_t *) y_data, 1, (float32_t *) z_data, 1); 
+        cublasSaxpy(size, 1.0, (float32_t *) x_data, 1, (float32_t *) z_data, 1);
         break;
     case FLOAT64:
-        cublasDcopy(size, (float64_t *) in_data_y, 1, (float64_t *) out_data, 1);
-        cublasDaxpy(size, 1.0, (float64_t *) in_data_x, 1, (float64_t *) out_data, 1);
+        cublasDcopy(size, (float64_t *) y_data, 1, (float64_t *) z_data, 1);
+        cublasDaxpy(size, 1.0, (float64_t *) x_data, 1, (float64_t *) z_data, 1);
+        break;
     default:
-        return ERROR(ERROR_DATATYPE, create_string("Unsupported datatype %s", datatype_string(datatype)), NULL);    
+        return ERROR(ERROR_DATATYPE, 
+                     string_create("Unsupported datatype %s", datatype_string(datatype)),
+                     NULL);    
     }
 
     return NULL;

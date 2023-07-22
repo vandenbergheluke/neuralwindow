@@ -3,6 +3,6 @@
 
 #include <errors.h>
 
-error_t *mkl_addition(datatype_t datatype, uint32_t size, const void *in_data_x, const void *in_data_y, void *out_data);
+error_t *mkl_addition(datatype_t datatype, uint32_t size, const void *x_data, const void *y_data, void *z_data);
 
 #endif

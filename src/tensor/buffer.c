@@ -1,40 +1,50 @@
 #include <buffer.h>
 
-error_t *create_buffer(buffer_t **buffer, runtime_t runtime, datatype_t datatype, view_t *view, void *data)
+error_t *buffer_create(buffer_t **buffer, runtime_t runtime, datatype_t datatype, view_t *view, void *data)
 {
-    CHECK_NULL(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(view, "view");
+    CHECK_NULL_ARGUMENT(view->shape, "view->shape");
+    CHECK_NULL_ARGUMENT(view->strides, "view->strides");
 
-    error_t *error;
-    error = nw_malloc((void **) buffer, sizeof(buffer_t), C_RUNTIME);
+    size_t size = sizeof(buffer_t);
+    *buffer = (buffer_t *) malloc(size);
+    if (buffer == NULL)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate buffer of size %zu bytes.", size),
+                     NULL);
+    }
+
+    uint32_t number_of_elements = view_size(view);
+    uint32_t element_size = datatype_size(datatype);
+    size = number_of_elements * element_size;
+    error_t *error = nw_malloc(&(*buffer)->data, size, runtime);
     if (error != NULL)
-        return ERROR(ERROR_CREATE, create_string("failed to create buffer."), error);
+    {
+        free(buffer);
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate buffer data of size %zu bytes.", size),
+                     error);
+    }
 
-    // Initialize
     (*buffer)->runtime = runtime;
     (*buffer)->datatype = datatype;
     (*buffer)->view = view;
-    (*buffer)->data = data;
+    if (data != NULL)
+    {
+        memcpy((*buffer)->data, data, size);
+    }
 
     return NULL;
 }
 
-error_t *destroy_buffer(buffer_t *buffer)
+void buffer_destroy(buffer_t *buffer)
 {
-    if (buffer == NULL)
-        return NULL;
-
-    error_t *error;
-    error = destroy_view(buffer->view);
-    if (error != NULL)
-        return ERROR(ERROR_DESTROY, create_string("failed to destroy buffer->view."), error);
-
-    error = nw_free(buffer->data, buffer->runtime);
-    if (error != NULL)
-        return ERROR(ERROR_DESTROY, create_string("failed to destroy buffer->data."), error);
-
-    error = nw_free(buffer, C_RUNTIME);
-    if (error != NULL)
-        return ERROR(ERROR_DESTROY, create_string("failed to destroy buffer."), error);
-
-    return NULL;
+    if (buffer != NULL)
+    {
+        view_destroy(buffer->view);
+        nw_free(buffer->data, buffer->runtime);
+        free(buffer);
+    }
 }

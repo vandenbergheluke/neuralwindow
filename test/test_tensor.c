@@ -8,22 +8,33 @@ error_t *error;
 
 void setup(void)
 {
-    error = create_tensor(&tensor, C);
+    view_t *view;
+    error = view_create(&view, 0, 2, (uint32_t[]){1, 2}, NULL);
     if (error != NULL)
     {
-        print_error(error);
-        destroy_error(error);
+        error_print(error);
+        error_destroy(error);
+    }
+
+    buffer_t *buffer;
+    error = buffer_create(&buffer, C_RUNTIME, FLOAT32, view, (float32_t[]){1.0, 2.0});
+    if (error != NULL)
+    {
+        error_print(error);
+        error_destroy(error);
+    }
+
+    error = tensor_create(&tensor, buffer, NULL, NULL, false);
+    if (error != NULL)
+    {
+        error_print(error);
+        error_destroy(error);
     }
 }
 
 void teardown(void)
 {
-    error = destroy_tensor(tensor, C);
-    if (error != NULL)
-    {
-        print_error(error);
-        destroy_error(error);
-    }
+    tensor_destroy(tensor);
 }
 
 START_TEST(test_memory_allocate)

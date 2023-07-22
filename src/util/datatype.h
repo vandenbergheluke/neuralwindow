@@ -20,7 +20,8 @@ typedef enum datatype_t
 } datatype_t;
 
 string_t datatype_string(datatype_t datatype);
-string_t create_string(string_t format, ...);
-void destroy_string(string_t string);
+size_t datatype_size(datatype_t datatype);
+string_t string_create(string_t format, ...);
+void string_destroy(string_t string);
 
 #endif

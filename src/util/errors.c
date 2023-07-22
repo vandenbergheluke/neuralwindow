@@ -1,6 +1,6 @@
 #include <errors.h>
 
-error_t *create_error(error_type_t error_type, string_t file, uint32_t line_number, string_t function, string_t message, error_t *next_error)
+error_t *error_create(error_type_t error_type, string_t file, uint32_t line_number, string_t function, string_t message, error_t *next_error)
 {
     error_t *error = (error_t *) malloc(sizeof(error_t));
     if (error == NULL)
@@ -15,12 +15,12 @@ error_t *create_error(error_type_t error_type, string_t file, uint32_t line_numb
     return error;
 }
 
-void destroy_error(error_t *error)
+void error_destroy(error_t *error)
 {
     while(error != NULL)
     {
         error_t *next_error = error->next_error;
-        destroy_string(error->message);
+        string_destroy(error->message);
         free(error);
         error = next_error;
     }
@@ -44,6 +44,8 @@ string_t error_type_string(error_type_t error_type)
         return "ERROR_DATATYPE_CONFLICT";
     case ERROR_SHAPE_CONFLICT:
         return "ERROR_SHAPE_CONFLICT";
+    case ERROR_RUNTIME_CONFLICT:
+        return "ERROR_RUNTIME_CONFLICT";
     case ERROR_CREATE:
         return "ERROR_CREATE";
     case ERROR_DESTROY:
@@ -64,12 +66,18 @@ string_t error_type_string(error_type_t error_type)
         return "ERROR_FORWARD";
     case ERROR_BACKWARD:
         return "ERROR_BACKWARD";
+    case ERROR_SET:
+        return "ERROR_SET";
+    case ERROR_OVERFLOW:
+        return "ERROR_OVERFLOW";
+    case ERROR_EXPAND:
+        return "ERROR_EXPAND";
     default:
         return "ERROR";
     }
 }
 
-void print_error(error_t *error)
+void error_print(error_t *error)
 {
     while (error != NULL)
     {

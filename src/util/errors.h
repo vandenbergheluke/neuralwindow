@@ -14,6 +14,7 @@ typedef enum error_type_t
     ERROR_NULL,
     ERROR_DATATYPE_CONFLICT,
     ERROR_SHAPE_CONFLICT,
+    ERROR_RUNTIME_CONFLICT,
     ERROR_CREATE,
     ERROR_DESTROY,
     ERROR_BROADCAST,
@@ -23,7 +24,10 @@ typedef enum error_type_t
     ERROR_ADDITION,
     ERROR_CONTIGUOUS,
     ERROR_FORWARD,
-    ERROR_BACKWARD
+    ERROR_BACKWARD,
+    ERROR_SET,
+    ERROR_OVERFLOW,
+    ERROR_EXPAND,
 } error_type_t;
 
 typedef struct error_t
@@ -36,19 +40,17 @@ typedef struct error_t
     struct error_t *next_error;
 } error_t;
 
-
-error_t *create_error(error_type_t error_type, string_t file, uint32_t line_number, string_t function, string_t message, error_t *next_error);
-void destroy_error(error_t *error);
-void print_error(error_t *error);
+error_t *error_create(error_type_t error_type, string_t file, uint32_t line_number, string_t function, string_t message, error_t *next_error);
+void error_destroy(error_t *error);
+void error_print(error_t *error);
 string_t error_type_string(error_type_t error_type);
 
-#define ERROR(t, s, e) (create_error(t, __FILE__, __LINE__, __FUNCTION__, s, e))
+#define ERROR(error_type, error_string, error) (error_create(error_type, __FILE__, __LINE__, __FUNCTION__, error_string, error))
 
-#define CHECK_NULL(p, s) ({\
-            if (p == NULL)\
+#define CHECK_NULL_ARGUMENT(pointer, string) ({\
+            if (pointer == NULL)\
             {\
-                string_t message = create_string("received null pointer argument for %s.", s);\
-                return create_error(ERROR_NULL, __FILE__, __LINE__, __FUNCTION__, message, NULL);\
+                return ERROR(ERROR_NULL, string_create("received null argument for %s.", string), NULL);\
             }\
         })
 

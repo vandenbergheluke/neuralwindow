@@ -9,11 +9,24 @@ string_t datatype_string(datatype_t datatype)
     case FLOAT64:
         return "FLOAT64";
     default:
-        return NULL;
+        return "UNKNOWN";
     }
 }
 
-string_t create_string(string_t format, ...)
+size_t datatype_size(datatype_t datatype)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        return sizeof(float32_t);
+    case FLOAT64:
+        return sizeof(float64_t);
+    default:
+        return 0;
+    }
+}
+
+string_t string_create(string_t format, ...)
 {
     if (format == NULL)
         return NULL;
@@ -33,7 +46,7 @@ string_t create_string(string_t format, ...)
     return string;
 }
 
-void destroy_string(string_t string)
+void string_destroy(string_t string)
 {
     free((char *) string);
 }

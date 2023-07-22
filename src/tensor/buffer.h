@@ -1,8 +1,15 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
-#include <nw_runtime.h>
 #include <view.h>
+
+typedef enum runtime_t
+{
+   C_RUNTIME,
+   OPENBLAS_RUNTIME,
+   MKL_RUNTIME,
+   CU_RUNTIME
+} runtime_t;
 
 typedef struct buffer_t
 {
@@ -12,7 +19,7 @@ typedef struct buffer_t
     void *data;
 } buffer_t;
 
-error_t *create_buffer(buffer_t **buffer, runtime_t runtime, datatype_t datatype, view_t *view, void *data);
-error_t *destroy_buffer(buffer_t *buffer);
+error_t *buffer_create(buffer_t **buffer, runtime_t runtime, datatype_t datatype, view_t *view, void *data);
+void buffer_destroy(buffer_t *buffer);
 
 #endif

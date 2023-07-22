@@ -1,53 +1,17 @@
 #include <queue.h>
 
-error_t *create_queue(queue_t **queue)
+error_t *element_create(element_t **element, void *data)
 {
-    CHECK_NULL(queue, "queue");
+    CHECK_NULL_ARGUMENT(element, "element");
 
-    error_t *error;
-    error = nw_malloc((void **) queue, sizeof(queue_t), C_RUNTIME);
-    if (error != NULL)
-        return ERROR(ERROR_CREATE, create_string("failed to create queue."), error);
-    
-    //Initialize
-    (*queue)->head = NULL;
-    (*queue)->tail = NULL;
-    
-    return NULL;
-}
-
-error_t *destroy_queue(queue_t *queue)
-{
-    if (queue == NULL)
-        return NULL;
-
-    error_t *error;
-    element_t *element;
-    element_t *next;
-
-    element = queue->head;
-    while (element != NULL)
+    size_t size = sizeof(element_t);
+    *element = (element_t *) malloc(size);
+    if (element == NULL)
     {
-        next = element->next;
-        destroy_element(element);
-        element = next;
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate element of size %zu bytes.", size),
+                     NULL);
     }
-
-    error = nw_free((void *) queue, C_RUNTIME);
-    if (error != NULL)
-        return ERROR(ERROR_DESTROY, create_string("failed to destroy queue."), error);
-
-    return NULL;
-}
-
-error_t *create_element(element_t **element, void *data)
-{
-    CHECK_NULL(element, "element");
-
-    error_t *error;
-    error = nw_malloc((void **) element, sizeof(queue_t), C_RUNTIME);
-    if (error != NULL)
-        return ERROR(ERROR_CREATE, create_string("failed to create element."), error);
     
     // Initialize
     (*element)->data = data;
@@ -56,28 +20,59 @@ error_t *create_element(element_t **element, void *data)
     return NULL;
 }
 
-error_t *destroy_element(element_t *element)
+void element_destroy(element_t *element)
 {
-    if (element == NULL)
-        return NULL;
+    free(element);
+}
 
-    error_t *error;
-    error = nw_free((void *) element, C_RUNTIME);
-    if (error != NULL)
-        return ERROR(ERROR_DESTROY, create_string("failed to destroy element."), error);
+error_t *queue_create(queue_t **queue)
+{
+    CHECK_NULL_ARGUMENT(queue, "queue");
+
+    size_t size = sizeof(queue_t);
+    *queue = (queue_t *) malloc(size);
+    if (queue == NULL)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate queue of size %zu bytes.", size),
+                     NULL);
+    }
+    
+    //Initialize
+    (*queue)->head = NULL;
+    (*queue)->tail = NULL;
+    (*queue)->size = 0;
 
     return NULL;
 }
 
-error_t *enqueue(queue_t *queue, void *data)
+void queue_destroy(queue_t *queue)
 {
-    CHECK_NULL(queue, "queue");
+    if (queue != NULL)
+    {
+        element_t *element = queue->head;
+        while (element != NULL)
+        {
+            element_t *next = element->next;
+            element_destroy(element);
+            element = next;
+        }
+    }
+    free(queue);
+}
 
-    error_t *error;
+error_t *queue_enqueue(queue_t *queue, void *data)
+{
+    CHECK_NULL_ARGUMENT(queue, "queue");
+
     element_t *element;
-    error = create_element(&element, data); 
+    error_t *error = element_create(&element, data); 
     if (error != NULL)
-        return ERROR(ERROR_CREATE, create_string("failed to enqueue element."), error);
+    {
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create element."),
+                     error);
+    }
 
     if (queue->head == NULL)
     {
@@ -89,28 +84,28 @@ error_t *enqueue(queue_t *queue, void *data)
         queue->tail->next = element;
         queue->tail = queue->tail->next;
     }
+    queue->size++;
 
     return NULL;
 }
 
-error_t *dequeue(queue_t *queue, void **data)
+error_t *queue_dequeue(queue_t *queue, void **data)
 {
-    CHECK_NULL(queue, "queue");
-    CHECK_NULL(data, "data");
-
-    error_t *error;
-    element_t *element;
+    CHECK_NULL_ARGUMENT(queue, "queue");
+    CHECK_NULL_ARGUMENT(data, "data");
 
     if (queue->head == NULL)
-        return ERROR(ERROR_DESTROY, create_string("failed to dequeue element from empty queue."), NULL);
+    {
+        return ERROR(ERROR_DESTROY,
+                     string_create("failed to dequeue element from empty queue."),
+                     NULL);
+    }
 
     *data = queue->head->data;
-    element = queue->head->next;
-    error = destroy_element(queue->head); 
-    if (error != NULL)
-        return ERROR(ERROR_DESTROY, create_string("failed to dequeue element."), error);
-
+    element_t *element = queue->head->next;
+    element_destroy(queue->head); 
     queue->head = element;
+    queue->size--;
 
     return NULL;
 }
