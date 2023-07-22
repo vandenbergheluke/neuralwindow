@@ -340,7 +340,7 @@ error_t *addition_operation_forward(const tensor_t *x, const tensor_t *y, tensor
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(z, "z");
 
-    error_t *error = nw_addition(x->buffer, y->buffer, z->buffer);
+    error_t *error = runtime_addition(x->buffer, y->buffer, z->buffer);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD,

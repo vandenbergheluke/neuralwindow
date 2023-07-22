@@ -20,8 +20,6 @@ bool_t view_is_contiguous(const view_t *view);
 bool_t view_shape_equal(const view_t *view_x, const view_t *view_y);
 uint32_t view_size(const view_t *view);
 error_t *get_strides_from_shape(uint32_t *strides, const uint32_t *shape, uint32_t rank);
-string_t shape_string(const uint32_t *shape, uint32_t rank);
-
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))

@@ -6,7 +6,6 @@
 #include <datatype.h>
 #include <errors.h>
 #include <tensor.h>
-#include <nw_runtime.h>
 
 typedef struct tensor_t tensor_t;
 

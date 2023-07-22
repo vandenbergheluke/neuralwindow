@@ -21,16 +21,6 @@ void c_free(void *p)
     free(p);
 }
 
-error_t *c_copy(const void *src, void *dst, size_t size)
-{
-    CHECK_NULL_ARGUMENT(src, "src");
-    CHECK_NULL_ARGUMENT(dst, "dst");
-
-    memcpy(dst, src, size);
-
-    return NULL;
-}
-
 error_t *c_addition(datatype_t datatype, uint32_t size, const void *x_data, const void *y_data, void *z_data)
 {
     CHECK_NULL_ARGUMENT(x_data, "x_data");

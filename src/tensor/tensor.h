@@ -1,8 +1,7 @@
 #ifndef TENSOR_H
 #define TENSOR_H
 
-struct tensor_t;
-
+#include <errors.h>
 #include <datatype.h>
 #include <buffer.h>
 #include <function.h>

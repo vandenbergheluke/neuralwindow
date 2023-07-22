@@ -18,6 +18,7 @@ error_t *mkl_addition(datatype_t datatype, uint32_t size, const void *x_data, co
         // mkl_domatadd('R', 'N', 'N', size, 1, 1.0, (float64_t *) in_data_x, 1, 1.0, (float64_t *) in_data_y, 1, (float64_t *) out_data, 1);
         cblas_dcopy(size, (float64_t *) y_data, 1, (float64_t *) z_data, 1);
         cblas_daxpy(size, 1.0, (float64_t *) x_data, 1, (float64_t *) z_data, 1);
+        break;
     default:
         return ERROR(ERROR_DATATYPE,
                      string_create("unknown datatype %d.", datatype),

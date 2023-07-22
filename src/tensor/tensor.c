@@ -6,6 +6,7 @@
 error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *context, tensor_t *gradient, bool_t requires_gradient)
 {
     CHECK_NULL_ARGUMENT(tensor, "tensor");
+    CHECK_NULL_ARGUMENT(buffer, "tensor");
 
     static uint64_t id = 0;
     size_t size = sizeof(tensor_t);
@@ -117,10 +118,8 @@ error_t *tensor_addition(tensor_t *x, tensor_t *y, tensor_t *z)
     CHECK_NULL_ARGUMENT(z, "z");
 
     error_t *error;
-    binary_operation_t *binary_operation;
-    operation_t *operation;
-    function_t *function;
 
+    binary_operation_t *binary_operation;
     error = binary_operation_create(&binary_operation, ADDITION_OPERATION, x, y);
     if (error != NULL)
     {
@@ -129,6 +128,7 @@ error_t *tensor_addition(tensor_t *x, tensor_t *y, tensor_t *z)
                      error);
     }
 
+    operation_t *operation;
     error = operation_create(&operation, BINARY_OPERATION, binary_operation);
     if (error != NULL)
     {
@@ -138,6 +138,7 @@ error_t *tensor_addition(tensor_t *x, tensor_t *y, tensor_t *z)
                      error);
     }
 
+    function_t *function;
     error = function_create(&function, operation, BINARY_OPERATION);
     if (error != NULL)
     {
