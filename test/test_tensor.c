@@ -17,7 +17,7 @@ void setup(void)
     }
 
     buffer_t *buffer;
-    error = buffer_create(&buffer, C_RUNTIME, FLOAT32, view, (float32_t[]){1.0, 2.0});
+    error = buffer_create(&buffer, C_RUNTIME, FLOAT32, view, NULL);
     if (error != NULL)
     {
         error_print(error);

@@ -58,45 +58,50 @@ error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient)
                      NULL);
     }
 
+    error_t *error;
+    view_t *view;
+    error = view_create(&view,
+                        x->buffer->view->offset,
+                        x->buffer->view->rank,
+                        x->buffer->view->shape,
+                        x->buffer->view->strides);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create view."),
+                     error);
+    }
 
+    buffer_t *buffer;
+    error = buffer_create(&buffer, x->buffer->runtime, x->buffer->datatype, view, NULL);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create buffer."),
+                     error);
+    }
+    
+    tensor_t *new_gradient;
+    error = tensor_create(&new_gradient, buffer, NULL, NULL, false);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE,
+                        string_create("failed to create new_gradient."),
+                        error);
+    }
     if (x->gradient == NULL)
     {
-        x->gradient = gradient;
+        error = tensor_copy(gradient, new_gradient);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_COPY,
+                         string_create("failed to copy gradient."),
+                         NULL);
+        }
+        x->gradient = new_gradient;
     }
     else
     {
-        error_t *error;
-        view_t *view;
-        error = view_create(&view,
-                                     x->buffer->view->offset,
-                                     x->buffer->view->rank,
-                                     x->buffer->view->shape,
-                                     x->buffer->view->strides);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_CREATE,
-                         string_create("failed to create view."),
-                         error);
-        }
-
-        buffer_t *buffer;
-        error = buffer_create(&buffer, x->buffer->runtime, x->buffer->datatype, view, NULL);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_CREATE,
-                         string_create("failed to create buffer."),
-                         error);
-        }
-        
-        tensor_t *new_gradient;
-        error = tensor_create(&new_gradient, buffer, NULL, NULL, false);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_CREATE,
-                         string_create("failed to create new_gradient."),
-                         error);
-        }
-
         error = tensor_addition(x->gradient, gradient, new_gradient);
         if (error != NULL)
         {
@@ -104,6 +109,7 @@ error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient)
                          string_create("failed to add gradient."),
                          NULL);
         }
+        tensor_destroy(x->gradient);
         x->gradient = new_gradient;
     }
 
@@ -245,15 +251,83 @@ error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
     {
         tensor_t *y;
         queue_dequeue(queue, (void **) &y);
-        error = function_backward(y->context, y->gradient);
-        if (error != NULL)
+        string_t id = string_create("%ld", y->id);
+        if (y->context != NULL && !map_contains(map, id))
         {
-            return ERROR(ERROR_BACKWARD, 
-                         string_create("failed to execute function backward pass."),
-                         error);
+            error = function_backward(y->context, y->gradient);
+            if (error != NULL)
+            {
+                return ERROR(ERROR_BACKWARD, 
+                             string_create("failed to execute function backward pass."),
+                             error);
+            }
+
+            tensor_t *operands[2];
+            switch (y->context->operation_type)
+            {
+            case UNARY_OPERATION:
+                operands[0] = x->context->operation->unary_operation->x;
+                operands[1] = NULL;
+                break;
+            case BINARY_OPERATION:
+                operands[0] = x->context->operation->binary_operation->x;
+                operands[1] = x->context->operation->binary_operation->y;
+                break;
+            case REDUCTION_OPERATION:
+                operands[0] = x->context->operation->reduction_operation->x;
+                operands[1] = NULL;
+                break;
+            case STRUCTURE_OPERATION:
+                operands[0] = x->context->operation->structure_operation->x;
+                operands[1] = NULL;
+                break;
+            default:
+                operands[0] = NULL;
+                operands[1] = NULL;
+            }
+
+            for (int i = 0; i < 2; i++) 
+            {
+                if (operands[i] == NULL)
+                {
+                    continue;
+                }
+
+                error = queue_enqueue(queue, operands[i]);
+                if (error != NULL)
+                {
+                    return ERROR(ERROR_ADDITION,
+                                 string_create("failed to enqueue tensor."), 
+                                 error);
+                }
+            }
+            error = map_set(map, id, y);
+            if (error != NULL)
+            {
+                return ERROR(ERROR_ADDITION,
+                             string_create("failed add tensor to map."), 
+                             error);
+            }
+            function_destroy(y->context);
+        } else
+        {
+            string_destroy(id);
         }
-        function_destroy(y->context);
     }
+    map_destroy(map);
+    queue_destroy(queue);
+    
+    return NULL;
+}
+
+error_t *tensor_copy(tensor_t *source_tensor, tensor_t *destination_tensor)
+{
+    CHECK_NULL_ARGUMENT(source_tensor, "source_tensor");
+    CHECK_NULL_ARGUMENT(destination_tensor, "destination_tensor");
+
+    memcpy(destination_tensor->buffer->data, 
+           source_tensor->buffer->data,
+           view_size(destination_tensor->buffer->view) * datatype_size(destination_tensor->buffer->datatype));
     
     return NULL;
 }

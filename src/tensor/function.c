@@ -378,6 +378,7 @@ error_t *addition_operation_backward(tensor_t *x, tensor_t *y, tensor_t *gradien
                          error);
         }
     }
+    tensor_destroy(gradient);
 
     return NULL;
 }
