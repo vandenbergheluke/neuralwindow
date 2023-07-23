@@ -1,4 +1,4 @@
-set(TEST_TENSOR test_tensor test_queue)
+set(TEST_TENSOR test_tensor test_queue test_map)
 set(TESTS ${TEST_TENSOR})
 foreach(TEST ${TESTS})
     add_executable(${TEST} "${TEST}.c")

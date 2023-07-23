@@ -26,11 +26,16 @@ error_t *map_create(map_t **map)
                      string_create("failed to allocate map of size %zu bytes.", size),
                      NULL);
     }
-
     (*map)->length = 0;
     (*map)->capacity = INITIAL_CAPACITY;
     size = (*map)->capacity * sizeof(entry_t);
     (*map)->entries = (entry_t *) malloc(size);
+    for (uint64_t i = 0; i < (*map)->capacity; i++)
+    {
+        (*map)->entries[i].key = NULL;
+        (*map)->entries[i].data = NULL;
+    }
+
     if ((*map)->entries == NULL)
     {
         free(*map);
@@ -153,6 +158,11 @@ static error_t *map_expand(map_t *map)
                      string_create("failed to allocate map entries of size %zu bytes.", size),
                      NULL);
     }
+    for (uint64_t i = 0; i < new_capacity; i++)
+    {
+        new_entries[i].key = NULL;
+        new_entries[i].data = NULL;
+    }
     
     for (uint64_t i = 0; i < map->capacity; i++)
     {
@@ -184,7 +194,7 @@ error_t *map_set(map_t *map, string_t key, void *data)
     CHECK_NULL_ARGUMENT(key, "key");
 
     error_t *error;
-    if ((map->length = map->capacity / 2))
+    if (map->length >= map->capacity / 2)
     {
         error = map_expand(map);
         if (error != NULL)
@@ -202,6 +212,7 @@ error_t *map_set(map_t *map, string_t key, void *data)
                      string_create("failed to set map entry with corresponding key %s.", key),
                      error);
     }
+    map->length++;
 
     return NULL;
 }

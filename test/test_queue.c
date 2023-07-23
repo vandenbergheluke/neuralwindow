@@ -1,5 +1,3 @@
-#include <stdlib.h>
-#include <stdint.h>
 #include <check.h>
 #include <queue.h>
 

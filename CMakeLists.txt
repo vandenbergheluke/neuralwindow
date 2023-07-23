@@ -8,7 +8,7 @@ set(SRC_DIR src)
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -O3")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -O3 -g")
 list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")
 
 add_subdirectory(${SRC_DIR})
