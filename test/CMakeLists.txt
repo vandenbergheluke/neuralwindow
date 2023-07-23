@@ -1,4 +1,15 @@
-set(TEST_TENSOR test_tensor test_queue test_map)
+set(TEST_TENSOR
+    test_buffer
+    test_c_runtime
+    test_cu_runtime
+    # test_function
+    test_map
+    test_mkl_runtime
+    test_openblas_runtime
+    test_queue
+    test_tensor
+    # test_view
+)
 set(TESTS ${TEST_TENSOR})
 foreach(TEST ${TESTS})
     add_executable(${TEST} "${TEST}.c")

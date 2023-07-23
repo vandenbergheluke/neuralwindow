@@ -126,7 +126,8 @@ error_t *runtime_malloc(buffer_t *buffer)
     if (error != NULL)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION,
-                     string_create("failed to allocate %zu bytes for runtime %s.", size, runtime_string(buffer->runtime)),
+                     string_create("failed to allocate %zu bytes for runtime %s.",
+                                    size, runtime_string(buffer->runtime)),
                      error);
     }
     
@@ -224,7 +225,8 @@ error_t *runtime_addition(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_bu
     if (error != NULL)
     {
         return ERROR(ERROR_ADDITION,
-                     string_create("addition operation failed for runtime %s.", runtime_string(z_buffer->runtime)),
+                     string_create("addition operation failed for runtime %s.", 
+                                   runtime_string(z_buffer->runtime)),
                      error);
     }
 

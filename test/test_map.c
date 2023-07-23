@@ -22,75 +22,75 @@ void teardown(void)
 
 START_TEST(test_map)
 {
-    string_t test_case_key_1 = string_create("1");
-    string_t test_case_key_2 = string_create("2");
-    string_t test_case_key_3 = string_create("3");
-    int test_case_value_1 = 1;
-    int test_case_value_2 = 2;
-    int test_case_value_3 = 3;
-    ck_assert(!map_contains(map, test_case_key_1));
-    ck_assert(!map_contains(map, test_case_key_2));
-    ck_assert(!map_contains(map, test_case_key_3));
-    error = map_set(map, test_case_key_1, (void *) &test_case_value_1);
-    if (error != NULL)
-    {
-       error_print(error);
-       error_destroy(error); 
-    }
-    ck_assert_uint_eq(map->length, 1);
-    ck_assert(map_contains(map, test_case_key_1));
-    ck_assert(!map_contains(map, test_case_key_2));
-    ck_assert(!map_contains(map, test_case_key_3));
+   string_t test_case_key_1 = string_create("1");
+   string_t test_case_key_2 = string_create("2");
+   string_t test_case_key_3 = string_create("3");
+   int test_case_value_1 = 1;
+   int test_case_value_2 = 2;
+   int test_case_value_3 = 3;
+   ck_assert(!map_contains(map, test_case_key_1));
+   ck_assert(!map_contains(map, test_case_key_2));
+   ck_assert(!map_contains(map, test_case_key_3));
+   error = map_set(map, test_case_key_1, (void *) &test_case_value_1);
+   if (error != NULL)
+   {
+      error_print(error);
+      error_destroy(error); 
+   }
+   ck_assert_uint_eq(map->length, 1);
+   ck_assert(map_contains(map, test_case_key_1));
+   ck_assert(!map_contains(map, test_case_key_2));
+   ck_assert(!map_contains(map, test_case_key_3));
 
-    error = map_set(map, test_case_key_2, (void *) &test_case_value_2);
-    if (error != NULL)
-    {
-       error_print(error);
-       error_destroy(error); 
-    }
-    ck_assert_uint_eq(map->length, 2);
-    ck_assert(map_contains(map, test_case_key_1));
-    ck_assert(map_contains(map, test_case_key_2));
-    ck_assert(!map_contains(map, test_case_key_3));
+   error = map_set(map, test_case_key_2, (void *) &test_case_value_2);
+   if (error != NULL)
+   {
+      error_print(error);
+      error_destroy(error); 
+   }
+   ck_assert_uint_eq(map->length, 2);
+   ck_assert(map_contains(map, test_case_key_1));
+   ck_assert(map_contains(map, test_case_key_2));
+   ck_assert(!map_contains(map, test_case_key_3));
 
-    error = map_set(map, test_case_key_3, (void *) &test_case_value_3);
-    if (error != NULL)
-    {
-       error_print(error);
-       error_destroy(error); 
-    }
-    ck_assert_uint_eq(map->length, 3);
-    ck_assert(map_contains(map, test_case_key_1));
-    ck_assert(map_contains(map, test_case_key_2));
-    ck_assert(map_contains(map, test_case_key_3));
+   error = map_set(map, test_case_key_3, (void *) &test_case_value_3);
+   if (error != NULL)
+   {
+      error_print(error);
+      error_destroy(error); 
+   }
+   ck_assert_uint_eq(map->length, 3);
+   ck_assert(map_contains(map, test_case_key_1));
+   ck_assert(map_contains(map, test_case_key_2));
+   ck_assert(map_contains(map, test_case_key_3));
 
-    int *test_case_value_ptr_1;
-    int *test_case_value_ptr_2;
-    int *test_case_value_ptr_3;
+   int *test_case_value_ptr_1;
+   int *test_case_value_ptr_2;
+   int *test_case_value_ptr_3;
 
-    error = map_get(map, test_case_key_1, (void *) &test_case_value_ptr_1);
-    if (error != NULL)
-    {
-       error_print(error);
-       error_destroy(error); 
-    }
-    ck_assert_int_eq(test_case_value_1, *test_case_value_ptr_1);
+   error = map_get(map, test_case_key_1, (void *) &test_case_value_ptr_1);
+   if (error != NULL)
+   {
+      error_print(error);
+      error_destroy(error); 
+   }
+   ck_assert_int_eq(test_case_value_1, *test_case_value_ptr_1);
 
-    error = map_get(map, test_case_key_2, (void *) &test_case_value_ptr_2);
-    if (error != NULL)
-    {
-       error_print(error);
-       error_destroy(error); 
-    }
-    ck_assert_int_eq(test_case_value_2, *test_case_value_ptr_2);
+   error = map_get(map, test_case_key_2, (void *) &test_case_value_ptr_2);
+   if (error != NULL)
+   {
+      error_print(error);
+      error_destroy(error); 
+   }
+   ck_assert_int_eq(test_case_value_2, *test_case_value_ptr_2);
 
-    error = map_get(map, test_case_key_3, (void *) &test_case_value_ptr_3);
-    if (error != NULL)
-    {
-       error_print(error);
-       error_destroy(error); 
-    }
-    ck_assert_int_eq(test_case_value_3, *test_case_value_ptr_3);
+   error = map_get(map, test_case_key_3, (void *) &test_case_value_ptr_3);
+   if (error != NULL)
+   {
+      error_print(error);
+      error_destroy(error); 
+   }
+   ck_assert_int_eq(test_case_value_3, *test_case_value_ptr_3);
 }
 END_TEST
 
@@ -114,7 +114,7 @@ int main(void)
     SRunner *sr;
 
     sr = srunner_create(map_creation_suite());
-    srunner_set_fork_status(sr, CK_FORK);
+    srunner_set_fork_status(sr, CK_NOFORK);
     srunner_run_all(sr, CK_VERBOSE);
 
     number_failed = srunner_ntests_failed(sr);
