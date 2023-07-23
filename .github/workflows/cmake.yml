@@ -15,6 +15,14 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v3
+    - name: Install Intel MKL
+      run: sudo apt-get -y install intel-mkl
+    - name: Install OpenBLAS
+      run: sudo apt-get -y install libopenblas-dev
+    - name: Install Check
+      run: sudo apt-get -y install check
+    - name: Install Valgrind
+      run: sudo apt-get -y install valgrind
     - name: Install CUDA
       run: |
         sudo apt-get install linux-headers-$(uname -r)  
@@ -28,15 +36,6 @@ jobs:
         sudo apt-get -y install cuda
         export PATH=/usr/local/cuda-12.2/bin${PATH:+:${PATH}}
         sudo reboot
-        nvcc --version
-    - name: Install Intel MKL
-      run: sudo apt-get install -y intel-mkl
-    - name: Install OpenBLAS
-      run: sudo apt-get install -y libopenblas-dev
-    - name: Install Check
-      run: sudo apt-get install -y check
-    - name: Install Valgrind
-      run: sudo apt-get install -y valgrind
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
     - name: Build
