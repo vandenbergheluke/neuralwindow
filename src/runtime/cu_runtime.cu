@@ -54,11 +54,13 @@ extern "C" error_t *cu_addition(datatype_t datatype, uint32_t size, const void *
     {
     case FLOAT32:
         cublasScopy(size, (float32_t *) y_data, 1, (float32_t *) z_data, 1); 
+        cudaDeviceSynchronize();
         cublasSaxpy(size, 1.0, (float32_t *) x_data, 1, (float32_t *) z_data, 1);
         cudaDeviceSynchronize();
         break;
     case FLOAT64:
         cublasDcopy(size, (float64_t *) y_data, 1, (float64_t *) z_data, 1);
+        cudaDeviceSynchronize();
         cublasDaxpy(size, 1.0, (float64_t *) x_data, 1, (float64_t *) z_data, 1);
         cudaDeviceSynchronize();
         break;
