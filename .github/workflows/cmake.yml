@@ -1,4 +1,4 @@
-name: CMake
+name: Neural Window Package
 
 on:
   push:
@@ -12,14 +12,15 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
-
     steps:
-    - uses: actions/checkout@v3
-    - uses: Jimver/cuda-toolkit@v0.2.11
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+    - name: Install CUDA Toolkit
+      uses: Jimver/cuda-toolkit@v0.2.11
       id: cuda-toolkit
       with:
         cuda: '12.1.0'
-    - name: Install MKL
+    - name: Install Intel MKL
       run: sudo apt-get install -y intel-mkl
     - name: Install OpenBLAS
       run: sudo apt-get install -y libopenblas-dev
@@ -27,14 +28,10 @@ jobs:
       run: sudo apt-get install -y check
     - name: Install Valgrind
       run: sudo apt-get install -y valgrind
-
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
-
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: ctest -C ${{env.BUILD_TYPE}}
-
+      run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure

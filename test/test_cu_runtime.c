@@ -51,10 +51,10 @@ void setup(void)
 
 void teardown(void)
 {
-    cu_destroy_context();
-    cu_free(test_case_data_float32_1);
-    cu_free(test_case_data_float32_2);
-    cu_free(test_case_data_float32_3);
+    // cu_destroy_context();
+    // cu_free(test_case_data_float32_1);
+    // cu_free(test_case_data_float32_2);
+    // cu_free(test_case_data_float32_3);
 }
 
 START_TEST(test_addition)
