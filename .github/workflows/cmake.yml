@@ -29,11 +29,9 @@ jobs:
     - name: Install Valgrind
       run: sudo apt-get install -y valgrind
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+      run: CPU_ONLY=1 cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-    - name: CPU Fallback
-      run: export CUBLAS_FALLBACK_MODE=1
+      run: CPU_ONLY=1 cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
     - name: Test
       working-directory: ${{github.workspace}}/build
       run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
