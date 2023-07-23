@@ -29,7 +29,7 @@ error_t *c_addition(datatype_t datatype, uint32_t size, const void *x_data, cons
 
     switch (datatype)
     {
-    case FLOAT32:
+    case FLOAT32:;
         float32_t *x_data_float32 = (float32_t *) x_data;
         float32_t *y_data_float32 = (float32_t *) y_data;
         float32_t *z_data_float32 = (float32_t *) z_data;
@@ -38,7 +38,7 @@ error_t *c_addition(datatype_t datatype, uint32_t size, const void *x_data, cons
             z_data_float32[i] = x_data_float32[i] + y_data_float32[i];
         }
         break;
-    case FLOAT64:
+    case FLOAT64:;
         float64_t *x_data_float64 = (float64_t *) x_data;
         float64_t *y_data_float64 = (float64_t *) y_data;
         float64_t *z_data_float64 = (float64_t *) z_data;
