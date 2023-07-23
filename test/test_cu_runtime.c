@@ -51,39 +51,39 @@ void setup(void)
 
 void teardown(void)
 {
-    // cu_destroy_context();
-    // cu_free(test_case_data_float32_1);
-    // cu_free(test_case_data_float32_2);
-    // cu_free(test_case_data_float32_3);
+    cu_destroy_context();
+    cu_free(test_case_data_float32_1);
+    cu_free(test_case_data_float32_2);
+    cu_free(test_case_data_float32_3);
 }
 
 START_TEST(test_addition)
 {
-    // error = cu_addition(FLOAT32,
-    //                     4,
-    //                     test_case_data_float32_1,
-    //                     test_case_data_float32_2,
-    //                     test_case_data_float32_3);
-    // if (error != NULL)
-    // {
-    //     error_print(error);
-    //     error_destroy(error);
-    // }
+    error = cu_addition(FLOAT32,
+                        4,
+                        test_case_data_float32_1,
+                        test_case_data_float32_2,
+                        test_case_data_float32_3);
+    if (error != NULL)
+    {
+        error_print(error);
+        error_destroy(error);
+    }
 
-    // ck_assert_float_eq(test_case_data_float32_1[0], 1.0);
-    // ck_assert_float_eq(test_case_data_float32_1[1], 1.0);
-    // ck_assert_float_eq(test_case_data_float32_1[2], 1.0);
-    // ck_assert_float_eq(test_case_data_float32_1[3], 1.0);
+    ck_assert_float_eq(test_case_data_float32_1[0], 1.0);
+    ck_assert_float_eq(test_case_data_float32_1[1], 1.0);
+    ck_assert_float_eq(test_case_data_float32_1[2], 1.0);
+    ck_assert_float_eq(test_case_data_float32_1[3], 1.0);
 
-    // ck_assert_float_eq(test_case_data_float32_2[0], 1.0);
-    // ck_assert_float_eq(test_case_data_float32_2[1], 1.0);
-    // ck_assert_float_eq(test_case_data_float32_2[2], 1.0);
-    // ck_assert_float_eq(test_case_data_float32_2[3], 1.0);
+    ck_assert_float_eq(test_case_data_float32_2[0], 1.0);
+    ck_assert_float_eq(test_case_data_float32_2[1], 1.0);
+    ck_assert_float_eq(test_case_data_float32_2[2], 1.0);
+    ck_assert_float_eq(test_case_data_float32_2[3], 1.0);
 
-    // ck_assert_float_eq(test_case_data_float32_3[0], 2.0);
-    // ck_assert_float_eq(test_case_data_float32_3[1], 2.0);
-    // ck_assert_float_eq(test_case_data_float32_3[2], 2.0);
-    // ck_assert_float_eq(test_case_data_float32_3[3], 2.0);
+    ck_assert_float_eq(test_case_data_float32_3[0], 2.0);
+    ck_assert_float_eq(test_case_data_float32_3[1], 2.0);
+    ck_assert_float_eq(test_case_data_float32_3[2], 2.0);
+    ck_assert_float_eq(test_case_data_float32_3[3], 2.0);
 }
 END_TEST
 
