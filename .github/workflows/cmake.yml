@@ -15,30 +15,25 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v3
+    - name: Install CUDA Toolkit
+      uses: Jimver/cuda-toolkit@v0.2.11
+      id: cuda-toolkit
+      with:
+        cuda: '12.1.0'
     - name: Install Intel MKL
-      run: sudo apt-get -y install intel-mkl
+      run: sudo apt-get install -y intel-mkl
     - name: Install OpenBLAS
-      run: sudo apt-get -y install libopenblas-dev
+      run: sudo apt-get install -y libopenblas-dev
     - name: Install Check
-      run: sudo apt-get -y install check
+      run: sudo apt-get install -y check
     - name: Install Valgrind
-      run: sudo apt-get -y install valgrind
-    - name: Install CUDA
-      run: |
-        sudo apt-get install linux-headers-$(uname -r)  
-        sudo apt-key del 7fa2af80
-        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
-        sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
-        wget https://developer.download.nvidia.com/compute/cuda/12.2.0/local_installers/cuda-repo-ubuntu2204-12-2-local_12.2.0-535.54.03-1_amd64.deb
-        sudo dpkg -i cuda-repo-ubuntu2204-12-2-local_12.2.0-535.54.03-1_amd64.deb
-        sudo cp /var/cuda-repo-ubuntu2204-12-2-local/cuda-*-keyring.gpg /usr/share/keyrings/
-        sudo apt-get update
-        sudo apt-get -y install cuda
-        export PATH=/usr/local/cuda-12.2/bin${PATH:+:${PATH}}
+      run: sudo apt-get install -y valgrind
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+    - name: CPU Fallback
+      run: export CUBLAS_FALLBACK_MODE=1
     - name: Test
       working-directory: ${{github.workspace}}/build
       run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
