@@ -35,7 +35,6 @@ jobs:
         sudo apt-get update
         sudo apt-get -y install cuda
         export PATH=/usr/local/cuda-12.2/bin${PATH:+:${PATH}}
-        sudo reboot
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
     - name: Build
