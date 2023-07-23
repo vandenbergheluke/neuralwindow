@@ -17,7 +17,6 @@ jobs:
       uses: actions/checkout@v3
     - name: Install CUDA
       run: |
-        lspci | grep -i nvidia  
         sudo apt-get install linux-headers-$(uname -r)  
         sudo apt-key del 7fa2af80
         wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
