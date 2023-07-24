@@ -169,6 +169,58 @@ error_t *tensor_addition(tensor_t *x, tensor_t *y, tensor_t *z)
     return NULL;
 }
 
+error_t *tensor_matrix_multiplication(tensor_t *x, tensor_t *y, tensor_t *z)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(z, "z");
+
+    error_t *error;
+
+    binary_operation_t *binary_operation;
+    error = binary_operation_create(&binary_operation, MATRIX_MULTIPLICATION_OPERATION, x, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create binary matrix multiplication operation."),
+                     error);
+    }
+
+    operation_t *operation;
+    error = operation_create(&operation, BINARY_OPERATION, binary_operation);
+    if (error != NULL)
+    {
+        binary_operation_destroy(binary_operation);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create operation."),
+                     error);
+    }
+
+    function_t *function;
+    error = function_create(&function, operation, BINARY_OPERATION);
+    if (error != NULL)
+    {
+        binary_operation_destroy(binary_operation);
+        operation_destroy(operation, BINARY_OPERATION);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create function operation."),
+                     error);
+    }
+
+    error = function_forward(function, z);
+    if (error != NULL)
+    {
+        binary_operation_destroy(binary_operation);
+        operation_destroy(operation, BINARY_OPERATION);
+        function_destroy(function);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to execute function forward pass."),
+                     error);
+    }
+    
+    return NULL;
+}
+
 error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");

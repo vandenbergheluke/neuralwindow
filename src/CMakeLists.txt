@@ -16,7 +16,6 @@ set(
     "${UTIL_DIR}/measure.c"
     "${UTIL_DIR}/queue.c"
     "${UTIL_DIR}/random.c"
-    "${RUNTIME_DIR}/c_runtime.c"
     "${RUNTIME_DIR}/cu_runtime.cu"
     "${RUNTIME_DIR}/mkl_runtime.c"
     "${RUNTIME_DIR}/openblas_runtime.c"
@@ -36,7 +35,6 @@ set(
     "${UTIL_DIR}/measure.h"
     "${UTIL_DIR}/queue.h"
     "${UTIL_DIR}/random.h"
-    "${RUNTIME_DIR}/c_runtime.h"
     "${RUNTIME_DIR}/cu_runtime.h"
     "${RUNTIME_DIR}/mkl_runtime.h"
     "${RUNTIME_DIR}/openblas_runtime.h"
@@ -50,7 +48,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${TENSOR_DIR} ${UTIL_DIR} ${RU
 set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${HEADERS}")
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(${PROJECT_NAME} PROPERTIES SOVERSION 1)
-target_link_libraries(${TEST} ${PROJECT_NAME} openblas mkl_core cublas)
+target_link_libraries(${TEST} ${PROJECT_NAME} openblas cublas mkl_core mkl_rt)
 install(
     TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION bin

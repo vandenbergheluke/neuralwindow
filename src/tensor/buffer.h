@@ -6,7 +6,6 @@
 
 typedef enum runtime_t
 {
-   C_RUNTIME,
    OPENBLAS_RUNTIME,
    MKL_RUNTIME,
    CU_RUNTIME
@@ -26,6 +25,7 @@ void buffer_destroy(buffer_t *buffer);
 error_t *runtime_malloc(buffer_t *buffer);
 void runtime_free(buffer_t *buffer);
 error_t *runtime_addition(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
+error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
 string_t runtime_string(runtime_t runtime);
 error_t *runtime_create_context(runtime_t runtime);
 void runtime_destroy_context(runtime_t runtime);

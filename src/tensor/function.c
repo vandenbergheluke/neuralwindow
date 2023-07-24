@@ -97,7 +97,7 @@ error_t *operation_create(operation_t **operation, operation_type_t operation_ty
         break;
     default:
         return ERROR(ERROR_UKNOWN_OPERATION_TYPE,
-                     string_create("unknown operation type %d.", operation_type),
+                     string_create("unknown operation type %d.", (int) operation_type),
                      NULL);
         break;
     }
@@ -152,7 +152,7 @@ error_t *operation_forward(operation_t *operation, operation_type_t operation_ty
         break;
     default:
         error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
-                      string_create("unknown operation type %d", operation_type),
+                      string_create("unknown operation type %d.", (int) operation_type),
                       NULL);
         break;
     }
@@ -160,7 +160,7 @@ error_t *operation_forward(operation_t *operation, operation_type_t operation_ty
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD,
-                     string_create("failed to execute operation type %d forward pass.", operation_type),
+                     string_create("failed to execute operation type %d forward pass.", (int) operation_type),
                      error);
     }
 
@@ -189,7 +189,7 @@ error_t *operation_backward(operation_t *operation, operation_type_t operation_t
         break;
     default:
         error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
-                      string_create("unknown operation type %d.", operation_type),
+                      string_create("unknown operation type %d.", (int) operation_type),
                       NULL);
         break;
     }
@@ -199,7 +199,6 @@ error_t *operation_backward(operation_t *operation, operation_type_t operation_t
         return ERROR(ERROR_BACKWARD,
                      string_create("failed to execute operation type %d backward pass.", operation_type),
                      error);
-
     }
 
     return NULL;
@@ -246,12 +245,12 @@ error_t *unary_operation_forward(unary_operation_t *unary_operation, tensor_t *r
     case SIN_OPERATION:
         // error = sin_operation_forward(unary_operation->x, result);
         break;
-    case SQUARE_ROOT_OPERATION:
+    case POWER_OPERATION:
         // error = square_root_operation_forward(unary_operation->x, result);
         break;
     default:
         error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
-                      string_create("unknown operation type %d.", unary_operation->operation_type),
+                      string_create("unknown operation type %d.", (int) unary_operation->operation_type),
                       NULL);
         break;
     }
@@ -283,12 +282,12 @@ error_t *unary_operation_backward(unary_operation_t *unary_operation, tensor_t *
     case SIN_OPERATION:
         // error = sin_operation_backward(unary_operation->x, gradient);
         break;
-    case SQUARE_ROOT_OPERATION:
+    case POWER_OPERATION:
         // error = square_root_operation_backward(unary_operation->x, gradient);
         break;
     default:
         error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
-                      string_create("unknown operation type %d.", unary_operation->operation_type),
+                      string_create("unknown operation type %d.", (int) unary_operation->operation_type),
                       NULL);
         break;
     }
@@ -334,7 +333,7 @@ void binary_operation_destroy(binary_operation_t *binary_operation)
     free(binary_operation);
 }
 
-error_t *addition_operation_forward(const tensor_t *x, const tensor_t *y, tensor_t *z)
+static error_t *addition_operation_forward(const tensor_t *x, const tensor_t *y, tensor_t *z)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -351,7 +350,7 @@ error_t *addition_operation_forward(const tensor_t *x, const tensor_t *y, tensor
     return NULL;
 }
 
-error_t *addition_operation_backward(tensor_t *x, tensor_t *y, tensor_t *gradient)
+static error_t *addition_operation_backward(tensor_t *x, tensor_t *y, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -378,7 +377,55 @@ error_t *addition_operation_backward(tensor_t *x, tensor_t *y, tensor_t *gradien
                          error);
         }
     }
-    tensor_destroy(gradient);
+
+    return NULL;
+}
+
+static error_t *matrix_multiplication_operation_forward(const tensor_t *x, const tensor_t *y, tensor_t *z)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(z, "z");
+
+    error_t *error = runtime_matrix_multiplication(x->buffer, y->buffer, z->buffer);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to execute matrix multiplication operation forward pass."),
+                     error);
+    }
+
+    return NULL;
+}
+
+error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, tensor_t *gradient)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(gradient, "gradient");
+
+    // Need permute operation
+    if (x->requires_gradient)
+    {
+        error_t *error = tensor_accumulate_gradient(x, gradient);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_BACKWARD,
+                         string_create("failed to execute addition operation backward pass x operand."),
+                         error);
+        }
+    }
+
+    if (y->requires_gradient)
+    {
+        error_t *error = tensor_accumulate_gradient(y, gradient);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_BACKWARD,
+                         string_create("failed to execute addition operation backward pass y operand."),
+                         error);
+        }
+    }
 
     return NULL;
 }
@@ -404,11 +451,11 @@ error_t *binary_operation_forward(const binary_operation_t *binary_operation, te
         // error = division_operation_forward(binary_operation->x, binary_operation->y, result);
         break;
     case MATRIX_MULTIPLICATION_OPERATION:
-        // error = matrix_multiplication_operation_forward(binary_operation->x, binary_operation->y, result);
+        error = matrix_multiplication_operation_forward(binary_operation->x, binary_operation->y, result);
         break;
     default:
         error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
-                      string_create("unknown binary operation type %d.", binary_operation->operation_type),
+                      string_create("unknown binary operation type %d.", (int) binary_operation->operation_type),
                       NULL);
         break;
     }
@@ -444,11 +491,11 @@ error_t *binary_operation_backward(binary_operation_t *binary_operation, tensor_
         // error = division_operation_backward(binary_operation->x, binary_operation->y, gradient);
         break;
     case MATRIX_MULTIPLICATION_OPERATION:
-        // error = matrix_multiplication_operation_backward(binary_operation->x, binary_operation->y, gradient);
+        error = matrix_multiplication_operation_backward(binary_operation->x, binary_operation->y, gradient);
         break;
     default:
         error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
-                      string_create("unknown binary operation type %d.", binary_operation->operation_type),
+                      string_create("unknown binary operation type %d.", (int) binary_operation->operation_type),
                       NULL);
         break;
     }
@@ -515,7 +562,7 @@ error_t *reduction_operation_forward(reduction_operation_t *reduction_operation,
         break;
     default:
         error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
-                      string_create("unknown reduction operation type %d.", reduction_operation->operation_type),
+                      string_create("unknown reduction operation type %d.", (int) reduction_operation->operation_type),
                       NULL);
         break;
     }
@@ -552,7 +599,7 @@ error_t *reduction_operation_backward(reduction_operation_t *reduction_operation
         break;
     default:
         error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
-                      string_create("unknown reduction operation type %d.", reduction_operation->operation_type),
+                      string_create("unknown reduction operation type %d.", (int) reduction_operation->operation_type),
                       NULL);
         break;
     }
@@ -621,7 +668,7 @@ error_t *structure_operation_forward(structure_operation_t *structure_operation,
         break;
     default:
         error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
-                      string_create("unknown structure operation type %d.", structure_operation->operation_type),
+                      string_create("unknown structure operation type %d.", (int) structure_operation->operation_type),
                       NULL);
         break;
     }
@@ -661,7 +708,7 @@ error_t *structure_operation_backward(structure_operation_t *structure_operation
         break;
     default:
         error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
-                      string_create("unknown structure operation type %d.", structure_operation->operation_type),
+                      string_create("unknown structure operation type %d.", (int) structure_operation->operation_type),
                       NULL);
         break;
     }

@@ -15,7 +15,7 @@ void setup(void)
     }
 
     buffer_t *buffer;
-    error = buffer_create(&buffer, C_RUNTIME, FLOAT32, view, NULL);
+    error = buffer_create(&buffer, OPENBLAS_RUNTIME, FLOAT32, view, NULL);
     if (error != NULL)
     {
         error_print(error);

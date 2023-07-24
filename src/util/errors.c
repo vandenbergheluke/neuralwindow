@@ -46,6 +46,8 @@ string_t error_type_string(error_type_t error_type)
         return "ERROR_SHAPE_CONFLICT";
     case ERROR_RUNTIME_CONFLICT:
         return "ERROR_RUNTIME_CONFLICT";
+    case ERROR_RANK_CONFLICT:
+        return "ERROR_RANK_CONFLICT";
     case ERROR_CREATE:
         return "ERROR_CREATE";
     case ERROR_DESTROY:

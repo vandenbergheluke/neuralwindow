@@ -15,7 +15,7 @@ typedef enum unary_operation_type_t
     EXPONENTIAL_OPERATION,
     LOGARITHM_OPERATION,
     SIN_OPERATION,
-    SQUARE_ROOT_OPERATION
+    POWER_OPERATION
 } unary_operation_type_t;
 
 typedef struct unary_operation_t

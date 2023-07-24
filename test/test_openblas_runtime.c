@@ -1,7 +1,6 @@
 
 #include <check.h>
 #include <openblas_runtime.h>
-#include <c_runtime.h>
 
 float32_t *test_case_data_float32_1;
 float32_t *test_case_data_float32_2;
@@ -13,7 +12,7 @@ void setup(void)
 {
     test_case_float32_size = sizeof(float32_t) * 4;
 
-    error = c_malloc((void **) &test_case_data_float32_1, test_case_float32_size); 
+    error = openblas_memory_allocate((void **) &test_case_data_float32_1, test_case_float32_size); 
     if (error != NULL)
     {
         error_print(error);
@@ -25,7 +24,7 @@ void setup(void)
     }
 
 
-    error = c_malloc((void **) &test_case_data_float32_2, test_case_float32_size); 
+    error = openblas_memory_allocate((void **) &test_case_data_float32_2, test_case_float32_size); 
     if (error != NULL)
     {
         error_print(error);
@@ -36,7 +35,7 @@ void setup(void)
         test_case_data_float32_2[i] = 1.0;
     }
 
-    error = c_malloc((void **) &test_case_data_float32_3, test_case_float32_size); 
+    error = openblas_memory_allocate((void **) &test_case_data_float32_3, test_case_float32_size); 
     if (error != NULL)
     {
         error_print(error);
@@ -46,9 +45,9 @@ void setup(void)
 
 void teardown(void)
 {
-    c_free(test_case_data_float32_1);
-    c_free(test_case_data_float32_2);
-    c_free(test_case_data_float32_3);
+    openblas_memory_free(test_case_data_float32_1);
+    openblas_memory_free(test_case_data_float32_2);
+    openblas_memory_free(test_case_data_float32_3);
 }
 
 START_TEST(test_addition)

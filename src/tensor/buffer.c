@@ -1,5 +1,4 @@
 #include <buffer.h>
-#include <c_runtime.h>
 #include <cu_runtime.h>
 #include <mkl_runtime.h>
 #include <openblas_runtime.h>
@@ -33,6 +32,8 @@ error_t *buffer_create(buffer_t **buffer, runtime_t runtime, datatype_t datatype
                      error);
     }
 
+    // We can do this with CUDA runtime because of unified memory.
+    // TODO: There are many cases where we avoid copying the data.
     if (data != NULL)
     {
         memcpy((*buffer)->data, data, size);
@@ -56,17 +57,19 @@ error_t *runtime_create_context(runtime_t runtime)
     error_t *error;
     switch (runtime)
     {
-    case C_RUNTIME:
     case OPENBLAS_RUNTIME:
     case MKL_RUNTIME:
+        // As far as I am aware we don't need to initialize a context with 
+        // MKL or OpenBLAS.
         error = NULL;
         break;
     case CU_RUNTIME:
+        // TODO: Allow for CUDA context configuration.
         error = cu_create_context();
         break;
     default:
         error = ERROR(ERROR_UNKNOWN_RUNTIME,
-                      string_create("unknown runtime %d.", runtime),
+                      string_create("unknown runtime %d.", (int) runtime),
                       NULL);
         break;
     }
@@ -85,7 +88,6 @@ void runtime_destroy_context(runtime_t runtime)
 {
     switch (runtime)
     {
-    case C_RUNTIME:
     case OPENBLAS_RUNTIME:
     case MKL_RUNTIME:
         break;
@@ -108,17 +110,18 @@ error_t *runtime_malloc(buffer_t *buffer)
     error_t *error;
     switch (buffer->runtime)
     {
-    case C_RUNTIME:
     case OPENBLAS_RUNTIME:
+        error = openblas_memory_allocate(&buffer->data, size);
+        break;
     case MKL_RUNTIME:
-        error = c_malloc(&buffer->data, size);
+        error = mkl_memory_allocate(&buffer->data, size);
         break;
     case CU_RUNTIME:
-        error = cu_malloc(&buffer->data, size);
+        error = cu_memory_allocate(&buffer->data, size);
         break;
     default:
         error = ERROR(ERROR_UNKNOWN_RUNTIME,
-                      string_create("unknown runtime %d.", buffer->runtime),
+                      string_create("unknown runtime %d.", (int) buffer->runtime),
                       NULL);
         break;
     }
@@ -140,13 +143,14 @@ void runtime_free(buffer_t *buffer)
     {
         switch (buffer->runtime)
         {
-        case C_RUNTIME:
         case OPENBLAS_RUNTIME:
+            openblas_memory_free(buffer->data);
+            break;
         case MKL_RUNTIME:
-            c_free(buffer->data);
+            mkl_memory_free(buffer->data);
             break;
         case CU_RUNTIME:
-            cu_free(buffer->data);
+            cu_memory_free(buffer->data);
             break;
         default:
             break;
@@ -162,6 +166,7 @@ error_t *runtime_addition(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_bu
 
     error_t *error;
 
+    // TODO: Do they have to be the same datatype?
     if (x_buffer->datatype != y_buffer->datatype ||
         x_buffer->datatype != z_buffer->datatype)
     {
@@ -173,14 +178,22 @@ error_t *runtime_addition(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_bu
                      NULL);
     }
 
+    // TODO: If shapes are not equal, broadcasting should be attempted.
     if (!view_shape_equal(x_buffer->view, y_buffer->view) ||
         !view_shape_equal(x_buffer->view, z_buffer->view))
     {
+        // TODO: print tensor shapes would be quite helpful.
+        // Dumping an arbitrary length shape into a string
+        // that we can properly memory manage is awkward with this
+        // error handling setup.
         return ERROR(ERROR_SHAPE_CONFLICT,
                      string_create("conflicting tensor shapes."),
                      NULL);
     }
 
+    // TODO: Can we add tensors that are non-contiguous without rearranging
+    // memory. If we can't we should apply a contiguous operation to
+    // rearrange the memory instead of just returning an error.
     if (!view_is_contiguous(x_buffer->view) ||
         !view_is_contiguous(y_buffer->view) ||
         !view_is_contiguous(z_buffer->view))
@@ -189,6 +202,125 @@ error_t *runtime_addition(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_bu
                      string_create("not all tensors are contiguous."),
                      NULL);
     }
+
+    // Mixing different backends should be avoided. Pytorch also returns an
+    // error when performing operations between tensors that are on the
+    // host memory and gpu memory.
+    if (x_buffer->runtime != y_buffer->runtime ||
+        x_buffer->runtime != z_buffer->runtime)
+    {
+        return ERROR(ERROR_RUNTIME_CONFLICT,
+                     string_create("conflicting runtimes %s + %s = %s.",
+                                   runtime_string(x_buffer->runtime),
+                                   runtime_string(y_buffer->runtime),
+                                   runtime_string(z_buffer->runtime)),
+                     NULL);
+    }
+
+    switch (z_buffer->runtime)
+    {
+    case OPENBLAS_RUNTIME:
+        error = openblas_addition(z_buffer->datatype, view_size(z_buffer->view), x_buffer->data, y_buffer->data, z_buffer->data);
+        break;
+    case MKL_RUNTIME:
+        error = mkl_addition(z_buffer->datatype, view_size(z_buffer->view), x_buffer->data, y_buffer->data, z_buffer->data);
+        break;
+    case CU_RUNTIME:
+        error = cu_addition(z_buffer->datatype, view_size(z_buffer->view), x_buffer->data, y_buffer->data, z_buffer->data);
+        break;
+    default:
+        error = ERROR(ERROR_UNKNOWN_RUNTIME,
+                      string_create("unknown runtime %d.", (int) z_buffer->runtime),
+                      NULL);
+        break;
+    }
+    
+    if (error != NULL)
+    {
+        return ERROR(ERROR_ADDITION,
+                     string_create("addition operation failed for runtime %s.", 
+                                   runtime_string(z_buffer->runtime)),
+                     error);
+    }
+
+    return NULL;
+}
+
+error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
+{
+    // TODO: A lot of null checks are redundant and are here for debugging purposes
+    // as the code base is expected to change significantly with different interactions
+    // between functions. Later in developement when things are stable we will look at removing these.
+    CHECK_NULL_ARGUMENT(x_buffer, "x_buffer");
+    CHECK_NULL_ARGUMENT(y_buffer, "y_buffer");
+    CHECK_NULL_ARGUMENT(z_buffer, "z_buffer");
+    CHECK_NULL_ARGUMENT(x_buffer->view, "x_buffer->view");
+    CHECK_NULL_ARGUMENT(y_buffer->view, "y_buffer->view");
+    CHECK_NULL_ARGUMENT(z_buffer->view, "z_buffer->view");
+    CHECK_NULL_ARGUMENT(x_buffer->view->shape, "x_buffer->view->shape");
+    CHECK_NULL_ARGUMENT(y_buffer->view->shape, "y_buffer->view->shape");
+    CHECK_NULL_ARGUMENT(z_buffer->view->shape, "z_buffer->view->shape");
+    CHECK_NULL_ARGUMENT(x_buffer->view->strides, "x_buffer->view->strides");
+    CHECK_NULL_ARGUMENT(y_buffer->view->strides, "y_buffer->view->strides");
+    CHECK_NULL_ARGUMENT(z_buffer->view->strides, "z_buffer->view->strides");
+
+    error_t *error;
+
+    // TODO: Do they have to be the same datatype?
+    if (x_buffer->datatype != y_buffer->datatype ||
+        x_buffer->datatype != z_buffer->datatype)
+    {
+        return ERROR(ERROR_DATATYPE_CONFLICT,
+                     string_create("conflicting datatypes %s + %s = %s.",
+                                   datatype_string(x_buffer->datatype),
+                                   datatype_string(y_buffer->datatype),
+                                   datatype_string(z_buffer->datatype)),
+                     NULL);
+    }
+
+    // For now lets just support matrix multiplication of 2D tensors.
+    // This is all we need for the feed forward neural network milestone.
+    // The story will change in future milestones.
+    // I'm not sure how broadcasting works for the matmul case.
+    if (x_buffer->view->rank != 2 ||
+        y_buffer->view->rank != 2 ||
+        z_buffer->view->rank != 2)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("conflicting ranks not dimension 2 %u + %u = %u.",
+                                   x_buffer->view->rank,
+                                   y_buffer->view->rank,
+                                   z_buffer->view->rank),
+                     NULL);
+    }
+
+    // TODO: For a 2D tensor, non-contiguous could be because of a transpose.
+    // We can avoid copying the data to be contiguous by utilizing
+    // the transpose operation arguments in the BLAS function calls.
+    // For simplicity, lets assume the tensors must be contiguous for now.
+    if (!view_is_contiguous(x_buffer->view) ||
+        !view_is_contiguous(y_buffer->view) ||
+        !view_is_contiguous(z_buffer->view))
+    {
+        return ERROR(ERROR_CONTIGUOUS,
+                     string_create("not all tensors are contiguous."),
+                     NULL);
+    }
+
+    // By definition of matrix multiplication these need to be the shape constraints.
+    // TODO: Multiple dimension tensors and investigate broadcasting.
+    if (!(x_buffer->view->shape[1] == y_buffer->view->shape[0] &&
+          z_buffer->view->shape[0] == x_buffer->view->shape[0] &&
+          z_buffer->view->shape[1] == y_buffer->view->shape[1]))
+    {
+        // TODO: print tensor shapes.
+        return ERROR(ERROR_SHAPE_CONFLICT,
+                     string_create("conflicting tensor shapes."),
+                     NULL);
+    }
+    uint32_t m = x_buffer->view->shape[0];
+    uint32_t k = x_buffer->view->shape[1];
+    uint32_t n = y_buffer->view->shape[1];
 
     if (x_buffer->runtime != y_buffer->runtime ||
         x_buffer->runtime != z_buffer->runtime)
@@ -203,21 +335,18 @@ error_t *runtime_addition(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_bu
 
     switch (z_buffer->runtime)
     {
-    case C_RUNTIME:
-        error = c_addition(z_buffer->datatype, view_size(z_buffer->view), x_buffer->data, y_buffer->data, z_buffer->data);
-        break;
     case OPENBLAS_RUNTIME:
-        error = openblas_addition(z_buffer->datatype, view_size(z_buffer->view), x_buffer->data, y_buffer->data, z_buffer->data);
+        error = openblas_matrix_multiplication(z_buffer->datatype, m, k, n, x_buffer->data, y_buffer->data, z_buffer->data);
         break;
     case MKL_RUNTIME:
-        error = mkl_addition(z_buffer->datatype, view_size(z_buffer->view), x_buffer->data, y_buffer->data, z_buffer->data);
+        error = mkl_matrix_multiplication(z_buffer->datatype, m, k, n, x_buffer->data, y_buffer->data, z_buffer->data);
         break;
     case CU_RUNTIME:
-        error = cu_addition(z_buffer->datatype, view_size(z_buffer->view), x_buffer->data, y_buffer->data, z_buffer->data);
+        error = cu_matrix_multiplication(z_buffer->datatype, m, k, n, x_buffer->data, y_buffer->data, z_buffer->data);
         break;
     default:
         error = ERROR(ERROR_UNKNOWN_RUNTIME,
-                      string_create("unknown runtime %d.", z_buffer->runtime),
+                      string_create("unknown runtime %d.", (int) z_buffer->runtime),
                       NULL);
         break;
     }
@@ -237,8 +366,6 @@ string_t runtime_string(runtime_t runtime)
 {
     switch (runtime)
     {
-    case C_RUNTIME:
-        return "C_RUNTIME";
     case OPENBLAS_RUNTIME:
         return "OPENBLAS_RUNTIME"; 
     case MKL_RUNTIME:

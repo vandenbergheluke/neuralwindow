@@ -1,6 +1,5 @@
 set(TEST_TENSOR
     test_buffer
-    test_c_runtime
     test_cu_runtime
     # test_function
     test_map

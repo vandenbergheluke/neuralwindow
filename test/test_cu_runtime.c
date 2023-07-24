@@ -18,7 +18,7 @@ void setup(void)
 
     test_case_float32_size = sizeof(float32_t) * 4;
 
-    error = cu_malloc((void **) &test_case_data_float32_1, test_case_float32_size); 
+    error = cu_memory_allocate((void **) &test_case_data_float32_1, test_case_float32_size); 
     if (error != NULL)
     {
         error_print(error);
@@ -30,7 +30,7 @@ void setup(void)
     }
 
 
-    error = cu_malloc((void **) &test_case_data_float32_2, test_case_float32_size); 
+    error = cu_memory_allocate((void **) &test_case_data_float32_2, test_case_float32_size); 
     if (error != NULL)
     {
         error_print(error);
@@ -41,7 +41,7 @@ void setup(void)
         test_case_data_float32_2[i] = 1.0;
     }
 
-    error = cu_malloc((void **) &test_case_data_float32_3, test_case_float32_size); 
+    error = cu_memory_allocate((void **) &test_case_data_float32_3, test_case_float32_size); 
     if (error != NULL)
     {
         error_print(error);
@@ -52,9 +52,9 @@ void setup(void)
 void teardown(void)
 {
     cu_destroy_context();
-    cu_free(test_case_data_float32_1);
-    cu_free(test_case_data_float32_2);
-    cu_free(test_case_data_float32_3);
+    cu_memory_free(test_case_data_float32_1);
+    cu_memory_free(test_case_data_float32_2);
+    cu_memory_free(test_case_data_float32_3);
 }
 
 START_TEST(test_addition)
