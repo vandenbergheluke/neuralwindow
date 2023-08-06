@@ -20,8 +20,8 @@ typedef struct tensor_t
 error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *context, tensor_t *gradient, bool_t requires_gradient);
 void tensor_destroy(tensor_t *tensor);
 error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient);
-error_t *tensor_addition(tensor_t *x, tensor_t *y, tensor_t *z);
-error_t *tensor_matrix_multiplication(tensor_t *x, tensor_t *y, tensor_t *z);
-error_t *tensor_copy(tensor_t *source_tensor, tensor_t *destination_tensor);
+error_t *tensor_addition(const tensor_t *x, const tensor_t *y, tensor_t *z);
+error_t *tensor_matrix_multiplication(const tensor_t *x, const tensor_t *y, tensor_t *z);
+error_t *tensor_copy(const tensor_t *source_tensor, tensor_t *destination_tensor);
 
 #endif

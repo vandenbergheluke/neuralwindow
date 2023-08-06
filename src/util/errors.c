@@ -74,6 +74,12 @@ string_t error_type_string(error_type_t error_type)
         return "ERROR_OVERFLOW";
     case ERROR_EXPAND:
         return "ERROR_EXPAND";
+    case ERROR_PERMUTE:
+        return "ERROR_PERMUTE";
+    case ERROR_SUMMATION:
+        return "ERROR_SUMMATION";
+    case ERROR_SORT:
+        return "ERROR_SORT";
     default:
         return "ERROR";
     }

@@ -2,7 +2,6 @@
 #define BUFFER_H
 
 #include <view.h>
-#include <buffer.h>
 
 typedef enum runtime_t
 {
@@ -10,6 +9,30 @@ typedef enum runtime_t
    MKL_RUNTIME,
    CU_RUNTIME
 } runtime_t;
+
+typedef enum runtime_unary_elementwise_type_t
+{
+    RUNTIME_LOG
+} runtime_binary_elementwise_type_t;
+
+typedef enum runtime_binary_elementwise_type_t
+{
+    RUNTIME_ADDITION,
+    RUNTIME_SUBTRACTION,
+    RUNTIME_DIVISION,
+    RUNTIME_MULTIPLICATION
+} runtime_binary_elementwise_type_t;
+
+typedef enum runtime_reduce_type_t
+{
+    RUNTIME_SUM,
+    RUNTIME_MAX
+} runtime_reduce_type_t;
+
+typedef enum runtime_matrix_multiplication_type_t
+{
+    RUNTIME_MATRIX_MULTIPLICATION
+} runtime_matrix_multiplication_type_t;
 
 typedef struct buffer_t
 {

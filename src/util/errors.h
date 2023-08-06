@@ -29,6 +29,9 @@ typedef enum error_type_t
     ERROR_SET,
     ERROR_OVERFLOW,
     ERROR_EXPAND,
+    ERROR_PERMUTE,
+    ERROR_SUMMATION,
+    ERROR_SORT,
 } error_type_t;
 
 typedef struct error_t
