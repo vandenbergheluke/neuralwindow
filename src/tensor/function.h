@@ -13,8 +13,10 @@ typedef enum unary_operation_type_t
 {
     EXPONENTIAL_OPERATION,
     LOGARITHM_OPERATION,
-    SIN_OPERATION,
-    POWER_OPERATION,
+    SINE_OPERATION,
+    COSINE_OPERATION,
+    SQUARE_ROOT_OPERATION,
+    RECIPROCAL_OPERATION,
     COPY_OPERATION,
     CONTIGUOUS_OPERATION
 } unary_operation_type_t;
@@ -38,6 +40,7 @@ typedef enum binary_operation_type_t
     SUBTRACTION_OPERATION,
     MULTIPLICATION_OPERATION,
     DIVISION_OPERATION,
+    POWER_OPERATION,
     MATRIX_MULTIPLICATION_OPERATION
 } binary_operation_type_t;
 
@@ -65,18 +68,18 @@ typedef struct reduction_operation_t
 {
     tensor_t *x;
     uint32_t *axis;
-    uint32_t length;
+    uint32_t rank;
     bool_t keep_dimension;
     reduction_operation_type_t operation_type;
 } reduction_operation_t;
 
 error_t *reduction_operation_create(reduction_operation_t **reduction_operation,
                                     reduction_operation_type_t reduction_operation_type,
-                                    tensor_t *x, uint32_t *axis, bool_t keep_dimension);
+                                    tensor_t *x, uint32_t *axis, uint32_t rank, bool_t keep_dimension);
 void reduction_operation_destroy(reduction_operation_t *reduction_operation);
 error_t *reduction_operation_forward(reduction_operation_t *reduction_operation, tensor_t *result);
 error_t *reduction_operation_backward(reduction_operation_t *reduction_operation, tensor_t *gradient);
-error_t *apply_function_reduction(reduction_operation_type_t reduction_operation_type, tensor_t *x, uint32_t *axis, uint32_t length, bool_t keep_dimension, tensor_t *y);
+error_t *apply_function_reduction(reduction_operation_type_t reduction_operation_type, tensor_t *x, uint32_t *axis, uint32_t rank, bool_t keep_dimension, tensor_t *y);
 
 // Structure Operation
 typedef enum structure_operation_type_t

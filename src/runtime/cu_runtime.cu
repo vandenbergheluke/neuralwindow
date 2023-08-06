@@ -49,8 +49,6 @@ extern "C" error_t *cu_addition(datatype_t datatype, uint32_t size, const void *
     float32_t alpha_32 = 1.0;
     float64_t alpha_64 = 1.0;
 
-    while ()
-
     switch (datatype)
     {
     case FLOAT32:

@@ -10,11 +10,10 @@ error_t *buffer_create(buffer_t **buffer, runtime_t runtime, datatype_t datatype
     CHECK_NULL_ARGUMENT(view->shape, "view->shape");
     CHECK_NULL_ARGUMENT(view->strides, "view->strides");
 
-    size_t size = sizeof(buffer_t);
-    *buffer = (buffer_t *) malloc(size);
+    *buffer = (buffer_t *) malloc(sizeof(buffer_t));
     if (buffer == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate buffer of size %zu bytes.", size), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate buffer of size %zu bytes.", sizeof(buffer_t)), NULL);
     }
 
     (*buffer)->runtime = runtime;
@@ -25,8 +24,12 @@ error_t *buffer_create(buffer_t **buffer, runtime_t runtime, datatype_t datatype
     if (error != NULL)
     {
         free(buffer);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate buffer data of size %zu bytes.", size), error);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate buffer data."), error);
     }
+
+    uint32_t number_of_elements = shape_size(view->shape, view->rank);
+    size_t element_size = datatype_size(datatype);
+    size_t size = number_of_elements * element_size;
 
     if (data != NULL)
     {
@@ -145,6 +148,24 @@ void runtime_free(buffer_t *buffer)
     }
 }
 
+error_t *runtime_copy(buffer_t *x_buffer, void *y_buffer)
+{
+    CHECK_NULL_ARGUMENT(x_buffer, "x_buffer");
+    CHECK_NULL_ARGUMENT(data, "data");
+
+    error_t *error;
+    uint32_t number_of_elements = shape_size(buffer->view->shape, buffer->view->rank);
+    size_t element_size = datatype_size(buffer->datatype);
+    size_t size = number_of_elements * element_size;
+
+    if (data != NULL)
+    {
+        memcpy(buffer->data, data, size);
+    }
+    
+    return NULL;
+}
+
 error_t *runtime_binary_elementwise(runtime_binary_elementwise_type_t runtime_binary_elementwise_type, buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
 {
     if (x_buffer->datatype != y_buffer->datatype || x_buffer->datatype != z_buffer->datatype)
@@ -199,7 +220,17 @@ error_t *runtime_binary_elementwise(runtime_binary_elementwise_type_t runtime_bi
     }
     else
     {
-
+        switch (z_buffer->view->rank)
+        {
+        case 2:
+            for (uint32_t i = 0; i < z_buffer->view->shape[0]; i++)    
+            {
+                
+            }
+            break;
+        default:
+            break;
+        }
     }
 }
 

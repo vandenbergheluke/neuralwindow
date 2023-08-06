@@ -42,8 +42,7 @@ error_t *tensor_copy(const tensor_t *source_tensor, tensor_t *destination_tensor
     CHECK_NULL_ARGUMENT(source_tensor, "source_tensor");
     CHECK_NULL_ARGUMENT(destination_tensor, "destination_tensor");
 
-    error_t *error;
-    error = apply_function_unary(COPY_OPERATION, source_tensor, destination_tensor);
+    error_t *error = apply_function_unary(COPY_OPERATION, source_tensor, destination_tensor);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to copy tensors."), error);
@@ -74,20 +73,25 @@ error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_original
     error = broadcast_shapes(x_shape, x_rank, y_shape, y_rank, broadcasted_shape, broadcasted_rank);
     if (error != NULL)
     {
+        free(broadcasted_shape);
         return ERROR(ERROR_BROADCAST, string_create("failed to broadcast tensor shapes."), error);
     }
 
     error = tensor_expand(x_original, broadcasted_shape, broadcasted_rank, x_broadcasted);
     if (error != NULL)
     {
+        free(broadcasted_shape);
         return ERROR(ERROR_BROADCAST, string_create("failed to broadcast tensor x."), error);
     }
 
     error = tensor_expand(y_original, broadcasted_shape, broadcasted_rank, y_broadcasted);
     if (error != NULL)
     {
+        free(broadcasted_shape);
         return ERROR(ERROR_BROADCAST, string_create("failed to broadcast tensor y."), error);
     }
+
+    free(broadcasted_shape);
 
     return NULL;
 }
@@ -98,8 +102,7 @@ error_t *tensor_expand(const tensor_t *x, const uint32_t *shape, uint32_t rank, 
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
-    error_t *error;
-    error = apply_function_structure(EXPAND_OPERATION, x, shape, rank, y);
+    error_t *error = apply_function_structure(EXPAND_OPERATION, x, shape, rank, y);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to broadcast tensor x."), error);
@@ -114,32 +117,70 @@ error_t *tensor_addition(const tensor_t *x, const tensor_t *y, tensor_t *z)
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(z, "z");
 
-    error_t *error;
-    tensor_t *x_brodcasted;
-    tensor_t *y_brodcasted;
-
-    error = tensor_create(&x_brodcasted, NULL, NULL, NULL, false);
-    if (error != NULL)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to tensor."), error);
-    }
-
-    error = tensor_create(&y_brodcasted, NULL, NULL, NULL, false);
-    if (error != NULL)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to tensor."), error);
-    }
-    
-    error = tensor_broadcast(x, y, x_brodcasted, y_brodcasted);
-    if (error != NULL)
-    {
-        return ERROR(ERROR_BROADCAST, string_create("failed to broacast tensors."), error);
-    }
-
-    error = apply_function_binary(ADDITION_OPERATION, x_brodcasted, y_brodcasted, z);
+    error_t *error = apply_function_binary(ADDITION_OPERATION, x, y, z);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to add tensors."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_subtraction(const tensor_t *x, const tensor_t *y, tensor_t *z)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(z, "z");
+
+    error_t *error = apply_function_binary(SUBTRACTION_OPERATION, x, y, z);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to subtract tensors."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_division(const tensor_t *x, const tensor_t *y, tensor_t *z)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(z, "z");
+
+    error_t *error = apply_function_binary(DIVISION_OPERATION, x, y, z);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to divide tensors."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_multiplication(const tensor_t *x, const tensor_t *y, tensor_t *z)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(z, "z");
+
+    error_t *error = apply_function_binary(MULTIPLICATION_OPERATION, x, y, z);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to multiply tensors."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_power(const tensor_t *x, const tensor_t *y, tensor_t *z)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(z, "z");
+
+    error_t *error = apply_function_binary(POWER_OPERATION, x, y, z);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to apply power to tensors."), error);
     }
 
     return NULL;
@@ -151,11 +192,168 @@ error_t *tensor_matrix_multiplication(const tensor_t *x, const tensor_t *y, tens
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(z, "z");
 
-    error_t *error;
-    error = apply_function_binary(MATRIX_MULTIPLICATION_OPERATION, x, y, z);
+    error_t *error = apply_function_binary(MATRIX_MULTIPLICATION_OPERATION, x, y, z);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to matrix multiply tensors."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_summation(const tensor_t *x, tensor_t *y, const uint32_t *axis, uint32_t rank, bool_t keep_dimension)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(axis, "axis");
+
+    error_t *error = apply_function_reduction(SUMMATION_OPERATION, x, axis, rank, y, keep_dimension);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to reduce tensor."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_maximum(const tensor_t *x, tensor_t *y, const uint32_t *axis, uint32_t rank, bool_t keep_dimension)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(axis, "axis");
+
+    error_t *error = apply_function_reduction(MAXIMUM_OPERATION, x, axis, rank, y, keep_dimension);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to reduce tensor."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_reshape(const tensor_t *x, tensor_t *y, const uint32_t *shape, uint32_t rank)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    error_t *error = apply_function_structure(RESHAPE_OPERATION, x, shape, rank, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to reshape tensor."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_permute(const tensor_t *x, tensor_t *y, uint32_t *axis, uint32_t rank)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(axis, "axis");
+
+    error_t *error = apply_function_structure(PERMUTE_OPERATION, x, axis, rank, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_contiguous(const tensor_t *x, tensor_t *y)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    error_t *error = apply_function_unary(CONTIGUOUS_OPERATION, x, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_logarithm(const tensor_t *x, tensor_t *y)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    error_t *error = apply_function_unary(LOGARITHM_OPERATION, x, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to apply logarithm to tensor."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_sine(const tensor_t *x, tensor_t *y)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    error_t *error = apply_function_unary(SINE_OPERATION, x, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to apply logarithm to tensor."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_cosine(const tensor_t *x, tensor_t *y)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    error_t *error = apply_function_unary(COSINE_OPERATION, x, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to apply logarithm to tensor."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_exponential(const tensor_t *x, tensor_t *y)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    error_t *error = apply_function_unary(EXPONENTIAL_OPERATION, x, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to apply exp to tensor."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_square_root(const tensor_t *x, tensor_t *y)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    error_t *error = apply_function_unary(SQUARE_ROOT_OPERATION, x, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to apply squart root to tensor."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_reciprocal(const tensor_t *x, tensor_t *y)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    error_t *error = apply_function_unary(RECIPROCAL_OPERATION, x, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to apply reciprocal to tensor."), error);
     }
 
     return NULL;
@@ -221,11 +419,30 @@ static error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *tens
 
 error_t *tensor_as_ones(const tensor_t *x, tensor_t *y)
 {
+    error_t *error;
+
+    error = tensor_as_empty(x, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create empty tensor."), error);
+    }
+
+    error = init_ones(y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to initialize gradient with ones."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_as_empty(const tensor_t *x, tensor_t *y)
+{
     view_t *view;
     buffer_t *buffer;
     error_t *error;
 
-    error = view_create(&view, x->buffer->view->offset,  x->buffer->view->rank, x->buffer->view->shape, x->buffer->view->strides);
+    error = view_create(&view, 0,  x->buffer->view->rank, x->buffer->view->shape, NULL);
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
@@ -238,12 +455,6 @@ error_t *tensor_as_ones(const tensor_t *x, tensor_t *y)
     }
 
     y->buffer = buffer;
-
-    error = init_ones(y);
-    if (error != NULL)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to initialize gradient with ones."), error);
-    }
 
     return NULL;
 }
