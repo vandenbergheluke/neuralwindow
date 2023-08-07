@@ -78,8 +78,12 @@ string_t error_type_string(error_type_t error_type)
         return "ERROR_PERMUTE";
     case ERROR_SUMMATION:
         return "ERROR_SUMMATION";
-    case ERROR_SORT:
-        return "ERROR_SORT";
+    case ERROR_SQUARE_ROOT:
+        return "ERROR_SQUARE_ROOT";
+    case ERROR_RESHAPE:
+        return "ERROR_RESHAPE";
+    case ERROR_SLICE:
+        return "ERROR_SLICE";
     default:
         return "ERROR";
     }

@@ -33,6 +33,15 @@ error_t *broadcast_strides(const uint32_t *original_shape, uint32_t original_ran
 error_t *broadcast_shapes(const uint32_t *x_original_shape, uint32_t x_original_rank,
                           const uint32_t *y_original_shape, uint32_t y_original_rank, 
                           uint32_t *broadcasted_shape, uint32_t *broadcasted_rank);
+error_t *slice_shape(const uint32_t *original_shape, uint32_t original_rank, uint32_t *slice_shape, uint32_t slice_rank, const uint32_t *arguments, uint32_t length);
+error_t *slice_offset(const uint32_t *original_strides, uint32_t original_rank, uint32_t *offset, const uint32_t *arguments, uint32_t length);
+error_t *reverse_slice(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *arguments, uint32_t length, uint32_t *new_arguments, uint32_t new_length);
+error_t *padding_shape(const uint32_t *original_shape, uint32_t original_rank, uint32_t *padding_shape, uint32_t padding_rank, const uint32_t *arguments, uint32_t length);
+error_t *reverse_padding(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *arguments, uint32_t length, uint32_t *new_arguments, uint32_t new_length);
+error_t *reverse_broadcast_axis(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *broadcasted_shape, uint32_t broadcasted_rank, 
+                                uint32_t *axis_keep_dimension, uint32_t *axis_remove_dimension);
+error_t *reverse_broadcast_length(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *broadcasted_shape, uint32_t broadcasted_rank, 
+                                  uint32_t *length_keep_dimension, uint32_t *length_remove_dimension);
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))

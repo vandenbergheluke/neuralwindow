@@ -87,6 +87,8 @@ typedef enum structure_operation_type_t
     EXPAND_OPERATION,
     PERMUTE_OPERATION,
     RESHAPE_OPERATION,
+    SLICE_OPERATION,
+    PADDING_OPERATION
 } structure_operation_type_t;
 
 typedef struct structure_operation_t

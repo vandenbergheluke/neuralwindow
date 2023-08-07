@@ -3,7 +3,7 @@
 #include <map.h>
 #include <init.h>
 
-error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *context, tensor_t *gradient, bool_t requires_gradient)
+error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *context, tensor_t *gradient, bool_t requires_gradient, bool_t lock)
 {
     CHECK_NULL_ARGUMENT(tensor, "tensor");
 
@@ -20,6 +20,7 @@ error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *context,
     (*tensor)->context = context;
     (*tensor)->gradient = gradient;
     (*tensor)->requires_gradient = requires_gradient;
+    (*tensor)->lock = lock;
 
     return NULL;
 }
@@ -35,6 +36,19 @@ void tensor_destroy(tensor_t *tensor)
     tensor_destroy(tensor->gradient);
     function_destroy(tensor->context);
     free(tensor);
+}
+
+error_t *tensor_create_empty(tensor_t **tensor)
+{
+    CHECK_NULL_ARGUMENT(tensor, "tensor");
+
+    error_t *error = tensor_create(tensor, NULL, NULL, NULL, false, false);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    return NULL;
 }
 
 error_t *tensor_copy(const tensor_t *source_tensor, tensor_t *destination_tensor)
@@ -231,13 +245,44 @@ error_t *tensor_maximum(const tensor_t *x, tensor_t *y, const uint32_t *axis, ui
     return NULL;
 }
 
+bool_t tensor_is_contiguous(const tensor_t *x)
+{
+    if (x == NULL || x->buffer == NULL || x->buffer->view == NULL)
+    {
+        return false;
+    }
+    return is_contiguous(x->buffer->view->shape, x->buffer->view->rank, x->buffer->view->strides);
+}
+
 error_t *tensor_reshape(const tensor_t *x, tensor_t *y, const uint32_t *shape, uint32_t rank)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
-    error_t *error = apply_function_structure(RESHAPE_OPERATION, x, shape, rank, y);
+    tensor_t *x_contiguous;
+    error_t *error;
+
+    if (!tensor_is_contiguous(x))
+    {
+        error = tensor_create_empty(&x_contiguous);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create x_contiguous tensor."), error);
+        }
+
+        error = tensor_contiguous(x, x_contiguous);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_CONTIGUOUS, string_create("failed to apply contiguous operation to tensor."), error);
+        }
+    }
+    else
+    {
+        x_contiguous = x;
+    }
+
+    error_t *error = apply_function_structure(RESHAPE_OPERATION, x_contiguous, shape, rank, y);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to reshape tensor."), error);
@@ -256,6 +301,36 @@ error_t *tensor_permute(const tensor_t *x, tensor_t *y, uint32_t *axis, uint32_t
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_slice(const tensor_t *x, tensor_t *y, uint32_t *arguments, uint32_t length)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+
+    error_t *error = apply_function_structure(SLICE_OPERATION, x, arguments, length, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to slice tensor."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_padding(const tensor_t *x, tensor_t *y, uint32_t *arguments, uint32_t length)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+
+    error_t *error = apply_function_structure(PADDING_OPERATION, x, arguments, length, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to pad tensor."), error);
     }
 
     return NULL;
@@ -397,11 +472,11 @@ static error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *tens
 
         if (error != NULL)
         {
-            return ERROR(ERROR_SORT, string_create("failed to topologically sort computational graph."), error);
+            return ERROR(ERROR_SQUARE_ROOT, string_create("failed to topologically sort computational graph."), error);
         }
     }
 
-    error = map_set(visited, id, tensor);
+    error = map_set(visited, id, NULL);
     if (error != NULL)
     {
         string_destroy(id);
@@ -417,8 +492,67 @@ static error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *tens
     return NULL;
 }
 
+error_t *tensor_as_zeroes(const tensor_t *x, tensor_t *y)
+{
+    if (!tensor_is_empty(y))
+    {
+        return ERROR(ERROR_CREATE, string_create("tensor y is not empty."), NULL);
+    }
+
+    error_t *error;
+
+    error = tensor_as_empty(x, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create empty tensor."), error);
+    }
+
+    error = init_zeroes(y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to initialize gradient with zeroes."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_as_tensor(const tensor_t *x, tensor_t *y)
+{
+    if (!tensor_is_empty(y))
+    {
+        return ERROR(ERROR_CREATE, string_create("tensor y is not empty."), NULL);
+    }
+
+    view_t *view;
+    buffer_t *buffer;
+    error_t *error;
+
+    error = view_create(&view, x->buffer->view->offset, x->buffer->view->rank, x->buffer->view->shape, x->buffer->view->strides);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    error = buffer_create(&buffer, x->buffer->runtime, x->buffer->datatype, view, x->buffer->data, x->buffer->size, false);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    y->buffer = buffer;
+
+    // TODO: Copy other fields.
+
+    return NULL;
+}
+
 error_t *tensor_as_ones(const tensor_t *x, tensor_t *y)
 {
+    if (!tensor_is_empty(y))
+    {
+        return ERROR(ERROR_CREATE, string_create("tensor y is not empty."), NULL);
+    }
+
     error_t *error;
 
     error = tensor_as_empty(x, y);
@@ -436,8 +570,21 @@ error_t *tensor_as_ones(const tensor_t *x, tensor_t *y)
     return NULL;
 }
 
+bool_t tensor_is_empty(const tensor_t *x)
+{
+    return !(x == NULL || x->buffer != NULL || x->gradient != NULL || x->context != NULL);
+}
+
 error_t *tensor_as_empty(const tensor_t *x, tensor_t *y)
 {
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    if (!tensor_is_empty(y))
+    {
+        return ERROR(ERROR_CREATE, string_create("tensor y is not empty."), NULL);
+    }
+
     view_t *view;
     buffer_t *buffer;
     error_t *error;
@@ -448,7 +595,7 @@ error_t *tensor_as_empty(const tensor_t *x, tensor_t *y)
         return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
     }
 
-    error = buffer_create(&buffer, x->buffer->runtime, x->buffer->datatype, view, NULL);
+    error = buffer_create(&buffer, x->buffer->runtime, x->buffer->datatype, view, NULL, x->buffer->size, true);
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
@@ -469,7 +616,7 @@ error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
 
     if (gradient == NULL)
     {
-        error = tensor_create(&x->gradient, NULL, NULL, NULL, false);
+        error = tensor_create_empty(&x->gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE, string_create("failed to gradient tensor."), error);
@@ -494,7 +641,12 @@ error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
         return ERROR(ERROR_CREATE, string_create("failed to create map."), error);
     }
 
-    topological_sort(x, visited, tensors);
+    error = topological_sort(x, visited, tensors);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_SQUARE_ROOT, string_create("failed to topologically sort nodes."), error);
+    }
+
     while (tensors->size > 0)
     {
         tensor_t *y;
@@ -504,6 +656,10 @@ error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
             return ERROR(ERROR_DESTROY, string_create("failed to pop tensor from stack"), error);
         }
         function_backward(y->context, y->gradient);
+        if (!y->lock)
+        {
+            tensor_destroy(y);
+        }
     }
     map_destroy(visited);
     stack_destroy(tensors);
@@ -517,32 +673,42 @@ error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient)
     CHECK_NULL_ARGUMENT(gradient, "gradient");
 
     error_t *error;
-    tensor_t *updated_gradient;
-
-    error = tensor_create(&updated_gradient, NULL, NULL, NULL, false);
-    if (error != NULL)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create updated_gradient."), error);
-    }
 
     if (x->gradient == NULL)
     {
-        error = tensor_copy(gradient, updated_gradient);
+        error = tensor_create_empty(&x->gradient);
         if (error != NULL)
         {
-            return ERROR(ERROR_COPY, string_create("failed to copy gradient."), NULL);
+            return ERROR(ERROR_CREATE, string_create("failed to create empty tensor."), error);
         }
+        
+        error = tensor_as_tensor(gradient, x->gradient);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create add gradient."), error);
+        }
+
+        // Avoid destroying data in gradient when propogated to operands.
+        gradient->buffer->new = false;
+        x->gradient->buffer->new = true;
     }
     else
     {
+        tensor_t *updated_gradient;
+
+        error = tensor_create_empty(&updated_gradient);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create updated_gradient."), error);
+        }
         error = tensor_addition(x->gradient, gradient, updated_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_ADDITION, string_create("failed to add gradient."), NULL);
         }
         tensor_destroy(x->gradient);
+        x->gradient = updated_gradient;
     }
-    x->gradient = updated_gradient;
 
     return NULL;
 }

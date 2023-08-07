@@ -3,12 +3,10 @@
 #include <mkl_runtime.h>
 #include <openblas_runtime.h>
 
-error_t *buffer_create(buffer_t **buffer, runtime_t runtime, datatype_t datatype, view_t *view, void *data)
+error_t *buffer_create(buffer_t **buffer, runtime_t runtime, datatype_t datatype, view_t *view, void *data, size_t size, bool_t new)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(view, "view");
-    CHECK_NULL_ARGUMENT(view->shape, "view->shape");
-    CHECK_NULL_ARGUMENT(view->strides, "view->strides");
 
     *buffer = (buffer_t *) malloc(sizeof(buffer_t));
     if (buffer == NULL)
@@ -19,21 +17,37 @@ error_t *buffer_create(buffer_t **buffer, runtime_t runtime, datatype_t datatype
     (*buffer)->runtime = runtime;
     (*buffer)->datatype = datatype;
     (*buffer)->view = view;
+    (*buffer)->new = new;
 
-    error_t *error = runtime_malloc(*buffer);
-    if (error != NULL)
+    if (size == 0)
     {
-        free(buffer);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate buffer data."), error);
+        (*buffer)->size = shape_size((*buffer)->view->shape, (*buffer)->view->rank) * datatype_size((*buffer)->datatype);
+    }
+    else
+    {
+        (*buffer)->size = size;
     }
 
-    uint32_t number_of_elements = shape_size(view->shape, view->rank);
-    size_t element_size = datatype_size(datatype);
-    size_t size = number_of_elements * element_size;
 
-    if (data != NULL)
+    error_t *error;
+
+    if (new)
     {
-        memcpy((*buffer)->data, data, size);
+        error = runtime_malloc(*buffer);
+        if (error != NULL)
+        {
+            free(buffer);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate buffer data."), error);
+        }
+
+        if (data != NULL)
+        {
+            memcpy((*buffer)->data, data, (*buffer)->size);
+        }
+    }
+    else
+    {
+        (*buffer)->data = data;
     }
 
     return NULL;
@@ -46,7 +60,10 @@ void buffer_destroy(buffer_t *buffer)
         return;
     }
 
-    runtime_free(buffer);
+    if (buffer->new)
+    {
+        runtime_free(buffer);
+    }
     view_destroy(buffer->view);
     free(buffer);
 }
@@ -96,21 +113,22 @@ error_t *runtime_malloc(buffer_t *buffer)
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(buffer->view, "buffer->view");
 
-    error_t *error;
-    uint32_t number_of_elements = shape_size(buffer->view->shape, buffer->view->rank);
-    size_t element_size = datatype_size(buffer->datatype);
-    size_t size = number_of_elements * element_size;
+    if (buffer->size == 0)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate 0 bytes."), NULL);
+    }
 
+    error_t *error;
     switch (buffer->runtime)
     {
     case OPENBLAS_RUNTIME:
-        error = openblas_memory_allocate(&buffer->data, size);
+        error = openblas_memory_allocate(&buffer->data, buffer->size);
         break;
     case MKL_RUNTIME:
-        error = mkl_memory_allocate(&buffer->data, size);
+        error = mkl_memory_allocate(&buffer->data, buffer->size);
         break;
     case CU_RUNTIME:
-        error = cu_memory_allocate(&buffer->data, size);
+        error = cu_memory_allocate(&buffer->data, buffer->size);
         break;
     default:
         error = ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) buffer->runtime), NULL);
@@ -119,7 +137,7 @@ error_t *runtime_malloc(buffer_t *buffer)
 
     if (error != NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes for runtime %s.", size, runtime_string(buffer->runtime)), error);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes for runtime %s.", buffer->size, runtime_string(buffer->runtime)), error);
     }
     
     return NULL;
