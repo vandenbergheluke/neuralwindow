@@ -1,5 +1,6 @@
 #include <openblas_runtime.h>
 #include <cblas.h>
+#include <math.h>
 
 error_t *openblas_memory_allocate(void **pp, size_t size)
 {
@@ -19,105 +20,417 @@ void openblas_memory_free(void *p)
     free(p);
 }
 
-error_t *openblas_addition(datatype_t datatype, uint32_t size, const void *x_data, const void *y_data, void *z_data)
+void openblas_exponential(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data, uint32_t y_stride)
 {
-    CHECK_NULL_ARGUMENT(x_data, "x_data");
-    CHECK_NULL_ARGUMENT(y_data, "y_data");
-    CHECK_NULL_ARGUMENT(z_data, "z_data");
-
     switch (datatype)
     {
     case FLOAT32:
-        cblas_scopy(size, (float32_t *) y_data, 1, (float32_t *) z_data, 1); 
-        cblas_saxpy(size, 1.0, (float32_t *) x_data, 1, (float32_t *) z_data, 1);
+        openblas_exponential_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride);
         break;
     case FLOAT64:
-        cblas_dcopy(size, (float64_t *) y_data, 1, (float64_t *) z_data, 1);
-        cblas_daxpy(size, 1.0, (float64_t *) x_data, 1, (float64_t *) z_data, 1);
+        openblas_exponential_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride);
         break;
     default:
-        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %s", datatype_string(datatype)), NULL);    
+        break;
     }
-
-    return NULL;
 }
 
-error_t *openblas_matrix_multiplication(datatype_t datatype, uint32_t m, uint32_t k, uint32_t n, bool_t x_transpose, bool_t y_transpose, const void *x_data, const void *y_data, void *z_data)
+static void openblas_exponential_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    CHECK_NULL_ARGUMENT(x_data, "x_data");
-    CHECK_NULL_ARGUMENT(y_data, "y_data");
-    CHECK_NULL_ARGUMENT(z_data, "z_data");
+    for (int i = 0; i < n; i++)
+    {
+        y_data[i * y_stride] = expf(x_data[i * x_stride]); 
+    }
+}
 
+static void openblas_exponential_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        y_data[i * y_stride] = exp(x_data[i * x_stride]); 
+    }
+}
+
+void openblas_logarithm(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data, uint32_t y_stride)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        openblas_logarithm_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride);
+        break;
+    case FLOAT64:
+        openblas_logarithm_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride);
+        break;
+    default:
+        break;
+    }
+}
+
+static void openblas_logarithm_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        y_data[i * y_stride] = logf(x_data[i * x_stride]); 
+    }
+}
+
+static void openblas_logarithm_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        y_data[i * y_stride] = log(x_data[i * x_stride]); 
+    }
+}
+
+void openblas_sine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data, uint32_t y_stride)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        openblas_sine_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride);
+        break;
+    case FLOAT64:
+        openblas_sine_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride);
+        break;
+    default:
+        break;
+    }
+}
+
+static void openblas_sine_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        y_data[i * y_stride] = sinf(x_data[i * x_stride]); 
+    }
+}
+
+static void openblas_sine_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        y_data[i * y_stride] = sin(x_data[i * x_stride]); 
+    }
+}
+
+void openblas_cosine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data, uint32_t y_stride)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        openblas_cosine_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride);
+        break;
+    case FLOAT64:
+        openblas_cosine_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride);
+        break;
+    default:
+        break;
+    }
+}
+
+static void openblas_cosine_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        y_data[i * y_stride] = cosf(x_data[i * x_stride]); 
+    }
+}
+
+static void openblas_cosine_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        y_data[i * y_stride] = cos(x_data[i * x_stride]); 
+    }
+}
+
+void openblas_square_root(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data, uint32_t y_stride)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        openblas_square_root_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride);
+        break;
+    case FLOAT64:
+        openblas_square_root_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride);
+        break;
+    default:
+        break;
+    }
+}
+
+static void openblas_square_root_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        y_data[i * y_stride] = sqrtf(x_data[i * x_stride]); 
+    }
+}
+
+static void openblas_square_root_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        y_data[i * y_stride] = sqrt(x_data[i * x_stride]); 
+    }
+}
+
+void openblas_reciprocal(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data, uint32_t y_stride)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        openblas_reciprocal_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride);
+        break;
+    case FLOAT64:
+        openblas_reciprocal_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride);
+        break;
+    default:
+        break;
+    }
+}
+
+static void openblas_reciprocal_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        y_data[i * y_stride] = 1. / x_data[i * x_stride]; 
+    }
+}
+
+static void openblas_reciprocal_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        y_data[i * y_stride] = 1. / x_data[i * x_stride]; 
+    }
+}
+
+void openblas_copy(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data, uint32_t y_stride)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        cblas_scopy((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride);
+        break;
+    case FLOAT64:
+        cblas_dcopy((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride);
+        break;
+    default:
+        break;
+    }
+}
+
+void openblas_addition(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, const void *y_data, uint32_t y_stride, void *z_data, uint32_t z_stride)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        cblas_scopy((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) z_data, (int) z_stride); 
+        cblas_saxpy((int) n, 1.0, (float32_t *) y_data, (int) y_stride, (float32_t *) z_data, (int) z_stride);
+        break;
+    case FLOAT64:
+        cblas_dcopy((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) z_data, (int) z_stride);
+        cblas_daxpy((int) n, 1.0, (float64_t *) y_data, (int) y_stride, (float64_t *) z_data, (int) z_stride);
+        break;
+    default:
+        break;
+    }
+}
+
+void openblas_subtraction(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, const void *y_data, uint32_t y_stride, void *z_data, uint32_t z_stride)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        cblas_scopy((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) z_data, (int) z_stride); 
+        cblas_saxpy((int) n, -1.0, (float32_t *) y_data, (int) y_stride, (float32_t *) z_data, (int) z_stride);
+        break;
+    case FLOAT64:
+        cblas_dcopy((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) z_data, (int) z_stride);
+        cblas_daxpy((int) n, -1.0, (float64_t *) y_data, (int) y_stride, (float64_t *) z_data, (int) z_stride);
+        break;
+    default:
+        break;
+    }
+}
+
+void openblas_multiplication(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, const void *y_data, uint32_t y_stride, void *z_data, uint32_t z_stride)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        openblas_multiplication_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride, (float32_t *) z_data, (int) z_stride);
+        break;
+    case FLOAT64:
+        openblas_multiplication_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride, (float64_t *) z_data, (int) z_stride);
+        break;
+    default:
+        break;
+    }
+}
+
+static void openblas_multiplication_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        z_data[i * z_stride] = x_data[i * x_stride] * y_data[i * y_stride];
+    }
+}
+
+static void openblas_multiplication_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        z_data[i * z_stride] = x_data[i * x_stride] * y_data[i * y_stride];
+    }
+}
+
+void openblas_division(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, const void *y_data, uint32_t y_stride, void *z_data, uint32_t z_stride)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        openblas_division_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride, (float32_t *) z_data, (int) z_stride);
+        break;
+    case FLOAT64:
+        openblas_division_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride, (float64_t *) z_data, (int) z_stride);
+        break;
+    default:
+        break;
+    }
+}
+
+static void openblas_division_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        z_data[i * z_stride] = x_data[i * x_stride] / y_data[i * y_stride];
+    }
+}
+
+static void openblas_division_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        z_data[i * z_stride] = x_data[i * x_stride] / y_data[i * y_stride];
+    }
+}
+
+void openblas_power(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, const void *y_data, uint32_t y_stride, void *z_data, uint32_t z_stride)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        openblas_power_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride, (float32_t *) z_data, (int) z_stride);
+        break;
+    case FLOAT64:
+        openblas_power_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride, (float64_t *) z_data, (int) z_stride);
+        break;
+    default:
+        break;
+    }
+}
+
+static void openblas_power_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        z_data[i * z_stride] = powf(x_data[i * x_stride], y_data[i * y_stride]);
+    }
+}
+
+static void openblas_power_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
+{
+    for (int i = 0; i < n; i++)
+    {
+        z_data[i * z_stride] = pow(x_data[i * x_stride], y_data[i * y_stride]);
+    }
+}
+
+void openblas_matrix_multiplication(datatype_t datatype, uint32_t m, uint32_t k, uint32_t n, bool_t x_transpose, bool_t y_transpose, const void *x_data, const void *y_data, void *z_data)
+{
     switch (datatype)
     {
     case FLOAT32:
         cblas_sgemm(CblasRowMajor, (x_transpose) ? CblasNoTrans: CblasTrans, (y_transpose) ? CblasNoTrans : CblasTrans,
-                    m, n, k, 1.0, (float32_t *) x_data, m, (float32_t *) y_data, k, 0.0, (float32_t *) z_data, m);
+                    (int) m, (int) n, (int) k, 1.0, (float32_t *) x_data, (int) m, (float32_t *) y_data, (int) k, 0.0, (float32_t *) z_data, (int) m);
         break;
     case FLOAT64:
         cblas_dgemm(CblasRowMajor, (x_transpose) ? CblasNoTrans: CblasTrans, (y_transpose) ? CblasNoTrans : CblasTrans,
-                    m, n, k, 1.0, (float64_t *) x_data, m, (float64_t *) y_data, k, 0.0, (float64_t *) z_data, m);
+                    (int) m, (int) n, (int) k, 1.0, (float64_t *) x_data, (int) m, (float64_t *) y_data, (int) k, 0.0, (float64_t *) z_data, (int) m);
         break;
     default:
-        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);    
+        break;
     }
-
-    return NULL;
 }
 
-error_t *openblas_summation(datatype_t datatype, uint32_t axis, uint32_t current_dimension, uint32_t x_index, uint32_t *y_index, 
-                            uint32_t *x_shape, uint32_t x_rank, uint32_t *x_strides, const void *x_data, void *y_data)
+void openblas_summation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data)
 {
-    CHECK_NULL_ARGUMENT(x_shape, "x_shape");
-    CHECK_NULL_ARGUMENT(x_strides, "x_strides");
-    CHECK_NULL_ARGUMENT(y_index, "y_index");
-    CHECK_NULL_ARGUMENT(x_data, "x_data");
-    CHECK_NULL_ARGUMENT(y_data, "y_data");
-
-    if (current_dimension >= x_rank)
+    switch (datatype)
     {
-        return NULL;
+    case FLOAT32:
+        openblas_summation_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data);
+        break;
+    case FLOAT64:
+        openblas_summation_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data);
+        break;
+    default:
+        break;
     }
+}
 
-    error_t *error;
+static void openblas_summation_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data)
+{
+    float32_t temp = 1.0;
+    *y_data = cblas_sdot(n, x_data, x_stride, &temp, (int) 1);
+}
 
-    if (current_dimension == axis)
+static void openblas_summation_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data)
+{
+    float64_t temp = 1.0;
+    *y_data = cblas_ddot(n, x_data, x_stride, &temp, (int) 1);
+}
+
+void openblas_maximum(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data)
+{
+    switch (datatype)
     {
-        error = cu_summation(datatype, axis, current_dimension + 1, x_index, y_index, x_shape, x_rank, x_strides, x_data, y_data);
-        if (error != NULL)
+    case FLOAT32:
+        openblas_maximum_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data);
+        break;
+    case FLOAT64:
+        openblas_maximum_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data);
+        break;
+    default:
+        break;
+    }
+}
+
+static void openblas_maximum_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data)
+{
+    float32_t maximum = *x_data;
+    for (int i = 1; i < n; i++)
+    {
+        float32_t candidate = x_data[i];
+        if (maximum < candidate)
         {
-            return ERROR(ERROR_SUMMATION, string_create("failed to perform summation."), error);
+            maximum = candidate;
         }
     }
-    else
+    *y_data = maximum;
+}
+
+static void openblas_maximum_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data)
+{
+    float64_t maximum = *x_data;
+    for (int i = 1; i < n; i++)
     {
-        float32_t y_32 = 1.0;
-        float64_t y_64 = 1.0;
-        for (uint32_t i = 0; i < x_shape[current_dimension]; i++)
+        float64_t candidate = x_data[i];
+        if (maximum < candidate)
         {
-            uint32_t j = x_index + i * x_strides[current_dimension];
-            error = cu_summation(datatype, axis, current_dimension + 1, j, y_index, x_shape, x_rank, x_strides, x_data, y_data);
-            if (error != NULL)
-            {
-                return ERROR(ERROR_SUMMATION, string_create("failed to perform summation."), error);
-            }
-            if (current_dimension == x_rank - 1 || current_dimension == x_rank - 2 && axis == x_rank - 1)
-            {
-                switch (datatype)
-                {
-                case FLOAT32:
-                    ((float32_t *) y_data)[*y_index] = cblas_sdot(x_shape[axis], &((float32_t *) x_data)[j], x_strides[axis], &y_32, 0);
-                    break;
-                case FLOAT64:
-                    ((float64_t *) y_data)[*y_index] = cblas_ddot(x_shape[axis], &((float64_t *) x_data)[j], x_strides[axis], &y_64, 0);
-                    break;
-                default:
-                    return ERROR(ERROR_DATATYPE, string_create("unsupported datatype %s.", datatype_string(datatype)), NULL);    
-                }
-                (*y_index)++;
-            }
+            maximum = candidate;
         }
     }
-
-    return NULL;
+    *y_data = maximum;
 }

@@ -2,7 +2,7 @@
 #define BUFFER_H
 
 #include <view.h>
-#include <function.h>
+#include <errors.h>
 
 typedef enum runtime_t
 {

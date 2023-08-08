@@ -166,91 +166,102 @@ void runtime_free(buffer_t *buffer)
     }
 }
 
-error_t *runtime_copy(buffer_t *x_buffer, void *y_buffer)
+typedef enum unary_elementwise_type_t
 {
-    CHECK_NULL_ARGUMENT(x_buffer, "x_buffer");
-    CHECK_NULL_ARGUMENT(data, "data");
+    A
+} unary_elementwise_type_t;
 
-    error_t *error;
-    uint32_t number_of_elements = shape_size(buffer->view->shape, buffer->view->rank);
-    size_t element_size = datatype_size(buffer->datatype);
-    size_t size = number_of_elements * element_size;
+error_t *runtime_exponential(buffer_t *x, buffer_t *result)
+{
 
-    if (data != NULL)
-    {
-        memcpy(buffer->data, data, size);
-    }
+}
+
+
+// error_t *runtime_copy(buffer_t *x_buffer, void *y_buffer)
+// {
+//     CHECK_NULL_ARGUMENT(x_buffer, "x_buffer");
+//     CHECK_NULL_ARGUMENT(data, "data");
+
+//     error_t *error;
+//     uint32_t number_of_elements = shape_size(buffer->view->shape, buffer->view->rank);
+//     size_t element_size = datatype_size(buffer->datatype);
+//     size_t size = number_of_elements * element_size;
+
+//     if (data != NULL)
+//     {
+//         memcpy(buffer->data, data, size);
+//     }
     
-    return NULL;
-}
+//     return NULL;
+// }
 
-error_t *runtime_binary_elementwise(runtime_binary_elementwise_type_t runtime_binary_elementwise_type, buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
-{
-    if (x_buffer->datatype != y_buffer->datatype || x_buffer->datatype != z_buffer->datatype)
-    {
-        return ERROR(ERROR_DATATYPE_CONFLICT, string_create("conflicting datatypes %s + %s = %s.",
-                     datatype_string(x_buffer->datatype), datatype_string(y_buffer->datatype), datatype_string(z_buffer->datatype)), NULL);
-    }
+// error_t *runtime_binary_elementwise(runtime_binary_elementwise_type_t runtime_binary_elementwise_type, buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
+// {
+//     if (x_buffer->datatype != y_buffer->datatype || x_buffer->datatype != z_buffer->datatype)
+//     {
+//         return ERROR(ERROR_DATATYPE_CONFLICT, string_create("conflicting datatypes %s + %s = %s.",
+//                      datatype_string(x_buffer->datatype), datatype_string(y_buffer->datatype), datatype_string(z_buffer->datatype)), NULL);
+//     }
 
-    if (!shapes_equal(x_buffer->view->shape, x_buffer->view->rank, y_buffer->view->shape, y_buffer->view->rank) || 
-        !shapes_equal(x_buffer->view->shape, x_buffer->view->rank, z_buffer->view->shape, z_buffer->view->rank))
-    {
-        return ERROR(ERROR_SHAPE_CONFLICT, string_create("conflicting tensor shapes."), NULL);
-    }
+//     if (!shapes_equal(x_buffer->view->shape, x_buffer->view->rank, y_buffer->view->shape, y_buffer->view->rank) || 
+//         !shapes_equal(x_buffer->view->shape, x_buffer->view->rank, z_buffer->view->shape, z_buffer->view->rank))
+//     {
+//         return ERROR(ERROR_SHAPE_CONFLICT, string_create("conflicting tensor shapes."), NULL);
+//     }
 
-    if (x_buffer->runtime != y_buffer->runtime || x_buffer->runtime != z_buffer->runtime)
-    {
-        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s + %s = %s.",
-                     runtime_string(x_buffer->runtime), runtime_string(y_buffer->runtime), runtime_string(z_buffer->runtime)), NULL);
-    }
+//     if (x_buffer->runtime != y_buffer->runtime || x_buffer->runtime != z_buffer->runtime)
+//     {
+//         return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s + %s = %s.",
+//                      runtime_string(x_buffer->runtime), runtime_string(y_buffer->runtime), runtime_string(z_buffer->runtime)), NULL);
+//     }
 
-    error_t *error;
-    if (is_contiguous(x_buffer->view->shape, x_buffer->view->rank, x_buffer->view->strides) &&
-        is_contiguous(y_buffer->view->shape, y_buffer->view->rank, y_buffer->view->strides))
-    {
-        switch (runtime_binary_elementwise_type)
-        {
-        case RUNTIME_ADDITION:
-            switch (z_buffer->runtime)
-            {
-            case OPENBLAS_RUNTIME:
-                error = openblas_addition(z_buffer->datatype, shape_size(z_buffer->view->shape, z_buffer->view->rank), x_buffer->data, y_buffer->data, z_buffer->data);
-                break;
-            case MKL_RUNTIME:
-                error = mkl_addition(z_buffer->datatype, shape_size(z_buffer->view->shape, z_buffer->view->rank), x_buffer->data, y_buffer->data, z_buffer->data);
-                break;
-            case CU_RUNTIME:
-                error = cu_addition(z_buffer->datatype, shape_size(z_buffer->view->shape, z_buffer->view->rank), x_buffer->data, y_buffer->data, z_buffer->data);
-                break;
-            default:
-                error = ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->runtime), NULL);
-                break;
-            }
+//     error_t *error;
+//     if (is_contiguous(x_buffer->view->shape, x_buffer->view->rank, x_buffer->view->strides) &&
+//         is_contiguous(y_buffer->view->shape, y_buffer->view->rank, y_buffer->view->strides))
+//     {
+//         switch (runtime_binary_elementwise_type)
+//         {
+//         case RUNTIME_ADDITION:
+//             switch (z_buffer->runtime)
+//             {
+//             case OPENBLAS_RUNTIME:
+//                 error = openblas_addition(z_buffer->datatype, shape_size(z_buffer->view->shape, z_buffer->view->rank), x_buffer->data, y_buffer->data, z_buffer->data);
+//                 break;
+//             case MKL_RUNTIME:
+//                 error = mkl_addition(z_buffer->datatype, shape_size(z_buffer->view->shape, z_buffer->view->rank), x_buffer->data, y_buffer->data, z_buffer->data);
+//                 break;
+//             case CU_RUNTIME:
+//                 error = cu_addition(z_buffer->datatype, shape_size(z_buffer->view->shape, z_buffer->view->rank), x_buffer->data, y_buffer->data, z_buffer->data);
+//                 break;
+//             default:
+//                 error = ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->runtime), NULL);
+//                 break;
+//             }
             
-            if (error != NULL)
-            {
-                return ERROR(ERROR_ADDITION, string_create("addition operation failed for runtime %s.", runtime_string(z_buffer->runtime)), error);
-            }
-            break;
-        default:
-            break;
-        }
-    }
-    else
-    {
-        switch (z_buffer->view->rank)
-        {
-        case 2:
-            for (uint32_t i = 0; i < z_buffer->view->shape[0]; i++)    
-            {
+//             if (error != NULL)
+//             {
+//                 return ERROR(ERROR_ADDITION, string_create("addition operation failed for runtime %s.", runtime_string(z_buffer->runtime)), error);
+//             }
+//             break;
+//         default:
+//             break;
+//         }
+//     }
+//     else
+//     {
+//         switch (z_buffer->view->rank)
+//         {
+//         case 2:
+//             for (uint32_t i = 0; i < z_buffer->view->shape[0]; i++)    
+//             {
                 
-            }
-            break;
-        default:
-            break;
-        }
-    }
-}
+//             }
+//             break;
+//         default:
+//             break;
+//         }
+//     }
+// }
 
 
 error_t *runtime_addition(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
