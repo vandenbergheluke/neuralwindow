@@ -40,15 +40,15 @@ extern "C" void cu_memory_free(void *p)
     cudaFree(p);
 }
 
-extern "C" void cu_exponential(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data, uint32_t y_stride)
+extern "C" void cu_exponential(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        cu_exponential_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride);
+        cu_exponential_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         break;
     case FLOAT64:
-        cu_exponential_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride);
+        cu_exponential_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         break;
     default:
         break;
@@ -71,15 +71,15 @@ extern "C" static void cu_exponential_float64(int n, const float64_t *x_data, in
     }
 }
 
-extern "C" void cu_logarithm(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data, uint32_t y_stride)
+extern "C" void cu_logarithm(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        cu_logarithm_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride);
+        cu_logarithm_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         break;
     case FLOAT64:
-        cu_logarithm_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride);
+        cu_logarithm_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         break;
     default:
         break;
@@ -102,15 +102,15 @@ extern "C" static void cu_logarithm_float64(int n, const float64_t *x_data, int 
     }
 }
 
-extern "C" void cu_sine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data, uint32_t y_stride)
+extern "C" void cu_sine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        cu_sine_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride);
+        cu_sine_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         break;
     case FLOAT64:
-        cu_sine_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride);
+        cu_sine_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         break;
     default:
         break;
@@ -133,15 +133,15 @@ extern "C" static void cu_sine_float64(int n, const float64_t *x_data, int x_str
     }
 }
 
-extern "C" void cu_cosine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data, uint32_t y_stride)
+extern "C" void cu_cosine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        cu_cosine_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride);
+        cu_cosine_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         break;
     case FLOAT64:
-        cu_cosine_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride);
+        cu_cosine_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         break;
     default:
         break;
@@ -164,15 +164,15 @@ extern "C" static void cu_cosine_float64(int n, const float64_t *x_data, int x_s
     }
 }
 
-extern "C" void cu_square_root(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data, uint32_t y_stride)
+extern "C" void cu_square_root(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        cu_square_root_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride);
+        cu_square_root_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         break;
     case FLOAT64:
-        cu_square_root_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride);
+        cu_square_root_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         break;
     default:
         break;
@@ -195,15 +195,15 @@ extern "C" static void cu_square_root_float64(int n, const float64_t *x_data, in
     }
 }
 
-extern "C" void cu_reciprocal(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data, uint32_t y_stride)
+extern "C" void cu_reciprocal(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        cu_reciprocal_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride);
+        cu_reciprocal_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         break;
     case FLOAT64:
-        cu_reciprocal_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride);
+        cu_reciprocal_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         break;
     default:
         break;
@@ -226,16 +226,16 @@ extern "C" static void cu_reciprocal_float64(int n, const float64_t *x_data, int
     }
 }
 
-extern "C" void cu_copy(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data, uint32_t y_stride)
+extern "C" void cu_copy(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        cublasScopy_v2(handle, (int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride);
+        cublasScopy_v2(handle, (int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         cudaDeviceSynchronize();
         break;
     case FLOAT64:
-        cublasDcopy_v2(handle, (int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride);
+        cublasDcopy_v2(handle, (int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         cudaDeviceSynchronize();
         break;
     default:
@@ -243,22 +243,22 @@ extern "C" void cu_copy(datatype_t datatype, uint32_t n, const void *x_data, uin
     }
 }
 
-extern "C" void cu_addition(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, const void *y_data, uint32_t y_stride, void *z_data, uint32_t z_stride)
+extern "C" void cu_addition(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
         float32_t alpha_32 = 1.0;
-        cublasScopy_v2(handle, (int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) z_data, (int) z_stride); 
+        cublasScopy_v2(handle, (int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) z_data)[z_offset], (int) z_stride); 
         cudaDeviceSynchronize();
-        cublasSaxpy_v2(handle, (int) n, &alpha_32, (float32_t *) y_data, (int) y_stride, (float32_t *) z_data, (int) z_stride);
+        cublasSaxpy_v2(handle, (int) n, &alpha_32, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
         cudaDeviceSynchronize();
         break;
     case FLOAT64:
         float64_t alpha_64 = 1.0;
-        cublasDcopy_v2(handle, (int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) z_data, (int) z_stride);
+        cublasDcopy_v2(handle, (int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
         cudaDeviceSynchronize();
-        cublasDaxpy_v2(handle, (int) n, &alpha_64, (float64_t *) y_data, (int) y_stride, (float64_t *) z_data, (int) z_stride);
+        cublasDaxpy_v2(handle, (int) n, &alpha_64, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
         cudaDeviceSynchronize();
         break;
     default:
@@ -266,22 +266,22 @@ extern "C" void cu_addition(datatype_t datatype, uint32_t n, const void *x_data,
     }
 }
 
-extern "C" void cu_subtraction(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, const void *y_data, uint32_t y_stride, void *z_data, uint32_t z_stride)
+extern "C" void cu_subtraction(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
         float32_t alpha_32 = -1.0;
-        cublasScopy_v2(handle, (int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) z_data, (int) z_stride); 
+        cublasScopy_v2(handle, (int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) z_data)[z_offset], (int) z_stride); 
         cudaDeviceSynchronize();
-        cublasSaxpy_v2(handle, (int) n, &alpha_32, (float32_t *) y_data, (int) y_stride, (float32_t *) z_data, (int) z_stride);
+        cublasSaxpy_v2(handle, (int) n, &alpha_32, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
         cudaDeviceSynchronize();
         break;
     case FLOAT64:
         float64_t alpha_64 = -1.0;
-        cublasDcopy_v2(handle, (int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) z_data, (int) z_stride);
+        cublasDcopy_v2(handle, (int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
         cudaDeviceSynchronize();
-        cublasDaxpy_v2(handle, (int) n, &alpha_64, (float64_t *) y_data, (int) y_stride, (float64_t *) z_data, (int) z_stride);
+        cublasDaxpy_v2(handle, (int) n, &alpha_64, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
         cudaDeviceSynchronize();
         break;
     default:
@@ -289,15 +289,15 @@ extern "C" void cu_subtraction(datatype_t datatype, uint32_t n, const void *x_da
     }
 }
 
-extern "C" void cu_multiplication(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, const void *y_data, uint32_t y_stride, void *z_data, uint32_t z_stride)
+extern "C" void cu_multiplication(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        cu_multiplication_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride, (float32_t *) z_data, (int) z_stride);
+        cu_multiplication_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
         break;
     case FLOAT64:
-        cu_multiplication_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride, (float64_t *) z_data, (int) z_stride);
+        cu_multiplication_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
         break;
     default:
         break;
@@ -320,15 +320,15 @@ extern "C" static void cu_multiplication_float64(int n, const float64_t *x_data,
     }
 }
 
-extern "C" void cu_division(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, const void *y_data, uint32_t y_stride, void *z_data, uint32_t z_stride)
+extern "C" void cu_division(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        cu_division_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride, (float32_t *) z_data, (int) z_stride);
+        cu_division_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
         break;
     case FLOAT64:
-        cu_division_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride, (float64_t *) z_data, (int) z_stride);
+        cu_division_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
         break;
     default:
         break;
@@ -351,15 +351,15 @@ extern "C" static void cu_division_float64(int n, const float64_t *x_data, int x
     }
 }
 
-extern "C" void cu_power(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, const void *y_data, uint32_t y_stride, void *z_data, uint32_t z_stride)
+extern "C" void cu_power(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        cu_power_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data, (int) y_stride, (float32_t *) z_data, (int) z_stride);
+        cu_power_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
         break;
     case FLOAT64:
-        cu_power_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data, (int) y_stride, (float64_t *) z_data, (int) z_stride);
+        cu_power_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
         break;
     default:
         break;
@@ -382,22 +382,22 @@ extern "C" static void cu_power_float64(int n, const float64_t *x_data, int x_st
     }
 }
 
-extern "C" void cu_matrix_multiplication(datatype_t datatype, uint32_t m, uint32_t k, uint32_t n, bool_t x_transpose, bool_t y_transpose, const void *x_data, const void *y_data, void *z_data)
+extern "C" void cu_matrix_multiplication(datatype_t datatype, uint32_t m, uint32_t k, uint32_t n, bool_t x_transpose, bool_t y_transpose, const void *x_data, uint32_t x_offset, const void *y_data, uint32_t y_offset, void *z_data, uint32_t z_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
         float32_t beta_32 = 0.0;
         float32_t alpha_32 = 1.0;
-        cublasSgemm_v2(handle, (y_transpose) ? CUBLAS_OP_N : CUBLAS_OP_T, (x_transpose) ? CUBLAS_OP_N : CUBLAS_OP_T, 
-                       n, m, k, &alpha_32, (float32_t *) y_data, n, (float32_t *) x_data, k, &beta_32, (float32_t *) z_data, n);
+        cublasSgemm_v2(handle, (y_transpose) ? CUBLAS_OP_N : CUBLAS_OP_T, (x_transpose) ? CUBLAS_OP_N : CUBLAS_OP_T, n, m, k, &alpha_32,
+                       &((float32_t *) y_data)[y_offset], n, &((float32_t *) x_data)[x_offset], k, &beta_32, &((float32_t *) z_data)[z_offset], n);
         cudaDeviceSynchronize();
         break;
     case FLOAT64:
         float64_t beta_64 = 0.0;
         float64_t alpha_64 = 1.0;
-        cublasDgemm_v2(handle, (y_transpose) ? CUBLAS_OP_N : CUBLAS_OP_T, (x_transpose) ? CUBLAS_OP_N : CUBLAS_OP_T, 
-                       n, m, k, &alpha_64, (float64_t *) y_data, n, (float64_t *) x_data, k, &beta_64, (float64_t *) z_data, n);
+        cublasDgemm_v2(handle, (y_transpose) ? CUBLAS_OP_N : CUBLAS_OP_T, (x_transpose) ? CUBLAS_OP_N : CUBLAS_OP_T, n, m, k, &alpha_64,
+                       &((float64_t *) y_data)[y_offset], n, &((float64_t *) x_data)[x_offset], k, &beta_64, &((float64_t *) z_data)[z_offset], n);
         cudaDeviceSynchronize();
         break;
     default:
@@ -405,15 +405,15 @@ extern "C" void cu_matrix_multiplication(datatype_t datatype, uint32_t m, uint32
     }
 }
 
-extern "C" void cu_summation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data)
+extern "C" void cu_summation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        cu_summation_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data);
+        cu_summation_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
         break;
     case FLOAT64:
-        cu_summation_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data);
+        cu_summation_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
         break;
     default:
         break;
@@ -432,15 +432,15 @@ extern "C" static void cu_summation_float64(int n, const float64_t *x_data, int 
     cublasDdot_v2(handle, n, x_data, x_stride, &temp, (int) 1, y_data);
 }
 
-extern "C" void cu_maximum(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, void *y_data)
+extern "C" void cu_maximum(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        cu_maximum_float32((int) n, (float32_t *) x_data, (int) x_stride, (float32_t *) y_data);
+        cu_maximum_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
         break;
     case FLOAT64:
-        cu_maximum_float64((int) n, (float64_t *) x_data, (int) x_stride, (float64_t *) y_data);
+        cu_maximum_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
         break;
     default:
         break;

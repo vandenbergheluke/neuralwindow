@@ -4,7 +4,7 @@
 #include <datatype.h>
 #include <errors.h>
 
-#define MAX_RANK 5
+#define MAX_RANK 4
 
 typedef struct view_t
 {
