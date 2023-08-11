@@ -1357,38 +1357,292 @@ error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, b
     return NULL;
 }
 
-error_t *runtime_summation(buffer_t *x, buffer_t *result)
+typedef enum reduction_t
 {
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(x->view, "x->view");
-    CHECK_NULL_ARGUMENT(x->data, "x->data");
-    CHECK_NULL_ARGUMENT(result, "result");
-    CHECK_NULL_ARGUMENT(result->view, "result->view");
-    CHECK_NULL_ARGUMENT(result->data, "result->data");
+    RUNTIME_SUMMATION,
+    RUNTIME_MAXIMUM
+} reduction_t;
 
-    if (x->datatype != result->datatype)
-    {
-        return ERROR(ERROR_DATATYPE_CONFLICT, string_create("conflicting datatypes %s and %s.", datatype_string(x->datatype), datatype_string(result->datatype)), NULL);
-    }
+static error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_t *result, uint32_t axis)
+{
+    uint32_t idim;
+    uint32_t jdim;
+    uint32_t kdim;
 
-    if (x->runtime != result->runtime)
+    switch (result->view->rank)
     {
-        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->datatype)), NULL);
-    }
-
-    switch (x->runtime)
-    {
-    case OPENBLAS_RUNTIME:
-        openblas_copy(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
+    case 1:
+        switch (reduction)
+        {
+        case RUNTIME_SUMMATION:
+            switch (x->runtime)
+            {
+            case OPENBLAS_RUNTIME:
+                openblas_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
+                break;
+            case MKL_RUNTIME:
+                mkl_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
+                break;
+            case CU_RUNTIME:
+                cu_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
+                break;
+            default:
+                break;
+            }
+            break;
+        case RUNTIME_MAXIMUM:
+            switch (x->runtime)
+            {
+            case OPENBLAS_RUNTIME:
+                openblas_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
+                break;
+            case MKL_RUNTIME:
+                mkl_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
+                break;
+            case CU_RUNTIME:
+                cu_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
+                break;
+            default:
+                break;
+            }
+            break;
+        default:
+            break;
+        }
         break;
-    case MKL_RUNTIME:
-        mkl_copy(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
+    case 2:
+        switch (axis)
+        {
+        case 0:
+            idim = 1;
+            break;
+        case 1:
+            idim = 0;
+            break;
+        default:
+            break;
+        }
+        
+        for (uint32_t i = 0; i < x->view->shape[idim]; i++)
+        {
+            switch (reduction)
+            {
+            case RUNTIME_SUMMATION:
+                switch (x->runtime)
+                {
+                case OPENBLAS_RUNTIME:
+                    openblas_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
+                                       result->data, result->view->offset + i * result->view->strides[idim]);
+                    break;
+                case MKL_RUNTIME:
+                    mkl_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
+                                  result->data, result->view->offset + i * result->view->strides[idim]);
+                    break;
+                case CU_RUNTIME:
+                    cu_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
+                                 result->data, result->view->offset + i * result->view->strides[idim]);
+                    break;
+                default:
+                    break;
+                }
+                break;
+            case RUNTIME_MAXIMUM:
+                switch (x->runtime)
+                {
+                case OPENBLAS_RUNTIME:
+                    openblas_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
+                                     result->data, result->view->offset + i * result->view->strides[idim]);
+                    break;
+                case MKL_RUNTIME:
+                    mkl_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
+                                result->data, result->view->offset + i * result->view->strides[idim]);
+                    break;
+                case CU_RUNTIME:
+                    cu_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
+                               result->data, result->view->offset + i * result->view->strides[idim]);
+                    break;
+                default:
+                    break;
+                }
+                break;
+            default:
+                break;
+            }
+        }
         break;
-    case CU_RUNTIME:
-        cu_copy(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
+    case 3:
+        switch (axis)
+        {
+        case 0:
+            idim = 1;
+            jdim = 2;
+            break;
+        case 1:
+            idim = 0;
+            jdim = 2;
+            break;
+        case 2:
+            idim = 0;
+            jdim = 1;
+            break;
+        default:
+            break;
+        }
+        
+        for (uint32_t i = 0; i < x->view->shape[idim]; i++)
+        {
+            for (uint32_t j = 0; j < x->view->shape[jdim]; j++)
+            {
+                switch (reduction)
+                {
+                case RUNTIME_SUMMATION:
+                    switch (x->runtime)
+                    {
+                    case OPENBLAS_RUNTIME:
+                        openblas_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
+                                           result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
+                        break;
+                    case MKL_RUNTIME:
+                        mkl_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
+                                      result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
+                        break;
+                    case CU_RUNTIME:
+                        cu_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
+                                     result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                case RUNTIME_MAXIMUM:
+                    switch (x->runtime)
+                    {
+                    case OPENBLAS_RUNTIME:
+                        openblas_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
+                                         result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
+                        break;
+                    case MKL_RUNTIME:
+                        mkl_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
+                                    result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
+                        break;
+                    case CU_RUNTIME:
+                        cu_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
+                                   result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+
+        break;
+    case 4:
+        switch (axis)
+        {
+        case 0:
+            idim = 1;
+            jdim = 2;
+            kdim = 3;
+            break;
+        case 1:
+            idim = 0;
+            jdim = 2;
+            kdim = 3;
+            break;
+        case 2:
+            idim = 0;
+            jdim = 1;
+            kdim = 3;
+            break;
+        case 3:
+            idim = 0;
+            jdim = 1;
+            kdim = 2;
+            break;
+        default:
+            break;
+        }
+        
+        for (uint32_t i = 0; i < x->view->shape[idim]; i++)
+        {
+            for (uint32_t j = 0; j < x->view->shape[jdim]; j++)
+            {
+                for (uint32_t k = 0; k < x->view->shape[kdim]; k++)
+                {
+                    switch (reduction)
+                    {
+                    case RUNTIME_SUMMATION:
+                        switch (x->runtime)
+                        {
+                        case OPENBLAS_RUNTIME:
+                            openblas_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
+                                               result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
+                            break;
+                        case MKL_RUNTIME:
+                            mkl_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
+                                          result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
+                            break;
+                        case CU_RUNTIME:
+                            cu_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
+                                         result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
+                            break;
+                        default:
+                            break;
+                        }
+                        break;
+                    case RUNTIME_MAXIMUM:
+                        switch (x->runtime)
+                        {
+                        case OPENBLAS_RUNTIME:
+                            openblas_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
+                                             result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
+                            break;
+                        case MKL_RUNTIME:
+                            mkl_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
+                                        result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
+                            break;
+                        case CU_RUNTIME:
+                            cu_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
+                                       result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
+                            break;
+                        default:
+                            break;
+                        }
+                        break;
+                    default:
+                        break;
+                    }
+                }
+            }
+        }
+
         break;
     default:
-        return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->datatype), NULL);
+        break;
+    }
+}
+
+error_t *runtime_summation(buffer_t *x, buffer_t *result, uint32_t axis)
+{
+    error_t *error = runtime_reduction(RUNTIME_SUMMATION, x, result, axis);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_REDUCTION, string_create("failed to apply reduction operation."), error);
+    }
+
+    return NULL;
+}
+
+error_t *runtime_maximum(buffer_t *x, buffer_t *result, uint32_t axis)
+{
+    error_t *error = runtime_reduction(RUNTIME_MAXIMUM, x, result, axis);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_REDUCTION, string_create("failed to apply reduction operation."), error);
     }
 
     return NULL;
