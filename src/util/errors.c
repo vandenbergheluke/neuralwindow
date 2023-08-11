@@ -84,6 +84,8 @@ string_t error_type_string(error_type_t error_type)
         return "ERROR_RESHAPE";
     case ERROR_SLICE:
         return "ERROR_SLICE";
+    case ERROR_BINARY_ELEMENTWISE:
+        return "ERROR_BINARY_ELEMENTWISE";
     default:
         return "ERROR";
     }

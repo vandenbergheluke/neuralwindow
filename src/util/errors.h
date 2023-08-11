@@ -33,7 +33,8 @@ typedef enum error_type_t
     ERROR_SUMMATION,
     ERROR_SQUARE_ROOT,
     ERROR_RESHAPE,
-    ERROR_SLICE
+    ERROR_SLICE,
+    ERROR_BINARY_ELEMENTWISE
 } error_type_t;
 
 typedef struct error_t
