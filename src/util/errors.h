@@ -46,7 +46,10 @@ typedef enum error_type_t
     ERROR_NEGATION,
     ERROR_SUBTRACTION,
     ERROR_POWER,
-    ERROR_MATRIX_MULTIPLICATION
+    ERROR_MATRIX_MULTIPLICATION,
+    ERROR_COMPARE_EQUAL,
+    ERROR_PADDING,
+    ERROR_RECTIFIED_LINEAR,
 } error_type_t;
 
 typedef struct error_t

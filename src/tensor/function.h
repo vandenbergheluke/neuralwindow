@@ -19,12 +19,14 @@ typedef enum unary_operation_type_t
     RECIPROCAL_OPERATION,
     COPY_OPERATION,
     CONTIGUOUS_OPERATION,
-    NEGATION_OPERATION
+    NEGATION_OPERATION,
+    RECTIFIED_LINEAR_OPERATION
 } unary_operation_type_t;
 
 typedef struct unary_operation_t
 {
     tensor_t *x;
+    tensor_t *result;
     unary_operation_type_t operation_type;
 } unary_operation_t;
 
@@ -49,12 +51,13 @@ typedef struct binary_operation_t
 {
     tensor_t *x;
     tensor_t *y;
+    tensor_t *result;
     binary_operation_type_t operation_type;
 } binary_operation_t;
 
 error_t *binary_operation_create(binary_operation_t **operation, binary_operation_type_t operation_type, tensor_t *x, tensor_t *y);
 void binary_operation_destroy(binary_operation_t *operation);
-error_t *binary_operation_forward(const binary_operation_t *operation, tensor_t *result);
+error_t *binary_operation_forward(binary_operation_t *operation, tensor_t *result);
 error_t *binary_operation_backward(binary_operation_t *binary_operation, tensor_t *gradient);
 error_t *apply_function_binary(binary_operation_type_t binary_operation_type, tensor_t *x, tensor_t *y, tensor_t *z);
 
@@ -68,6 +71,7 @@ typedef enum reduction_operation_type_t
 typedef struct reduction_operation_t
 {
     tensor_t *x;
+    tensor_t *result;
     uint32_t *axis;
     uint32_t rank;
     bool_t keep_dimension;
@@ -95,6 +99,7 @@ typedef enum structure_operation_type_t
 typedef struct structure_operation_t
 {
     tensor_t *x;
+    tensor_t *result;
     uint32_t *arguments;
     uint32_t length;
     structure_operation_type_t operation_type;

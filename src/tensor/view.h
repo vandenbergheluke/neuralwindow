@@ -25,6 +25,9 @@ error_t *reverse_permute(const uint32_t *axis, uint32_t rank, uint32_t *reverse_
 error_t *reduce(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *original_strides, 
                 uint32_t *reduced_shape, uint32_t reduced_rank, uint32_t *reduced_strides,
                 const uint32_t *axis, uint32_t rank, bool_t keep_dimensions);
+error_t *reduce_recover_dimensions(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *original_strides, 
+                                   uint32_t *reduced_shape, uint32_t reduced_rank, uint32_t *reduced_strides,
+                                   const uint32_t *axis, uint32_t rank);
 bool_t shapes_equal(const uint32_t *x_shape, uint32_t x_rank, const uint32_t *y_shape, uint32_t y_rank);
 uint32_t shape_size(const uint32_t *shape, uint32_t rank);
 error_t *strides_from_shape(uint32_t *strides, const uint32_t *shape, uint32_t rank);

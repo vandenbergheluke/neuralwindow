@@ -189,6 +189,38 @@ error_t *reverse_permute(const uint32_t *axis, uint32_t rank, uint32_t *reverse_
     return NULL;
 }
 
+error_t *reduce_recover_dimensions(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *original_strides, 
+                                   uint32_t *reduced_shape, uint32_t reduced_rank, uint32_t *reduced_strides,
+                                   const uint32_t *axis, uint32_t rank)
+{
+    CHECK_NULL_ARGUMENT(original_shape, "original_shape");
+    CHECK_NULL_ARGUMENT(original_strides , "original_strides");
+    CHECK_NULL_ARGUMENT(reduced_shape, "reduced_shape");
+    CHECK_NULL_ARGUMENT(reduced_strides, "reduced_strides");
+    CHECK_NULL_ARGUMENT(axis, "axis");
+
+    for (uint32_t i = 0; i < original_rank; i++)
+    {
+        bool_t reduced = false;
+        for (uint32_t j = 0; j < rank; j++)
+        {
+            if (axis[j] == i)
+            {
+                reduced_shape[axis[i]] = 1;
+                reduced_strides[axis[i]] = 0;
+                reduced = true;
+            }
+        }
+        if (!reduced)
+        {
+            reduced_shape[i] = original_shape[i];
+            reduced_strides[i] = original_strides[i];
+        }
+    }
+
+    return NULL;
+}
+
 error_t *reduce(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *original_strides, 
                 uint32_t *reduced_shape, uint32_t reduced_rank, uint32_t *reduced_strides,
                 const uint32_t *axis, uint32_t rank, bool_t keep_dimensions)
