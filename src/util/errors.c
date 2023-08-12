@@ -102,6 +102,8 @@ string_t error_type_string(error_type_t error_type)
         return "ERROR_RECIPROCAL";
     case ERROR_NEGATION:
         return "ERROR_NEGATION";
+    case ERROR_MATRIX_MULTIPLICATION:
+        return "ERROR_MATRIX_MULTIPLICATION";
     default:
         return "ERROR";
     }
