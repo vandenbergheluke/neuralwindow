@@ -124,6 +124,21 @@ void mkl_copy(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_st
     }
 }
 
+void mkl_negation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        cblas_saxpby((int) n, (float32_t) -1.0, &((float32_t *) x_data)[x_offset], (int) x_stride, (float32_t) 0.0, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        break;
+    case FLOAT64:
+        cblas_daxpby((int) n, (float64_t) -1.0, &((float64_t *) x_data)[x_offset], (int) x_stride, (float64_t) 0.0, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        break;
+    default:
+        break;
+    }
+}
+
 void mkl_addition(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
 {
     switch (datatype)

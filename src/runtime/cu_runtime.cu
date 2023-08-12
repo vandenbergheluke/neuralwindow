@@ -243,6 +243,37 @@ extern "C" void cu_copy(datatype_t datatype, uint32_t n, const void *x_data, uin
     }
 }
 
+void cu_negation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        cu_negation_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        break;
+    case FLOAT64:
+        cu_negation_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        break;
+    default:
+        break;
+    }
+}
+
+extern "C" static void cu_negation_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
+{
+    float32_t alpha = -1.0;
+    cudaMemset(y_data, 0, n * sizeof(float32_t));
+    cublasSaxpy_v2(handle, (int) n, &alpha, x_data, (int) x_stride, y_data, (int) y_stride);
+    cudaDeviceSynchronize();
+}
+
+extern "C" static void cu_negation_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
+{
+    float64_t alpha = -1.0;
+    cudaMemset(y_data, 0, n * sizeof(float64_t));
+    cublasDaxpy_v2(handle, (int) n, &alpha, x_data, (int) x_stride, y_data, (int) y_stride);
+    cudaDeviceSynchronize();
+}
+
 extern "C" void cu_addition(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
 {
     switch (datatype)

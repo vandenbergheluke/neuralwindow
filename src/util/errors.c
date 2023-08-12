@@ -88,6 +88,20 @@ string_t error_type_string(error_type_t error_type)
         return "ERROR_BINARY_ELEMENTWISE";
     case ERROR_REDUCTION:
         return "ERROR_REDUCTION";
+    case ERROR_EXPONENTIAL:
+        return "ERROR_EXPONENTIAL";
+    case ERROR_LOGARITHM:
+        return "ERROR_LOGARITHM";
+    case ERROR_DIVISION:
+        return "ERROR_DIVISION";
+    case ERROR_SINE:
+        return "ERROR_SINE";
+    case ERROR_COSINE:
+        return "ERROR_COSINE";
+    case ERROR_RECIPROCAL:
+        return "ERROR_RECIPROCAL";
+    case ERROR_NEGATION:
+        return "ERROR_NEGATION";
     default:
         return "ERROR";
     }

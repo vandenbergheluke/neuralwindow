@@ -38,5 +38,14 @@ error_t *runtime_square_root(buffer_t *x, buffer_t *result);
 error_t *runtime_reciprocal(buffer_t *x, buffer_t *result);
 error_t *runtime_copy(buffer_t *x, buffer_t *result);
 error_t *runtime_contiguous(buffer_t *x, buffer_t *result);
+error_t *runtime_negation(buffer_t *x, buffer_t *result);
+error_t *runtime_addition(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
+error_t *runtime_subtraction(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
+error_t *runtime_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
+error_t *runtime_division(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
+error_t *runtime_power(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
+error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
+error_t *runtime_summation(buffer_t *x, buffer_t *result, uint32_t axis);
+error_t *runtime_maximum(buffer_t *x, buffer_t *result, uint32_t axis);
 
 #endif

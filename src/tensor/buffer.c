@@ -605,6 +605,53 @@ error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
     }
 }
 
+error_t *runtime_negation(buffer_t *x, buffer_t *result)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->view, "x->view");
+    CHECK_NULL_ARGUMENT(x->data, "x->data");
+    CHECK_NULL_ARGUMENT(result, "result");
+    CHECK_NULL_ARGUMENT(result->view, "result->view");
+    CHECK_NULL_ARGUMENT(result->data, "result->data");
+
+    if (x->datatype != result->datatype)
+    {
+        return ERROR(ERROR_DATATYPE_CONFLICT, string_create("conflicting datatypes %s and %s.", datatype_string(x->datatype), datatype_string(result->datatype)), NULL);
+    }
+
+    if (x->runtime != result->runtime)
+    {
+        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->datatype)), NULL);
+    }
+
+    if (x->n != result->n)
+    {
+        return ERROR(ERROR_SHAPE_CONFLICT, string_create("conflicting number of elements in buffer %u and %u.", x->n, result->n), NULL);
+    }
+
+    if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, x->view->rank))
+    {
+        return ERROR(ERROR_SHAPE_CONFLICT, string_create("conflicting shapes in buffer."), NULL);
+    }
+
+    switch (x->runtime)
+    {
+    case OPENBLAS_RUNTIME:
+        openblas_negation(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
+        break;
+    case MKL_RUNTIME:
+        mkl_negation(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
+        break;
+    case CU_RUNTIME:
+        cu_negation(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
+        break;
+    default:
+        return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->datatype), NULL);
+    }
+
+    return NULL;
+}
+
 typedef enum binary_elementwise_t
 {
     RUNTIME_ADDITION,

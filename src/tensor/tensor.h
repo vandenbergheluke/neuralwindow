@@ -43,6 +43,8 @@ error_t *tensor_cosine(const tensor_t *x, tensor_t *y);
 error_t *tensor_exponential(const tensor_t *x, tensor_t *y);
 error_t *tensor_square_root(const tensor_t *x, tensor_t *y);
 error_t *tensor_reciprocal(const tensor_t *x, tensor_t *y);
+error_t *tensor_negation(const tensor_t *x, tensor_t *y);
+error_t *tensor_constant(void *constant, datatype_t datatype, runtime_t runtime, tensor_t *x);
 error_t *tensor_as_zeroes(const tensor_t *x, tensor_t *y);
 error_t *tensor_as_ones(const tensor_t *x, tensor_t *y);
 bool_t tensor_is_empty(const tensor_t *x);

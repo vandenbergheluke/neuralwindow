@@ -18,7 +18,8 @@ typedef enum unary_operation_type_t
     SQUARE_ROOT_OPERATION,
     RECIPROCAL_OPERATION,
     COPY_OPERATION,
-    CONTIGUOUS_OPERATION
+    CONTIGUOUS_OPERATION,
+    NEGATION_OPERATION
 } unary_operation_type_t;
 
 typedef struct unary_operation_t

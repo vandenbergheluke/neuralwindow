@@ -434,6 +434,48 @@ error_t *tensor_reciprocal(const tensor_t *x, tensor_t *y)
     return NULL;
 }
 
+error_t *tensor_negation(const tensor_t *x, tensor_t *y)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    error_t *error = apply_function_unary(NEGATION_OPERATION, x, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to apply negation to tensor."), error);
+    }
+
+    return NULL;
+}
+
+error_t *tensor_constant(void *constant, datatype_t datatype, runtime_t runtime, tensor_t *x)
+{
+    if (!tensor_is_empty(x))
+    {
+        return ERROR(ERROR_CREATE, string_create("tensor x is not empty."), NULL);
+    }
+
+    view_t *view;
+    buffer_t *buffer;
+    error_t *error;
+
+    error = view_create(&view, 0, 1, (uint32_t[]){1}, NULL);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    error = buffer_create(&buffer, runtime, datatype, view, constant, datatype_size(datatype), true);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    x->buffer = buffer;
+
+    return NULL;
+}
+
 static error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *tensors)
 {
     if (tensor == NULL)
