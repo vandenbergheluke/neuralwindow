@@ -51,6 +51,7 @@ typedef enum error_type_t
     ERROR_COMPARE_GREATER,
     ERROR_PADDING,
     ERROR_RECTIFIED_LINEAR,
+    ERROR_AXIS
 } error_type_t;
 
 typedef struct error_t

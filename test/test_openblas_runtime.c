@@ -52,11 +52,7 @@ void teardown(void)
 
 START_TEST(test_addition)
 {
-    error = openblas_addition(FLOAT32,
-                              4,
-                              test_case_data_float32_1,
-                              test_case_data_float32_2,
-                              test_case_data_float32_3);
+    openblas_addition(FLOAT32, 4, test_case_data_float32_1, 1, 0, test_case_data_float32_2, 1, 0, test_case_data_float32_3, 1, 0);
     if (error != NULL)
     {
         error_print(error);

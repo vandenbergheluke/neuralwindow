@@ -20,21 +20,6 @@ void openblas_memory_free(void *p)
     free(p);
 }
 
-void openblas_exponential(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
-{
-    switch (datatype)
-    {
-    case FLOAT32:
-        openblas_exponential_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
-        break;
-    case FLOAT64:
-        openblas_exponential_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
-        break;
-    default:
-        break;
-    }
-}
-
 static void openblas_exponential_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
     for (int i = 0; i < n; i++)
@@ -51,15 +36,15 @@ static void openblas_exponential_float64(int n, const float64_t *x_data, int x_s
     }
 }
 
-void openblas_logarithm(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void openblas_exponential(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        openblas_logarithm_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        openblas_exponential_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         break;
     case FLOAT64:
-        openblas_logarithm_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        openblas_exponential_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         break;
     default:
         break;
@@ -82,15 +67,15 @@ static void openblas_logarithm_float64(int n, const float64_t *x_data, int x_str
     }
 }
 
-void openblas_sine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void openblas_logarithm(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        openblas_sine_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        openblas_logarithm_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         break;
     case FLOAT64:
-        openblas_sine_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        openblas_logarithm_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         break;
     default:
         break;
@@ -113,15 +98,15 @@ static void openblas_sine_float64(int n, const float64_t *x_data, int x_stride, 
     }
 }
 
-void openblas_cosine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void openblas_sine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        openblas_cosine_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        openblas_sine_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         break;
     case FLOAT64:
-        openblas_cosine_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        openblas_sine_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         break;
     default:
         break;
@@ -144,15 +129,15 @@ static void openblas_cosine_float64(int n, const float64_t *x_data, int x_stride
     }
 }
 
-void openblas_square_root(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void openblas_cosine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        openblas_square_root_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        openblas_cosine_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         break;
     case FLOAT64:
-        openblas_square_root_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        openblas_cosine_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         break;
     default:
         break;
@@ -175,15 +160,15 @@ static void openblas_square_root_float64(int n, const float64_t *x_data, int x_s
     }
 }
 
-void openblas_reciprocal(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void openblas_square_root(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        openblas_reciprocal_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        openblas_square_root_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         break;
     case FLOAT64:
-        openblas_reciprocal_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        openblas_square_root_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         break;
     default:
         break;
@@ -203,6 +188,21 @@ static void openblas_reciprocal_float64(int n, const float64_t *x_data, int x_st
     for (int i = 0; i < n; i++)
     {
         y_data[i * y_stride] = 1. / x_data[i * x_stride]; 
+    }
+}
+
+void openblas_reciprocal(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        openblas_reciprocal_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        break;
+    case FLOAT64:
+        openblas_reciprocal_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        break;
+    default:
+        break;
     }
 }
 
@@ -236,21 +236,6 @@ void openblas_negation(datatype_t datatype, uint32_t n, const void *x_data, uint
     }
 }
 
-void openblas_rectified_linear(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
-{
-    switch (datatype)
-    {
-    case FLOAT32:
-        openblas_rectified_linear_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
-        break;
-    case FLOAT64:
-        openblas_rectified_linear_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
-        break;
-    default:
-        break;
-    }
-}
-
 static void openblas_rectified_linear_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
     for (int i = 0; i < n; i++)
@@ -266,6 +251,21 @@ static void openblas_rectified_linear_float64(int n, const float64_t *x_data, in
     {
         float64_t value = x_data[i * x_stride];
         y_data[i * y_stride] = (value > 0.0) ? value : (float64_t) 0.0; 
+    }
+}
+
+void openblas_rectified_linear(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        openblas_rectified_linear_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        break;
+    case FLOAT64:
+        openblas_rectified_linear_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        break;
+    default:
+        break;
     }
 }
 
@@ -303,21 +303,6 @@ void openblas_subtraction(datatype_t datatype, uint32_t n, const void *x_data, u
     }
 }
 
-void openblas_multiplication(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
-{
-    switch (datatype)
-    {
-    case FLOAT32:
-        openblas_multiplication_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
-        break;
-    case FLOAT64:
-        openblas_multiplication_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
-        break;
-    default:
-        break;
-    }
-}
-
 static void openblas_multiplication_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
     for (int i = 0; i < n; i++)
@@ -334,15 +319,15 @@ static void openblas_multiplication_float64(int n, const float64_t *x_data, int 
     }
 }
 
-void openblas_division(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+void openblas_multiplication(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        openblas_division_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        openblas_multiplication_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
         break;
     case FLOAT64:
-        openblas_division_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        openblas_multiplication_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
         break;
     default:
         break;
@@ -365,15 +350,15 @@ static void openblas_division_float64(int n, const float64_t *x_data, int x_stri
     }
 }
 
-void openblas_power(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+void openblas_division(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        openblas_power_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        openblas_division_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
         break;
     case FLOAT64:
-        openblas_power_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        openblas_division_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
         break;
     default:
         break;
@@ -396,15 +381,15 @@ static void openblas_power_float64(int n, const float64_t *x_data, int x_stride,
     }
 }
 
-void openblas_compare_equal(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+void openblas_power(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        openblas_compare_equal_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        openblas_power_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
         break;
     case FLOAT64:
-        openblas_compare_equal_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        openblas_power_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
         break;
     default:
         break;
@@ -427,15 +412,15 @@ static void openblas_compare_equal_float64(int n, const float64_t *x_data, int x
     }
 }
 
-void openblas_compare_greater(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+void openblas_compare_equal(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        openblas_compare_greater_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        openblas_compare_equal_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
         break;
     case FLOAT64:
-        openblas_compare_greater_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        openblas_compare_equal_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
         break;
     default:
         break;
@@ -458,6 +443,21 @@ static void openblas_compare_greater_float64(int n, const float64_t *x_data, int
     }
 }
 
+void openblas_compare_greater(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        openblas_compare_greater_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        break;
+    case FLOAT64:
+        openblas_compare_greater_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        break;
+    default:
+        break;
+    }
+}
+
 void openblas_matrix_multiplication(datatype_t datatype, uint32_t m, uint32_t k, uint32_t n, bool_t x_transpose, bool_t y_transpose, const void *x_data, uint32_t x_offset, const void *y_data, uint32_t y_offset, void *z_data, uint32_t z_offset)
 {
     switch (datatype)
@@ -469,21 +469,6 @@ void openblas_matrix_multiplication(datatype_t datatype, uint32_t m, uint32_t k,
     case FLOAT64:
         cblas_dgemm(CblasRowMajor, (x_transpose) ? CblasNoTrans: CblasTrans, (y_transpose) ? CblasNoTrans : CblasTrans, (int) m, (int) n, (int) k, 1.0, 
                     &((float64_t *) x_data)[x_offset], (int) m, &((float64_t *) y_data)[y_offset], (int) k, 0.0, &((float64_t *) z_data)[z_offset], (int) m);
-        break;
-    default:
-        break;
-    }
-}
-
-void openblas_summation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_offset)
-{
-    switch (datatype)
-    {
-    case FLOAT32:
-        openblas_summation_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
-        break;
-    case FLOAT64:
-        openblas_summation_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
         break;
     default:
         break;
@@ -502,15 +487,15 @@ static void openblas_summation_float64(int n, const float64_t *x_data, int x_str
     *y_data = cblas_ddot(n, x_data, x_stride, &temp, (int) 1);
 }
 
-void openblas_maximum(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_offset)
+void openblas_summation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        openblas_maximum_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
+        openblas_summation_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
         break;
     case FLOAT64:
-        openblas_maximum_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
+        openblas_summation_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
         break;
     default:
         break;
@@ -522,7 +507,7 @@ static void openblas_maximum_float32(int n, const float32_t *x_data, int x_strid
     float32_t maximum = *x_data;
     for (int i = 1; i < n; i++)
     {
-        float32_t candidate = x_data[i];
+        float32_t candidate = x_data[i * x_stride];
         if (maximum < candidate)
         {
             maximum = candidate;
@@ -536,11 +521,26 @@ static void openblas_maximum_float64(int n, const float64_t *x_data, int x_strid
     float64_t maximum = *x_data;
     for (int i = 1; i < n; i++)
     {
-        float64_t candidate = x_data[i];
+        float64_t candidate = x_data[i * x_stride];
         if (maximum < candidate)
         {
             maximum = candidate;
         }
     }
     *y_data = maximum;
+}
+
+void openblas_maximum(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_offset)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        openblas_maximum_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
+        break;
+    case FLOAT64:
+        openblas_maximum_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
+        break;
+    default:
+        break;
+    }
 }

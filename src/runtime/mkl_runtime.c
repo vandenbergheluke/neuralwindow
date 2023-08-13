@@ -72,7 +72,7 @@ void mkl_cosine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_
         vsCosI((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         break;
     case FLOAT64:
-        cdCosI((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        vdCosI((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         break;
     default:
         break;
@@ -139,21 +139,6 @@ void mkl_negation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t 
     }
 }
 
-void mkl_rectified_linear(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
-{
-    switch (datatype)
-    {
-    case FLOAT32:
-        mkl_rectified_linear_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
-        break;
-    case FLOAT64:
-        mkl_rectified_linear_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
-        break;
-    default:
-        break;
-    }
-}
-
 static void mkl_rectified_linear_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
     for (int i = 0; i < n; i++)
@@ -169,6 +154,21 @@ static void mkl_rectified_linear_float64(int n, const float64_t *x_data, int x_s
     {
         float64_t value = x_data[i * x_stride];
         y_data[i * y_stride] = (value > 0.0) ? value : (float64_t) 0.0; 
+    }
+}
+
+void mkl_rectified_linear(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        mkl_rectified_linear_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        break;
+    case FLOAT64:
+        mkl_rectified_linear_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        break;
+    default:
+        break;
     }
 }
 
@@ -247,21 +247,6 @@ void mkl_power(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_s
     }
 }
 
-void mkl_compare_equal(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
-{
-    switch (datatype)
-    {
-    case FLOAT32:
-        mkl_compare_equal_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
-        break;
-    case FLOAT64:
-        mkl_compare_equal_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
-        break;
-    default:
-        break;
-    }
-}
-
 static void mkl_compare_equal_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
     for (int i = 0; i < n; i++)
@@ -278,15 +263,15 @@ static void mkl_compare_equal_float64(int n, const float64_t *x_data, int x_stri
     }
 }
 
-void mkl_compare_greater(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+void mkl_compare_equal(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        mkl_compare_greater_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        mkl_compare_equal_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
         break;
     case FLOAT64:
-        mkl_compare_greater_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        mkl_compare_equal_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
         break;
     default:
         break;
@@ -309,6 +294,21 @@ static void mkl_compare_greater_float64(int n, const float64_t *x_data, int x_st
     }
 }
 
+void mkl_compare_greater(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        mkl_compare_greater_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        break;
+    case FLOAT64:
+        mkl_compare_greater_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        break;
+    default:
+        break;
+    }
+}
+
 void mkl_matrix_multiplication(datatype_t datatype, uint32_t m, uint32_t k, uint32_t n, bool_t x_transpose, bool_t y_transpose, const void *x_data, uint32_t x_offset, const void *y_data, uint32_t y_offset, void *z_data, uint32_t z_offset)
 {
     switch (datatype)
@@ -320,21 +320,6 @@ void mkl_matrix_multiplication(datatype_t datatype, uint32_t m, uint32_t k, uint
     case FLOAT64:
         cblas_dgemm(CblasRowMajor, (x_transpose) ? CblasNoTrans: CblasTrans, (y_transpose) ? CblasNoTrans : CblasTrans, (int) m, (int) n, (int) k, 1.0, 
                     &((float64_t *) x_data)[x_offset], (int) m, &((float64_t *) y_data)[y_offset], (int) k, 0.0, &((float64_t *) z_data)[z_offset], (int) m);
-        break;
-    default:
-        break;
-    }
-}
-
-void mkl_summation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_offset)
-{
-    switch (datatype)
-    {
-    case FLOAT32:
-        mkl_summation_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
-        break;
-    case FLOAT64:
-        mkl_summation_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
         break;
     default:
         break;
@@ -353,15 +338,15 @@ static void mkl_summation_float64(int n, const float64_t *x_data, int x_stride, 
     *y_data = cblas_ddot(n, x_data, x_stride, &temp, (int) 1);
 }
 
-void mkl_maximum(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_offset)
+void mkl_summation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_offset)
 {
     switch (datatype)
     {
     case FLOAT32:
-        mkl_maximum_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
+        mkl_summation_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
         break;
     case FLOAT64:
-        mkl_maximum_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
+        mkl_summation_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
         break;
     default:
         break;
@@ -373,7 +358,7 @@ static void mkl_maximum_float32(int n, const float32_t *x_data, int x_stride, fl
     float32_t maximum = *x_data;
     for (int i = 1; i < n; i++)
     {
-        float32_t candidate = x_data[i];
+        float32_t candidate = x_data[i * x_stride];
         if (maximum < candidate)
         {
             maximum = candidate;
@@ -387,11 +372,26 @@ static void mkl_maximum_float64(int n, const float64_t *x_data, int x_stride, fl
     float64_t maximum = *x_data;
     for (int i = 1; i < n; i++)
     {
-        float64_t candidate = x_data[i];
+        float64_t candidate = x_data[i * x_stride];
         if (maximum < candidate)
         {
             maximum = candidate;
         }
     }
     *y_data = maximum;
+}
+
+void mkl_maximum(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_offset)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        mkl_maximum_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
+        break;
+    case FLOAT64:
+        mkl_maximum_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
+        break;
+    default:
+        break;
+    }
 }

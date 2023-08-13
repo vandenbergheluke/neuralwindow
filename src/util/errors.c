@@ -112,6 +112,8 @@ string_t error_type_string(error_type_t error_type)
         return "ERROR_PADDING";
     case ERROR_RECTIFIED_LINEAR:
         return "ERROR_RECTIFIED_LINEAR";
+    case ERROR_AXIS:
+        return "ERROR_AXIS";
     default:
         return "ERROR";
     }

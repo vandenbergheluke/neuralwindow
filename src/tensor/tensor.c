@@ -74,9 +74,9 @@ error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_original
 
     error_t *error;
     uint32_t *x_shape = x_original->buffer->view->shape; 
-    uint32_t *x_rank = x_original->buffer->view->rank; 
+    uint32_t x_rank = x_original->buffer->view->rank; 
     uint32_t *y_shape = y_original->buffer->view->shape; 
-    uint32_t *y_rank = y_original->buffer->view->rank; 
+    uint32_t y_rank = y_original->buffer->view->rank; 
     uint32_t broadcasted_rank = MAX(x_rank, y_rank);
     uint32_t *broadcasted_shape = (uint32_t *) malloc(broadcasted_rank * sizeof(uint32_t));
     if (broadcasted_shape == NULL)
@@ -84,7 +84,7 @@ error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_original
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate broadcast shape of %zu bytes.", broadcasted_rank * sizeof(uint32_t)), NULL);
     }
 
-    error = broadcast_shapes(x_shape, x_rank, y_shape, y_rank, broadcasted_shape, broadcasted_rank);
+    error = broadcast_shapes(x_shape, x_rank, y_shape, y_rank, broadcasted_shape, &broadcasted_rank);
     if (error != NULL)
     {
         free(broadcasted_shape);
@@ -221,7 +221,7 @@ error_t *tensor_summation(const tensor_t *x, tensor_t *y, const uint32_t *axis, 
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(axis, "axis");
 
-    error_t *error = apply_function_reduction(SUMMATION_OPERATION, x, axis, rank, y, keep_dimension);
+    error_t *error = apply_function_reduction(SUMMATION_OPERATION, x, axis, rank, keep_dimension, y);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to reduce tensor."), error);
@@ -236,7 +236,7 @@ error_t *tensor_maximum(const tensor_t *x, tensor_t *y, const uint32_t *axis, ui
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(axis, "axis");
 
-    error_t *error = apply_function_reduction(MAXIMUM_OPERATION, x, axis, rank, y, keep_dimension);
+    error_t *error = apply_function_reduction(MAXIMUM_OPERATION, x, axis, rank, keep_dimension, y);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to reduce tensor."), error);
@@ -260,11 +260,11 @@ error_t *tensor_reshape(const tensor_t *x, tensor_t *y, const uint32_t *shape, u
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
-    tensor_t *x_contiguous;
     error_t *error;
 
     if (!tensor_is_contiguous(x))
     {
+        tensor_t *x_contiguous;
         error = tensor_create_empty(&x_contiguous);
         if (error != NULL)
         {
@@ -276,16 +276,20 @@ error_t *tensor_reshape(const tensor_t *x, tensor_t *y, const uint32_t *shape, u
         {
             return ERROR(ERROR_CONTIGUOUS, string_create("failed to apply contiguous operation to tensor."), error);
         }
+
+        error = apply_function_structure(RESHAPE_OPERATION, x_contiguous, shape, rank, y);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_FORWARD, string_create("failed to reshape tensor."), error);
+        }
     }
     else
     {
-        x_contiguous = x;
-    }
-
-    error_t *error = apply_function_structure(RESHAPE_OPERATION, x_contiguous, shape, rank, y);
-    if (error != NULL)
-    {
-        return ERROR(ERROR_FORWARD, string_create("failed to reshape tensor."), error);
+        error = apply_function_structure(RESHAPE_OPERATION, x, shape, rank, y);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_FORWARD, string_create("failed to reshape tensor."), error);
+        }
     }
 
     return NULL;
@@ -509,7 +513,7 @@ static error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *tens
             error = topological_sort(tensor->context->operation->structure_operation->x, visited, tensors);
             break;
         default:
-            error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) tensor->context->operation), NULL);
+            error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) tensor->context->operation_type), NULL);
         }
 
         if (error != NULL)
@@ -690,7 +694,7 @@ error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
     while (tensors->size > 0)
     {
         tensor_t *y;
-        error = stack_pop(tensors, &y);
+        error = stack_pop(tensors, (void **) &y);
         if (error != NULL)
         {
             return ERROR(ERROR_DESTROY, string_create("failed to pop tensor from stack"), error);

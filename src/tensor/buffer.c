@@ -181,7 +181,7 @@ error_t *runtime_exponential(buffer_t *x, buffer_t *result)
 
     if (x->runtime != result->runtime)
     {
-        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->datatype)), NULL);
+        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->runtime)), NULL);
     }
 
     if (x->n != result->n)
@@ -228,7 +228,7 @@ error_t *runtime_logarithm(buffer_t *x, buffer_t *result)
 
     if (x->runtime != result->runtime)
     {
-        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->datatype)), NULL);
+        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->runtime)), NULL);
     }
 
     if (x->n != result->n)
@@ -275,7 +275,7 @@ error_t *runtime_sine(buffer_t *x, buffer_t *result)
 
     if (x->runtime != result->runtime)
     {
-        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->datatype)), NULL);
+        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->runtime)), NULL);
     }
 
     if (x->n != result->n)
@@ -322,7 +322,7 @@ error_t *runtime_cosine(buffer_t *x, buffer_t *result)
 
     if (x->runtime != result->runtime)
     {
-        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->datatype)), NULL);
+        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->runtime)), NULL);
     }
 
     if (x->n != result->n)
@@ -369,7 +369,7 @@ error_t *runtime_square_root(buffer_t *x, buffer_t *result)
 
     if (x->runtime != result->runtime)
     {
-        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->datatype)), NULL);
+        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->runtime)), NULL);
     }
 
     if (x->n != result->n)
@@ -416,7 +416,7 @@ error_t *runtime_reciprocal(buffer_t *x, buffer_t *result)
 
     if (x->runtime != result->runtime)
     {
-        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->datatype)), NULL);
+        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->runtime)), NULL);
     }
 
     if (x->n != result->n)
@@ -463,7 +463,7 @@ error_t *runtime_copy(buffer_t *x, buffer_t *result)
 
     if (x->runtime != result->runtime)
     {
-        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->datatype)), NULL);
+        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->runtime)), NULL);
     }
 
     if (x->n != result->n)
@@ -603,6 +603,8 @@ error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
     default:
         return ERROR(ERROR_RANK_CONFLICT, string_create("only support tensors rank between 1-4."), NULL);
     }
+
+    return NULL;
 }
 
 error_t *runtime_negation(buffer_t *x, buffer_t *result)
@@ -621,7 +623,7 @@ error_t *runtime_negation(buffer_t *x, buffer_t *result)
 
     if (x->runtime != result->runtime)
     {
-        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->datatype)), NULL);
+        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->runtime)), NULL);
     }
 
     if (x->n != result->n)
@@ -668,7 +670,7 @@ error_t *runtime_rectified_linear(buffer_t *x, buffer_t *result)
 
     if (x->runtime != result->runtime)
     {
-        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->datatype)), NULL);
+        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->runtime)), NULL);
     }
 
     if (x->n != result->n)
@@ -1080,8 +1082,8 @@ static error_t *runtime_binary_elementwise(binary_elementwise_t binary_elementwi
                 break;
             }
             break;
-
         }
+        break;
     case 3:
         for (uint32_t i = 0; i < z_buffer->view->shape[0]; i++)
         {
@@ -1555,7 +1557,7 @@ error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, b
     }
 
     if (x_buffer->view->rank < 2 || y_buffer->view->rank < 2 || z_buffer->view->rank < 2 || 
-        x_buffer->view->rank != z_buffer->view->rank || y_buffer != z_buffer->view->rank)
+        x_buffer->view->rank != z_buffer->view->rank || y_buffer->view->rank != z_buffer->view->rank)
     {
         return ERROR(ERROR_RANK_CONFLICT, string_create("ranks %u + %u = %u.", x_buffer->view->rank, y_buffer->view->rank, z_buffer->view->rank), NULL);
     }
@@ -1604,7 +1606,6 @@ error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, b
             break;
         default:
             return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->runtime), NULL);
-            break;
         }
         break;
     case 3:
@@ -1632,7 +1633,6 @@ error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, b
                 break;
             default:
                 return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->runtime), NULL);
-                break;
             }
         }
         break;
@@ -1663,7 +1663,6 @@ error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, b
                     break;
                 default:
                     return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->runtime), NULL);
-                    break;
                 }
             }
         }
@@ -1738,7 +1737,7 @@ static error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_t *
             idim = 0;
             break;
         default:
-            break;
+            return ERROR(ERROR_AXIS, string_create("invalid axis dimension."), NULL);
         }
         
         for (uint32_t i = 0; i < x->view->shape[idim]; i++)
@@ -1804,7 +1803,7 @@ static error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_t *
             jdim = 1;
             break;
         default:
-            break;
+            return ERROR(ERROR_AXIS, string_create("invalid axis dimension."), NULL);
         }
         
         for (uint32_t i = 0; i < x->view->shape[idim]; i++)
@@ -1882,7 +1881,7 @@ static error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_t *
             kdim = 2;
             break;
         default:
-            break;
+            return ERROR(ERROR_AXIS, string_create("invalid axis dimension."), NULL);
         }
         
         for (uint32_t i = 0; i < x->view->shape[idim]; i++)
@@ -1942,6 +1941,8 @@ static error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_t *
     default:
         break;
     }
+
+    return NULL;
 }
 
 error_t *runtime_summation(buffer_t *x, buffer_t *result, uint32_t axis)

@@ -15,14 +15,14 @@ void setup(void)
     }
 
     buffer_t *buffer;
-    error = buffer_create(&buffer, OPENBLAS_RUNTIME, FLOAT32, view, NULL);
+    error = buffer_create(&buffer, OPENBLAS_RUNTIME, FLOAT32, view, NULL, 0, true);
     if (error != NULL)
     {
         error_print(error);
         error_destroy(error);
     }
 
-    error = tensor_create(&tensor, buffer, NULL, NULL, false);
+    error = tensor_create(&tensor, buffer, NULL, NULL, false, false);
     if (error != NULL)
     {
         error_print(error);

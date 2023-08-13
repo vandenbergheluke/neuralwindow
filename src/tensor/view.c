@@ -199,6 +199,11 @@ error_t *reduce_recover_dimensions(const uint32_t *original_shape, uint32_t orig
     CHECK_NULL_ARGUMENT(reduced_strides, "reduced_strides");
     CHECK_NULL_ARGUMENT(axis, "axis");
 
+    if (original_rank != reduced_rank)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, string_create("conflicting ranks %u and %u", original_rank, reduced_rank), NULL);
+    }
+
     for (uint32_t i = 0; i < original_rank; i++)
     {
         bool_t reduced = false;
@@ -243,7 +248,7 @@ error_t *reduce(const uint32_t *original_shape, uint32_t original_rank, const ui
 
     uint32_t k = reduced_rank - 1;
     uint32_t stride = 1;
-    for (uint32_t i = original_rank - 1; i >= 0; i--)
+    for (uint32_t i = original_rank - 1; ; i--)
     {
         bool_t reduce_dimension = false;
         for (uint32_t j = 0; j < rank; j++)
@@ -282,6 +287,11 @@ error_t *reduce(const uint32_t *original_shape, uint32_t original_rank, const ui
                 reduced_strides[k] = stride;
             }
             k++;
+        }
+
+        if (i == 0)
+        {
+            break;
         }
     }
 
@@ -359,6 +369,11 @@ error_t *strides_from_shape(uint32_t *strides, const uint32_t *shape, uint32_t r
         {
             strides[i] = shape[i + 1] * strides[i + 1];
         }
+
+        if (i == 0)
+        {
+            break;
+        }
     }
 
     for (uint32_t i = 0; i < rank; i++)
@@ -392,7 +407,7 @@ error_t *broadcast_strides(const uint32_t *original_shape, uint32_t original_ran
     CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
     CHECK_NULL_ARGUMENT(broadcasted_strides, "broadcasted_strides");
 
-    for (uint32_t i = broadcasted_rank - 1; i >= 0; i--)
+    for (uint32_t i = broadcasted_rank - 1; ; i--)
     {   
         if (i >= original_rank || (original_shape[i] < broadcasted_shape[i] && original_shape[i] == 1))
         {
@@ -405,6 +420,11 @@ error_t *broadcast_strides(const uint32_t *original_shape, uint32_t original_ran
         else
         {
             return ERROR(ERROR_BROADCAST, string_create("failed to broadcast shapes."), NULL);
+        }
+
+        if (i == 0)
+        {
+            break;
         }
     }
 
@@ -433,7 +453,7 @@ error_t *broadcast_shapes(const uint32_t *x_original_shape, uint32_t x_original_
     CHECK_NULL_ARGUMENT(broadcasted_rank, "broadcasted_rank"); 
 
     *broadcasted_rank = MAX(x_original_rank, y_original_rank);
-    for (uint32_t i = *broadcasted_rank - 1; i >= 0; i--)
+    for (uint32_t i = *broadcasted_rank - 1; ; i--)
     {
         if (i >= x_original_rank || (i < y_original_rank && x_original_shape[i] == 1))
         {
@@ -446,6 +466,11 @@ error_t *broadcast_shapes(const uint32_t *x_original_shape, uint32_t x_original_
         else
         {
             return ERROR(ERROR_BROADCAST, string_create("failed to broadcast shapes."), NULL);
+        }
+
+        if (i == 0)
+        {
+            break;
         }
     }
 
@@ -462,18 +487,18 @@ error_t *reverse_broadcast_length(const uint32_t *original_shape, uint32_t origi
     
     *length_keep_dimension = 0;
     *length_remove_dimension = 0;
-    for (uint32_t i = 0; i < broadcasted_shape; i++)
+    for (uint32_t i = 0; i < broadcasted_rank; i++)
     {
         if (original_rank >= (i + 1))
         {
             if (original_shape[original_rank - (i + 1)] != broadcasted_shape[broadcasted_rank - (i + 1)])
             {
-                *length_keep_dimension++;
+                (*length_keep_dimension)++;
             }
         }
         else
         {
-            *length_remove_dimension++;
+            (*length_remove_dimension)++;
         }
     }
     return NULL;
@@ -483,7 +508,7 @@ error_t *reverse_broadcast_axis(const uint32_t *original_shape, uint32_t origina
                                 uint32_t *axis_keep_dimension, uint32_t *axis_remove_dimension)
 {
     uint32_t j = 0;
-    for (uint32_t i = 0; i < broadcasted_shape; i++)
+    for (uint32_t i = 0; i < broadcasted_rank; i++)
     {
         if (original_rank >= (i + 1))
         {
@@ -565,10 +590,20 @@ error_t *reverse_slice(const uint32_t *original_shape, uint32_t original_rank, c
     CHECK_NULL_ARGUMENT(arguments, "arguments");
     CHECK_NULL_ARGUMENT(new_arguments, "new_arguments");
 
+    if (new_length != length)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, string_create("length of original arguments %u is not equal to length of new arguments %u.", length, new_length), NULL);
+    }
+
+    if (original_rank != length / 2)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, string_create("conflict between rank %u and length of arguments %u.", original_rank, new_length), NULL);
+    }
+
     for (uint32_t i = 0; i < new_length; i += 2)
     {
         new_arguments[i] = arguments[i];
-        new_arguments[i + 1] = original_shape[i] - arguments[i + 1];
+        new_arguments[i + 1] = original_shape[i / 2] - arguments[i + 1];
     }
 
     return NULL;
@@ -608,10 +643,20 @@ error_t *reverse_padding(const uint32_t *original_shape, uint32_t original_rank,
     CHECK_NULL_ARGUMENT(arguments, "arguments");
     CHECK_NULL_ARGUMENT(new_arguments, "new_arguments");
 
+    if (new_length != length)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, string_create("length of original arguments %u is not equal to length of new arguments %u.", length, new_length), NULL);
+    }
+
+    if (original_rank != length / 2)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, string_create("conflict between rank %u and length of arguments %u.", original_rank, new_length), NULL);
+    }
+
     for (uint32_t i = 0; i < new_length; i += 2)
     {
         new_arguments[i] = arguments[i];
-        new_arguments[i + 1] = original_shape[i] + arguments[i + 1];
+        new_arguments[i + 1] = original_shape[i / 2] + arguments[i + 1];
     }
 
     return NULL;

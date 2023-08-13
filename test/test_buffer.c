@@ -16,7 +16,7 @@ void setup(void)
         error_destroy(error);
     }
 
-    error = buffer_create(&test_case_buffer_1, MKL_RUNTIME, FLOAT32, test_case_view_1, (float32_t[]){1.0, 2.0, -3.0, 4.0});
+    error = buffer_create(&test_case_buffer_1, MKL_RUNTIME, FLOAT32, test_case_view_1, (float32_t[]){1.0, 2.0, -3.0, 4.0}, 0, true);
     if (error != NULL)
     {
         error_print(error);
@@ -31,7 +31,7 @@ void setup(void)
         error_destroy(error);
     }
 
-    error = buffer_create(&test_case_buffer_2, MKL_RUNTIME, FLOAT32, test_case_view_2, (float32_t[]){1.0, 2.0, -3.0, 4.0});
+    error = buffer_create(&test_case_buffer_2, MKL_RUNTIME, FLOAT32, test_case_view_2, (float32_t[]){1.0, 2.0, -3.0, 4.0}, 0, true);
     if (error != NULL)
     {
         error_print(error);
@@ -46,7 +46,7 @@ void setup(void)
         error_destroy(error);
     }
 
-    error = buffer_create(&test_case_buffer_3, MKL_RUNTIME, FLOAT32, test_case_view_3, NULL);
+    error = buffer_create(&test_case_buffer_3, MKL_RUNTIME, FLOAT32, test_case_view_3, NULL, 0, true);
     if (error != NULL)
     {
         error_print(error);
