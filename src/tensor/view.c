@@ -17,35 +17,40 @@ error_t *view_create(view_t **view, uint32_t offset, uint32_t rank, const uint32
     CHECK_NULL_ARGUMENT(view, "view");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
+    if (rank < 1 || rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, string_create("rank %u must be between 1 and %d.", (unsigned int) rank, (int) MAX_RANK), NULL);
+    }
+
     // View
-    *view = (view_t *) malloc(sizeof(view_t));
+    *view = (view_t *) malloc((size_t) sizeof(view_t));
     if (view == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view of size %zu.", sizeof(view_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view of size %lu.", (unsigned long) sizeof(view_t)), NULL);
     }
 
     // Shape
-    (*view)->shape = (uint32_t *) malloc(rank * sizeof(uint32_t));
+    (*view)->shape = (uint32_t *) malloc((size_t) (rank * sizeof(uint32_t)));
     if ((*view)->shape == NULL)
     {
         free(*view);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view->shape of size %zu.", rank * sizeof(uint32_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view->shape of size %lu.", (unsigned long) (rank * sizeof(uint32_t))), NULL);
     }
 
     // Strides
-    (*view)->strides = (uint32_t *) malloc(rank * sizeof(uint32_t));
+    (*view)->strides = (uint32_t *) malloc((size_t) (rank * sizeof(uint32_t)));
     if ((*view)->strides == NULL)
     {
         free(*view);
         free((*view)->shape);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view->strides of size %zu.", rank * sizeof(uint32_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view->strides of size %lu.", (unsigned long) (rank * sizeof(uint32_t))), NULL);
     }
 
     // Copy
-    memcpy((*view)->shape, shape, rank * sizeof(uint32_t));
+    memcpy((void *) ((*view)->shape), (const void *) shape, (size_t) (rank * sizeof(uint32_t)));
     if (strides != NULL)
     {
-        memcpy((*view)->strides, strides, rank * sizeof(uint32_t));
+        memcpy((void *) ((*view)->strides), (const void *) strides, (size_t) (rank * sizeof(uint32_t)));
     }
     else
     {
@@ -72,7 +77,7 @@ error_t *view_create(view_t **view, uint32_t offset, uint32_t rank, const uint32
  */
 void view_destroy(view_t *view)
 {
-    if (view != NULL)
+    if (view == NULL)
     {
         return;
     }
@@ -96,8 +101,18 @@ bool_t is_contiguous(const uint32_t *shape, uint32_t rank, const uint32_t *strid
         return false;
     }
 
+    if (rank < 1 || rank > MAX_RANK)
+    {
+        return false;
+    }
+
     uint32_t contiguous_strides[rank];    
-    strides_from_shape(contiguous_strides, shape, rank);
+    error_t *error = strides_from_shape(contiguous_strides, shape, rank);
+    if (error != NULL)
+    {
+        error_destroy(error);
+        return false;
+    }
 
     for (uint32_t i = 0; i < rank; i++)
     {
@@ -359,7 +374,12 @@ error_t *strides_from_shape(uint32_t *strides, const uint32_t *shape, uint32_t r
     CHECK_NULL_ARGUMENT(strides, "strides");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
-    for (uint32_t i = rank - 1; i > 0; i--)
+    if (rank < 1 || rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, string_create("rank %u must be between 1 and %d.", (unsigned int) rank, (int) MAX_RANK), NULL);
+    }
+
+    for (uint32_t i = rank - 1; ; i--)
     {
         if (i == rank - 1)
         {

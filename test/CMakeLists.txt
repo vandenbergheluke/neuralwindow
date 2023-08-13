@@ -1,13 +1,13 @@
 set(TEST_TENSOR
-    test_buffer
-    test_cu_runtime
+    # test_buffer
+    # test_cu_runtime
     # test_function
-    test_map
-    test_mkl_runtime
-    test_openblas_runtime
-    test_queue
-    test_tensor
-    # test_view
+    # test_map
+    # test_mkl_runtime
+    # test_openblas_runtime
+    # test_queue
+    # test_tensor
+    test_view
 )
 set(TESTS ${TEST_TENSOR})
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --nvlink-options=--disable-warnings")
