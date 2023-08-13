@@ -583,8 +583,6 @@ error_t *tensor_as_tensor(const tensor_t *x, tensor_t *y)
 
     y->buffer = buffer;
 
-    // TODO: Copy other fields.
-
     return NULL;
 }
 

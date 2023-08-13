@@ -973,6 +973,21 @@ static error_t *rectified_linear_operation_backward(tensor_t *x, tensor_t *gradi
     if (x->requires_gradient)
     {
         tensor_t *x_gradient;
+        tensor_t *x_gradient_i;
+        tensor_t *x_gradient_j;
+        float64_t singularity = 0.0;
+
+        error_t *error = tensor_create_empty(&x_gradient_i);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create x_gradient_i tensor."), error);
+        }
+
+        error_t *error = tensor_create_empty(&x_gradient_j);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create x_gradient_j tensor."), error);
+        }
 
         error_t *error = tensor_create_empty(&x_gradient);
         if (error != NULL)
@@ -980,11 +995,38 @@ static error_t *rectified_linear_operation_backward(tensor_t *x, tensor_t *gradi
             return ERROR(ERROR_CREATE, string_create("failed to create x_gradient tensor."), error);
         }
 
+        error = tensor_constant(&singularity, x->buffer->datatype, x->buffer->runtime, x_gradient_i);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_INITIALIZATION, string_create("failed to create constant tensor."), error);
+        }
+
+        error = tensor_as_empty(x, x_gradient_j);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize empty tensor."), error);
+        }
+
+        error = runtime_compare_greater(x->buffer, x_gradient_i->buffer, x_gradient_j->buffer);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_COMPARE_GREATER, string_create("failed to suvvessfully run compare greater operation."), error);
+        }
+        
+        error = tensor_multiplication(x_gradient_j, gradient, x_gradient);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_MULTIPLICATION, string_create("failed to successfully run multiplication operation."), error);
+        }
+
         error = tensor_accumulate_gradient(x, x_gradient);
         if (error != NULL) 
         {
             return ERROR(ERROR_ADDITION, string_create("failed to accumulate gradient."), error);
         }
+
+        tensor_destroy(x_gradient_i);
+        tensor_destroy(x_gradient_j);
     }
 
     return NULL;
@@ -2679,6 +2721,80 @@ static error_t *slice_operation_backward(tensor_t *x, uint32_t *arguments, uint3
 
 static error_t *padding_operation_forward(tensor_t *x, uint32_t *arguments, uint32_t length, tensor_t *result)
 {
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    uint32_t *padding_shape = (uint32_t *) malloc(x->buffer->view->rank * sizeof(uint32_t));
+    if (padding_shape == NULL)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate padding shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint32_t)), NULL);
+    }
+
+    uint32_t *slice_arguments = (uint32_t *) malloc(length * sizeof(uint32_t));
+    if (slice_arguments == NULL)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate slice arguments of size %zu bytes.", length * sizeof(uint32_t)), NULL);
+    }
+
+    error_t *error = padding(x->buffer->view->shape, x->buffer->view->rank, padding_shape, x->buffer->view->rank, arguments, length);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_PADDING, string_create("failed to compute resultant padding shape."), error);
+    }
+
+    error = reverse_padding(x->buffer->view->shape, x->buffer->view->rank, arguments, length, slice_arguments, length);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_PADDING, string_create("failed to compute slice arguments."), error);
+    }
+
+    uint32_t offset = 0;
+    error = slice_offset(x->buffer->view->strides, x->buffer->view->rank, &offset, slice_arguments, length);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_SLICE, string_create("failed to compute slice offset."), error);
+    }
+
+    view_t *view;
+    buffer_t *buffer;
+
+    error = view_create(&view, 0, x->buffer->view->rank, padding_shape, NULL);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, "failed to create view.", error);
+    }
+
+    error = buffer_create(&buffer, x->buffer->runtime, x->buffer->datatype, view, NULL, 0, true);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+    memset(buffer->data, 0.0, buffer->size); 
+
+
+    view_t *sliced_view;
+    buffer_t *sliced_buffer;
+    error = view_create(&sliced_view, offset, x->buffer->view->rank, x->buffer->view->shape, NULL);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, "failed to create view.", error);
+    }
+
+    error = buffer_create(&sliced_buffer, x->buffer->runtime, x->buffer->datatype, sliced_view, buffer->data, buffer->size, false);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    error = runtime_copy(x->buffer, sliced_buffer);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_COPY, string_create("failed to copy tensor contents."), error);
+    }
+
+    result->buffer = buffer;
+
     return NULL;
 }
 

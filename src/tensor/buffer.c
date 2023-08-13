@@ -706,7 +706,8 @@ typedef enum binary_elementwise_t
     RUNTIME_MULTIPLICATION,
     RUNTIME_DIVISION,
     RUNTIME_POWER,
-    RUNTIME_COMPARE_EQUAL
+    RUNTIME_COMPARE_EQUAL,
+    RUNTIME_COMPARE_GREATER
 } binary_elementwise_t;
 
 static error_t *runtime_binary_elementwise(binary_elementwise_t binary_elementwise, buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
@@ -858,6 +859,31 @@ static error_t *runtime_binary_elementwise(binary_elementwise_t binary_elementwi
                 break;
             case CU_RUNTIME:
                 cu_compare_equal(z_buffer->datatype, z_buffer->view->shape[3],
+                                 x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset,
+                                 y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset,
+                                 z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset);
+                break;
+            default:
+                break;
+            }
+            break;
+        case RUNTIME_COMPARE_GREATER:
+            switch (z_buffer->runtime)
+            {
+            case OPENBLAS_RUNTIME:
+                openblas_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
+                                       x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset,
+                                       y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset,
+                                       z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset);
+                break;
+            case MKL_RUNTIME:
+                mkl_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
+                                  x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset,
+                                  y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset,
+                                  z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset);
+                break;
+            case CU_RUNTIME:
+                cu_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
                                  x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset,
                                  y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset,
                                  z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset);
@@ -1025,6 +1051,31 @@ static error_t *runtime_binary_elementwise(binary_elementwise_t binary_elementwi
                     break;
                 }
                 break;
+            case RUNTIME_COMPARE_GREATER:
+                switch (z_buffer->runtime)
+                {
+                case OPENBLAS_RUNTIME:
+                    openblas_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
+                                           x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                           y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                           z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    break;
+                case MKL_RUNTIME:
+                    mkl_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
+                                      x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                      y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                      z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    break;
+                case CU_RUNTIME:
+                    cu_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
+                                     x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                     y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                     z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    break;
+                default:
+                    break;
+                }
+                break;
             default:
                 break;
             }
@@ -1180,6 +1231,31 @@ static error_t *runtime_binary_elementwise(binary_elementwise_t binary_elementwi
                         break;
                     case CU_RUNTIME:
                         cu_compare_equal(z_buffer->datatype, z_buffer->view->shape[3],
+                                         x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                         y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                         z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                case RUNTIME_COMPARE_GREATER:
+                    switch (z_buffer->runtime)
+                    {
+                    case OPENBLAS_RUNTIME:
+                        openblas_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
+                                               x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                               y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                               z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        break;
+                    case MKL_RUNTIME:
+                        mkl_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
+                                          x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                          y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                          z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        break;
+                    case CU_RUNTIME:
+                        cu_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
                                          x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
                                          y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                          z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
@@ -1353,6 +1429,31 @@ static error_t *runtime_binary_elementwise(binary_elementwise_t binary_elementwi
                             break;
                         }
                         break;
+                    case RUNTIME_COMPARE_GREATER:
+                        switch (z_buffer->runtime)
+                        {
+                        case OPENBLAS_RUNTIME:
+                            openblas_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
+                                                   x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                                   y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                                   z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            break;
+                        case MKL_RUNTIME:
+                            mkl_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
+                                              x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                              y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                              z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            break;
+                        case CU_RUNTIME:
+                            cu_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
+                                             x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                             y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                             z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            break;
+                        default:
+                            break;
+                        }
+                        break;
                     default:
                         break;
                     }
@@ -1425,6 +1526,17 @@ error_t *runtime_power(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffe
 error_t *runtime_compare_equal(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
 {
     error_t *error = runtime_binary_elementwise(RUNTIME_COMPARE_EQUAL, x_buffer, y_buffer, z_buffer);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
+    }
+
+    return NULL;
+}
+
+error_t *runtime_compare_greater(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
+{
+    error_t *error = runtime_binary_elementwise(RUNTIME_COMPARE_GREATER, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
         return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);

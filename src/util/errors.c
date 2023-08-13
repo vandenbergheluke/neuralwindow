@@ -106,6 +106,8 @@ string_t error_type_string(error_type_t error_type)
         return "ERROR_MATRIX_MULTIPLICATION";
     case ERROR_COMPARE_EQUAL:
         return "ERROR_COMPARE_EQUAL";
+    case ERROR_COMPARE_GREATER:
+        return "ERROR_COMPARE_GREATER";
     case ERROR_PADDING:
         return "ERROR_PADDING";
     case ERROR_RECTIFIED_LINEAR:

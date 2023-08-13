@@ -574,7 +574,7 @@ error_t *reverse_slice(const uint32_t *original_shape, uint32_t original_rank, c
     return NULL;
 }
 
-error_t *padding_shape(const uint32_t *original_shape, uint32_t original_rank, uint32_t *padding_shape, uint32_t padding_rank, const uint32_t *arguments, uint32_t length)
+error_t *padding(const uint32_t *original_shape, uint32_t original_rank, uint32_t *padding_shape, uint32_t padding_rank, const uint32_t *arguments, uint32_t length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(padding_shape, "padding_shape");
