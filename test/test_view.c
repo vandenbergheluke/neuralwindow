@@ -588,6 +588,10 @@ error_t *test_case_permute_error_2;
 error_t *test_case_permute_error_3;
 error_t *test_case_permute_error_4;
 error_t *test_case_permute_error_5;
+error_t *test_case_permute_error_6;
+error_t *test_case_permute_error_7;
+error_t *test_case_permute_error_8;
+error_t *test_case_permute_error_9;
 
 uint32_t test_case_permute_rank_0;
 uint32_t test_case_permute_rank_1;
@@ -632,6 +636,10 @@ void permute_setup(void)
     test_case_permute_error_3 = NULL;
     test_case_permute_error_4 = NULL;
     test_case_permute_error_5 = NULL;
+    test_case_permute_error_6 = NULL;
+    test_case_permute_error_7 = NULL;
+    test_case_permute_error_8 = NULL;
+    test_case_permute_error_9 = NULL;
 
     test_case_permute_rank_0 = 1;
     test_case_permute_rank_1 = 2;
@@ -751,6 +759,10 @@ void permute_teardown(void)
     error_destroy(test_case_permute_error_3);
     error_destroy(test_case_permute_error_4);
     error_destroy(test_case_permute_error_5);
+    error_destroy(test_case_permute_error_6);
+    error_destroy(test_case_permute_error_7);
+    error_destroy(test_case_permute_error_8);
+    error_destroy(test_case_permute_error_9);
 
     free(test_case_permute_expected_shape_0);
     free(test_case_permute_expected_shape_1);
@@ -884,7 +896,55 @@ END_TEST
 
 START_TEST(test_permute_error)
 {
+    test_case_permute_error_0 = permute(NULL, 1, (uint32_t[]) {1}, (uint32_t[]) {1}, 
+                                        1, (uint32_t[]) {1}, (uint32_t[]) {1}, 1);
+    ck_assert_ptr_nonnull(test_case_permute_error_0);
+    ck_assert_int_eq(test_case_permute_error_0->error_type, ERROR_NULL);
 
+    test_case_permute_error_1 = permute((uint32_t[]) {1}, 1, NULL, (uint32_t[]) {1}, 
+                                        1, (uint32_t[]) {1}, (uint32_t[]) {1}, 1);
+    ck_assert_ptr_nonnull(test_case_permute_error_1);
+    ck_assert_int_eq(test_case_permute_error_1->error_type, ERROR_NULL);
+
+    test_case_permute_error_2 = permute((uint32_t[]) {1}, 1, (uint32_t[]) {1}, NULL, 
+                                        1, (uint32_t[]) {1}, (uint32_t[]) {1}, 1);
+    ck_assert_ptr_nonnull(test_case_permute_error_2);
+    ck_assert_int_eq(test_case_permute_error_2->error_type, ERROR_NULL);
+
+    test_case_permute_error_3 = permute((uint32_t[]) {1}, 1, (uint32_t[]) {1}, (uint32_t[]) {1}, 
+                                        1, NULL, (uint32_t[]) {1}, 1);
+    ck_assert_ptr_nonnull(test_case_permute_error_3);
+    ck_assert_int_eq(test_case_permute_error_3->error_type, ERROR_NULL);
+
+    test_case_permute_error_4 = permute((uint32_t[]) {1}, 1, (uint32_t[]) {1}, (uint32_t[]) {1}, 
+                                        1, (uint32_t[]) {1}, NULL, 1);
+    ck_assert_ptr_nonnull(test_case_permute_error_4);
+    ck_assert_int_eq(test_case_permute_error_4->error_type, ERROR_NULL);
+
+    test_case_permute_error_5 = permute((uint32_t[]) {1}, 2, (uint32_t[]) {1}, (uint32_t[]) {1}, 
+                                        1, (uint32_t[]) {1}, (uint32_t[]) {1}, 1);
+    ck_assert_ptr_nonnull(test_case_permute_error_5);
+    ck_assert_int_eq(test_case_permute_error_5->error_type, ERROR_RANK_CONFLICT);
+
+    test_case_permute_error_6 = permute((uint32_t[]) {1}, 1, (uint32_t[]) {1}, (uint32_t[]) {1}, 
+                                        2, (uint32_t[]) {1}, (uint32_t[]) {1}, 1);
+    ck_assert_ptr_nonnull(test_case_permute_error_6);
+    ck_assert_int_eq(test_case_permute_error_6->error_type, ERROR_RANK_CONFLICT);
+
+    test_case_permute_error_7 = permute((uint32_t[]) {1}, 1, (uint32_t[]) {1}, (uint32_t[]) {1}, 
+                                        1, (uint32_t[]) {1}, (uint32_t[]) {1}, 2);
+    ck_assert_ptr_nonnull(test_case_permute_error_7);
+    ck_assert_int_eq(test_case_permute_error_7->error_type, ERROR_RANK_CONFLICT);
+
+    test_case_permute_error_8 = permute((uint32_t[]) {1}, 0, (uint32_t[]) {1}, (uint32_t[]) {1}, 
+                                        0, (uint32_t[]) {1}, (uint32_t[]) {1}, 0);
+    ck_assert_ptr_nonnull(test_case_permute_error_8);
+    ck_assert_int_eq(test_case_permute_error_8->error_type, ERROR_RANK_CONFLICT);
+
+    test_case_permute_error_9 = permute((uint32_t[]) {1}, MAX_RANK + 1, (uint32_t[]) {1}, (uint32_t[]) {1}, 
+                                        MAX_RANK + 1, (uint32_t[]) {1}, (uint32_t[]) {1}, MAX_RANK + 1);
+    ck_assert_ptr_nonnull(test_case_permute_error_9);
+    ck_assert_int_eq(test_case_permute_error_9->error_type, ERROR_RANK_CONFLICT);
 }
 END_TEST
 
