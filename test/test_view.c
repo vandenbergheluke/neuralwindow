@@ -150,11 +150,15 @@ void view_teardown(void)
     error_destroy(test_case_view_error_1);
     error_destroy(test_case_view_error_2);
     error_destroy(test_case_view_error_3);
+    error_destroy(test_case_view_error_4);
+    error_destroy(test_case_view_error_5);
 
     view_destroy(NULL);
     view_destroy(test_case_view_1);
     view_destroy(test_case_view_2);
     view_destroy(test_case_view_3);
+    view_destroy(test_case_view_4);
+    view_destroy(test_case_view_5);
 
     free(test_case_view_shape_0);
     free(test_case_view_shape_1);
@@ -302,9 +306,9 @@ void contiguous_setup(void)
 {
     // Test Case 0
     test_case_contiguous_rank_0 = 3;
-    test_case_contiguous_shape_0 = (uint32_t *) malloc((size_t) (test_case_view_rank_0 * sizeof(uint32_t)));
-    test_case_contiguous_returned_strides_0 = (uint32_t *) malloc((size_t) (test_case_view_rank_0 * sizeof(uint32_t)));
-    test_case_contiguous_expected_strides_0 = (uint32_t *) malloc((size_t) (test_case_view_rank_0 * sizeof(uint32_t)));
+    test_case_contiguous_shape_0 = (uint32_t *) malloc(test_case_contiguous_rank_0 * sizeof(uint32_t));
+    test_case_contiguous_returned_strides_0 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_0 * sizeof(uint32_t)));
+    test_case_contiguous_expected_strides_0 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_0 * sizeof(uint32_t)));
     test_case_contiguous_error_0 = NULL;
 
     ck_assert_ptr_nonnull(test_case_contiguous_shape_0);
@@ -321,9 +325,9 @@ void contiguous_setup(void)
 
     // Test Case 1
     test_case_contiguous_rank_1 = 4;
-    test_case_contiguous_shape_1 = (uint32_t *) malloc((size_t) (test_case_view_rank_1 * sizeof(uint32_t)));
-    test_case_contiguous_returned_strides_1 = (uint32_t *) malloc((size_t) (test_case_view_rank_1 * sizeof(uint32_t)));
-    test_case_contiguous_expected_strides_1 = (uint32_t *) malloc((size_t) (test_case_view_rank_1 * sizeof(uint32_t)));
+    test_case_contiguous_shape_1 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_1 * sizeof(uint32_t)));
+    test_case_contiguous_returned_strides_1 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_1 * sizeof(uint32_t)));
+    test_case_contiguous_expected_strides_1 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_1 * sizeof(uint32_t)));
     test_case_contiguous_error_1 = NULL;
 
     ck_assert_ptr_nonnull(test_case_contiguous_shape_1);
@@ -342,9 +346,9 @@ void contiguous_setup(void)
 
     // Test Case 2
     test_case_contiguous_rank_2 = 1;
-    test_case_contiguous_shape_2 = (uint32_t *) malloc((size_t) (test_case_view_rank_2 * sizeof(uint32_t)));
-    test_case_contiguous_returned_strides_2 = (uint32_t *) malloc((size_t) (test_case_view_rank_2 * sizeof(uint32_t)));
-    test_case_contiguous_expected_strides_2 = (uint32_t *) malloc((size_t) (test_case_view_rank_2 * sizeof(uint32_t)));
+    test_case_contiguous_shape_2 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_2 * sizeof(uint32_t)));
+    test_case_contiguous_returned_strides_2 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_2 * sizeof(uint32_t)));
+    test_case_contiguous_expected_strides_2 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_2 * sizeof(uint32_t)));
     test_case_contiguous_error_2 = NULL;
 
     ck_assert_ptr_nonnull(test_case_contiguous_shape_2);
@@ -357,9 +361,9 @@ void contiguous_setup(void)
 
     // Test Case 3
     test_case_contiguous_rank_3 = 3;
-    test_case_contiguous_shape_3 = (uint32_t *) malloc((size_t) (test_case_view_rank_3 * sizeof(uint32_t)));
-    test_case_contiguous_returned_strides_3 = (uint32_t *) malloc((size_t) (test_case_view_rank_3 * sizeof(uint32_t)));
-    test_case_contiguous_expected_strides_3 = (uint32_t *) malloc((size_t) (test_case_view_rank_3 * sizeof(uint32_t)));
+    test_case_contiguous_shape_3 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_3 * sizeof(uint32_t)));
+    test_case_contiguous_returned_strides_3 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_3 * sizeof(uint32_t)));
+    test_case_contiguous_expected_strides_3 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_3 * sizeof(uint32_t)));
     test_case_contiguous_error_3 = NULL;
 
     ck_assert_ptr_nonnull(test_case_contiguous_shape_3);
@@ -376,9 +380,9 @@ void contiguous_setup(void)
 
     // Test Case 4
     test_case_contiguous_rank_4 = 2;
-    test_case_contiguous_shape_4 = (uint32_t *) malloc((size_t) (test_case_view_rank_4 * sizeof(uint32_t)));
-    test_case_contiguous_returned_strides_4 = (uint32_t *) malloc((size_t) (test_case_view_rank_4 * sizeof(uint32_t)));
-    test_case_contiguous_expected_strides_4 = (uint32_t *) malloc((size_t) (test_case_view_rank_4 * sizeof(uint32_t)));
+    test_case_contiguous_shape_4 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_4 * sizeof(uint32_t)));
+    test_case_contiguous_returned_strides_4 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_4 * sizeof(uint32_t)));
+    test_case_contiguous_expected_strides_4 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_4 * sizeof(uint32_t)));
     test_case_contiguous_error_4 = NULL;
 
     ck_assert_ptr_nonnull(test_case_contiguous_shape_4);
@@ -393,9 +397,9 @@ void contiguous_setup(void)
 
     // Test Case 5
     test_case_contiguous_rank_5 = 4;
-    test_case_contiguous_shape_5 = (uint32_t *) malloc((size_t) (test_case_view_rank_5 * sizeof(uint32_t)));
-    test_case_contiguous_returned_strides_5 = (uint32_t *) malloc((size_t) (test_case_view_rank_5 * sizeof(uint32_t)));
-    test_case_contiguous_expected_strides_5 = (uint32_t *) malloc((size_t) (test_case_view_rank_5 * sizeof(uint32_t)));
+    test_case_contiguous_shape_5 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_5 * sizeof(uint32_t)));
+    test_case_contiguous_returned_strides_5 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_5 * sizeof(uint32_t)));
+    test_case_contiguous_expected_strides_5 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_5 * sizeof(uint32_t)));
     test_case_contiguous_error_5 = NULL;
 
     ck_assert_ptr_nonnull(test_case_contiguous_shape_5);
