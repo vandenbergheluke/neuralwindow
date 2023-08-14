@@ -19,22 +19,28 @@ error_t *view_create(view_t **view, uint32_t offset, uint32_t rank, const uint32
 
     if (rank < 1 || rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT, string_create("rank %u must be between 1 and %d.", (unsigned int) rank, (int) MAX_RANK), NULL);
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("rank %u must be between 1 and %d.",
+                     (unsigned int) rank, (int) MAX_RANK), NULL);
     }
 
     // View
     *view = (view_t *) malloc((size_t) sizeof(view_t));
     if (view == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view of size %lu.", (unsigned long) sizeof(view_t)), NULL);
-    }
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate view of size %lu.",
+                     (unsigned long) sizeof(view_t)), NULL);
+    } 
 
     // Shape
     (*view)->shape = (uint32_t *) malloc((size_t) (rank * sizeof(uint32_t)));
     if ((*view)->shape == NULL)
     {
         free(*view);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view->shape of size %lu.", (unsigned long) (rank * sizeof(uint32_t))), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate view->shape of size %lu.",
+                     (unsigned long) (rank * sizeof(uint32_t))), NULL);
     }
 
     // Strides
@@ -43,7 +49,9 @@ error_t *view_create(view_t **view, uint32_t offset, uint32_t rank, const uint32
     {
         free(*view);
         free((*view)->shape);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view->strides of size %lu.", (unsigned long) (rank * sizeof(uint32_t))), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate view->strides of size %lu.",
+                     (unsigned long) (rank * sizeof(uint32_t))), NULL);
     }
 
     // Copy
@@ -60,7 +68,9 @@ error_t *view_create(view_t **view, uint32_t offset, uint32_t rank, const uint32
             free((*view)->strides);
             free((*view)->shape);
             free(*view);
-            return ERROR(ERROR_CREATE, string_create("failed to create strides from shape."), error);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create strides from shape."),
+                         error);
         }
     }
 
@@ -138,13 +148,36 @@ bool_t is_contiguous(const uint32_t *shape, uint32_t rank, const uint32_t *strid
  * @return Rank conflict error if the permute shape array is not the 
  *         same size as the original shape array or axis length array.
  */
-error_t *permute(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *original_strides,
-                 uint32_t *permuted_shape, uint32_t permuted_rank, uint32_t *permuted_strides,
-                 const uint32_t *axis, uint32_t length)
+error_t *permute(const uint32_t *original_shape,
+                 uint32_t original_rank,
+                 const uint32_t *original_strides, 
+                 uint32_t *permuted_shape,
+                 uint32_t permuted_rank,
+                 uint32_t *permuted_strides,
+                 const uint32_t *axis,
+                 uint32_t length)
 {
-    if (original_rank != permuted_rank || original_rank != length)
+    CHECK_NULL_ARGUMENT(original_shape, "original_shape");
+    CHECK_NULL_ARGUMENT(original_strides, "original_strides");
+    CHECK_NULL_ARGUMENT(permuted_shape, "permuted_shape");
+    CHECK_NULL_ARGUMENT(permuted_strides, "permuted_strides");
+    CHECK_NULL_ARGUMENT(axis, "axis");
+
+    if (original_rank != permuted_rank || original_rank != length || length != permuted_rank)
     {
-        return ERROR(ERROR_RANK_CONFLICT, string_create("conflicting ranks with original rank %u, permuted rank %u and axis length %u.", original_rank, permuted_rank, length), NULL);
+        return ERROR(ERROR_RANK_CONFLICT, 
+                     string_create("conflicting ranks with original rank %u, permuted rank %u and axis length %u.",
+                     (unsigned int) original_rank, (unsigned int) permuted_rank, (unsigned int) length), NULL);
+    }
+
+    if (original_rank < 1 || original_rank > MAX_RANK || 
+        permuted_rank < 1 || permuted_rank > MAX_RANK ||
+        length < 1 || length > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("original rank %u, permuted rank %u and axis length %u must be between 1 and %d.",
+                     (unsigned int) original_rank, (unsigned int) permuted_rank, (unsigned int) length, (int) MAX_RANK),
+                     NULL);
     }
     
     for (uint32_t i = 0; i < length; i++)
@@ -157,9 +190,12 @@ error_t *permute(const uint32_t *original_shape, uint32_t original_rank, const u
         }
         else
         {
-            return ERROR(ERROR_PERMUTE, string_create("failed to permute shape and strides."), NULL);
+            return ERROR(ERROR_PERMUTE,
+                         string_create("axis dimension %u out of range of rank %u.", 
+                         (unsigned int) dimension, (unsigned int) original_rank), NULL);
         }
     }
+    
     return NULL;
 }
 

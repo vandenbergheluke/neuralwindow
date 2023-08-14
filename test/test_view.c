@@ -582,6 +582,357 @@ Suite *make_contiguous_suite(void)
     return s;
 }
 
+error_t *test_case_permute_error_0;
+error_t *test_case_permute_error_1;
+error_t *test_case_permute_error_2;
+error_t *test_case_permute_error_3;
+error_t *test_case_permute_error_4;
+error_t *test_case_permute_error_5;
+
+uint32_t test_case_permute_rank_0;
+uint32_t test_case_permute_rank_1;
+uint32_t test_case_permute_rank_2;
+uint32_t test_case_permute_rank_3;
+uint32_t test_case_permute_rank_4;
+uint32_t test_case_permute_rank_5;
+
+uint32_t *test_case_permute_expected_shape_0;
+uint32_t *test_case_permute_expected_shape_1;
+uint32_t *test_case_permute_expected_shape_2;
+uint32_t *test_case_permute_expected_shape_3;
+uint32_t *test_case_permute_expected_shape_4;
+uint32_t *test_case_permute_expected_shape_5;
+
+uint32_t *test_case_permute_returned_shape_0;
+uint32_t *test_case_permute_returned_shape_1;
+uint32_t *test_case_permute_returned_shape_2;
+uint32_t *test_case_permute_returned_shape_3;
+uint32_t *test_case_permute_returned_shape_4;
+uint32_t *test_case_permute_returned_shape_5;
+
+uint32_t *test_case_permute_expected_strides_0;
+uint32_t *test_case_permute_expected_strides_1;
+uint32_t *test_case_permute_expected_strides_2;
+uint32_t *test_case_permute_expected_strides_3;
+uint32_t *test_case_permute_expected_strides_4;
+uint32_t *test_case_permute_expected_strides_5;
+
+uint32_t *test_case_permute_returned_strides_0;
+uint32_t *test_case_permute_returned_strides_1;
+uint32_t *test_case_permute_returned_strides_2;
+uint32_t *test_case_permute_returned_strides_3;
+uint32_t *test_case_permute_returned_strides_4;
+uint32_t *test_case_permute_returned_strides_5;
+
+void permute_setup(void)
+{
+    test_case_permute_error_0 = NULL;
+    test_case_permute_error_1 = NULL;
+    test_case_permute_error_2 = NULL;
+    test_case_permute_error_3 = NULL;
+    test_case_permute_error_4 = NULL;
+    test_case_permute_error_5 = NULL;
+
+    test_case_permute_rank_0 = 1;
+    test_case_permute_rank_1 = 2;
+    test_case_permute_rank_2 = 3;
+    test_case_permute_rank_3 = 4;
+    test_case_permute_rank_4 = 3;
+    test_case_permute_rank_5 = 4;
+
+    test_case_permute_expected_shape_0 = (uint32_t *) malloc((size_t) (test_case_permute_rank_0 * sizeof(uint32_t)));
+    test_case_permute_expected_shape_1 = (uint32_t *) malloc((size_t) (test_case_permute_rank_1 * sizeof(uint32_t)));
+    test_case_permute_expected_shape_2 = (uint32_t *) malloc((size_t) (test_case_permute_rank_2 * sizeof(uint32_t)));
+    test_case_permute_expected_shape_3 = (uint32_t *) malloc((size_t) (test_case_permute_rank_3 * sizeof(uint32_t)));
+    test_case_permute_expected_shape_4 = (uint32_t *) malloc((size_t) (test_case_permute_rank_4 * sizeof(uint32_t)));
+    test_case_permute_expected_shape_5 = (uint32_t *) malloc((size_t) (test_case_permute_rank_5 * sizeof(uint32_t)));
+
+    test_case_permute_returned_shape_0 = (uint32_t *) malloc((size_t) (test_case_permute_rank_0 * sizeof(uint32_t)));
+    test_case_permute_returned_shape_1 = (uint32_t *) malloc((size_t) (test_case_permute_rank_1 * sizeof(uint32_t)));
+    test_case_permute_returned_shape_2 = (uint32_t *) malloc((size_t) (test_case_permute_rank_2 * sizeof(uint32_t)));
+    test_case_permute_returned_shape_3 = (uint32_t *) malloc((size_t) (test_case_permute_rank_3 * sizeof(uint32_t)));
+    test_case_permute_returned_shape_4 = (uint32_t *) malloc((size_t) (test_case_permute_rank_4 * sizeof(uint32_t)));
+    test_case_permute_returned_shape_5 = (uint32_t *) malloc((size_t) (test_case_permute_rank_5 * sizeof(uint32_t)));
+    
+    test_case_permute_expected_strides_0 = (uint32_t *) malloc((size_t) (test_case_permute_rank_0 * sizeof(uint32_t)));
+    test_case_permute_expected_strides_1 = (uint32_t *) malloc((size_t) (test_case_permute_rank_1 * sizeof(uint32_t)));
+    test_case_permute_expected_strides_2 = (uint32_t *) malloc((size_t) (test_case_permute_rank_2 * sizeof(uint32_t)));
+    test_case_permute_expected_strides_3 = (uint32_t *) malloc((size_t) (test_case_permute_rank_3 * sizeof(uint32_t)));
+    test_case_permute_expected_strides_4 = (uint32_t *) malloc((size_t) (test_case_permute_rank_4 * sizeof(uint32_t)));
+    test_case_permute_expected_strides_5 = (uint32_t *) malloc((size_t) (test_case_permute_rank_5 * sizeof(uint32_t)));
+
+    test_case_permute_returned_strides_0 = (uint32_t *) malloc((size_t) (test_case_permute_rank_0 * sizeof(uint32_t)));
+    test_case_permute_returned_strides_1 = (uint32_t *) malloc((size_t) (test_case_permute_rank_1 * sizeof(uint32_t)));
+    test_case_permute_returned_strides_2 = (uint32_t *) malloc((size_t) (test_case_permute_rank_2 * sizeof(uint32_t)));
+    test_case_permute_returned_strides_3 = (uint32_t *) malloc((size_t) (test_case_permute_rank_3 * sizeof(uint32_t)));
+    test_case_permute_returned_strides_4 = (uint32_t *) malloc((size_t) (test_case_permute_rank_4 * sizeof(uint32_t)));
+    test_case_permute_returned_strides_5 = (uint32_t *) malloc((size_t) (test_case_permute_rank_5 * sizeof(uint32_t)));
+
+    ck_assert_ptr_nonnull(test_case_permute_expected_shape_0);
+    ck_assert_ptr_nonnull(test_case_permute_expected_shape_1);
+    ck_assert_ptr_nonnull(test_case_permute_expected_shape_2);
+    ck_assert_ptr_nonnull(test_case_permute_expected_shape_3);
+    ck_assert_ptr_nonnull(test_case_permute_expected_shape_4);
+    ck_assert_ptr_nonnull(test_case_permute_expected_shape_5);
+
+    ck_assert_ptr_nonnull(test_case_permute_returned_shape_0);
+    ck_assert_ptr_nonnull(test_case_permute_returned_shape_1);
+    ck_assert_ptr_nonnull(test_case_permute_returned_shape_2);
+    ck_assert_ptr_nonnull(test_case_permute_returned_shape_3);
+    ck_assert_ptr_nonnull(test_case_permute_returned_shape_4);
+    ck_assert_ptr_nonnull(test_case_permute_returned_shape_5);
+
+    ck_assert_ptr_nonnull(test_case_permute_expected_strides_0);
+    ck_assert_ptr_nonnull(test_case_permute_expected_strides_1);
+    ck_assert_ptr_nonnull(test_case_permute_expected_strides_2);
+    ck_assert_ptr_nonnull(test_case_permute_expected_strides_3);
+    ck_assert_ptr_nonnull(test_case_permute_expected_strides_4);
+    ck_assert_ptr_nonnull(test_case_permute_expected_strides_5);
+
+    ck_assert_ptr_nonnull(test_case_permute_returned_strides_0);
+    ck_assert_ptr_nonnull(test_case_permute_returned_strides_1);
+    ck_assert_ptr_nonnull(test_case_permute_returned_strides_2);
+    ck_assert_ptr_nonnull(test_case_permute_returned_strides_3);
+    ck_assert_ptr_nonnull(test_case_permute_returned_strides_4);
+    ck_assert_ptr_nonnull(test_case_permute_returned_strides_5);
+
+    test_case_permute_expected_shape_0[0] = 1;
+
+    test_case_permute_expected_shape_1[0] = 3;
+    test_case_permute_expected_shape_1[1] = 5;
+
+    test_case_permute_expected_shape_2[0] = 1;
+    test_case_permute_expected_shape_2[1] = 2;
+    test_case_permute_expected_shape_2[2] = 3;
+
+    test_case_permute_expected_shape_3[0] = 4;
+    test_case_permute_expected_shape_3[1] = 3;
+    test_case_permute_expected_shape_3[2] = 2;
+    test_case_permute_expected_shape_3[3] = 1;
+
+    test_case_permute_expected_shape_4[0] = 2;
+    test_case_permute_expected_shape_4[1] = 2;
+    test_case_permute_expected_shape_4[2] = 2;
+
+    test_case_permute_expected_shape_5[0] = 1;
+    test_case_permute_expected_shape_5[1] = 1;
+    test_case_permute_expected_shape_5[2] = 1;
+    test_case_permute_expected_shape_5[3] = 1;
+
+    test_case_permute_expected_strides_0[0] = 0;
+
+    test_case_permute_expected_strides_1[0] = 1;
+    test_case_permute_expected_strides_1[1] = 3;
+
+    test_case_permute_expected_strides_2[0] = 1;
+    test_case_permute_expected_strides_2[1] = 1;
+    test_case_permute_expected_strides_2[2] = 2;
+
+    test_case_permute_expected_strides_3[0] = 3;
+    test_case_permute_expected_strides_3[1] = 1;
+    test_case_permute_expected_strides_3[2] = 12;
+    test_case_permute_expected_strides_3[3] = 1;
+
+    test_case_permute_expected_strides_4[0] = 1;
+    test_case_permute_expected_strides_4[1] = 4;
+    test_case_permute_expected_strides_4[2] = 2;
+
+    test_case_permute_expected_strides_5[0] = 0;
+    test_case_permute_expected_strides_5[1] = 0;
+    test_case_permute_expected_strides_5[2] = 0;
+    test_case_permute_expected_strides_5[3] = 0;
+}
+
+void permute_teardown(void)
+{
+    error_destroy(test_case_permute_error_0);
+    error_destroy(test_case_permute_error_1);
+    error_destroy(test_case_permute_error_2);
+    error_destroy(test_case_permute_error_3);
+    error_destroy(test_case_permute_error_4);
+    error_destroy(test_case_permute_error_5);
+
+    free(test_case_permute_expected_shape_0);
+    free(test_case_permute_expected_shape_1);
+    free(test_case_permute_expected_shape_2);
+    free(test_case_permute_expected_shape_3);
+    free(test_case_permute_expected_shape_4);
+    free(test_case_permute_expected_shape_5);
+
+    free(test_case_permute_returned_shape_0);
+    free(test_case_permute_returned_shape_1);
+    free(test_case_permute_returned_shape_2);
+    free(test_case_permute_returned_shape_3);
+    free(test_case_permute_returned_shape_4);
+    free(test_case_permute_returned_shape_5);
+
+    free(test_case_permute_expected_strides_0);
+    free(test_case_permute_expected_strides_1);
+    free(test_case_permute_expected_strides_2);
+    free(test_case_permute_expected_strides_3);
+    free(test_case_permute_expected_strides_4);
+    free(test_case_permute_expected_strides_5);
+
+    free(test_case_permute_returned_strides_0);
+    free(test_case_permute_returned_strides_1);
+    free(test_case_permute_returned_strides_2);
+    free(test_case_permute_returned_strides_3);
+    free(test_case_permute_returned_strides_4);
+    free(test_case_permute_returned_strides_5);
+}
+
+START_TEST(test_permute)
+{
+    test_case_permute_error_0 = permute((uint32_t[]) {1},
+                                         test_case_permute_rank_0,
+                                         (uint32_t[]) {0},
+                                         test_case_permute_returned_shape_0,
+                                         test_case_permute_rank_0,
+                                         test_case_permute_returned_strides_0,
+                                         (uint32_t[]) {0},
+                                         test_case_permute_rank_0);
+    ck_assert_ptr_null(test_case_permute_error_0);
+    for (uint32_t i = 0; i < test_case_permute_rank_0; i++)
+    {
+        ck_assert_uint_eq(test_case_permute_expected_shape_0[i],
+                          test_case_permute_returned_shape_0[i]);
+        ck_assert_uint_eq(test_case_permute_expected_strides_0[i],
+                          test_case_permute_returned_strides_0[i]);
+    }
+    test_case_permute_error_1 = permute((uint32_t[]) {5, 3},
+                                         test_case_permute_rank_1,
+                                         (uint32_t[]) {3, 1},
+                                         test_case_permute_returned_shape_1,
+                                         test_case_permute_rank_1,
+                                         test_case_permute_returned_strides_1,
+                                         (uint32_t[]) {1, 0},
+                                         test_case_permute_rank_1);
+    ck_assert_ptr_null(test_case_permute_error_1);
+    for (uint32_t i = 0; i < test_case_permute_rank_1; i++)
+    {
+        ck_assert_uint_eq(test_case_permute_expected_shape_1[i],
+                          test_case_permute_returned_shape_1[i]);
+        ck_assert_uint_eq(test_case_permute_expected_strides_1[i],
+                          test_case_permute_returned_strides_1[i]);
+    }
+    test_case_permute_error_2 = permute((uint32_t[]) {3, 2, 1},
+                                         test_case_permute_rank_2,
+                                         (uint32_t[]) {2, 1, 1},
+                                         test_case_permute_returned_shape_2,
+                                         test_case_permute_rank_2,
+                                         test_case_permute_returned_strides_2,
+                                         (uint32_t[]) {2, 1, 0},
+                                         test_case_permute_rank_2);
+    ck_assert_ptr_null(test_case_permute_error_2);
+    for (uint32_t i = 0; i < test_case_permute_rank_2; i++)
+    {
+        ck_assert_uint_eq(test_case_permute_expected_shape_2[i],
+                          test_case_permute_returned_shape_2[i]);
+        ck_assert_uint_eq(test_case_permute_expected_strides_2[i],
+                          test_case_permute_returned_strides_2[i]);
+    }
+    test_case_permute_error_3 = permute((uint32_t[]) {2, 4, 3, 1},
+                                         test_case_permute_rank_3,
+                                         (uint32_t[]) {12, 3, 1, 1},
+                                         test_case_permute_returned_shape_3,
+                                         test_case_permute_rank_3,
+                                         test_case_permute_returned_strides_3,
+                                         (uint32_t[]) {1, 2, 0, 3},
+                                         test_case_permute_rank_3);
+    ck_assert_ptr_null(test_case_permute_error_3);
+    for (uint32_t i = 0; i < test_case_permute_rank_3; i++)
+    {
+        ck_assert_uint_eq(test_case_permute_expected_shape_3[i],
+                          test_case_permute_returned_shape_3[i]);
+        ck_assert_uint_eq(test_case_permute_expected_strides_3[i],
+                          test_case_permute_returned_strides_3[i]);
+    }
+    test_case_permute_error_4 = permute((uint32_t[]) {2, 2, 2},
+                                         test_case_permute_rank_4,
+                                         (uint32_t[]) {4, 2, 1},
+                                         test_case_permute_returned_shape_4,
+                                         test_case_permute_rank_4,
+                                         test_case_permute_returned_strides_4,
+                                         (uint32_t[]) {2, 0, 1},
+                                         test_case_permute_rank_4);
+    ck_assert_ptr_null(test_case_permute_error_4);
+    for (uint32_t i = 0; i < test_case_permute_rank_4; i++)
+    {
+        ck_assert_uint_eq(test_case_permute_expected_shape_4[i],
+                          test_case_permute_returned_shape_4[i]);
+        ck_assert_uint_eq(test_case_permute_expected_strides_4[i],
+                          test_case_permute_returned_strides_4[i]);
+    }
+    test_case_permute_error_5 = permute((uint32_t[]) {1, 1, 1, 1},
+                                         test_case_permute_rank_5,
+                                         (uint32_t[]) {0, 0, 0, 0},
+                                         test_case_permute_returned_shape_5,
+                                         test_case_permute_rank_5,
+                                         test_case_permute_returned_strides_5,
+                                         (uint32_t[]) {0, 1, 3, 2},
+                                         test_case_permute_rank_5);
+    ck_assert_ptr_null(test_case_permute_error_5);
+    for (uint32_t i = 0; i < test_case_permute_rank_5; i++)
+    {
+        ck_assert_uint_eq(test_case_permute_expected_shape_5[i],
+                          test_case_permute_returned_shape_5[i]);
+        ck_assert_uint_eq(test_case_permute_expected_strides_5[i],
+                          test_case_permute_returned_strides_5[i]);
+    }
+}
+END_TEST
+
+START_TEST(test_permute_error)
+{
+
+}
+END_TEST
+
+void reverse_permute_setup(void)
+{
+    return;
+}
+
+void reverse_permute_teardown(void)
+{
+    return;
+}
+
+START_TEST(test_reverse_permute)
+{
+
+}
+END_TEST
+
+START_TEST(test_reverse_permute_error)
+{
+
+}
+END_TEST
+
+Suite *make_permute_suite(void)
+{
+    Suite *s;
+    TCase *tc_permute;
+    TCase *tc_reverse_permute;
+
+    s = suite_create("Test Permute Suite");
+
+    tc_permute = tcase_create("Test tc_permute");
+    tcase_add_checked_fixture(tc_permute, permute_setup, permute_teardown);
+    tcase_add_test(tc_permute, test_permute);
+    tcase_add_test(tc_permute, test_permute_error);
+    suite_add_tcase(s, tc_permute);
+
+    tc_reverse_permute = tcase_create("Test tc_reverse_permute");
+    tcase_add_checked_fixture(tc_reverse_permute, reverse_permute_setup, reverse_permute_teardown);
+    tcase_add_test(tc_reverse_permute, test_reverse_permute);
+    tcase_add_test(tc_reverse_permute, test_reverse_permute_error);
+    suite_add_tcase(s, tc_reverse_permute);
+
+    return s;
+}
+
 int main(void)
 {
     int number_failed;
@@ -590,6 +941,7 @@ int main(void)
     sr = srunner_create(make_view_suite());
     srunner_set_fork_status(sr, CK_NOFORK);
     srunner_add_suite(sr, make_contiguous_suite());
+    srunner_add_suite(sr, make_permute_suite());
     srunner_run_all(sr, CK_VERBOSE);
 
     number_failed = srunner_ntests_failed(sr);
