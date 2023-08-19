@@ -97,6 +97,7 @@ void view_destroy(view_t *view)
     free(view);
 }
 
+
 /**
  * @brief Determine if tensor is contiguous in memory.
  * @param shape The dimensions of the tenors. 
@@ -218,10 +219,19 @@ error_t *reverse_permute(const uint32_t *axis, uint32_t rank, uint32_t *reverse_
     CHECK_NULL_ARGUMENT(axis, "axis");
     CHECK_NULL_ARGUMENT(reverse_axis, "reverse_axis");
 
-    pair_t *new_axis = (pair_t *) malloc(rank * sizeof(pair_t));
+    if (rank < 1 || rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("rank %u must be between 1 and %d.",
+                     (unsigned int) rank, (int) MAX_RANK), NULL);
+    }
+
+    pair_t *new_axis = (pair_t *) malloc((size_t) (rank * sizeof(pair_t)));
     if (new_axis == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate new axis of size %zu bytes.", rank * sizeof(pair_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate new axis of size %lu bytes.",
+                     (unsigned long) (rank * sizeof(pair_t))), NULL);
     }
 
     for (uint32_t i = 0; i < rank; i++)
@@ -230,7 +240,7 @@ error_t *reverse_permute(const uint32_t *axis, uint32_t rank, uint32_t *reverse_
         new_axis[i].value = axis[i];
     }
 
-    qsort(new_axis, rank, sizeof(pair_t), compare);
+    qsort((void *) new_axis, (size_t) rank, sizeof(pair_t), compare);
 
     for (uint32_t i = 0; i < rank; i++)
     {
@@ -240,9 +250,14 @@ error_t *reverse_permute(const uint32_t *axis, uint32_t rank, uint32_t *reverse_
     return NULL;
 }
 
-error_t *reduce_recover_dimensions(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *original_strides, 
-                                   uint32_t *reduced_shape, uint32_t reduced_rank, uint32_t *reduced_strides,
-                                   const uint32_t *axis, uint32_t rank)
+error_t *reduce_recover_dimensions(const uint32_t *original_shape,
+                                   uint32_t original_rank, 
+                                   const uint32_t *original_strides,
+                                   uint32_t *reduced_shape, 
+                                   uint32_t reduced_rank,
+                                   uint32_t *reduced_strides,
+                                   const uint32_t *axis,
+                                   uint32_t rank)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(original_strides , "original_strides");
@@ -250,9 +265,21 @@ error_t *reduce_recover_dimensions(const uint32_t *original_shape, uint32_t orig
     CHECK_NULL_ARGUMENT(reduced_strides, "reduced_strides");
     CHECK_NULL_ARGUMENT(axis, "axis");
 
-    if (original_rank != reduced_rank)
+    if (original_rank != reduced_rank || original_rank != rank || rank != reduced_rank)
     {
-        return ERROR(ERROR_RANK_CONFLICT, string_create("conflicting ranks %u and %u", original_rank, reduced_rank), NULL);
+        return ERROR(ERROR_RANK_CONFLICT, 
+                     string_create("conflicting ranks with original rank %u, reduced rank %u and axis length %u.",
+                     (unsigned int) original_rank, (unsigned int) reduced_rank, (unsigned int) rank), NULL);
+    }
+
+    if (original_rank < 1 || original_rank > MAX_RANK || 
+        reduced_rank < 1 || reduced_rank > MAX_RANK ||
+        rank < 1 || rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("original rank %u, permuted rank %u and axis length %u must be between 1 and %d.",
+                     (unsigned int) original_rank, (unsigned int) reduced_rank, (unsigned int) rank, (int) MAX_RANK),
+                     NULL);
     }
 
     for (uint32_t i = 0; i < original_rank; i++)
@@ -277,9 +304,15 @@ error_t *reduce_recover_dimensions(const uint32_t *original_shape, uint32_t orig
     return NULL;
 }
 
-error_t *reduce(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *original_strides, 
-                uint32_t *reduced_shape, uint32_t reduced_rank, uint32_t *reduced_strides,
-                const uint32_t *axis, uint32_t rank, bool_t keep_dimensions)
+error_t *reduce(const uint32_t *original_shape,
+                uint32_t original_rank,
+                const uint32_t *original_strides, 
+                uint32_t *reduced_shape,
+                uint32_t reduced_rank,
+                uint32_t *reduced_strides,
+                const uint32_t *axis,
+                uint32_t rank,
+                bool_t keep_dimensions)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(original_strides , "original_strides");
@@ -289,12 +322,26 @@ error_t *reduce(const uint32_t *original_shape, uint32_t original_rank, const ui
 
     if (keep_dimensions && original_rank != reduced_rank)
     {
-        return ERROR(ERROR_RANK_CONFLICT, string_create("conflicting ranks with original rank %u and reduced rank %u.", original_rank, reduced_rank), NULL);
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("conflicting ranks with original rank %u and reduced rank %u.",
+                     (unsigned int) original_rank, (unsigned int) reduced_rank), NULL);
     }
 
     if (!keep_dimensions && reduced_rank != original_rank - rank)
     {
-        return ERROR(ERROR_RANK_CONFLICT, string_create("conflicting ranks with expected rank %u and reduced rank %u.", original_rank - rank, reduced_rank), NULL);
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("conflicting ranks with expected rank %u and reduced rank %u.", 
+                     (unsigned int) (original_rank - rank), (unsigned int) reduced_rank), NULL);
+    }
+
+    if (rank < 1 || rank > original_rank || 
+        original_rank < 1 || original_rank > MAX_RANK ||
+        reduced_rank < 1 || reduced_rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("original rank %u, permuted rank %u and axis length %u must be between 1 and %d and rank <= original rank.",
+                     (unsigned int) original_rank, (unsigned int) reduced_rank, (unsigned int) rank, (int) MAX_RANK),
+                     NULL);
     }
 
     uint32_t k = reduced_rank - 1;
@@ -398,9 +445,11 @@ uint32_t shape_size(const uint32_t *shape, uint32_t rank)
 }
 
 /**
- * @brief Given the shape and rank of a tensor that is contiguous and stored in row-major format, find the associated strides.
- * @param strides The number of elements to skip in memory to reach the next element in a specific dimension of the tensor. 
- *                 The strides should be preallocated and same size as shape.
+ * @brief Given the shape and rank of a tensor that is contiguous and stored in
+ *        row-major format, find the associated strides.
+ * @param strides The number of elements to skip in memory to reach the next 
+ *                 element in a specific dimension of the tensor. The strides 
+ *                 should be preallocated and same size as shape.
  * @param shape An array of size rank representing the dimensions of the tensor.
  * @param rank The order of the tensor. Gives the number of elements in shape.
  * @return NULL if operation was successful. An error if strides or shape are NULL.
@@ -412,7 +461,9 @@ error_t *strides_from_shape(uint32_t *strides, const uint32_t *shape, uint32_t r
 
     if (rank < 1 || rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT, string_create("rank %u must be between 1 and %d.", (unsigned int) rank, (int) MAX_RANK), NULL);
+        return ERROR(ERROR_RANK_CONFLICT, 
+                     string_create("rank %u must be between 1 and %d.", 
+                     (unsigned int) rank, (int) MAX_RANK), NULL);
     }
 
     for (uint32_t i = rank - 1; ; i--)
@@ -455,19 +506,45 @@ error_t *strides_from_shape(uint32_t *strides, const uint32_t *shape, uint32_t r
  * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
  *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
  */
-error_t *broadcast_strides(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *original_strides,
-                           const uint32_t *broadcasted_shape, uint32_t broadcasted_rank, uint32_t *broadcasted_strides)
+error_t *broadcast_strides(const uint32_t *original_shape,
+                           uint32_t original_rank,
+                           const uint32_t *original_strides,
+                           const uint32_t *broadcasted_shape,
+                           uint32_t broadcasted_rank,
+                           uint32_t *broadcasted_strides)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(original_strides, "original_strides");
     CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
     CHECK_NULL_ARGUMENT(broadcasted_strides, "broadcasted_strides");
 
+    if (original_rank < 1 || original_rank > MAX_RANK || 
+        broadcasted_rank < 1 || broadcasted_rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, 
+                     string_create("original rank %u and broadcasted rank %u must be between 1 and %d.", 
+                     (unsigned int) original_rank, (unsigned int) broadcasted_rank, (int) MAX_RANK), NULL);
+    }
+
+    if (!is_broadcastable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
+    {
+        string_t original_shape_string = uint32_array_to_string(original_shape, original_rank);
+        string_t broadcasted_shape_string = uint32_array_to_string(broadcasted_shape, broadcasted_rank);
+        error_t *error = ERROR(ERROR_BROADCAST,
+                               string_create("cannot broadcast shape %s to shape %s.",
+                               original_shape_string,
+                               broadcasted_shape_string),
+                               NULL);
+        string_destroy(original_shape_string);
+        string_destroy(broadcasted_shape_string);
+        return error;
+    }
+
     for (uint32_t i = broadcasted_rank - 1; ; i--)
     {   
         if (i >= original_rank || (original_shape[i] < broadcasted_shape[i] && original_shape[i] == 1))
         {
-           broadcasted_strides[i] = 0; 
+            broadcasted_strides[i] = 0; 
         }
         else if (original_shape[i] != broadcasted_shape[i])
         {
@@ -475,7 +552,16 @@ error_t *broadcast_strides(const uint32_t *original_shape, uint32_t original_ran
         }
         else
         {
-            return ERROR(ERROR_BROADCAST, string_create("failed to broadcast shapes."), NULL);
+            string_t original_shape_string = uint32_array_to_string(original_shape, original_rank);
+            string_t broadcasted_shape_string = uint32_array_to_string(broadcasted_shape, broadcasted_rank);
+            error_t *error = ERROR(ERROR_BROADCAST,
+                                   string_create("cannot broadcast shape %s to shape %s.",
+                                   original_shape_string,
+                                   broadcasted_shape_string),
+                                   NULL);
+            string_destroy(original_shape_string);
+            string_destroy(broadcasted_shape_string);
+            return error;
         }
 
         if (i == 0)
@@ -499,17 +585,26 @@ error_t *broadcast_strides(const uint32_t *original_shape, uint32_t original_ran
  * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
  *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
  */
-error_t *broadcast_shapes(const uint32_t *x_original_shape, uint32_t x_original_rank,
-                          const uint32_t *y_original_shape, uint32_t y_original_rank, 
-                          uint32_t *broadcasted_shape, uint32_t *broadcasted_rank)
+error_t *broadcast_shapes(const uint32_t *x_original_shape,
+                          uint32_t x_original_rank,
+                          const uint32_t *y_original_shape,
+                          uint32_t y_original_rank, 
+                          uint32_t *broadcasted_shape,
+                          uint32_t broadcasted_rank)
 {
     CHECK_NULL_ARGUMENT(x_original_shape, "x_original_shape"); 
     CHECK_NULL_ARGUMENT(y_original_shape, "y_original_shape"); 
     CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape"); 
-    CHECK_NULL_ARGUMENT(broadcasted_rank, "broadcasted_rank"); 
 
-    *broadcasted_rank = MAX(x_original_rank, y_original_rank);
-    for (uint32_t i = *broadcasted_rank - 1; ; i--)
+    if (x_original_rank < 1 || x_original_rank > MAX_RANK || 
+        y_original_rank < 1 || y_original_rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, 
+                     string_create("x original rank %u and y original rank %u must be between 1 and %d.", 
+                     (unsigned int) x_original_rank, (unsigned int) y_original_rank, (int) MAX_RANK), NULL);
+    }
+
+    for (uint32_t i = broadcasted_rank - 1; ; i--)
     {
         if (i >= x_original_rank || (i < y_original_rank && x_original_shape[i] == 1))
         {
@@ -521,7 +616,16 @@ error_t *broadcast_shapes(const uint32_t *x_original_shape, uint32_t x_original_
         }
         else
         {
-            return ERROR(ERROR_BROADCAST, string_create("failed to broadcast shapes."), NULL);
+            string_t x_original_shape_string = uint32_array_to_string(x_original_shape, x_original_rank);
+            string_t y_original_shape_string = uint32_array_to_string(y_original_shape, y_original_rank);
+            error_t *error = ERROR(ERROR_BROADCAST,
+                                   string_create("cannot broadcast shape %s to shape %s.",
+                                   x_original_shape_string,
+                                   y_original_shape_string),
+                                   NULL);
+            string_destroy(x_original_shape_string);
+            string_destroy(y_original_shape_string);
+            return error;
         }
 
         if (i == 0)
@@ -533,14 +637,64 @@ error_t *broadcast_shapes(const uint32_t *x_original_shape, uint32_t x_original_
     return NULL;
 }
 
-error_t *reverse_broadcast_length(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *broadcasted_shape, uint32_t broadcasted_rank, 
-                                  uint32_t *length_keep_dimension, uint32_t *length_remove_dimension)
+bool_t is_broadcastable(const uint32_t *original_shape,
+                        uint32_t original_rank,
+                        const uint32_t *broadcasted_shape,
+                        uint32_t broadcasted_rank)
+{
+    if (original_shape == NULL || broadcasted_shape == NULL || broadcasted_rank < original_rank)
+    {
+        return false;
+    }
+
+
+    for (uint32_t i = 0; i < broadcasted_rank; i++)
+    {
+        if (original_rank >= (i + 1) && 
+            original_shape[original_rank - (i + 1)] != broadcasted_shape[broadcasted_rank - (i + 1)] && 
+            original_shape[original_rank - (i + 1)] != 1)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+error_t *reverse_broadcast_length(const uint32_t *original_shape,
+                                  uint32_t original_rank,
+                                  const uint32_t *broadcasted_shape,
+                                  uint32_t broadcasted_rank, 
+                                  uint32_t *length_keep_dimension,
+                                  uint32_t *length_remove_dimension)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
     CHECK_NULL_ARGUMENT(length_keep_dimension, "length_keep_dimension");
     CHECK_NULL_ARGUMENT(length_remove_dimension, "length_remove_dimension");
     
+    if (original_rank < 1 || original_rank > MAX_RANK || 
+        broadcasted_rank < 1 || broadcasted_rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, 
+                     string_create("original rank %u and broadcasted rank %u must be between 1 and %d.", 
+                     (unsigned int) original_rank, (unsigned int) broadcasted_rank, (int) MAX_RANK), NULL);
+    }
+
+    if (!is_broadcastable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
+    {
+        string_t original_shape_string = uint32_array_to_string(original_shape, original_rank);
+        string_t broadcasted_shape_string = uint32_array_to_string(broadcasted_shape, broadcasted_rank);
+        error_t *error = ERROR(ERROR_BROADCAST,
+                               string_create("cannot broadcast shape %s to shape %s.",
+                               original_shape_string,
+                               broadcasted_shape_string),
+                               NULL);
+        string_destroy(original_shape_string);
+        string_destroy(broadcasted_shape_string);
+        return error;
+    }
+
     *length_keep_dimension = 0;
     *length_remove_dimension = 0;
     for (uint32_t i = 0; i < broadcasted_rank; i++)
@@ -557,12 +711,44 @@ error_t *reverse_broadcast_length(const uint32_t *original_shape, uint32_t origi
             (*length_remove_dimension)++;
         }
     }
+
     return NULL;
 }
 
-error_t *reverse_broadcast_axis(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *broadcasted_shape, uint32_t broadcasted_rank, 
-                                uint32_t *axis_keep_dimension, uint32_t *axis_remove_dimension)
+error_t *reverse_broadcast_axis(const uint32_t *original_shape,
+                                uint32_t original_rank,
+                                const uint32_t *broadcasted_shape,
+                                uint32_t broadcasted_rank, 
+                                uint32_t *axis_keep_dimension,
+                                uint32_t *axis_remove_dimension)
 {
+    CHECK_NULL_ARGUMENT(original_shape, "original_shape");
+    CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
+    CHECK_NULL_ARGUMENT(axis_keep_dimension, "axis_keep_dimension");
+    CHECK_NULL_ARGUMENT(axis_remove_dimension, "axis_remove_dimension");
+
+    if (original_rank < 1 || original_rank > MAX_RANK || 
+        broadcasted_rank < 1 || broadcasted_rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, 
+                     string_create("original rank %u and broadcasted rank %u must be between 1 and %d.", 
+                     (unsigned int) original_rank, (unsigned int) broadcasted_rank, (int) MAX_RANK), NULL);
+    }
+
+    if (!is_broadcastable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
+    {
+        string_t original_shape_string = uint32_array_to_string(original_shape, original_rank);
+        string_t broadcasted_shape_string = uint32_array_to_string(broadcasted_shape, broadcasted_rank);
+        error_t *error = ERROR(ERROR_BROADCAST,
+                               string_create("cannot broadcast shape %s to shape %s.",
+                               original_shape_string,
+                               broadcasted_shape_string),
+                               NULL);
+        string_destroy(original_shape_string);
+        string_destroy(broadcasted_shape_string);
+        return error;
+    }
+
     uint32_t j = 0;
     for (uint32_t i = 0; i < broadcasted_rank; i++)
     {
@@ -584,51 +770,90 @@ error_t *reverse_broadcast_axis(const uint32_t *original_shape, uint32_t origina
     return NULL;
 }
 
-error_t *slice_shape(const uint32_t *original_shape, uint32_t original_rank, uint32_t *slice_shape, uint32_t slice_rank, const uint32_t *arguments, uint32_t length)
+error_t *slice_shape(const uint32_t *original_shape,
+                     uint32_t original_rank,
+                     uint32_t *slice_shape,
+                     uint32_t slice_rank,
+                     const uint32_t *arguments,
+                     uint32_t length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(slice_shape, "slice_shape");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
 
-    if (original_rank != slice_rank || length > 2 * original_rank || length % 2 != 0)
+    if (original_rank != slice_rank)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("conflicting ranks with original rank %u, sliced rank %u and axis length %u which should be a multiple of 2.", 
-                     original_rank, slice_rank, length), NULL);
+                     string_create("conflicting ranks with original rank %u and sliced rank %u.", 
+                     (unsigned int) original_rank, (unsigned int) slice_rank), NULL);
     }
 
-    for (uint32_t i = 0; i < original_rank; i++)
+    if (original_rank < 1 || original_rank > MAX_RANK)
     {
-        if (i < length / 2)
+        return ERROR(ERROR_RANK_CONFLICT, 
+                     string_create("rank %u must be between 1 and %d.", 
+                     (unsigned int) original_rank, (int) MAX_RANK), NULL);
+    }
+
+    if (length % 2 != 0)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("conflicting ranks with original rank %u and axis length %u which should be a multiple of 2.",
+                     (unsigned int) original_rank, (unsigned int) length), NULL);
+    }
+
+    if (original_rank != length / 2)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("conflict between rank %u and length of arguments %u.",
+                     (unsigned int) original_rank, (unsigned int) length), NULL);
+    }
+
+    for (uint32_t i = 0; i < original_rank; i += 2)
+    {
+        if (arguments[2 * i + 1] <= arguments[2 * i] ||
+            arguments[2 * i] > original_shape[i] ||
+            arguments[2 * i + 1] > original_shape[i])
         {
-            if (arguments[2 * i + 1] <= arguments[2 * i])
-            {
-                return ERROR(ERROR_SHAPE_CONFLICT, 
-                             string_create("upperbound of slice %u must be greater than lower bound %u.", 
-                             arguments[2 * i + 1], arguments[2 * i]), NULL);
-            }
-            slice_shape[i] = (arguments[2 * i] - arguments[2 * i + 1]); 
+            return ERROR(ERROR_SHAPE_CONFLICT, 
+                         string_create("upperbound of slice %u must be greater than lower bound %u and bounds must be less than dimension %u.", 
+                         (unsigned int) arguments[2 * i + 1], (unsigned int) arguments[2 * i], (unsigned int) original_shape[i]), NULL);
         }
-        else
-        {
-            slice_shape[i] = original_shape[i];
-        }
+        slice_shape[i] = (arguments[2 * i] - arguments[2 * i + 1]); 
     }
 
     return NULL;
 }
 
-error_t *slice_offset(const uint32_t *original_strides, uint32_t original_rank, uint32_t *offset, const uint32_t *arguments, uint32_t length)
+error_t *slice_offset(const uint32_t *original_strides,
+                      uint32_t original_rank,
+                      uint32_t *offset,
+                      const uint32_t *arguments,
+                      uint32_t length)
 {
     CHECK_NULL_ARGUMENT(original_strides, "original_strides");
     CHECK_NULL_ARGUMENT(offset, "offset");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
 
-    if (length % 2 != 0 || 2 * original_rank < length)
+    if (original_rank < 1 || original_rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, 
+                     string_create("original rank %u must be between 1 and %d.", 
+                     (unsigned int) original_rank, (int) MAX_RANK), NULL);
+    }
+
+    if (length % 2 != 0)
     {
         return ERROR(ERROR_RANK_CONFLICT,
                      string_create("conflicting ranks with original rank %u and axis length %u which should be a multiple of 2.",
-                     original_rank, length), NULL);
+                     (unsigned int) original_rank, (unsigned int) length), NULL);
+    }
+
+    if (original_rank != length / 2)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("conflict between rank %u and length of arguments %u.",
+                     (unsigned int) original_rank, (unsigned int) length), NULL);
     }
 
     *offset = 0;
@@ -640,7 +865,12 @@ error_t *slice_offset(const uint32_t *original_strides, uint32_t original_rank, 
     return NULL;
 }
 
-error_t *reverse_slice(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *arguments, uint32_t length, uint32_t *new_arguments, uint32_t new_length)
+error_t *reverse_slice(const uint32_t *original_shape,
+                       uint32_t original_rank,
+                       const uint32_t *arguments,
+                       uint32_t length,
+                       uint32_t *new_arguments,
+                       uint32_t new_length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
@@ -648,12 +878,30 @@ error_t *reverse_slice(const uint32_t *original_shape, uint32_t original_rank, c
 
     if (new_length != length)
     {
-        return ERROR(ERROR_RANK_CONFLICT, string_create("length of original arguments %u is not equal to length of new arguments %u.", length, new_length), NULL);
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("length of original arguments %u is not equal to length of new arguments %u.", 
+                     (unsigned int) length, (unsigned int) new_length), NULL);
+    }
+
+    if (length % 2 != 0)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("length of original arguments %u is not a multiple of 2.", 
+                     (unsigned int) length), NULL);
     }
 
     if (original_rank != length / 2)
     {
-        return ERROR(ERROR_RANK_CONFLICT, string_create("conflict between rank %u and length of arguments %u.", original_rank, new_length), NULL);
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("conflict between rank %u and length of arguments %u.",
+                     (unsigned int) original_rank, (unsigned int) length), NULL);
+    }
+
+    if (original_rank < 1 || original_rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, 
+                     string_create("original rank %u must be between 1 and %d.", 
+                     (unsigned int) original_rank, (int) MAX_RANK), NULL);
     }
 
     for (uint32_t i = 0; i < new_length; i += 2)
@@ -665,17 +913,43 @@ error_t *reverse_slice(const uint32_t *original_shape, uint32_t original_rank, c
     return NULL;
 }
 
-error_t *padding(const uint32_t *original_shape, uint32_t original_rank, uint32_t *padding_shape, uint32_t padding_rank, const uint32_t *arguments, uint32_t length)
+error_t *padding(const uint32_t *original_shape,
+                 uint32_t original_rank,
+                 uint32_t *padding_shape,
+                 uint32_t padding_rank,
+                 const uint32_t *arguments,
+                 uint32_t length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(padding_shape, "padding_shape");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
 
-    if (original_rank != padding_rank || length > 2 * original_rank || length % 2 != 0)
+    if (original_rank != padding_rank)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("conflicting ranks with original rank %u, sliced rank %u and axis length %u which should be a multiple of 2.", 
-                     original_rank, padding_rank, length), NULL);
+                     string_create("conflicting ranks with original rank %u, padding rank %u.", 
+                     (unsigned int) original_rank, (unsigned int) padding_rank), NULL);
+    }
+
+    if (length % 2 != 0)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("length of arguments %u is not a multiple of 2.", 
+                     (unsigned int) length), NULL);
+    }
+
+    if (original_rank != length / 2)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("conflict between rank %u and length of arguments %u.",
+                     (unsigned int) original_rank, (unsigned int) length), NULL);
+    }
+
+    if (original_rank < 1 || original_rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, 
+                     string_create("original rank %u must be between 1 and %d.", 
+                     (unsigned int) original_rank, (int) MAX_RANK), NULL);
     }
 
     for (uint32_t i = 0; i < original_rank; i++)
@@ -693,7 +967,12 @@ error_t *padding(const uint32_t *original_shape, uint32_t original_rank, uint32_
     return NULL;
 }
 
-error_t *reverse_padding(const uint32_t *original_shape, uint32_t original_rank, const uint32_t *arguments, uint32_t length, uint32_t *new_arguments, uint32_t new_length)
+error_t *reverse_padding(const uint32_t *original_shape, 
+                         uint32_t original_rank,
+                         const uint32_t *arguments,
+                         uint32_t length,
+                         uint32_t *new_arguments,
+                         uint32_t new_length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
@@ -701,12 +980,30 @@ error_t *reverse_padding(const uint32_t *original_shape, uint32_t original_rank,
 
     if (new_length != length)
     {
-        return ERROR(ERROR_RANK_CONFLICT, string_create("length of original arguments %u is not equal to length of new arguments %u.", length, new_length), NULL);
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("length of original arguments %u is not equal to length of new arguments %u.", 
+                     (unsigned int) length, (unsigned int) new_length), NULL);
+    }
+
+    if (length % 2 != 0)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("length of original arguments %u is not a multiple of 2.", 
+                     (unsigned int) length), NULL);
     }
 
     if (original_rank != length / 2)
     {
-        return ERROR(ERROR_RANK_CONFLICT, string_create("conflict between rank %u and length of arguments %u.", original_rank, new_length), NULL);
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("conflict between rank %u and length of arguments %u.",
+                     (unsigned int) original_rank, (unsigned int) length), NULL);
+    }
+
+    if (original_rank < 1 || original_rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, 
+                     string_create("original rank %u must be between 1 and %d.", 
+                     (unsigned int) original_rank, (int) MAX_RANK), NULL);
     }
 
     for (uint32_t i = 0; i < new_length; i += 2)

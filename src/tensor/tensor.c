@@ -84,7 +84,7 @@ error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_original
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate broadcast shape of %zu bytes.", broadcasted_rank * sizeof(uint32_t)), NULL);
     }
 
-    error = broadcast_shapes(x_shape, x_rank, y_shape, y_rank, broadcasted_shape, &broadcasted_rank);
+    error = broadcast_shapes(x_shape, x_rank, y_shape, y_rank, broadcasted_shape, broadcasted_rank);
     if (error != NULL)
     {
         free(broadcasted_shape);

@@ -1,249 +1,121 @@
 #include <check.h>
-#include <buffer.h>
+#include <view.h>
 
-error_t *test_case_view_error_0;
-error_t *test_case_view_error_1;
-error_t *test_case_view_error_2;
-error_t *test_case_view_error_3;
-error_t *test_case_view_error_4;
-error_t *test_case_view_error_5;
-
-view_t *test_case_view_1;
-view_t *test_case_view_2;
-view_t *test_case_view_3;
-view_t *test_case_view_4;
-view_t *test_case_view_5;
-
-uint32_t *test_case_view_shape_0;
-uint32_t *test_case_view_shape_1;
-uint32_t *test_case_view_shape_2;
-uint32_t *test_case_view_shape_3;
-uint32_t *test_case_view_shape_4;
-uint32_t *test_case_view_shape_5;
-
-uint32_t *test_case_view_strides_0;
-uint32_t *test_case_view_strides_1;
-uint32_t *test_case_view_strides_2;
-uint32_t *test_case_view_strides_3;
-uint32_t *test_case_view_strides_4;
-uint32_t *test_case_view_strides_5;
-
-uint32_t test_case_view_offset_0;
-uint32_t test_case_view_offset_1;
-uint32_t test_case_view_offset_2;
-uint32_t test_case_view_offset_3;
-uint32_t test_case_view_offset_4;
-uint32_t test_case_view_offset_5;
-
-uint32_t test_case_view_rank_0;
-uint32_t test_case_view_rank_1;
-uint32_t test_case_view_rank_2;
-uint32_t test_case_view_rank_3;
-uint32_t test_case_view_rank_4;
-uint32_t test_case_view_rank_5;
+error_t *view_error;
+view_t *view;
 
 void view_setup(void)
 {
-    // NULL view argument.
-    test_case_view_offset_0 = 0;
-    test_case_view_rank_0 = 1;
-    test_case_view_shape_0 = (uint32_t *) malloc(sizeof(uint32_t));
-    ck_assert_ptr_nonnull(test_case_view_shape_0);
-    test_case_view_shape_0[0] = (uint32_t) 1;
-    test_case_view_strides_0 = (uint32_t *) malloc(sizeof(uint32_t));
-    ck_assert_ptr_nonnull(test_case_view_strides_0);
-    test_case_view_strides_0[0] = (uint32_t) 1;
-    test_case_view_error_0 = view_create(NULL,
-                                         test_case_view_offset_0,
-                                         test_case_view_rank_0,
-                                         test_case_view_shape_0,
-                                         test_case_view_strides_0);
-
-    // NULL shape argument.
-    test_case_view_offset_1 = 0;
-    test_case_view_rank_1 = 1;
-    test_case_view_shape_1 = (uint32_t *) malloc(sizeof(uint32_t));
-    ck_assert_ptr_nonnull(test_case_view_shape_1);
-    test_case_view_shape_1[0] = (uint32_t) 1;
-    test_case_view_strides_1 = (uint32_t *) malloc(sizeof(uint32_t));
-    ck_assert_ptr_nonnull(test_case_view_strides_1);
-    test_case_view_strides_1[0] = (uint32_t) 1;
-    test_case_view_error_1 = view_create(&test_case_view_1,
-                                         test_case_view_offset_1,
-                                         test_case_view_rank_1,
-                                         NULL,
-                                         test_case_view_strides_1);
-
-    // Rank 0 argument
-    test_case_view_offset_2 = 0;
-    test_case_view_rank_2 = 0;
-    test_case_view_shape_2 = (uint32_t *) malloc(sizeof(uint32_t));
-    ck_assert_ptr_nonnull(test_case_view_shape_2);
-    test_case_view_shape_2[0] = (uint32_t) 1;
-    test_case_view_strides_2 = (uint32_t *) malloc(sizeof(uint32_t));
-    ck_assert_ptr_nonnull(test_case_view_strides_2);
-    test_case_view_strides_2[0] = (uint32_t) 1;
-    test_case_view_error_2 = view_create(&test_case_view_2,
-                                         test_case_view_offset_2,
-                                         test_case_view_rank_2,
-                                         test_case_view_shape_2,
-                                         test_case_view_strides_2);
-
-    // Rank greater than max
-    test_case_view_offset_3 = 0;
-    test_case_view_rank_3 = MAX_RANK + 1;
-    test_case_view_shape_3 = (uint32_t *) malloc(sizeof(uint32_t));
-    ck_assert_ptr_nonnull(test_case_view_shape_3);
-    test_case_view_shape_3[0] = (uint32_t) 1;
-    test_case_view_strides_3 = (uint32_t *) malloc(sizeof(uint32_t));
-    ck_assert_ptr_nonnull(test_case_view_strides_3);
-    test_case_view_strides_3[0] = (uint32_t) 1;
-    test_case_view_error_3 = view_create(&test_case_view_3,
-                                         test_case_view_offset_3,
-                                         test_case_view_rank_3,
-                                         test_case_view_shape_3,
-                                         test_case_view_strides_3);
-    
-    // Valid shape with strides
-    test_case_view_offset_4 = 0;
-    test_case_view_rank_4 = 3;
-    test_case_view_shape_4 = (uint32_t *) malloc((size_t) (test_case_view_rank_4 * sizeof(uint32_t)));
-    ck_assert_ptr_nonnull(test_case_view_shape_4);
-    test_case_view_shape_4[0] = (uint32_t) 1;
-    test_case_view_shape_4[1] = (uint32_t) 2;
-    test_case_view_shape_4[2] = (uint32_t) 3;
-    test_case_view_strides_4 = (uint32_t *) malloc((size_t) (test_case_view_rank_4 * sizeof(uint32_t)));
-    ck_assert_ptr_nonnull(test_case_view_strides_4);
-    test_case_view_strides_4[0] = (uint32_t) 6;
-    test_case_view_strides_4[1] = (uint32_t) 3;
-    test_case_view_strides_4[2] = (uint32_t) 1;
-    test_case_view_error_4 = view_create(&test_case_view_4,
-                                         test_case_view_offset_4,
-                                         test_case_view_rank_4,
-                                         test_case_view_shape_4,
-                                         test_case_view_strides_4);
-
-    // Valid shape without strides
-    test_case_view_offset_5 = 0;
-    test_case_view_rank_5 = 3;
-    test_case_view_shape_5 = (uint32_t *) malloc((size_t) (test_case_view_rank_5 * sizeof(uint32_t)));
-    ck_assert_ptr_nonnull(test_case_view_shape_5);
-    test_case_view_shape_5[0] = (uint32_t) 1;
-    test_case_view_shape_5[1] = (uint32_t) 2;
-    test_case_view_shape_5[2] = (uint32_t) 3;
-    test_case_view_strides_5 = (uint32_t *) malloc((size_t) (test_case_view_rank_5 * sizeof(uint32_t)));
-    ck_assert_ptr_nonnull(test_case_view_strides_5);
-    test_case_view_strides_5[0] = (uint32_t) 0;
-    test_case_view_strides_5[1] = (uint32_t) 3;
-    test_case_view_strides_5[2] = (uint32_t) 1;
-    test_case_view_error_5 = view_create(&test_case_view_5,
-                                         test_case_view_offset_5,
-                                         test_case_view_rank_5,
-                                         test_case_view_shape_5,
-                                         NULL);
+    view_error = NULL;
+    view = NULL;
 }
 
 void view_teardown(void)
 {
     error_destroy(NULL);
-    error_destroy(test_case_view_error_0);
-    error_destroy(test_case_view_error_1);
-    error_destroy(test_case_view_error_2);
-    error_destroy(test_case_view_error_3);
-    error_destroy(test_case_view_error_4);
-    error_destroy(test_case_view_error_5);
-
-    view_destroy(NULL);
-    view_destroy(test_case_view_1);
-    view_destroy(test_case_view_2);
-    view_destroy(test_case_view_3);
-    view_destroy(test_case_view_4);
-    view_destroy(test_case_view_5);
-
-    free(test_case_view_shape_0);
-    free(test_case_view_shape_1);
-    free(test_case_view_shape_2);
-    free(test_case_view_shape_3);
-    free(test_case_view_shape_4);
-    free(test_case_view_shape_5);
-
-    free(test_case_view_strides_0);
-    free(test_case_view_strides_1);
-    free(test_case_view_strides_2);
-    free(test_case_view_strides_3);
-    free(test_case_view_strides_4);
-    free(test_case_view_strides_5);
+    error_destroy(view_error);
+    view_destroy(view);
 }
 
 START_TEST(test_view_create_error)
 {
-    ck_assert_ptr_nonnull(test_case_view_error_0);
-    ck_assert_int_eq(test_case_view_error_0->error_type, ERROR_NULL);
+    uint32_t number_of_cases = 5;
 
-    ck_assert_ptr_nonnull(test_case_view_error_1);
-    ck_assert_int_eq(test_case_view_error_1->error_type, ERROR_NULL);
+    uint32_t offsets[] = {0, 0, 0, 0, 0};
+    uint32_t ranks[] = {1, 1, 1, 0, MAX_RANK + 1};
+    uint32_t *shapes[] = {
+        (uint32_t[]) {1},
+        NULL,
+        NULL,
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+    };
 
-    ck_assert_ptr_nonnull(test_case_view_error_2);
-    ck_assert_int_eq(test_case_view_error_2->error_type, ERROR_RANK_CONFLICT);
+    uint32_t *strides[] = {
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        NULL,
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+    };
 
-    ck_assert_ptr_nonnull(test_case_view_error_3);
-    ck_assert_int_eq(test_case_view_error_3->error_type, ERROR_RANK_CONFLICT);
+    error_type_t error_types[] = {
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+    };
 
-    ck_assert_ptr_null(test_case_view_error_4);
-    ck_assert_ptr_null(test_case_view_error_5);
+    for (uint32_t i = 0; i < number_of_cases; i++)
+    {
+        if (!i)
+        {
+            view_error = view_create(NULL, offsets[i], ranks[i], shapes[i], strides[i]);
+        }
+        else
+        {
+            view_error = view_create(&view, offsets[i], ranks[i], shapes[i], strides[i]);
+        }
+        ck_assert_ptr_nonnull(view_error);
+        ck_assert_int_eq(view_error->error_type, error_types[i]);
+        error_destroy(view_error);
+        view_destroy(view);
+        view_error = NULL;
+        view = NULL;
+    }
 }
 END_TEST
 
-START_TEST(test_view_create_shape)
+START_TEST(test_view_create)
 {
-    ck_assert_ptr_ne(test_case_view_4->shape, test_case_view_shape_4);
-    ck_assert_ptr_nonnull(test_case_view_4->shape);
-    for (uint32_t i = 0; i < test_case_view_rank_4; i++)
+    uint32_t number_of_cases = 5;
+
+    uint32_t offsets[] = {0, 1, 10, 20, 30};
+    uint32_t ranks[] = {1, 2, 3, 4, 5};
+    uint32_t *expected_shapes[] = {
+        (uint32_t[]) {1},
+        (uint32_t[]) {1, 2},
+        (uint32_t[]) {1, 2, 3},
+        (uint32_t[]) {1, 2, 3, 4},
+        (uint32_t[]) {1, 2, 3, 4, 5},
+    };
+
+    uint32_t *expected_strides[] = {
+        (uint32_t[]) {0},
+        (uint32_t[]) {2, 1},
+        (uint32_t[]) {6, 3, 1},
+        (uint32_t[]) {0, 12, 4, 1},
+        (uint32_t[]) {120, 60, 20, 5, 1},
+    };
+
+    for (uint32_t i = 0; i < number_of_cases; i++)
     {
-        ck_assert_uint_eq(test_case_view_4->shape[i], test_case_view_shape_4[i]);
+        if (i % 3 == 0)
+        {
+            view_error = view_create(&view, offsets[i], ranks[i], expected_shapes[i], NULL);
+        }
+        else
+        {
+            view_error = view_create(&view, offsets[i], ranks[i], expected_shapes[i], expected_strides[i]);
+        }
+        ck_assert_ptr_null(view_error);
+        ck_assert_ptr_ne(view->shape, expected_shapes[i]);
+        ck_assert_ptr_ne(view->strides, expected_strides[i]);
+        ck_assert_ptr_nonnull(view->shape);
+        ck_assert_ptr_nonnull(view->strides);
+        for (uint32_t j = 0; j < ranks[i]; j++)
+        {
+            ck_assert_uint_eq(view->shape[j], expected_shapes[i][j]);
+            ck_assert_uint_eq(view->strides[j], expected_strides[i][j]);
+        }
+        ck_assert_uint_eq(view->offset, offsets[i]);
+        ck_assert_uint_eq(view->rank, ranks[i]);
+        error_destroy(view_error);
+        view_destroy(view);
+        view_error = NULL;
+        view = NULL;
     }
-
-    ck_assert_ptr_ne(test_case_view_5->shape, test_case_view_shape_5);
-    ck_assert_ptr_nonnull(test_case_view_5->shape);
-    for (uint32_t i = 0; i < test_case_view_rank_5; i++)
-    {
-        ck_assert_uint_eq(test_case_view_5->shape[i], test_case_view_shape_5[i]);
-    }
-}
-END_TEST
-
-START_TEST(test_view_create_strides)
-{
-    ck_assert_ptr_ne(test_case_view_4->strides, test_case_view_strides_4);
-    ck_assert_ptr_nonnull(test_case_view_4->strides);
-    for (uint32_t i = 0; i < test_case_view_rank_4; i++)
-    {
-        ck_assert_uint_eq(test_case_view_4->strides[i], test_case_view_strides_4[i]);
-    }
-
-    ck_assert_ptr_ne(test_case_view_5->strides, test_case_view_strides_5);
-    ck_assert_ptr_nonnull(test_case_view_5->strides);
-    for (uint32_t i = 0; i < test_case_view_rank_5; i++)
-    {
-        ck_assert_uint_eq(test_case_view_5->strides[i], test_case_view_strides_5[i]);
-    }
-
-    ck_assert_ptr_ne(test_case_view_4->strides, test_case_view_strides_4);
-    ck_assert_ptr_ne(test_case_view_5->strides, test_case_view_strides_5);
-}
-END_TEST
-
-START_TEST(test_view_create_offset)
-{
-    ck_assert_uint_eq(test_case_view_4->offset, test_case_view_offset_4);
-    ck_assert_uint_eq(test_case_view_5->offset, test_case_view_offset_5);
-}
-END_TEST
-
-START_TEST(test_view_create_rank)
-{
-    ck_assert_uint_eq(test_case_view_4->rank, test_case_view_rank_4);
-    ck_assert_uint_eq(test_case_view_5->rank, test_case_view_rank_5);
 }
 END_TEST
 
@@ -257,218 +129,28 @@ Suite *make_view_suite(void)
     tc_view_create = tcase_create("Test view_create");
     tcase_add_checked_fixture(tc_view_create, view_setup, view_teardown);
     tcase_add_test(tc_view_create, test_view_create_error);
-    tcase_add_test(tc_view_create, test_view_create_shape);
-    tcase_add_test(tc_view_create, test_view_create_strides);
-    tcase_add_test(tc_view_create, test_view_create_offset);
-    tcase_add_test(tc_view_create, test_view_create_rank);
+    tcase_add_test(tc_view_create, test_view_create);
 
     suite_add_tcase(s, tc_view_create);
 
     return s;
 }
 
-error_t *test_case_contiguous_error_0;
-error_t *test_case_contiguous_error_1;
-error_t *test_case_contiguous_error_2;
-error_t *test_case_contiguous_error_3;
-error_t *test_case_contiguous_error_4;
-error_t *test_case_contiguous_error_5;
-
-uint32_t *test_case_contiguous_shape_0;
-uint32_t *test_case_contiguous_shape_1;
-uint32_t *test_case_contiguous_shape_2;
-uint32_t *test_case_contiguous_shape_3;
-uint32_t *test_case_contiguous_shape_4;
-uint32_t *test_case_contiguous_shape_5;
-
-uint32_t *test_case_contiguous_expected_strides_0;
-uint32_t *test_case_contiguous_expected_strides_1;
-uint32_t *test_case_contiguous_expected_strides_2;
-uint32_t *test_case_contiguous_expected_strides_3;
-uint32_t *test_case_contiguous_expected_strides_4;
-uint32_t *test_case_contiguous_expected_strides_5;
-
-uint32_t *test_case_contiguous_returned_strides_0;
-uint32_t *test_case_contiguous_returned_strides_1;
-uint32_t *test_case_contiguous_returned_strides_2;
-uint32_t *test_case_contiguous_returned_strides_3;
-uint32_t *test_case_contiguous_returned_strides_4;
-uint32_t *test_case_contiguous_returned_strides_5;
-
-uint32_t test_case_contiguous_rank_0;
-uint32_t test_case_contiguous_rank_1;
-uint32_t test_case_contiguous_rank_2;
-uint32_t test_case_contiguous_rank_3;
-uint32_t test_case_contiguous_rank_4;
-uint32_t test_case_contiguous_rank_5;
+error_t *is_contiguous_error;
 
 void contiguous_setup(void)
 {
-    // Test Case 0
-    test_case_contiguous_rank_0 = 3;
-    test_case_contiguous_shape_0 = (uint32_t *) malloc(test_case_contiguous_rank_0 * sizeof(uint32_t));
-    test_case_contiguous_returned_strides_0 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_0 * sizeof(uint32_t)));
-    test_case_contiguous_expected_strides_0 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_0 * sizeof(uint32_t)));
-    test_case_contiguous_error_0 = NULL;
-
-    ck_assert_ptr_nonnull(test_case_contiguous_shape_0);
-    ck_assert_ptr_nonnull(test_case_contiguous_returned_strides_0);
-    ck_assert_ptr_nonnull(test_case_contiguous_expected_strides_0);
-
-    test_case_contiguous_shape_0[0] = (uint32_t) 2;
-    test_case_contiguous_shape_0[1] = (uint32_t) 2;
-    test_case_contiguous_shape_0[2] = (uint32_t) 3;
-
-    test_case_contiguous_expected_strides_0[0] = (uint32_t) 6;
-    test_case_contiguous_expected_strides_0[1] = (uint32_t) 3;
-    test_case_contiguous_expected_strides_0[2] = (uint32_t) 1;
-
-    // Test Case 1
-    test_case_contiguous_rank_1 = 4;
-    test_case_contiguous_shape_1 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_1 * sizeof(uint32_t)));
-    test_case_contiguous_returned_strides_1 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_1 * sizeof(uint32_t)));
-    test_case_contiguous_expected_strides_1 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_1 * sizeof(uint32_t)));
-    test_case_contiguous_error_1 = NULL;
-
-    ck_assert_ptr_nonnull(test_case_contiguous_shape_1);
-    ck_assert_ptr_nonnull(test_case_contiguous_returned_strides_1);
-    ck_assert_ptr_nonnull(test_case_contiguous_expected_strides_1);
-
-    test_case_contiguous_shape_1[0] = (uint32_t) 10;
-    test_case_contiguous_shape_1[1] = (uint32_t) 1;
-    test_case_contiguous_shape_1[2] = (uint32_t) 2;
-    test_case_contiguous_shape_1[3] = (uint32_t) 5;
-
-    test_case_contiguous_expected_strides_1[0] = (uint32_t) 10;
-    test_case_contiguous_expected_strides_1[1] = (uint32_t) 0;
-    test_case_contiguous_expected_strides_1[2] = (uint32_t) 5;
-    test_case_contiguous_expected_strides_1[3] = (uint32_t) 1;
-
-    // Test Case 2
-    test_case_contiguous_rank_2 = 1;
-    test_case_contiguous_shape_2 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_2 * sizeof(uint32_t)));
-    test_case_contiguous_returned_strides_2 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_2 * sizeof(uint32_t)));
-    test_case_contiguous_expected_strides_2 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_2 * sizeof(uint32_t)));
-    test_case_contiguous_error_2 = NULL;
-
-    ck_assert_ptr_nonnull(test_case_contiguous_shape_2);
-    ck_assert_ptr_nonnull(test_case_contiguous_returned_strides_2);
-    ck_assert_ptr_nonnull(test_case_contiguous_expected_strides_2);
-
-    test_case_contiguous_shape_2[0] = (uint32_t) 10;
-
-    test_case_contiguous_expected_strides_2[0] = (uint32_t) 1;
-
-    // Test Case 3
-    test_case_contiguous_rank_3 = 3;
-    test_case_contiguous_shape_3 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_3 * sizeof(uint32_t)));
-    test_case_contiguous_returned_strides_3 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_3 * sizeof(uint32_t)));
-    test_case_contiguous_expected_strides_3 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_3 * sizeof(uint32_t)));
-    test_case_contiguous_error_3 = NULL;
-
-    ck_assert_ptr_nonnull(test_case_contiguous_shape_3);
-    ck_assert_ptr_nonnull(test_case_contiguous_returned_strides_3);
-    ck_assert_ptr_nonnull(test_case_contiguous_expected_strides_3);
-
-    test_case_contiguous_shape_3[0] = (uint32_t) 2;
-    test_case_contiguous_shape_3[1] = (uint32_t) 1;
-    test_case_contiguous_shape_3[2] = (uint32_t) 1;
-
-    test_case_contiguous_expected_strides_3[0] = (uint32_t) 1;
-    test_case_contiguous_expected_strides_3[1] = (uint32_t) 0;
-    test_case_contiguous_expected_strides_3[2] = (uint32_t) 0;
-
-    // Test Case 4
-    test_case_contiguous_rank_4 = 2;
-    test_case_contiguous_shape_4 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_4 * sizeof(uint32_t)));
-    test_case_contiguous_returned_strides_4 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_4 * sizeof(uint32_t)));
-    test_case_contiguous_expected_strides_4 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_4 * sizeof(uint32_t)));
-    test_case_contiguous_error_4 = NULL;
-
-    ck_assert_ptr_nonnull(test_case_contiguous_shape_4);
-    ck_assert_ptr_nonnull(test_case_contiguous_returned_strides_4);
-    ck_assert_ptr_nonnull(test_case_contiguous_expected_strides_4);
-
-    test_case_contiguous_shape_4[0] = (uint32_t) 1;
-    test_case_contiguous_shape_4[1] = (uint32_t) 10;
-
-    test_case_contiguous_expected_strides_4[0] = (uint32_t) 0;
-    test_case_contiguous_expected_strides_4[1] = (uint32_t) 1;
-
-    // Test Case 5
-    test_case_contiguous_rank_5 = 4;
-    test_case_contiguous_shape_5 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_5 * sizeof(uint32_t)));
-    test_case_contiguous_returned_strides_5 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_5 * sizeof(uint32_t)));
-    test_case_contiguous_expected_strides_5 = (uint32_t *) malloc((size_t) (test_case_contiguous_rank_5 * sizeof(uint32_t)));
-    test_case_contiguous_error_5 = NULL;
-
-    ck_assert_ptr_nonnull(test_case_contiguous_shape_5);
-    ck_assert_ptr_nonnull(test_case_contiguous_returned_strides_5);
-    ck_assert_ptr_nonnull(test_case_contiguous_expected_strides_5);
-
-    test_case_contiguous_shape_5[0] = (uint32_t) 2;
-    test_case_contiguous_shape_5[1] = (uint32_t) 3;
-    test_case_contiguous_shape_5[2] = (uint32_t) 4;
-    test_case_contiguous_shape_5[3] = (uint32_t) 5;
-
-    test_case_contiguous_expected_strides_5[0] = (uint32_t) 60;
-    test_case_contiguous_expected_strides_5[1] = (uint32_t) 20;
-    test_case_contiguous_expected_strides_5[2] = (uint32_t) 5;
-    test_case_contiguous_expected_strides_5[3] = (uint32_t) 1;
+    is_contiguous_error = NULL;
 }
 
 void contiguous_teardown(void)
 {
-    error_destroy(test_case_contiguous_error_0);
-    error_destroy(test_case_contiguous_error_1);
-    error_destroy(test_case_contiguous_error_2);
-    error_destroy(test_case_contiguous_error_3);
-    error_destroy(test_case_contiguous_error_4);
-    error_destroy(test_case_contiguous_error_5);
-
-    free(test_case_contiguous_shape_0);
-    free(test_case_contiguous_shape_1);
-    free(test_case_contiguous_shape_2);
-    free(test_case_contiguous_shape_3);
-    free(test_case_contiguous_shape_4);
-    free(test_case_contiguous_shape_5);
-
-    free(test_case_contiguous_expected_strides_0);
-    free(test_case_contiguous_expected_strides_1);
-    free(test_case_contiguous_expected_strides_2);
-    free(test_case_contiguous_expected_strides_3);
-    free(test_case_contiguous_expected_strides_4);
-    free(test_case_contiguous_expected_strides_5);
-
-    free(test_case_contiguous_returned_strides_0);
-    free(test_case_contiguous_returned_strides_1);
-    free(test_case_contiguous_returned_strides_2);
-    free(test_case_contiguous_returned_strides_3);
-    free(test_case_contiguous_returned_strides_4);
-    free(test_case_contiguous_returned_strides_5);
+    error_destroy(is_contiguous_error);
 }
 
 START_TEST(test_is_contiguous)
 {
-    ck_assert(is_contiguous(test_case_contiguous_shape_0, 
-                            test_case_contiguous_rank_0, 
-                            test_case_contiguous_expected_strides_0));
-    ck_assert(is_contiguous(test_case_contiguous_shape_1, 
-                            test_case_contiguous_rank_1, 
-                            test_case_contiguous_expected_strides_1));
-    ck_assert(is_contiguous(test_case_contiguous_shape_2, 
-                            test_case_contiguous_rank_2, 
-                            test_case_contiguous_expected_strides_2));
-    ck_assert(is_contiguous(test_case_contiguous_shape_3, 
-                            test_case_contiguous_rank_3, 
-                            test_case_contiguous_expected_strides_3));
-    ck_assert(is_contiguous(test_case_contiguous_shape_4, 
-                            test_case_contiguous_rank_4, 
-                            test_case_contiguous_expected_strides_4));
-    ck_assert(is_contiguous(test_case_contiguous_shape_5, 
-                            test_case_contiguous_rank_5, 
-                            test_case_contiguous_expected_strides_5));
-
+    ck_assert(is_contiguous((uint32_t[]) {2, 2, 3}, 3, (uint32_t[]) {6, 3, 1}));
     ck_assert(!is_contiguous(NULL, 3, (uint32_t[]) {1, 2, 3}));
     ck_assert(!is_contiguous((uint32_t[]) {1, 2, 3}, 3, NULL));
     ck_assert(!is_contiguous(NULL, 3, NULL));
@@ -482,85 +164,87 @@ END_TEST
 
 START_TEST(test_strides_from_shape)
 {
-    test_case_contiguous_error_0 = strides_from_shape(test_case_contiguous_returned_strides_0,
-                                                      test_case_contiguous_shape_0,
-                                                      test_case_contiguous_rank_0);
-    ck_assert_ptr_null(test_case_contiguous_error_0);
-    for (uint32_t i = 0; i < test_case_contiguous_rank_0; i++)
-    {
-        ck_assert_uint_eq(test_case_contiguous_expected_strides_0[i],
-                          test_case_contiguous_returned_strides_0[i]);
-    }
+    uint32_t number_of_cases = 6;
+    uint32_t shapes[][MAX_RANK] = {
+        {2, 3, 4, 5},
+        {1, 10}, 
+        {2, 1, 1},
+        {10}, 
+        {10, 1, 2, 5},
+        {2, 2, 3},
+    };
+    uint32_t expected_strides[][MAX_RANK] = {
+        {60, 20, 5, 1},
+        {0, 1},
+        {1, 0, 0},
+        {1},
+        {10, 0, 5, 1},
+        {6, 3, 1},
+    };
+    uint32_t returned_strides[number_of_cases][MAX_RANK];
+    uint32_t ranks[] = {
+        4,
+        2,
+        3,
+        1,
+        4,
+        3,
+    };
 
-    test_case_contiguous_error_1 = strides_from_shape(test_case_contiguous_returned_strides_1,
-                                                      test_case_contiguous_shape_1,
-                                                      test_case_contiguous_rank_1);
-    ck_assert_ptr_null(test_case_contiguous_error_1);
-    for (uint32_t i = 0; i < test_case_contiguous_rank_1; i++)
+    for (uint32_t i = 0; i < number_of_cases; i++)
     {
-        ck_assert_uint_eq(test_case_contiguous_expected_strides_1[i],
-                          test_case_contiguous_returned_strides_1[i]);
-    }
-
-    test_case_contiguous_error_2 = strides_from_shape(test_case_contiguous_returned_strides_2,
-                                                      test_case_contiguous_shape_2,
-                                                      test_case_contiguous_rank_2);
-    ck_assert_ptr_null(test_case_contiguous_error_2);
-    for (uint32_t i = 0; i < test_case_contiguous_rank_2; i++)
-    {
-        ck_assert_uint_eq(test_case_contiguous_expected_strides_2[i],
-                          test_case_contiguous_returned_strides_2[i]);
-    }
-
-    test_case_contiguous_error_3 = strides_from_shape(test_case_contiguous_returned_strides_3,
-                                                      test_case_contiguous_shape_3,
-                                                      test_case_contiguous_rank_3);
-    ck_assert_ptr_null(test_case_contiguous_error_3);
-    for (uint32_t i = 0; i < test_case_contiguous_rank_3; i++)
-    {
-        ck_assert_uint_eq(test_case_contiguous_expected_strides_3[i],
-                          test_case_contiguous_returned_strides_3[i]);
-    }
-
-    test_case_contiguous_error_4 = strides_from_shape(test_case_contiguous_returned_strides_4,
-                                                      test_case_contiguous_shape_4,
-                                                      test_case_contiguous_rank_4);
-    ck_assert_ptr_null(test_case_contiguous_error_4);
-    for (uint32_t i = 0; i < test_case_contiguous_rank_4; i++)
-    {
-        ck_assert_uint_eq(test_case_contiguous_expected_strides_4[i],
-                          test_case_contiguous_returned_strides_4[i]);
-    }
-
-    test_case_contiguous_error_5 = strides_from_shape(test_case_contiguous_returned_strides_5,
-                                                      test_case_contiguous_shape_5,
-                                                      test_case_contiguous_rank_5);
-    ck_assert_ptr_null(test_case_contiguous_error_5);
-    for (uint32_t i = 0; i < test_case_contiguous_rank_5; i++)
-    {
-        ck_assert_uint_eq(test_case_contiguous_expected_strides_5[i],
-                          test_case_contiguous_returned_strides_5[i]);
+        is_contiguous_error = strides_from_shape(returned_strides[i], shapes[i], ranks[i]);
+        ck_assert_ptr_null(is_contiguous_error);
+        for (uint32_t j = 0; j < ranks[i]; j++)
+        {
+            ck_assert_uint_eq(expected_strides[i][j], returned_strides[i][j]);
+        }
+        error_destroy(is_contiguous_error);
+        is_contiguous_error = NULL;
     }
 }
 END_TEST
 
 START_TEST(test_strides_from_shape_error)
 {
-    test_case_contiguous_error_0 = strides_from_shape((uint32_t[]) {1}, NULL, 1);
-    ck_assert_ptr_nonnull(test_case_contiguous_error_0);
-    ck_assert_int_eq(test_case_contiguous_error_0->error_type, ERROR_NULL);
-    test_case_contiguous_error_1 = strides_from_shape(NULL, (uint32_t[]) {1}, 1);
-    ck_assert_ptr_nonnull(test_case_contiguous_error_1);
-    ck_assert_int_eq(test_case_contiguous_error_1->error_type, ERROR_NULL);
-    test_case_contiguous_error_2 = strides_from_shape(NULL, NULL, 1);
-    ck_assert_ptr_nonnull(test_case_contiguous_error_2);
-    ck_assert_int_eq(test_case_contiguous_error_2->error_type, ERROR_NULL);
-    test_case_contiguous_error_3 = strides_from_shape((uint32_t[]) {1}, (uint32_t[]) {1}, 0);
-    ck_assert_ptr_nonnull(test_case_contiguous_error_3);
-    ck_assert_int_eq(test_case_contiguous_error_3->error_type, ERROR_RANK_CONFLICT);
-    test_case_contiguous_error_4 = strides_from_shape((uint32_t[]) {1}, (uint32_t[]) {1}, MAX_RANK + 1);
-    ck_assert_ptr_nonnull(test_case_contiguous_error_4);
-    ck_assert_int_eq(test_case_contiguous_error_4->error_type, ERROR_RANK_CONFLICT);
+    uint32_t number_of_cases = 5;
+    uint32_t *shapes[] = {
+        NULL,
+        (uint32_t[]) {1},
+        NULL,
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+    };
+    error_type_t expected_error_type[] = {
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+    };
+    uint32_t *returned_strides[] = {
+        NULL,
+        NULL,
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1}
+    };
+    uint32_t ranks[] = {
+        1,
+        1,
+        1,
+        0,
+        MAX_RANK + 1,
+    };
+
+    for (uint32_t i = 0; i < number_of_cases; i++)
+    {
+        is_contiguous_error = strides_from_shape(returned_strides[i], shapes[i], ranks[i]);
+        ck_assert_ptr_nonnull(is_contiguous_error);
+        ck_assert_int_eq(is_contiguous_error->error_type, expected_error_type[i]);
+        error_destroy(is_contiguous_error);
+        is_contiguous_error = NULL;
+    }
 }
 END_TEST
 
@@ -586,380 +270,247 @@ Suite *make_contiguous_suite(void)
     return s;
 }
 
-error_t *test_case_permute_error_0;
-error_t *test_case_permute_error_1;
-error_t *test_case_permute_error_2;
-error_t *test_case_permute_error_3;
-error_t *test_case_permute_error_4;
-error_t *test_case_permute_error_5;
-error_t *test_case_permute_error_6;
-error_t *test_case_permute_error_7;
-error_t *test_case_permute_error_8;
-error_t *test_case_permute_error_9;
-
-uint32_t test_case_permute_rank_0;
-uint32_t test_case_permute_rank_1;
-uint32_t test_case_permute_rank_2;
-uint32_t test_case_permute_rank_3;
-uint32_t test_case_permute_rank_4;
-uint32_t test_case_permute_rank_5;
-
-uint32_t *test_case_permute_expected_shape_0;
-uint32_t *test_case_permute_expected_shape_1;
-uint32_t *test_case_permute_expected_shape_2;
-uint32_t *test_case_permute_expected_shape_3;
-uint32_t *test_case_permute_expected_shape_4;
-uint32_t *test_case_permute_expected_shape_5;
-
-uint32_t *test_case_permute_returned_shape_0;
-uint32_t *test_case_permute_returned_shape_1;
-uint32_t *test_case_permute_returned_shape_2;
-uint32_t *test_case_permute_returned_shape_3;
-uint32_t *test_case_permute_returned_shape_4;
-uint32_t *test_case_permute_returned_shape_5;
-
-uint32_t *test_case_permute_expected_strides_0;
-uint32_t *test_case_permute_expected_strides_1;
-uint32_t *test_case_permute_expected_strides_2;
-uint32_t *test_case_permute_expected_strides_3;
-uint32_t *test_case_permute_expected_strides_4;
-uint32_t *test_case_permute_expected_strides_5;
-
-uint32_t *test_case_permute_returned_strides_0;
-uint32_t *test_case_permute_returned_strides_1;
-uint32_t *test_case_permute_returned_strides_2;
-uint32_t *test_case_permute_returned_strides_3;
-uint32_t *test_case_permute_returned_strides_4;
-uint32_t *test_case_permute_returned_strides_5;
+error_t *permute_error;
 
 void permute_setup(void)
 {
-    test_case_permute_error_0 = NULL;
-    test_case_permute_error_1 = NULL;
-    test_case_permute_error_2 = NULL;
-    test_case_permute_error_3 = NULL;
-    test_case_permute_error_4 = NULL;
-    test_case_permute_error_5 = NULL;
-    test_case_permute_error_6 = NULL;
-    test_case_permute_error_7 = NULL;
-    test_case_permute_error_8 = NULL;
-    test_case_permute_error_9 = NULL;
-
-    test_case_permute_rank_0 = 1;
-    test_case_permute_rank_1 = 2;
-    test_case_permute_rank_2 = 3;
-    test_case_permute_rank_3 = 4;
-    test_case_permute_rank_4 = 3;
-    test_case_permute_rank_5 = 4;
-
-    test_case_permute_expected_shape_0 = (uint32_t *) malloc((size_t) (test_case_permute_rank_0 * sizeof(uint32_t)));
-    test_case_permute_expected_shape_1 = (uint32_t *) malloc((size_t) (test_case_permute_rank_1 * sizeof(uint32_t)));
-    test_case_permute_expected_shape_2 = (uint32_t *) malloc((size_t) (test_case_permute_rank_2 * sizeof(uint32_t)));
-    test_case_permute_expected_shape_3 = (uint32_t *) malloc((size_t) (test_case_permute_rank_3 * sizeof(uint32_t)));
-    test_case_permute_expected_shape_4 = (uint32_t *) malloc((size_t) (test_case_permute_rank_4 * sizeof(uint32_t)));
-    test_case_permute_expected_shape_5 = (uint32_t *) malloc((size_t) (test_case_permute_rank_5 * sizeof(uint32_t)));
-
-    test_case_permute_returned_shape_0 = (uint32_t *) malloc((size_t) (test_case_permute_rank_0 * sizeof(uint32_t)));
-    test_case_permute_returned_shape_1 = (uint32_t *) malloc((size_t) (test_case_permute_rank_1 * sizeof(uint32_t)));
-    test_case_permute_returned_shape_2 = (uint32_t *) malloc((size_t) (test_case_permute_rank_2 * sizeof(uint32_t)));
-    test_case_permute_returned_shape_3 = (uint32_t *) malloc((size_t) (test_case_permute_rank_3 * sizeof(uint32_t)));
-    test_case_permute_returned_shape_4 = (uint32_t *) malloc((size_t) (test_case_permute_rank_4 * sizeof(uint32_t)));
-    test_case_permute_returned_shape_5 = (uint32_t *) malloc((size_t) (test_case_permute_rank_5 * sizeof(uint32_t)));
-    
-    test_case_permute_expected_strides_0 = (uint32_t *) malloc((size_t) (test_case_permute_rank_0 * sizeof(uint32_t)));
-    test_case_permute_expected_strides_1 = (uint32_t *) malloc((size_t) (test_case_permute_rank_1 * sizeof(uint32_t)));
-    test_case_permute_expected_strides_2 = (uint32_t *) malloc((size_t) (test_case_permute_rank_2 * sizeof(uint32_t)));
-    test_case_permute_expected_strides_3 = (uint32_t *) malloc((size_t) (test_case_permute_rank_3 * sizeof(uint32_t)));
-    test_case_permute_expected_strides_4 = (uint32_t *) malloc((size_t) (test_case_permute_rank_4 * sizeof(uint32_t)));
-    test_case_permute_expected_strides_5 = (uint32_t *) malloc((size_t) (test_case_permute_rank_5 * sizeof(uint32_t)));
-
-    test_case_permute_returned_strides_0 = (uint32_t *) malloc((size_t) (test_case_permute_rank_0 * sizeof(uint32_t)));
-    test_case_permute_returned_strides_1 = (uint32_t *) malloc((size_t) (test_case_permute_rank_1 * sizeof(uint32_t)));
-    test_case_permute_returned_strides_2 = (uint32_t *) malloc((size_t) (test_case_permute_rank_2 * sizeof(uint32_t)));
-    test_case_permute_returned_strides_3 = (uint32_t *) malloc((size_t) (test_case_permute_rank_3 * sizeof(uint32_t)));
-    test_case_permute_returned_strides_4 = (uint32_t *) malloc((size_t) (test_case_permute_rank_4 * sizeof(uint32_t)));
-    test_case_permute_returned_strides_5 = (uint32_t *) malloc((size_t) (test_case_permute_rank_5 * sizeof(uint32_t)));
-
-    ck_assert_ptr_nonnull(test_case_permute_expected_shape_0);
-    ck_assert_ptr_nonnull(test_case_permute_expected_shape_1);
-    ck_assert_ptr_nonnull(test_case_permute_expected_shape_2);
-    ck_assert_ptr_nonnull(test_case_permute_expected_shape_3);
-    ck_assert_ptr_nonnull(test_case_permute_expected_shape_4);
-    ck_assert_ptr_nonnull(test_case_permute_expected_shape_5);
-
-    ck_assert_ptr_nonnull(test_case_permute_returned_shape_0);
-    ck_assert_ptr_nonnull(test_case_permute_returned_shape_1);
-    ck_assert_ptr_nonnull(test_case_permute_returned_shape_2);
-    ck_assert_ptr_nonnull(test_case_permute_returned_shape_3);
-    ck_assert_ptr_nonnull(test_case_permute_returned_shape_4);
-    ck_assert_ptr_nonnull(test_case_permute_returned_shape_5);
-
-    ck_assert_ptr_nonnull(test_case_permute_expected_strides_0);
-    ck_assert_ptr_nonnull(test_case_permute_expected_strides_1);
-    ck_assert_ptr_nonnull(test_case_permute_expected_strides_2);
-    ck_assert_ptr_nonnull(test_case_permute_expected_strides_3);
-    ck_assert_ptr_nonnull(test_case_permute_expected_strides_4);
-    ck_assert_ptr_nonnull(test_case_permute_expected_strides_5);
-
-    ck_assert_ptr_nonnull(test_case_permute_returned_strides_0);
-    ck_assert_ptr_nonnull(test_case_permute_returned_strides_1);
-    ck_assert_ptr_nonnull(test_case_permute_returned_strides_2);
-    ck_assert_ptr_nonnull(test_case_permute_returned_strides_3);
-    ck_assert_ptr_nonnull(test_case_permute_returned_strides_4);
-    ck_assert_ptr_nonnull(test_case_permute_returned_strides_5);
-
-    test_case_permute_expected_shape_0[0] = 1;
-
-    test_case_permute_expected_shape_1[0] = 3;
-    test_case_permute_expected_shape_1[1] = 5;
-
-    test_case_permute_expected_shape_2[0] = 1;
-    test_case_permute_expected_shape_2[1] = 2;
-    test_case_permute_expected_shape_2[2] = 3;
-
-    test_case_permute_expected_shape_3[0] = 4;
-    test_case_permute_expected_shape_3[1] = 3;
-    test_case_permute_expected_shape_3[2] = 2;
-    test_case_permute_expected_shape_3[3] = 1;
-
-    test_case_permute_expected_shape_4[0] = 2;
-    test_case_permute_expected_shape_4[1] = 2;
-    test_case_permute_expected_shape_4[2] = 2;
-
-    test_case_permute_expected_shape_5[0] = 1;
-    test_case_permute_expected_shape_5[1] = 1;
-    test_case_permute_expected_shape_5[2] = 1;
-    test_case_permute_expected_shape_5[3] = 1;
-
-    test_case_permute_expected_strides_0[0] = 0;
-
-    test_case_permute_expected_strides_1[0] = 1;
-    test_case_permute_expected_strides_1[1] = 3;
-
-    test_case_permute_expected_strides_2[0] = 1;
-    test_case_permute_expected_strides_2[1] = 1;
-    test_case_permute_expected_strides_2[2] = 2;
-
-    test_case_permute_expected_strides_3[0] = 3;
-    test_case_permute_expected_strides_3[1] = 1;
-    test_case_permute_expected_strides_3[2] = 12;
-    test_case_permute_expected_strides_3[3] = 1;
-
-    test_case_permute_expected_strides_4[0] = 1;
-    test_case_permute_expected_strides_4[1] = 4;
-    test_case_permute_expected_strides_4[2] = 2;
-
-    test_case_permute_expected_strides_5[0] = 0;
-    test_case_permute_expected_strides_5[1] = 0;
-    test_case_permute_expected_strides_5[2] = 0;
-    test_case_permute_expected_strides_5[3] = 0;
+    permute_error = NULL;
 }
 
 void permute_teardown(void)
 {
-    error_destroy(test_case_permute_error_0);
-    error_destroy(test_case_permute_error_1);
-    error_destroy(test_case_permute_error_2);
-    error_destroy(test_case_permute_error_3);
-    error_destroy(test_case_permute_error_4);
-    error_destroy(test_case_permute_error_5);
-    error_destroy(test_case_permute_error_6);
-    error_destroy(test_case_permute_error_7);
-    error_destroy(test_case_permute_error_8);
-    error_destroy(test_case_permute_error_9);
-
-    free(test_case_permute_expected_shape_0);
-    free(test_case_permute_expected_shape_1);
-    free(test_case_permute_expected_shape_2);
-    free(test_case_permute_expected_shape_3);
-    free(test_case_permute_expected_shape_4);
-    free(test_case_permute_expected_shape_5);
-
-    free(test_case_permute_returned_shape_0);
-    free(test_case_permute_returned_shape_1);
-    free(test_case_permute_returned_shape_2);
-    free(test_case_permute_returned_shape_3);
-    free(test_case_permute_returned_shape_4);
-    free(test_case_permute_returned_shape_5);
-
-    free(test_case_permute_expected_strides_0);
-    free(test_case_permute_expected_strides_1);
-    free(test_case_permute_expected_strides_2);
-    free(test_case_permute_expected_strides_3);
-    free(test_case_permute_expected_strides_4);
-    free(test_case_permute_expected_strides_5);
-
-    free(test_case_permute_returned_strides_0);
-    free(test_case_permute_returned_strides_1);
-    free(test_case_permute_returned_strides_2);
-    free(test_case_permute_returned_strides_3);
-    free(test_case_permute_returned_strides_4);
-    free(test_case_permute_returned_strides_5);
+    error_destroy(permute_error);
 }
 
 START_TEST(test_permute)
 {
-    test_case_permute_error_0 = permute((uint32_t[]) {1},
-                                         test_case_permute_rank_0,
-                                         (uint32_t[]) {0},
-                                         test_case_permute_returned_shape_0,
-                                         test_case_permute_rank_0,
-                                         test_case_permute_returned_strides_0,
-                                         (uint32_t[]) {0},
-                                         test_case_permute_rank_0);
-    ck_assert_ptr_null(test_case_permute_error_0);
-    for (uint32_t i = 0; i < test_case_permute_rank_0; i++)
+    uint32_t number_of_cases = 6;
+
+    uint32_t original_shapes[][MAX_RANK] = {
+        {1},
+        {5, 3},
+        {3, 2, 1},
+        {2, 4, 3, 1},
+        {2, 2, 2},
+        {1, 1, 1, 1},
+    };
+
+    uint32_t original_strides[][MAX_RANK] = {
+        {0},
+        {3, 1},
+        {2, 1, 1},
+        {12, 3, 1, 1},
+        {4, 2, 1},
+        {0, 0, 0, 0},
+    };
+
+    uint32_t axis[][MAX_RANK] = {
+        {0},
+        {1, 0},
+        {2, 1, 0},
+        {1, 2, 0, 3},
+        {2, 0, 1},
+        {0, 1, 3, 2},
+    };
+
+    uint32_t expected_shapes[][MAX_RANK] = {
+        {1},
+        {3, 5},
+        {1, 2, 3},
+        {4, 3, 2, 1},
+        {2, 2, 2},
+        {1, 1, 1, 1},
+    };
+
+    uint32_t expected_strides[][MAX_RANK] = {
+        {0},
+        {1, 3},
+        {1, 1, 2},
+        {3, 1, 12, 1},
+        {1, 4, 2},
+        {0, 0, 0, 0},
+    };
+
+    uint32_t ranks[] = {
+        1,
+        2,
+        3,
+        4,
+        3,
+        4,
+    };
+
+    uint32_t returned_shapes[number_of_cases][MAX_RANK];
+    uint32_t returned_strides[number_of_cases][MAX_RANK];
+
+    for (uint32_t i = 0; i < number_of_cases; i++)
     {
-        ck_assert_uint_eq(test_case_permute_expected_shape_0[i],
-                          test_case_permute_returned_shape_0[i]);
-        ck_assert_uint_eq(test_case_permute_expected_strides_0[i],
-                          test_case_permute_returned_strides_0[i]);
-    }
-    test_case_permute_error_1 = permute((uint32_t[]) {5, 3},
-                                         test_case_permute_rank_1,
-                                         (uint32_t[]) {3, 1},
-                                         test_case_permute_returned_shape_1,
-                                         test_case_permute_rank_1,
-                                         test_case_permute_returned_strides_1,
-                                         (uint32_t[]) {1, 0},
-                                         test_case_permute_rank_1);
-    ck_assert_ptr_null(test_case_permute_error_1);
-    for (uint32_t i = 0; i < test_case_permute_rank_1; i++)
-    {
-        ck_assert_uint_eq(test_case_permute_expected_shape_1[i],
-                          test_case_permute_returned_shape_1[i]);
-        ck_assert_uint_eq(test_case_permute_expected_strides_1[i],
-                          test_case_permute_returned_strides_1[i]);
-    }
-    test_case_permute_error_2 = permute((uint32_t[]) {3, 2, 1},
-                                         test_case_permute_rank_2,
-                                         (uint32_t[]) {2, 1, 1},
-                                         test_case_permute_returned_shape_2,
-                                         test_case_permute_rank_2,
-                                         test_case_permute_returned_strides_2,
-                                         (uint32_t[]) {2, 1, 0},
-                                         test_case_permute_rank_2);
-    ck_assert_ptr_null(test_case_permute_error_2);
-    for (uint32_t i = 0; i < test_case_permute_rank_2; i++)
-    {
-        ck_assert_uint_eq(test_case_permute_expected_shape_2[i],
-                          test_case_permute_returned_shape_2[i]);
-        ck_assert_uint_eq(test_case_permute_expected_strides_2[i],
-                          test_case_permute_returned_strides_2[i]);
-    }
-    test_case_permute_error_3 = permute((uint32_t[]) {2, 4, 3, 1},
-                                         test_case_permute_rank_3,
-                                         (uint32_t[]) {12, 3, 1, 1},
-                                         test_case_permute_returned_shape_3,
-                                         test_case_permute_rank_3,
-                                         test_case_permute_returned_strides_3,
-                                         (uint32_t[]) {1, 2, 0, 3},
-                                         test_case_permute_rank_3);
-    ck_assert_ptr_null(test_case_permute_error_3);
-    for (uint32_t i = 0; i < test_case_permute_rank_3; i++)
-    {
-        ck_assert_uint_eq(test_case_permute_expected_shape_3[i],
-                          test_case_permute_returned_shape_3[i]);
-        ck_assert_uint_eq(test_case_permute_expected_strides_3[i],
-                          test_case_permute_returned_strides_3[i]);
-    }
-    test_case_permute_error_4 = permute((uint32_t[]) {2, 2, 2},
-                                         test_case_permute_rank_4,
-                                         (uint32_t[]) {4, 2, 1},
-                                         test_case_permute_returned_shape_4,
-                                         test_case_permute_rank_4,
-                                         test_case_permute_returned_strides_4,
-                                         (uint32_t[]) {2, 0, 1},
-                                         test_case_permute_rank_4);
-    ck_assert_ptr_null(test_case_permute_error_4);
-    for (uint32_t i = 0; i < test_case_permute_rank_4; i++)
-    {
-        ck_assert_uint_eq(test_case_permute_expected_shape_4[i],
-                          test_case_permute_returned_shape_4[i]);
-        ck_assert_uint_eq(test_case_permute_expected_strides_4[i],
-                          test_case_permute_returned_strides_4[i]);
-    }
-    test_case_permute_error_5 = permute((uint32_t[]) {1, 1, 1, 1},
-                                         test_case_permute_rank_5,
-                                         (uint32_t[]) {0, 0, 0, 0},
-                                         test_case_permute_returned_shape_5,
-                                         test_case_permute_rank_5,
-                                         test_case_permute_returned_strides_5,
-                                         (uint32_t[]) {0, 1, 3, 2},
-                                         test_case_permute_rank_5);
-    ck_assert_ptr_null(test_case_permute_error_5);
-    for (uint32_t i = 0; i < test_case_permute_rank_5; i++)
-    {
-        ck_assert_uint_eq(test_case_permute_expected_shape_5[i],
-                          test_case_permute_returned_shape_5[i]);
-        ck_assert_uint_eq(test_case_permute_expected_strides_5[i],
-                          test_case_permute_returned_strides_5[i]);
+        permute_error = permute(original_shapes[i],
+                                ranks[i],
+                                original_strides[i],
+                                returned_shapes[i],
+                                ranks[i],
+                                returned_strides[i],
+                                axis[i],
+                                ranks[i]);
+        ck_assert_ptr_null(permute_error);
+        for (uint32_t j = 0; j < ranks[i]; j++)
+        {
+            ck_assert_uint_eq(expected_shapes[i][j], returned_shapes[i][j]);
+            ck_assert_uint_eq(expected_strides[i][j], returned_strides[i][j]);
+        }
+        error_destroy(permute_error);
+        permute_error = NULL;
     }
 }
 END_TEST
 
 START_TEST(test_permute_error)
 {
-    test_case_permute_error_0 = permute(NULL, 1, (uint32_t[]) {1}, (uint32_t[]) {1}, 
-                                        1, (uint32_t[]) {1}, (uint32_t[]) {1}, 1);
-    ck_assert_ptr_nonnull(test_case_permute_error_0);
-    ck_assert_int_eq(test_case_permute_error_0->error_type, ERROR_NULL);
+    uint32_t number_of_cases = 10;
 
-    test_case_permute_error_1 = permute((uint32_t[]) {1}, 1, NULL, (uint32_t[]) {1}, 
-                                        1, (uint32_t[]) {1}, (uint32_t[]) {1}, 1);
-    ck_assert_ptr_nonnull(test_case_permute_error_1);
-    ck_assert_int_eq(test_case_permute_error_1->error_type, ERROR_NULL);
+    uint32_t *original_shapes[] = {
+        NULL,
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+    };
 
-    test_case_permute_error_2 = permute((uint32_t[]) {1}, 1, (uint32_t[]) {1}, NULL, 
-                                        1, (uint32_t[]) {1}, (uint32_t[]) {1}, 1);
-    ck_assert_ptr_nonnull(test_case_permute_error_2);
-    ck_assert_int_eq(test_case_permute_error_2->error_type, ERROR_NULL);
+    uint32_t *original_strides[] = {
+        (uint32_t[]) {1},
+        NULL,
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+    };
 
-    test_case_permute_error_3 = permute((uint32_t[]) {1}, 1, (uint32_t[]) {1}, (uint32_t[]) {1}, 
-                                        1, NULL, (uint32_t[]) {1}, 1);
-    ck_assert_ptr_nonnull(test_case_permute_error_3);
-    ck_assert_int_eq(test_case_permute_error_3->error_type, ERROR_NULL);
+    uint32_t *axis[] = {
+        (uint32_t[]) {0},
+        (uint32_t[]) {0},
+        NULL,
+        (uint32_t[]) {0},
+        (uint32_t[]) {0},
+        (uint32_t[]) {0},
+        (uint32_t[]) {0},
+        (uint32_t[]) {0},
+        (uint32_t[]) {0},
+        (uint32_t[]) {0},
+    };
 
-    test_case_permute_error_4 = permute((uint32_t[]) {1}, 1, (uint32_t[]) {1}, (uint32_t[]) {1}, 
-                                        1, (uint32_t[]) {1}, NULL, 1);
-    ck_assert_ptr_nonnull(test_case_permute_error_4);
-    ck_assert_int_eq(test_case_permute_error_4->error_type, ERROR_NULL);
+    uint32_t *permuted_shapes[] = {
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        NULL,
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+    };
 
-    test_case_permute_error_5 = permute((uint32_t[]) {1}, 2, (uint32_t[]) {1}, (uint32_t[]) {1}, 
-                                        1, (uint32_t[]) {1}, (uint32_t[]) {1}, 1);
-    ck_assert_ptr_nonnull(test_case_permute_error_5);
-    ck_assert_int_eq(test_case_permute_error_5->error_type, ERROR_RANK_CONFLICT);
+    uint32_t *permuted_strides[] = {
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        NULL,
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+    };
 
-    test_case_permute_error_6 = permute((uint32_t[]) {1}, 1, (uint32_t[]) {1}, (uint32_t[]) {1}, 
-                                        2, (uint32_t[]) {1}, (uint32_t[]) {1}, 1);
-    ck_assert_ptr_nonnull(test_case_permute_error_6);
-    ck_assert_int_eq(test_case_permute_error_6->error_type, ERROR_RANK_CONFLICT);
+    uint32_t original_ranks[] = {
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        1,
+        1,
+        0,
+        MAX_RANK + 1,
+    };
+    
+    uint32_t permuted_ranks[] = {
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        1,
+        0,
+        MAX_RANK + 1,
+    };
 
-    test_case_permute_error_7 = permute((uint32_t[]) {1}, 1, (uint32_t[]) {1}, (uint32_t[]) {1}, 
-                                        1, (uint32_t[]) {1}, (uint32_t[]) {1}, 2);
-    ck_assert_ptr_nonnull(test_case_permute_error_7);
-    ck_assert_int_eq(test_case_permute_error_7->error_type, ERROR_RANK_CONFLICT);
+    uint32_t axis_lengths[] = {
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        0,
+        MAX_RANK + 1,
+    };
 
-    test_case_permute_error_8 = permute((uint32_t[]) {1}, 0, (uint32_t[]) {1}, (uint32_t[]) {1}, 
-                                        0, (uint32_t[]) {1}, (uint32_t[]) {1}, 0);
-    ck_assert_ptr_nonnull(test_case_permute_error_8);
-    ck_assert_int_eq(test_case_permute_error_8->error_type, ERROR_RANK_CONFLICT);
+    error_type_t expected_error_type[] = {
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+    };
 
-    test_case_permute_error_9 = permute((uint32_t[]) {1}, MAX_RANK + 1, (uint32_t[]) {1}, (uint32_t[]) {1}, 
-                                        MAX_RANK + 1, (uint32_t[]) {1}, (uint32_t[]) {1}, MAX_RANK + 1);
-    ck_assert_ptr_nonnull(test_case_permute_error_9);
-    ck_assert_int_eq(test_case_permute_error_9->error_type, ERROR_RANK_CONFLICT);
+    for (uint32_t i = 0; i < number_of_cases; i++)
+    {
+        permute_error = permute(original_shapes[i],
+                                original_ranks[i],
+                                original_strides[i],
+                                permuted_shapes[i],
+                                permuted_ranks[i],
+                                permuted_strides[i],
+                                axis[i],
+                                axis_lengths[i]);
+        ck_assert_ptr_nonnull(permute_error);
+        ck_assert_int_eq(permute_error->error_type, expected_error_type[i]);
+        error_destroy(permute_error);
+        permute_error = NULL;
+    }
 }
 END_TEST
 
+
 void reverse_permute_setup(void)
 {
-    return;
 }
 
 void reverse_permute_teardown(void)
 {
-    return;
 }
 
 START_TEST(test_reverse_permute)
