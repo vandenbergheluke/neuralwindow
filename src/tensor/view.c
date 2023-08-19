@@ -247,6 +247,8 @@ error_t *reverse_permute(const uint32_t *axis, uint32_t rank, uint32_t *reverse_
         reverse_axis[i] = new_axis[i].index;
     }
 
+    free(new_axis);
+
     return NULL;
 }
 
