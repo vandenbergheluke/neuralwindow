@@ -492,20 +492,15 @@ error_t *strides_from_shape(uint32_t *strides, const uint32_t *shape, uint32_t r
                      (unsigned int) rank, (int) MAX_RANK), NULL);
     }
 
-    for (uint32_t i = rank - 1; ; i--)
+    for (uint32_t i = 0; i < rank; i++)
     {
-        if (i == rank - 1)
+        if (i == 0)
         {
-            strides[i] = 1;
+            strides[rank - (i + 1)] = 1;
         }
         else
         {
-            strides[i] = shape[i + 1] * strides[i + 1];
-        }
-
-        if (i == 0)
-        {
-            break;
+            strides[rank - (i + 1)] = shape[rank - i] * strides[rank - i];
         }
     }
 
@@ -566,15 +561,15 @@ error_t *broadcast_strides(const uint32_t *original_shape,
         return error;
     }
 
-    for (uint32_t i = broadcasted_rank - 1; ; i--)
+    for (uint32_t i = 0; i < broadcasted_rank; i++)
     {   
-        if (i >= original_rank || (original_shape[i] < broadcasted_shape[i] && original_shape[i] == 1))
+        if ((i + 1) > original_rank || (original_shape[original_rank - (i + 1)] == 1))
         {
-            broadcasted_strides[i] = 0; 
+            broadcasted_strides[broadcasted_rank -  (i + 1)] = 0; 
         }
-        else if (original_shape[i] != broadcasted_shape[i])
+        else if (original_shape[original_rank - (i + 1)] == broadcasted_shape[broadcasted_rank - (i + 1)])
         {
-            broadcasted_strides[i] = original_strides[i];
+            broadcasted_strides[broadcasted_rank - (i + 1)] = original_strides[original_rank - (i + 1)];
         }
         else
         {
@@ -588,11 +583,6 @@ error_t *broadcast_strides(const uint32_t *original_shape,
             string_destroy(original_shape_string);
             string_destroy(broadcasted_shape_string);
             return error;
-        }
-
-        if (i == 0)
-        {
-            break;
         }
     }
 
@@ -630,15 +620,17 @@ error_t *broadcast_shapes(const uint32_t *x_original_shape,
                      (unsigned int) x_original_rank, (unsigned int) y_original_rank, (int) MAX_RANK), NULL);
     }
 
-    for (uint32_t i = broadcasted_rank - 1; ; i--)
+    for (uint32_t i = 0; i < broadcasted_rank; i++)
     {
-        if (i >= x_original_rank || (i < y_original_rank && x_original_shape[i] == 1))
+        if ((i + 1) > x_original_rank || ((i + 1) <= y_original_rank && x_original_shape[x_original_rank - (i + 1)] == 1))
         {
-            broadcasted_shape[i] = y_original_shape[i];
+            broadcasted_shape[broadcasted_rank - (i + 1)] = y_original_shape[y_original_rank - (i + 1)];
         } 
-        else if (i >= y_original_rank || x_original_shape[i] == y_original_shape[i] || y_original_shape[i] == 1)
+        else if ((i + 1) > y_original_rank || 
+                 x_original_shape[x_original_rank - (i + 1)] == y_original_shape[y_original_rank - (i + 1)] || 
+                 y_original_shape[y_original_rank - (i + 1)] == 1)
         {
-            broadcasted_shape[i] = x_original_shape[i];
+            broadcasted_shape[broadcasted_rank - (i + 1)] = x_original_shape[x_original_rank - (i + 1)];
         }
         else
         {
@@ -652,11 +644,6 @@ error_t *broadcast_shapes(const uint32_t *x_original_shape,
             string_destroy(x_original_shape_string);
             string_destroy(y_original_shape_string);
             return error;
-        }
-
-        if (i == 0)
-        {
-            break;
         }
     }
 
@@ -776,6 +763,7 @@ error_t *reverse_broadcast_axis(const uint32_t *original_shape,
     }
 
     uint32_t j = 0;
+    uint32_t k = 0;
     for (uint32_t i = 0; i < broadcasted_rank; i++)
     {
         if (original_rank >= (i + 1))
@@ -788,8 +776,8 @@ error_t *reverse_broadcast_axis(const uint32_t *original_shape,
         }
         else
         {
-            axis_remove_dimension[j] = broadcasted_rank - (i + 1);
-            j++;
+            axis_remove_dimension[k] = broadcasted_rank - (i + 1);
+            k++;
         }
     }
 
