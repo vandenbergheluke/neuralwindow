@@ -823,7 +823,7 @@ error_t *slice_shape(const uint32_t *original_shape,
                      (unsigned int) original_rank, (unsigned int) length), NULL);
     }
 
-    for (uint32_t i = 0; i < original_rank; i += 2)
+    for (uint32_t i = 0; i < original_rank; i++)
     {
         if (arguments[2 * i + 1] <= arguments[2 * i] ||
             arguments[2 * i] > original_shape[i] ||
@@ -833,7 +833,7 @@ error_t *slice_shape(const uint32_t *original_shape,
                          string_create("upperbound of slice %u must be greater than lower bound %u and bounds must be less than dimension %u.", 
                          (unsigned int) arguments[2 * i + 1], (unsigned int) arguments[2 * i], (unsigned int) original_shape[i]), NULL);
         }
-        slice_shape[i] = (arguments[2 * i] - arguments[2 * i + 1]); 
+        slice_shape[i] = (arguments[2 * i + 1] - arguments[2 * i]); 
     }
 
     return NULL;
@@ -968,14 +968,7 @@ error_t *padding(const uint32_t *original_shape,
 
     for (uint32_t i = 0; i < original_rank; i++)
     {
-        if (i < length / 2)
-        {
-            padding_shape[i] += arguments[2 * i] + arguments[2 * i + 1]; 
-        }
-        else
-        {
-            padding_shape[i] = original_shape[i];
-        }
+        padding_shape[i] = arguments[2 * i] + arguments[2 * i + 1] + original_shape[i]; 
     }
 
     return NULL;
@@ -1023,7 +1016,7 @@ error_t *reverse_padding(const uint32_t *original_shape,
     for (uint32_t i = 0; i < new_length; i += 2)
     {
         new_arguments[i] = arguments[i];
-        new_arguments[i + 1] = original_shape[i / 2] + arguments[i + 1];
+        new_arguments[i + 1] = original_shape[i / 2] + arguments[i];
     }
 
     return NULL;

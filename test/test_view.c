@@ -762,7 +762,6 @@ START_TEST(test_reduce)
 
     for (uint32_t i = 0; i < number_of_cases; i++)
     {
-        printf("Test Case: %u\n", i);
         error = reduce(original_shapes[i],
                        original_ranks[i],
                        original_strides[i],
@@ -775,7 +774,6 @@ START_TEST(test_reduce)
         ck_assert_ptr_null(error);
         for (uint32_t j = 0; j < reduced_ranks[i]; j++)
         {
-            printf("Test Subcase: %u\n", j);
             ck_assert_uint_eq(returned_reduced_shapes[i][j], expected_reduced_shapes[i][j]);
             ck_assert_uint_eq(returned_reduced_strides[i][j], expected_reduced_strides[i][j]);
         }
@@ -996,7 +994,6 @@ START_TEST(test_broadcast_strides)
 
     for (uint32_t i = 0; i < number_of_cases; i++)
     {
-        printf("Test Case: %u\n", i);
         error = broadcast_strides(original_shapes[i],
                                   original_ranks[i],
                                   original_strides[i],
@@ -1006,7 +1003,6 @@ START_TEST(test_broadcast_strides)
         ck_assert_ptr_null(error);
         for (uint32_t j = 0; j < broadcasted_ranks[i]; j++)
         {
-            printf("Test Subcase: %u\n", j);
             ck_assert_uint_eq(returned_broadcasted_strides[i][broadcasted_ranks[i] - (j + 1)], expected_broadcasted_strides[i][broadcasted_ranks[i] - (j + 1)]);
         }
         error_destroy(error);
@@ -1071,7 +1067,6 @@ START_TEST(test_broadcast_shapes)
 
     for (uint32_t i = 0; i < number_of_cases; i++)
     {
-        printf("Test Case: %u\n", i);
         error = broadcast_shapes(x_original_shapes[i],
                                  x_original_ranks[i],
                                  y_original_shapes[i],
@@ -1149,7 +1144,6 @@ START_TEST(test_reverse_broadcast_length)
 
     for (uint32_t i = 0; i < number_of_cases; i++)
     {
-        printf("Test Case: %u\n", i);
         error = reverse_broadcast_length(original_shapes[i],
                                          original_ranks[i],
                                          broadcasted_shapes[i],
@@ -1210,7 +1204,6 @@ START_TEST(test_reverse_broadcast_axis)
 
     for (uint32_t i = 0; i < number_of_cases; i++)
     {
-        printf("Test Case: %u\n", i);
         uint32_t length_keep_dimension, length_remove_dimension;
         error = reverse_broadcast_length(original_shapes[i],
                                          original_ranks[i],
@@ -1244,35 +1237,254 @@ START_TEST(test_reverse_broadcast_axis)
 }
 END_TEST
 
-// START_TEST(test_slice_shape)
-// {
+START_TEST(test_slice_shape)
+{
+    uint32_t number_of_cases = 2;
 
-// }
-// END_TEST
+    uint32_t *original_shapes[] = {
+        (uint32_t[]) {2, 2},
+        (uint32_t[]) {9, 8, 7, 6, 5},
+    };
 
-// START_TEST(test_slice_offset)
-// {
+    uint32_t original_ranks[] = {
+        2,
+        5,
+    };
 
-// }
-// END_TEST
+    uint32_t *expected_slice_shapes[] = {
+        (uint32_t[]) {1, 1},
+        (uint32_t[]) {3, 5, 6, 1, 2},
+    };
 
-// START_TEST(test_reverse_slice)
-// {
+    uint32_t slice_ranks[] = {
+        2,
+        5,
+    };
 
-// }
-// END_TEST
+    uint32_t *arguments[] = {
+        (uint32_t[]) {1, 2, 1, 2},
+        (uint32_t[]) {2, 5, 0, 5, 1, 7, 0, 1, 2, 4},
+    };
 
-// START_TEST(test_padding)
-// {
+    uint32_t length[] = {
+        4,
+        10,
+    };
 
-// }
-// END_TEST
+    uint32_t returned_slice_shapes[number_of_cases][MAX_RANK];
 
-// START_TEST(test_reverse_padding)
-// {
+    for (uint32_t i = 0; i < number_of_cases; i++)
+    {
+        error = slice_shape(original_shapes[i],
+                            original_ranks[i],
+                            returned_slice_shapes[i],
+                            slice_ranks[i],
+                            arguments[i],
+                            length[i]);
+        ck_assert_ptr_null(error);
+        for (uint32_t j = 0; j < slice_ranks[i]; j++)
+        {
+            ck_assert_uint_eq(returned_slice_shapes[i][j], expected_slice_shapes[i][j]);
+        }
+        error_destroy(error);
+        error = NULL;
+    }
+}
+END_TEST
 
-// }
-// END_TEST
+START_TEST(test_slice_offset)
+{
+    uint32_t number_of_cases = 1;
+
+    uint32_t *original_strides[] = {
+        (uint32_t[]) {6, 3, 1},
+    };
+
+    uint32_t original_ranks[] = {
+        3,
+    };
+
+    uint32_t expected_offset[] = {
+        6
+    };
+
+    uint32_t *arguments[] = {
+        (uint32_t[]) {1, 3, 0, 2, 0, 1},
+    };
+
+    uint32_t length[] = {
+        6
+    };
+
+    uint32_t returned_offset[number_of_cases];
+
+    for (uint32_t i = 0; i < number_of_cases; i++)
+    {
+        error = slice_offset(original_strides[i],
+                             original_ranks[i],
+                             &returned_offset[i],
+                             arguments[i],
+                             length[i]);
+        ck_assert_ptr_null(error);
+        ck_assert_uint_eq(returned_offset[i], expected_offset[i]);
+        error_destroy(error);
+        error = NULL;
+    }
+}
+END_TEST
+
+START_TEST(test_reverse_slice)
+{
+    uint32_t number_of_cases = 1;
+
+    uint32_t *original_shapes[] = {
+        (uint32_t[]) {2, 2},
+    };
+
+    uint32_t original_ranks[] = {
+        2,
+    };
+
+    uint32_t *arguments[] = {
+        (uint32_t[]) {1, 2, 1, 2},
+    };
+
+    uint32_t length[] = {
+        4
+    };
+
+    uint32_t *expected_new_arguments[] = {
+        (uint32_t[]) {1, 0, 1, 0},
+    };
+
+    uint32_t new_length[] = {
+        4,
+    };
+
+    uint32_t returned_new_arguments[number_of_cases][2 * MAX_RANK];
+
+    for (uint32_t i = 0; i < number_of_cases; i++)
+    {
+        error = reverse_slice(original_shapes[i],
+                              original_ranks[i],
+                              arguments[i],
+                              length[i],
+                              returned_new_arguments[i],
+                              new_length[i]);
+        ck_assert_ptr_null(error);
+        for (uint32_t j = 0; j < new_length[i]; j++)
+        {
+            ck_assert_uint_eq(returned_new_arguments[i][j], expected_new_arguments[i][j]);
+        }
+        error_destroy(error);
+        error = NULL;
+    }
+}
+END_TEST
+
+START_TEST(test_padding)
+{
+    uint32_t number_of_cases = 2;
+
+    uint32_t *original_shapes[] = {
+        (uint32_t[]) {2, 2},
+        (uint32_t[]) {9, 8, 7, 6, 5},
+    };
+
+    uint32_t original_ranks[] = {
+        2,
+        5,
+    };
+
+    uint32_t *expected_padding_shapes[] = {
+        (uint32_t[]) {3, 4},
+        (uint32_t[]) {11, 9, 10, 10, 5},
+    };
+
+    uint32_t padding_ranks[] = {
+        2,
+        5,
+    };
+
+    uint32_t *arguments[] = {
+        (uint32_t[]) {0, 1, 1, 1},
+        (uint32_t[]) {0, 2, 1, 0, 1, 2, 2, 2, 0, 0},
+    };
+
+    uint32_t length[] = {
+        4,
+        10,
+    };
+
+    uint32_t returned_padding_shapes[number_of_cases][MAX_RANK];
+
+    for (uint32_t i = 0; i < number_of_cases; i++)
+    {
+        error = padding(original_shapes[i],
+                        original_ranks[i],
+                        returned_padding_shapes[i],
+                        padding_ranks[i],
+                        arguments[i],
+                        length[i]);
+        ck_assert_ptr_null(error);
+        for (uint32_t j = 0; j < padding_ranks[i]; j++)
+        {
+            ck_assert_uint_eq(returned_padding_shapes[i][j], expected_padding_shapes[i][j]);
+        }
+        error_destroy(error);
+        error = NULL;
+    }
+}
+END_TEST
+
+START_TEST(test_reverse_padding)
+{
+    uint32_t number_of_cases = 1;
+
+    uint32_t *original_shapes[] = {
+        (uint32_t[]) {2, 2},
+    };
+
+    uint32_t original_ranks[] = {
+        2,
+    };
+
+    uint32_t *arguments[] = {
+        (uint32_t[]) {0, 1, 1, 0},
+    };
+
+    uint32_t length[] = {
+        4,
+    };
+
+    uint32_t *expected_new_arguments[] = {
+        (uint32_t[]) {0, 2, 1, 3}
+    };
+
+    uint32_t new_length[] = {
+        4
+    };
+
+    uint32_t returned_new_arguments[number_of_cases][2 * MAX_RANK];
+
+    for (uint32_t i = 0; i < number_of_cases; i++)
+    {
+        error = reverse_padding(original_shapes[i],
+                                original_ranks[i],
+                                arguments[i],
+                                length[i],
+                                returned_new_arguments[i],
+                                new_length[i]);
+        ck_assert_ptr_null(error);
+        for (uint32_t j = 0; j < new_length[i]; j++)
+        {
+            ck_assert_uint_eq(returned_new_arguments[i][j], expected_new_arguments[i][j]);
+        }
+        error_destroy(error);
+        error = NULL;
+    }
+}
+END_TEST
 
 Suite *make_view_suite(void)
 {
@@ -1303,6 +1515,11 @@ Suite *make_view_suite(void)
     tcase_add_test(tc, test_is_broadcastable);
     tcase_add_test(tc, test_reverse_broadcast_length);
     tcase_add_test(tc, test_reverse_broadcast_axis);
+    tcase_add_test(tc, test_slice_shape);
+    tcase_add_test(tc, test_slice_offset);
+    tcase_add_test(tc, test_reverse_slice);
+    tcase_add_test(tc, test_padding);
+    tcase_add_test(tc, test_reverse_padding);
     suite_add_tcase(s, tc);
 
     return s;
