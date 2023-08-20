@@ -267,7 +267,7 @@ error_t *reduce_recover_dimensions(const uint32_t *original_shape,
     CHECK_NULL_ARGUMENT(reduced_strides, "reduced_strides");
     CHECK_NULL_ARGUMENT(axis, "axis");
 
-    if (original_rank != reduced_rank || original_rank != rank || rank != reduced_rank)
+    if (reduced_rank != original_rank + rank)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
                      string_create("conflicting ranks with original rank %u, reduced rank %u and axis length %u.",
@@ -279,27 +279,41 @@ error_t *reduce_recover_dimensions(const uint32_t *original_shape,
         rank < 1 || rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("original rank %u, permuted rank %u and axis length %u must be between 1 and %d.",
+                     string_create("original rank %u, reduced rank %u and axis length %u must be between 1 and %d.",
                      (unsigned int) original_rank, (unsigned int) reduced_rank, (unsigned int) rank, (int) MAX_RANK),
                      NULL);
     }
 
-    for (uint32_t i = 0; i < original_rank; i++)
+    for (uint32_t i = 0; i < rank; i++)
+    {
+        if (axis[i] >= reduced_rank)
+        {
+            return ERROR(ERROR_RANK_CONFLICT,
+                         string_create("reduced rank %u must be greater than axis dimension %u.",
+                         (unsigned int) reduced_rank, (unsigned int) axis[i]), NULL);
+        }
+    }
+
+    uint32_t k = 0;
+    for (uint32_t i = 0; i < reduced_rank; i++)
     {
         bool_t reduced = false;
         for (uint32_t j = 0; j < rank; j++)
         {
             if (axis[j] == i)
             {
-                reduced_shape[axis[i]] = 1;
-                reduced_strides[axis[i]] = 0;
+                reduced_shape[i] = 1;
+                reduced_strides[i] = 0;
                 reduced = true;
+                break;
             }
         }
+    
         if (!reduced)
         {
-            reduced_shape[i] = original_shape[i];
-            reduced_strides[i] = original_strides[i];
+            reduced_shape[i] = original_shape[k];
+            reduced_strides[i] = original_strides[k];
+            k++;
         }
     }
 
