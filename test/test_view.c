@@ -928,6 +928,29 @@ START_TEST(test_reduce_error)
 }
 END_TEST
 
+START_TEST(test_shapes_equal)
+{
+    ck_assert(!shapes_equal(NULL, 1, (uint32_t[]) {1}, 1));
+    ck_assert(!shapes_equal((uint32_t[]) {1}, 1, NULL, 1));
+    ck_assert(!shapes_equal(NULL, 1, NULL, 1));
+    ck_assert(!shapes_equal((uint32_t[]) {1}, 2, (uint32_t[]) {1}, 1));
+    ck_assert(!shapes_equal((uint32_t[]) {1}, 1, (uint32_t[]) {1}, 2));
+    ck_assert(shapes_equal((uint32_t[]) {1}, 1, (uint32_t[]) {1}, 1));
+    ck_assert(shapes_equal((uint32_t[]) {1, 2, 3}, 3, (uint32_t[]) {1, 2, 3}, 3));
+    ck_assert(!shapes_equal((uint32_t[]) {1, 2, 4}, 3, (uint32_t[]) {1, 2, 3}, 3));
+}
+END_TEST
+
+START_TEST(test_shapes_size)
+{
+    ck_assert_uint_eq(shape_size((uint32_t[]) {1}, 1), 1);
+    ck_assert_uint_eq(shape_size((uint32_t[]) {2}, 1), 2);
+    ck_assert_uint_eq(shape_size((uint32_t[]) {1, 2, 1}, 3), 2);
+    ck_assert_uint_eq(shape_size((uint32_t[]) {1, 2, 3}, 3), 6);
+    ck_assert_uint_eq(shape_size((uint32_t[]) {4, 2, 3}, 3), 24);
+}
+END_TEST
+
 Suite *make_view_suite(void)
 {
     Suite *s;
@@ -950,6 +973,8 @@ Suite *make_view_suite(void)
     tcase_add_test(tc, test_reduce_recover_dimension_error);
     tcase_add_test(tc, test_reduce);
     tcase_add_test(tc, test_reduce_error);
+    tcase_add_test(tc, test_shapes_equal);
+    tcase_add_test(tc, test_shapes_size);
     suite_add_tcase(s, tc);
 
     return s;
