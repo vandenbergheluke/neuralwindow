@@ -343,7 +343,7 @@ error_t *reduce(const uint32_t *original_shape,
                      (unsigned int) original_rank, (unsigned int) reduced_rank), NULL);
     }
 
-    if (!keep_dimensions && reduced_rank != original_rank - rank)
+    if (!keep_dimensions && reduced_rank != original_rank - rank && !(reduced_rank == 1 && original_rank - rank == 0))
     {
         return ERROR(ERROR_RANK_CONFLICT,
                      string_create("conflicting ranks with expected rank %u and reduced rank %u.", 
@@ -360,6 +360,16 @@ error_t *reduce(const uint32_t *original_shape,
                      NULL);
     }
 
+    for (uint32_t i = 0; i < rank; i++)
+    {
+        if (axis[i] >= original_rank)
+        {
+            return ERROR(ERROR_RANK_CONFLICT,
+                         string_create("original rank %u must be greater than axis dimension %u.",
+                         (unsigned int) original_rank, (unsigned int) axis[i]), NULL);
+        }
+    }
+
     uint32_t k = reduced_rank - 1;
     uint32_t stride = 1;
     for (uint32_t i = original_rank - 1; ; i--)
@@ -374,20 +384,20 @@ error_t *reduce(const uint32_t *original_shape,
             }
         }
 
-        if (reduce_dimension && keep_dimensions)
+        if (reduce_dimension && (keep_dimensions || (i == original_rank - 1 && original_rank - rank == 0)))
         {
             reduced_shape[k] = 1;
-            if (k == reduced_rank - 1)
+            if (k < reduced_rank - 1)
             {
                 stride *= reduced_shape[k + 1];
             }
-            reduced_strides[k] = stride;
-            k++;
+            reduced_strides[k] = 0;
+            k--;
         }
         else if (!reduce_dimension)
         {
             reduced_shape[k] = original_shape[i];
-            if (k == reduced_rank - 1)
+            if (k < reduced_rank - 1)
             {
                 stride *= reduced_shape[k + 1];
             }
@@ -400,7 +410,7 @@ error_t *reduce(const uint32_t *original_shape,
             {
                 reduced_strides[k] = stride;
             }
-            k++;
+            k--;
         }
 
         if (i == 0)

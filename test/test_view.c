@@ -654,6 +654,280 @@ START_TEST(test_reduce_recover_dimension_error)
 }
 END_TEST
 
+START_TEST(test_reduce)
+{
+    uint32_t number_of_cases = 8;
+
+    uint32_t *original_shapes[] = {
+        (uint32_t[]) {2},
+        (uint32_t[]) {2},
+        (uint32_t[]) {2, 3},
+        (uint32_t[]) {2, 3},
+        (uint32_t[]) {2, 3},
+        (uint32_t[]) {2, 3},
+        (uint32_t[]) {2, 4, 3},
+        (uint32_t[]) {2, 4, 3},
+    };
+
+    uint32_t original_ranks[] = {
+        1,
+        1,
+        2,
+        2,
+        2,
+        2,
+        3,
+        3,
+    };
+
+    uint32_t *original_strides[] = {
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {3, 1},
+        (uint32_t[]) {3, 1},
+        (uint32_t[]) {3, 1},
+        (uint32_t[]) {3, 1},
+        (uint32_t[]) {12, 3, 1},
+        (uint32_t[]) {12, 3, 1},
+    };
+
+    uint32_t *expected_reduced_shapes[] = {
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {2},
+        (uint32_t[]) {2, 1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1, 1},
+        (uint32_t[]) {2, 3},
+        (uint32_t[]) {2, 1, 3},
+    };
+
+    uint32_t reduced_ranks[] = {
+        1,
+        1,
+        1,
+        2,
+        1,
+        2,
+        2,
+        3,
+    };
+
+    uint32_t *expected_reduced_strides[] = {
+        (uint32_t[]) {0},
+        (uint32_t[]) {0},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1, 0},
+        (uint32_t[]) {0},
+        (uint32_t[]) {0, 0},
+        (uint32_t[]) {3, 1},
+        (uint32_t[]) {3, 0, 1},
+    };
+
+    uint32_t *axis[] = {
+        (uint32_t[]) {0},
+        (uint32_t[]) {0},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {0, 1},
+        (uint32_t[]) {0, 1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+    };
+
+    uint32_t lengths[] = {
+        1,
+        1,
+        1,
+        1,
+        2,
+        2,
+        1,
+        1,
+    };
+
+    bool_t keep_dimensions[] = {
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+    };
+    
+    uint32_t returned_reduced_shapes[number_of_cases][MAX_RANK];
+    uint32_t returned_reduced_strides[number_of_cases][MAX_RANK];
+
+    for (uint32_t i = 0; i < number_of_cases; i++)
+    {
+        printf("Test Case: %u\n", i);
+        error = reduce(original_shapes[i],
+                       original_ranks[i],
+                       original_strides[i],
+                       returned_reduced_shapes[i],
+                       reduced_ranks[i],
+                       returned_reduced_strides[i],
+                       axis[i],
+                       lengths[i],
+                       keep_dimensions[i]);
+        ck_assert_ptr_null(error);
+        for (uint32_t j = 0; j < reduced_ranks[i]; j++)
+        {
+            printf("Test Subcase: %u\n", j);
+            ck_assert_uint_eq(returned_reduced_shapes[i][j], expected_reduced_shapes[i][j]);
+            ck_assert_uint_eq(returned_reduced_strides[i][j], expected_reduced_strides[i][j]);
+        }
+        error_destroy(error);
+        error = NULL;
+    }
+}
+END_TEST
+
+START_TEST(test_reduce_error)
+{
+    uint32_t number_of_cases = 9;
+
+    uint32_t *original_shapes[] = {
+        NULL,
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+    };
+
+    uint32_t original_ranks[] = {
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        MAX_RANK + 1,
+        2,
+        1,
+    };
+
+    uint32_t *original_strides[] = {
+        (uint32_t[]) {1},
+        NULL,
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+    };
+
+    uint32_t *reduced_shapes[] = {
+        (uint32_t[]) {2, 1},
+        (uint32_t[]) {2, 1},
+        NULL,
+        (uint32_t[]) {2, 1},
+        (uint32_t[]) {2, 1},
+        (uint32_t[]) {2, 1},
+        (uint32_t[]) {2, 1},
+        (uint32_t[]) {2, 1},
+        (uint32_t[]) {2, 1},
+    };
+
+    uint32_t reduced_ranks[] = {
+        2,
+        2,
+        2,
+        2,
+        2,
+        0,
+        MAX_RANK + 1,
+        2,
+        2,
+    };
+
+    uint32_t *reduced_strides[] = {
+        (uint32_t[]) {2, 0},
+        (uint32_t[]) {2, 0},
+        (uint32_t[]) {2, 0},
+        NULL,
+        (uint32_t[]) {2, 0},
+        (uint32_t[]) {2, 0},
+        (uint32_t[]) {2, 0},
+        (uint32_t[]) {2, 0},
+        (uint32_t[]) {2, 0},
+    };
+
+    uint32_t *axis[] = {
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        NULL,
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {1},
+        (uint32_t[]) {2},
+    };
+
+    uint32_t lengths[] = {
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        MAX_RANK + 1,
+        1,
+        1,
+    };
+
+    error_type_t error_types[] = {
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+    };
+
+    bool_t keep_dimensions[] = {
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+    };
+
+    for (uint32_t i = 0; i < number_of_cases; i++)
+    {
+        error = reduce(original_shapes[i],
+                       original_ranks[i],
+                       original_strides[i],
+                       reduced_shapes[i],
+                       reduced_ranks[i],
+                       reduced_strides[i],
+                       axis[i],
+                       lengths[i],
+                       keep_dimensions[i]);
+        ck_assert_ptr_nonnull(error);
+        ck_assert_int_eq(error->error_type, error_types[i]);
+        error_destroy(error);
+        error = NULL;
+    }
+}
+END_TEST
+
 Suite *make_view_suite(void)
 {
     Suite *s;
@@ -674,6 +948,8 @@ Suite *make_view_suite(void)
     tcase_add_test(tc, test_strides_from_shape_error);
     tcase_add_test(tc, test_reduce_recover_dimension);
     tcase_add_test(tc, test_reduce_recover_dimension_error);
+    tcase_add_test(tc, test_reduce);
+    tcase_add_test(tc, test_reduce_error);
     suite_add_tcase(s, tc);
 
     return s;
