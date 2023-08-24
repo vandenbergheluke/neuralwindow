@@ -1,11 +1,8 @@
 set(TEST_TENSOR
-    # test_buffer
-    # test_cu_runtime
+    test_buffer
     # test_function
-    # test_map
-    # test_mkl_runtime
-    # test_openblas_runtime
-    # test_queue
+    test_map
+    test_queue
     # test_tensor
     test_view
 )

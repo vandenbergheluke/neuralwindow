@@ -22,7 +22,7 @@ typedef struct buffer_t
     bool_t new;
 } buffer_t;
 
-error_t *buffer_create(buffer_t **buffer, runtime_t runtime, datatype_t datatype, view_t *view, void *data, size_t size, bool_t new);
+error_t *buffer_create(buffer_t **buffer, runtime_t runtime, datatype_t datatype, view_t *view, void *data, uint32_t n, bool_t new);
 void buffer_destroy(buffer_t *buffer);
 
 error_t *runtime_malloc(buffer_t *buffer);

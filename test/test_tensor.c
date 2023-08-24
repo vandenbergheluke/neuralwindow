@@ -47,8 +47,8 @@ Suite *make_sample_creation_suite(void)
     Suite *s;
     TCase *tc_core;
 
-    s = suite_create("Test Suite");
-    tc_core = tcase_create("Case 1");
+    s = suite_create("Test Tensor Suite");
+    tc_core = tcase_create("Test Tensor Case");
     tcase_add_checked_fixture(tc_core, setup, teardown);
     tcase_add_test(tc_core, test_memory_allocate);
     suite_add_tcase(s, tc_core);
