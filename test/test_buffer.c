@@ -1,7 +1,7 @@
 #include <check.h>
 #include <buffer.h>
 
-#define CASES 5
+#define CASES 2
 #define EPSILON 0.0001
 
 error_t *unary_error;
@@ -19,33 +19,46 @@ void unary_setup(void)
 
     uint32_t *shapes[] = {
         (uint32_t[]) {1},
+        (uint32_t[]) {1},
     };
 
     uint32_t *strides[] = {
+        (uint32_t[]) {0},
         (uint32_t[]) {0},
     };
 
     uint32_t ranks[] = {
         1,
+        1,
     };
 
     uint32_t offsets[] = {
+        0,
         0,
     };
 
     runtime_t runtimes[] = {
         OPENBLAS_RUNTIME,
+        MKL_RUNTIME,
     };
 
     datatype_t datatypes[] = {
-        FLOAT32
+        FLOAT32,
+        FLOAT64,
     };
 
-    float32_t *data[] = {
+    float32_t *data_float32[] = {
         (float32_t[]) {0.0},
+        NULL,
+    };
+
+    float64_t *data_float64[] = {
+        NULL,
+        (float64_t[]) {0.0},
     };
 
     uint32_t n[] = {
+        1,
         1,
     };
 
@@ -54,7 +67,29 @@ void unary_setup(void)
         unary_error = view_create(&views[i], offsets[i], ranks[i], shapes[i], strides[i]);
         ck_assert_ptr_null(unary_error);
         error_destroy(unary_error);
-        unary_error = buffer_create(&unary_buffers[i], runtimes[i], datatypes[i], views[i], data[i], n[i], true);
+        switch (datatypes[i])
+        {
+        case FLOAT32:
+            unary_error = buffer_create(&unary_buffers[i],
+                                        runtimes[i],
+                                        datatypes[i],
+                                        views[i],
+                                        data_float32[i],
+                                        n[i],
+                                        true);
+            break;
+        case FLOAT64:
+            unary_error = buffer_create(&unary_buffers[i],
+                                        runtimes[i],
+                                        datatypes[i],
+                                        views[i],
+                                        data_float64[i],
+                                        n[i],
+                                        true);
+            break;
+        default:
+            break;
+        }
         ck_assert_ptr_null(unary_error);
         error_destroy(unary_error);
     }
@@ -76,8 +111,14 @@ START_TEST(test_exponential)
     buffer_t *expected_unary_buffer;
     buffer_t *returned_unary_buffer;
 
-    float32_t *expected_data[] = {
+    float32_t *expected_data_float32[] = {
         (float32_t[]) {1.0},
+        NULL,
+    };
+
+    float64_t *expected_data_float64[] = {
+        NULL,
+        (float64_t[]) {1.0},
     };
 
     for (int i = 0; i < CASES; i++)
@@ -94,13 +135,29 @@ START_TEST(test_exponential)
                                   unary_buffers[i]->view->strides);
         ck_assert_ptr_null(unary_error);
         error_destroy(unary_error);
-        unary_error = buffer_create(&expected_unary_buffer,
-                                    unary_buffers[i]->runtime,
-                                    unary_buffers[i]->datatype,
-                                    expected_view,
-                                    expected_data[i],
-                                    unary_buffers[i]->n,
-                                    true);
+        switch (unary_buffers[i]->datatype)
+        {
+        case FLOAT32:
+            unary_error = buffer_create(&expected_unary_buffer,
+                                        unary_buffers[i]->runtime,
+                                        unary_buffers[i]->datatype,
+                                        expected_view,
+                                        expected_data_float32[i],
+                                        unary_buffers[i]->n,
+                                        true);
+            break;
+        case FLOAT64:
+            unary_error = buffer_create(&expected_unary_buffer,
+                                        unary_buffers[i]->runtime,
+                                        unary_buffers[i]->datatype,
+                                        expected_view,
+                                        expected_data_float64[i],
+                                        unary_buffers[i]->n,
+                                        true);
+            break;
+        default:
+            break;
+        }
         ck_assert_ptr_null(unary_error);
         error_destroy(unary_error);
         unary_error = view_create(&returned_view, 
