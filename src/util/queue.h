@@ -2,16 +2,7 @@
 #define QUEUE_H
 
 #include <datatype.h>
-#include <errors.h>
-
-typedef struct element_t
-{
-    void *data;
-    struct element_t *next; 
-} element_t;
-
-error_t *element_create(element_t **element, void *data);
-void element_destroy(element_t *element);
+#include <element.h>
 
 typedef struct queue_t
 {

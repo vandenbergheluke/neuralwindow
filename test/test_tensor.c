@@ -15,14 +15,14 @@ void setup(void)
     }
 
     buffer_t *buffer;
-    error = buffer_create(&buffer, C_RUNTIME, FLOAT32, view, NULL);
+    error = buffer_create(&buffer, OPENBLAS_RUNTIME, FLOAT32, view, NULL, 0, true);
     if (error != NULL)
     {
         error_print(error);
         error_destroy(error);
     }
 
-    error = tensor_create(&tensor, buffer, NULL, NULL, false);
+    error = tensor_create(&tensor, buffer, NULL, NULL, false, false);
     if (error != NULL)
     {
         error_print(error);
@@ -47,8 +47,8 @@ Suite *make_sample_creation_suite(void)
     Suite *s;
     TCase *tc_core;
 
-    s = suite_create("Test Suite");
-    tc_core = tcase_create("Case 1");
+    s = suite_create("Test Tensor Suite");
+    tc_core = tcase_create("Test Tensor Case");
     tcase_add_checked_fixture(tc_core, setup, teardown);
     tcase_add_test(tc_core, test_memory_allocate);
     suite_add_tcase(s, tc_core);

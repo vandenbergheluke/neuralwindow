@@ -46,6 +46,8 @@ string_t error_type_string(error_type_t error_type)
         return "ERROR_SHAPE_CONFLICT";
     case ERROR_RUNTIME_CONFLICT:
         return "ERROR_RUNTIME_CONFLICT";
+    case ERROR_RANK_CONFLICT:
+        return "ERROR_RANK_CONFLICT";
     case ERROR_CREATE:
         return "ERROR_CREATE";
     case ERROR_DESTROY:
@@ -72,6 +74,46 @@ string_t error_type_string(error_type_t error_type)
         return "ERROR_OVERFLOW";
     case ERROR_EXPAND:
         return "ERROR_EXPAND";
+    case ERROR_PERMUTE:
+        return "ERROR_PERMUTE";
+    case ERROR_SUMMATION:
+        return "ERROR_SUMMATION";
+    case ERROR_SQUARE_ROOT:
+        return "ERROR_SQUARE_ROOT";
+    case ERROR_RESHAPE:
+        return "ERROR_RESHAPE";
+    case ERROR_SLICE:
+        return "ERROR_SLICE";
+    case ERROR_BINARY_ELEMENTWISE:
+        return "ERROR_BINARY_ELEMENTWISE";
+    case ERROR_REDUCTION:
+        return "ERROR_REDUCTION";
+    case ERROR_EXPONENTIAL:
+        return "ERROR_EXPONENTIAL";
+    case ERROR_LOGARITHM:
+        return "ERROR_LOGARITHM";
+    case ERROR_DIVISION:
+        return "ERROR_DIVISION";
+    case ERROR_SINE:
+        return "ERROR_SINE";
+    case ERROR_COSINE:
+        return "ERROR_COSINE";
+    case ERROR_RECIPROCAL:
+        return "ERROR_RECIPROCAL";
+    case ERROR_NEGATION:
+        return "ERROR_NEGATION";
+    case ERROR_MATRIX_MULTIPLICATION:
+        return "ERROR_MATRIX_MULTIPLICATION";
+    case ERROR_COMPARE_EQUAL:
+        return "ERROR_COMPARE_EQUAL";
+    case ERROR_COMPARE_GREATER:
+        return "ERROR_COMPARE_GREATER";
+    case ERROR_PADDING:
+        return "ERROR_PADDING";
+    case ERROR_RECTIFIED_LINEAR:
+        return "ERROR_RECTIFIED_LINEAR";
+    case ERROR_AXIS:
+        return "ERROR_AXIS";
     default:
         return "ERROR";
     }

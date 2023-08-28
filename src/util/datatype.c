@@ -52,3 +52,39 @@ void string_destroy(string_t string)
 {
     free((char *) string);
 }
+
+string_t uint32_array_to_string(const uint32_t *array, uint32_t length)
+{
+    if (array == NULL || length < 1)
+    {
+        return "()";
+    }
+
+    char *string = (char *) malloc((size_t) (sizeof(char) * (10 * length + 11)));
+    uint32_t index = 0;
+    for (uint32_t i = 0; i < length; i++)
+    {
+        if (i == 0)
+        {
+            string[index] = '(';
+            index++;
+        }
+
+        index += sprintf(&string[index], "%u", (unsigned int) array[i]);
+
+        if (i < length - 1)
+        {
+            string[index] = ',';
+            index++;
+            string[index] = ' ';
+            index++;
+        }
+        else
+        {
+            string[index] = ')';
+            index++;
+        }
+    }
+
+    return (string_t) string;
+}

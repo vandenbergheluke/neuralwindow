@@ -2,7 +2,6 @@
 #ifndef FUNCTION_H
 #define FUNCTION_H
 
-// Includes
 #include <datatype.h>
 #include <errors.h>
 #include <tensor.h>
@@ -14,20 +13,28 @@ typedef enum unary_operation_type_t
 {
     EXPONENTIAL_OPERATION,
     LOGARITHM_OPERATION,
-    SIN_OPERATION,
-    SQUARE_ROOT_OPERATION
+    SINE_OPERATION,
+    COSINE_OPERATION,
+    SQUARE_ROOT_OPERATION,
+    RECIPROCAL_OPERATION,
+    COPY_OPERATION,
+    CONTIGUOUS_OPERATION,
+    NEGATION_OPERATION,
+    RECTIFIED_LINEAR_OPERATION
 } unary_operation_type_t;
 
 typedef struct unary_operation_t
 {
     tensor_t *x;
+    tensor_t *result;
     unary_operation_type_t operation_type;
 } unary_operation_t;
 
-error_t *unary_operation_create(unary_operation_t **unary_operation, unary_operation_type_t unary_operation_type, tensor_t *x);
+error_t *unary_operation_create(unary_operation_t **unary_operation, unary_operation_type_t unary_operation_type, const tensor_t *x);
 void unary_operation_destroy(unary_operation_t *unary_operation);
 error_t *unary_operation_forward(unary_operation_t *unary_operation, tensor_t *result);
 error_t *unary_operation_backward(unary_operation_t *unary_operation, tensor_t *gradient);
+error_t *apply_function_unary(unary_operation_type_t unary_operation_type, const tensor_t *x, tensor_t *y);
 
 // Binary Operation
 typedef enum binary_operation_type_t
@@ -36,6 +43,7 @@ typedef enum binary_operation_type_t
     SUBTRACTION_OPERATION,
     MULTIPLICATION_OPERATION,
     DIVISION_OPERATION,
+    POWER_OPERATION,
     MATRIX_MULTIPLICATION_OPERATION
 } binary_operation_type_t;
 
@@ -43,13 +51,15 @@ typedef struct binary_operation_t
 {
     tensor_t *x;
     tensor_t *y;
+    tensor_t *result;
     binary_operation_type_t operation_type;
 } binary_operation_t;
 
-error_t *binary_operation_create(binary_operation_t **operation, binary_operation_type_t operation_type, tensor_t *x, tensor_t *y);
+error_t *binary_operation_create(binary_operation_t **operation, binary_operation_type_t operation_type, const tensor_t *x, const tensor_t *y);
 void binary_operation_destroy(binary_operation_t *operation);
-error_t *binary_operation_forward(const binary_operation_t *operation, tensor_t *result);
+error_t *binary_operation_forward(binary_operation_t *operation, tensor_t *result);
 error_t *binary_operation_backward(binary_operation_t *binary_operation, tensor_t *gradient);
+error_t *apply_function_binary(binary_operation_type_t binary_operation_type, const tensor_t *x, const tensor_t *y, tensor_t *z);
 
 // Reduction Operation
 typedef enum reduction_operation_type_t
@@ -61,17 +71,20 @@ typedef enum reduction_operation_type_t
 typedef struct reduction_operation_t
 {
     tensor_t *x;
+    tensor_t *result;
     uint32_t *axis;
+    uint32_t rank;
     bool_t keep_dimension;
     reduction_operation_type_t operation_type;
 } reduction_operation_t;
 
 error_t *reduction_operation_create(reduction_operation_t **reduction_operation,
                                     reduction_operation_type_t reduction_operation_type,
-                                    tensor_t *x, uint32_t *axis, bool_t keep_dimension);
+                                    const tensor_t *x, const uint32_t *axis, uint32_t rank, bool_t keep_dimension);
 void reduction_operation_destroy(reduction_operation_t *reduction_operation);
 error_t *reduction_operation_forward(reduction_operation_t *reduction_operation, tensor_t *result);
 error_t *reduction_operation_backward(reduction_operation_t *reduction_operation, tensor_t *gradient);
+error_t *apply_function_reduction(reduction_operation_type_t reduction_operation_type, const tensor_t *x, const uint32_t *axis, uint32_t rank, bool_t keep_dimension, tensor_t *y);
 
 // Structure Operation
 typedef enum structure_operation_type_t
@@ -79,21 +92,24 @@ typedef enum structure_operation_type_t
     EXPAND_OPERATION,
     PERMUTE_OPERATION,
     RESHAPE_OPERATION,
-    PADDING_OPERATION,
-    SLICE_OPERATION
+    SLICE_OPERATION,
+    PADDING_OPERATION
 } structure_operation_type_t;
 
 typedef struct structure_operation_t
 {
     tensor_t *x;
-    void *arguments;
+    tensor_t *result;
+    uint32_t *arguments;
+    uint32_t length;
     structure_operation_type_t operation_type;
 } structure_operation_t;
 
-error_t *structure_operation_create(structure_operation_t **operation, structure_operation_type_t operation_type, tensor_t *x, void *arguments);
+error_t *structure_operation_create(structure_operation_t **operation, structure_operation_type_t operation_type, const tensor_t *x, const uint32_t *arguments, uint32_t length);
 void structure_operation_destroy(structure_operation_t *operation);
 error_t *structure_operation_forward(structure_operation_t *structure_operation, tensor_t *result);
 error_t *structure_operation_backward(structure_operation_t *structure_operation, tensor_t *gradient);
+error_t *apply_function_structure(structure_operation_type_t structure_operation_type, const tensor_t *x, const uint32_t *arguments, uint32_t length, tensor_t *y);
 
 // Operation
 typedef enum operation_type_t
