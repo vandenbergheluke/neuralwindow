@@ -30,7 +30,7 @@ error_t *map_create(map_t **map)
     (*map)->capacity = INITIAL_CAPACITY;
     size = (*map)->capacity * sizeof(entry_t);
     (*map)->entries = (entry_t *) malloc(size);
-    for (uint64_t i = 0; i < (*map)->capacity; i++)
+    for (uint64_t i = 0; i < (*map)->capacity; ++i)
     {
         (*map)->entries[i].key = NULL;
         (*map)->entries[i].data = NULL;
@@ -53,7 +53,7 @@ void map_destroy(map_t *map)
     {
         if (map->entries != NULL)
         {
-            for (uint64_t i = 0; i < map->capacity; i++)
+            for (uint64_t i = 0; i < map->capacity; ++i)
             {
                 string_destroy(map->entries[i].key);
             }
@@ -78,7 +78,7 @@ error_t *map_get(map_t *map, string_t key, void **data)
         {
             (*data) = map->entries[index].data;
         }
-        index++;
+        ++index;
         if (index >= map->capacity)
         {
             index = 0;
@@ -100,7 +100,7 @@ static error_t *map_set_entry(entry_t *entries, uint64_t capacity, string_t key,
         {
             entries[index].data = data;
         }
-        index++;
+        ++index;
         if (index >= capacity)
         {
             index = 0;
@@ -128,7 +128,7 @@ bool_t map_contains(map_t *map, string_t key)
         {
             return true;
         }
-        index++;
+        ++index;
         if (index >= map->capacity)
         {
             index = 0;
@@ -158,13 +158,13 @@ static error_t *map_expand(map_t *map)
                      string_create("failed to allocate map entries of size %zu bytes.", size),
                      NULL);
     }
-    for (uint64_t i = 0; i < new_capacity; i++)
+    for (uint64_t i = 0; i < new_capacity; ++i)
     {
         new_entries[i].key = NULL;
         new_entries[i].data = NULL;
     }
     
-    for (uint64_t i = 0; i < map->capacity; i++)
+    for (uint64_t i = 0; i < map->capacity; ++i)
     {
         entry_t entry = map->entries[i];
         if (entry.key != NULL)
@@ -212,7 +212,7 @@ error_t *map_set(map_t *map, string_t key, void *data)
                      string_create("failed to set map entry with corresponding key %s.", key),
                      error);
     }
-    map->length++;
+    ++map->length;
 
     return NULL;
 }

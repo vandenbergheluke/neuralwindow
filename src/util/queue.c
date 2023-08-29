@@ -59,7 +59,7 @@ error_t *queue_enqueue(queue_t *queue, void *data)
         queue->tail->next = element;
         queue->tail = queue->tail->next;
     }
-    queue->size++;
+    ++queue->size;
 
     return NULL;
 }

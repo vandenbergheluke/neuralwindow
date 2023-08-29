@@ -1671,7 +1671,7 @@ error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, tens
         }
 
         uint32_t rank = y->buffer->view->rank;
-        for (uint32_t i = 0; i < rank; i++)
+        for (uint32_t i = 0; i < rank; ++i)
         {
             axis[i] = i;
         }
@@ -1722,7 +1722,7 @@ error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, tens
         }
 
         uint32_t rank = x->buffer->view->rank;
-        for (uint32_t i = 0; i < rank; i++)
+        for (uint32_t i = 0; i < rank; ++i)
         {
             axis[i] = i;
         }
@@ -1886,7 +1886,7 @@ static error_t *summation_operation_forward(tensor_t *x, uint32_t *axis, uint32_
 
     buffer_t *x_buffer = x->buffer;
     buffer_t *result_buffer = NULL;
-    for (uint32_t i = 0; i < x->buffer->view->rank; i++)
+    for (uint32_t i = 0; i < x->buffer->view->rank; ++i)
     {
         uint32_t *reduced_shape = (uint32_t *) malloc(x->buffer->view->rank * sizeof(uint32_t));
         if (reduced_shape == NULL)
@@ -2039,7 +2039,7 @@ static error_t *maximum_operation_forward(tensor_t *x, uint32_t *axis, uint32_t 
 
     buffer_t *x_buffer = x->buffer;
     buffer_t *result_buffer;
-    for (uint32_t i = 0; i < rank; i++)
+    for (uint32_t i = 0; i < rank; ++i)
     {
         uint32_t *reduced_shape = (uint32_t *) malloc(rank * sizeof(uint32_t));
         if (reduced_shape == NULL)

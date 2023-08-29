@@ -71,11 +71,11 @@ string_t error_type_string(error_type_t error_type);
 
 #define ERROR(error_type, error_string, error) (error_create(error_type, __FILE__, __LINE__, __FUNCTION__, error_string, error))
 
-#define CHECK_NULL_ARGUMENT(pointer, string) ({\
+#define CHECK_NULL_ARGUMENT(pointer, string) do {\
             if (pointer == NULL)\
             {\
                 return ERROR(ERROR_NULL, string_create("received null argument for %s.", string), NULL);\
             }\
-        })
+        } while (0)
 
 #endif
