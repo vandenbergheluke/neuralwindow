@@ -54,5 +54,8 @@ dkms.conf
 # Cmake
 build/
 
+# Doxygen
+docs/
+
 # Vscode
 .vscode/
