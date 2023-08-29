@@ -42,7 +42,7 @@ extern "C" void cu_memory_free(void *p)
 
 extern "C" static void cu_exponential_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = expf(x_data[i * x_stride]); 
     }
@@ -50,7 +50,7 @@ extern "C" static void cu_exponential_float32(int n, const float32_t *x_data, in
 
 extern "C" static void cu_exponential_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = exp(x_data[i * x_stride]); 
     }
@@ -73,7 +73,7 @@ extern "C" void cu_exponential(datatype_t datatype, uint32_t n, const void *x_da
 
 extern "C" static void cu_logarithm_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = logf(x_data[i * x_stride]); 
     }
@@ -81,7 +81,7 @@ extern "C" static void cu_logarithm_float32(int n, const float32_t *x_data, int 
 
 extern "C" static void cu_logarithm_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = log(x_data[i * x_stride]); 
     }
@@ -104,7 +104,7 @@ extern "C" void cu_logarithm(datatype_t datatype, uint32_t n, const void *x_data
 
 extern "C" static void cu_sine_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = sinf(x_data[i * x_stride]); 
     }
@@ -112,7 +112,7 @@ extern "C" static void cu_sine_float32(int n, const float32_t *x_data, int x_str
 
 extern "C" static void cu_sine_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = sin(x_data[i * x_stride]); 
     }
@@ -135,7 +135,7 @@ extern "C" void cu_sine(datatype_t datatype, uint32_t n, const void *x_data, uin
 
 extern "C" static void cu_cosine_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = cosf(x_data[i * x_stride]); 
     }
@@ -143,7 +143,7 @@ extern "C" static void cu_cosine_float32(int n, const float32_t *x_data, int x_s
 
 extern "C" static void cu_cosine_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = cos(x_data[i * x_stride]); 
     }
@@ -166,7 +166,7 @@ extern "C" void cu_cosine(datatype_t datatype, uint32_t n, const void *x_data, u
 
 extern "C" static void cu_square_root_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = sqrtf(x_data[i * x_stride]); 
     }
@@ -174,7 +174,7 @@ extern "C" static void cu_square_root_float32(int n, const float32_t *x_data, in
 
 extern "C" static void cu_square_root_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = sqrt(x_data[i * x_stride]); 
     }
@@ -197,7 +197,7 @@ extern "C" void cu_square_root(datatype_t datatype, uint32_t n, const void *x_da
 
 extern "C" static void cu_reciprocal_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = 1. / x_data[i * x_stride]; 
     }
@@ -205,7 +205,7 @@ extern "C" static void cu_reciprocal_float32(int n, const float32_t *x_data, int
 
 extern "C" static void cu_reciprocal_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = 1. / x_data[i * x_stride]; 
     }
@@ -276,7 +276,7 @@ void cu_negation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x
 
 extern "C" static void cu_rectified_linear_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         float32_t value = x_data[i * x_stride];
         y_data[i * y_stride] = (value > 0.0) ? value : (float32_t) 0.0; 
@@ -285,7 +285,7 @@ extern "C" static void cu_rectified_linear_float32(int n, const float32_t *x_dat
 
 extern "C" static void cu_rectified_linear_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         float64_t value = x_data[i * x_stride];
         y_data[i * y_stride] = (value > 0.0) ? value : (float64_t) 0.0; 
@@ -355,7 +355,7 @@ extern "C" void cu_subtraction(datatype_t datatype, uint32_t n, const void *x_da
 
 extern "C" static void cu_multiplication_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = x_data[i * x_stride] * y_data[i * y_stride];
     }
@@ -363,7 +363,7 @@ extern "C" static void cu_multiplication_float32(int n, const float32_t *x_data,
 
 extern "C" static void cu_multiplication_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = x_data[i * x_stride] * y_data[i * y_stride];
     }
@@ -386,7 +386,7 @@ extern "C" void cu_multiplication(datatype_t datatype, uint32_t n, const void *x
 
 extern "C" static void cu_division_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = x_data[i * x_stride] / y_data[i * y_stride];
     }
@@ -394,7 +394,7 @@ extern "C" static void cu_division_float32(int n, const float32_t *x_data, int x
 
 extern "C" static void cu_division_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = x_data[i * x_stride] / y_data[i * y_stride];
     }
@@ -417,7 +417,7 @@ extern "C" void cu_division(datatype_t datatype, uint32_t n, const void *x_data,
 
 extern "C" static void cu_power_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = powf(x_data[i * x_stride], y_data[i * y_stride]);
     }
@@ -425,7 +425,7 @@ extern "C" static void cu_power_float32(int n, const float32_t *x_data, int x_st
 
 extern "C" static void cu_power_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = pow(x_data[i * x_stride], y_data[i * y_stride]);
     }
@@ -448,7 +448,7 @@ extern "C" void cu_power(datatype_t datatype, uint32_t n, const void *x_data, ui
 
 extern "C" static void cu_compare_equal_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = (x_data[i * x_stride] == y_data[i * y_stride]) ? (float32_t) 1.0 : (float32_t) 0.0;
     }
@@ -456,7 +456,7 @@ extern "C" static void cu_compare_equal_float32(int n, const float32_t *x_data, 
 
 extern "C" static void cu_compare_equal_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = (x_data[i * x_stride] == y_data[i * y_stride]) ? (float64_t) 1.0 : (float64_t) 0.0;
     }
@@ -479,7 +479,7 @@ extern "C" void cu_compare_equal(datatype_t datatype, uint32_t n, const void *x_
 
 extern "C" static void cu_compare_greater_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = (x_data[i * x_stride] > y_data[i * y_stride]) ? (float32_t) 1.0 : (float32_t) 0.0;
     }
@@ -487,7 +487,7 @@ extern "C" static void cu_compare_greater_float32(int n, const float32_t *x_data
 
 extern "C" static void cu_compare_greater_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = (x_data[i * x_stride] > y_data[i * y_stride]) ? (float64_t) 1.0 : (float64_t) 0.0;
     }
@@ -561,7 +561,7 @@ extern "C" void cu_summation(datatype_t datatype, uint32_t n, const void *x_data
 extern "C" static void cu_maximum_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data)
 {
     float32_t maximum = *x_data;
-    for (int i = 1; i < n; i++)
+    for (int i = 1; i < n; ++i)
     {
         float32_t candidate = x_data[i * x_stride];
         if (maximum < candidate)
@@ -575,7 +575,7 @@ extern "C" static void cu_maximum_float32(int n, const float32_t *x_data, int x_
 extern "C" static void cu_maximum_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data)
 {
     float64_t maximum = *x_data;
-    for (int i = 1; i < n; i++)
+    for (int i = 1; i < n; ++i)
     {
         float64_t candidate = x_data[i * x_stride];
         if (maximum < candidate)

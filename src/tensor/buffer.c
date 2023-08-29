@@ -615,7 +615,7 @@ error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
         }
         break;
     case 2:
-        for (uint32_t i = 0; i < x->view->shape[0]; i++)
+        for (uint32_t i = 0; i < x->view->shape[0]; ++i)
         {
             switch (x->runtime)
             {
@@ -637,9 +637,9 @@ error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
         }
         break;
     case 3:
-        for (uint32_t i = 0; i < x->view->shape[0]; i++)
+        for (uint32_t i = 0; i < x->view->shape[0]; ++i)
         {
-            for (uint32_t j = 0; j < x->view->shape[1]; j++)
+            for (uint32_t j = 0; j < x->view->shape[1]; ++j)
             {
                 switch (x->runtime)
                 {
@@ -662,11 +662,11 @@ error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
         }
         break;
     case 4:
-        for (uint32_t i = 0; i < x->view->shape[0]; i++)
+        for (uint32_t i = 0; i < x->view->shape[0]; ++i)
         {
-            for (uint32_t j = 0; j < x->view->shape[1]; j++)
+            for (uint32_t j = 0; j < x->view->shape[1]; ++j)
             {
-                for (uint32_t k = 0; k < x->view->shape[2]; k++)
+                for (uint32_t k = 0; k < x->view->shape[2]; ++k)
                 {
                     switch (x->runtime)
                     {
@@ -988,7 +988,7 @@ static error_t *runtime_binary_elementwise(binary_elementwise_t binary_elementwi
         }
         break;
     case 2:
-        for (uint32_t i = 0; i < z_buffer->view->shape[0]; i++)
+        for (uint32_t i = 0; i < z_buffer->view->shape[0]; ++i)
         {
             switch (binary_elementwise)
             {
@@ -1174,9 +1174,9 @@ static error_t *runtime_binary_elementwise(binary_elementwise_t binary_elementwi
         }
         break;
     case 3:
-        for (uint32_t i = 0; i < z_buffer->view->shape[0]; i++)
+        for (uint32_t i = 0; i < z_buffer->view->shape[0]; ++i)
         {
-            for (uint32_t j = 0; j < z_buffer->view->shape[1]; j++)
+            for (uint32_t j = 0; j < z_buffer->view->shape[1]; ++j)
             {
                 switch (binary_elementwise)
                 {
@@ -1362,11 +1362,11 @@ static error_t *runtime_binary_elementwise(binary_elementwise_t binary_elementwi
         }
         break;
     case 4:
-        for (uint32_t i = 0; i < z_buffer->view->shape[0]; i++)
+        for (uint32_t i = 0; i < z_buffer->view->shape[0]; ++i)
         {
-            for (uint32_t j = 0; j < z_buffer->view->shape[1]; j++)
+            for (uint32_t j = 0; j < z_buffer->view->shape[1]; ++j)
             {
-                for (uint32_t k = 0; k < z_buffer->view->shape[2]; k++)
+                for (uint32_t k = 0; k < z_buffer->view->shape[2]; ++k)
                 {
                     switch (binary_elementwise)
                     {
@@ -1698,7 +1698,7 @@ error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, b
         }
         break;
     case 3:
-        for (uint32_t i = 0; i < z_buffer->view->shape[0]; i++)
+        for (uint32_t i = 0; i < z_buffer->view->shape[0]; ++i)
         {
             switch (z_buffer->runtime)
             {
@@ -1726,9 +1726,9 @@ error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, b
         }
         break;
     case 4:
-        for (uint32_t i = 0; i < z_buffer->view->shape[0]; i++)
+        for (uint32_t i = 0; i < z_buffer->view->shape[0]; ++i)
         {
-            for (uint32_t j = 0; j < z_buffer->view->shape[0]; j++)
+            for (uint32_t j = 0; j < z_buffer->view->shape[0]; ++j)
             {
                 switch (z_buffer->runtime)
                 {
@@ -1829,7 +1829,7 @@ static error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_t *
             return ERROR(ERROR_AXIS, string_create("invalid axis dimension."), NULL);
         }
         
-        for (uint32_t i = 0; i < x->view->shape[idim]; i++)
+        for (uint32_t i = 0; i < x->view->shape[idim]; ++i)
         {
             switch (reduction)
             {
@@ -1895,9 +1895,9 @@ static error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_t *
             return ERROR(ERROR_AXIS, string_create("invalid axis dimension."), NULL);
         }
         
-        for (uint32_t i = 0; i < x->view->shape[idim]; i++)
+        for (uint32_t i = 0; i < x->view->shape[idim]; ++i)
         {
-            for (uint32_t j = 0; j < x->view->shape[jdim]; j++)
+            for (uint32_t j = 0; j < x->view->shape[jdim]; ++j)
             {
                 switch (reduction)
                 {
@@ -1973,11 +1973,11 @@ static error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_t *
             return ERROR(ERROR_AXIS, string_create("invalid axis dimension."), NULL);
         }
         
-        for (uint32_t i = 0; i < x->view->shape[idim]; i++)
+        for (uint32_t i = 0; i < x->view->shape[idim]; ++i)
         {
-            for (uint32_t j = 0; j < x->view->shape[jdim]; j++)
+            for (uint32_t j = 0; j < x->view->shape[jdim]; ++j)
             {
-                for (uint32_t k = 0; k < x->view->shape[kdim]; k++)
+                for (uint32_t k = 0; k < x->view->shape[kdim]; ++k)
                 {
                     switch (reduction)
                     {

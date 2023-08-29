@@ -141,7 +141,7 @@ void mkl_negation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t 
 
 static void mkl_rectified_linear_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         float32_t value = x_data[i * x_stride];
         y_data[i * y_stride] = (value > 0.0) ? value : (float32_t) 0.0; 
@@ -150,7 +150,7 @@ static void mkl_rectified_linear_float32(int n, const float32_t *x_data, int x_s
 
 static void mkl_rectified_linear_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         float64_t value = x_data[i * x_stride];
         y_data[i * y_stride] = (value > 0.0) ? value : (float64_t) 0.0; 
@@ -249,7 +249,7 @@ void mkl_power(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_s
 
 static void mkl_compare_equal_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = (x_data[i * x_stride] == y_data[i * y_stride]) ? (float32_t) 1.0 : (float32_t) 0.0;
     }
@@ -257,7 +257,7 @@ static void mkl_compare_equal_float32(int n, const float32_t *x_data, int x_stri
 
 static void mkl_compare_equal_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = (x_data[i * x_stride] == y_data[i * y_stride]) ? (float64_t) 1.0 : (float64_t) 0.0;
     }
@@ -280,7 +280,7 @@ void mkl_compare_equal(datatype_t datatype, uint32_t n, const void *x_data, uint
 
 static void mkl_compare_greater_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = (x_data[i * x_stride] > y_data[i * y_stride]) ? (float32_t) 1.0 : (float32_t) 0.0;
     }
@@ -288,7 +288,7 @@ static void mkl_compare_greater_float32(int n, const float32_t *x_data, int x_st
 
 static void mkl_compare_greater_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = (x_data[i * x_stride] > y_data[i * y_stride]) ? (float64_t) 1.0 : (float64_t) 0.0;
     }
@@ -356,7 +356,7 @@ void mkl_summation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t
 static void mkl_maximum_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data)
 {
     float32_t maximum = *x_data;
-    for (int i = 1; i < n; i++)
+    for (int i = 1; i < n; ++i)
     {
         float32_t candidate = x_data[i * x_stride];
         if (maximum < candidate)
@@ -370,7 +370,7 @@ static void mkl_maximum_float32(int n, const float32_t *x_data, int x_stride, fl
 static void mkl_maximum_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data)
 {
     float64_t maximum = *x_data;
-    for (int i = 1; i < n; i++)
+    for (int i = 1; i < n; ++i)
     {
         float64_t candidate = x_data[i * x_stride];
         if (maximum < candidate)

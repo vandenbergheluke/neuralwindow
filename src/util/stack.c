@@ -53,7 +53,7 @@ error_t *stack_push(stack_t *stack, void *data)
         element->next = stack->head;
         stack->head = element;
     }
-    stack->size++;
+    ++stack->size;
 
     return NULL;
 }
