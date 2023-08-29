@@ -437,7 +437,7 @@ bool_t shapes_equal(const uint32_t *x_shape, uint32_t x_rank, const uint32_t *y_
         return false;
     }
 
-    for (uint32_t i = 0; i < x_rank; i++)
+    for (uint32_t i = 0; i < view_x->rank; ++i)
     {
         if (x_shape[i] != y_shape[i])
         {
@@ -462,7 +462,7 @@ uint32_t shape_size(const uint32_t *shape, uint32_t rank)
     }
 
     uint32_t total = 0;
-    for (uint32_t i = 0; i < rank; i++)
+    for (uint32_t i = 0; i < view->rank; ++i)
     {
         total = (i == 0) ? shape[i] : total * shape[i];
     }
