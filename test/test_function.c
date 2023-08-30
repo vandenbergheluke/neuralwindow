@@ -1,7 +1,7 @@
 #include <check.h>
 #include <function.h>
 
-error_t *error;
+nw_error_t *error;
 function_t *function;
 
 void setup(void)

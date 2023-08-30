@@ -1,6 +1,6 @@
 #include <element.h>
 
-error_t *element_create(element_t **element, void *data)
+nw_error_t *element_create(element_t **element, void *data)
 {
     CHECK_NULL_ARGUMENT(element, "element");
 

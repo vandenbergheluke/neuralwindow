@@ -14,7 +14,7 @@ static uint64_t map_hash_key(string_t string)
     return hash;
 }
 
-error_t *map_create(map_t **map)
+nw_error_t *map_create(map_t **map)
 {
     CHECK_NULL_ARGUMENT(map, "map");
 
@@ -63,7 +63,7 @@ void map_destroy(map_t *map)
     free(map);
 }
 
-error_t *map_get(map_t *map, string_t key, void **data)
+nw_error_t *map_get(map_t *map, string_t key, void **data)
 {
     CHECK_NULL_ARGUMENT(map, "map");
     CHECK_NULL_ARGUMENT(map->entries, "map->entries");
@@ -87,7 +87,7 @@ error_t *map_get(map_t *map, string_t key, void **data)
     return NULL;
 }
 
-static error_t *map_set_entry(entry_t *entries, uint64_t capacity, string_t key, void *data)
+static nw_error_t *map_set_entry(entry_t *entries, uint64_t capacity, string_t key, void *data)
 {
     CHECK_NULL_ARGUMENT(entries, "entries");
     CHECK_NULL_ARGUMENT(key, "key");
@@ -137,7 +137,7 @@ bool_t map_contains(map_t *map, string_t key)
     return false;
 }
 
-static error_t *map_expand(map_t *map)
+static nw_error_t *map_expand(map_t *map)
 {
     CHECK_NULL_ARGUMENT(map, "map");
     CHECK_NULL_ARGUMENT(map->entries, "map->entries");
@@ -169,7 +169,7 @@ static error_t *map_expand(map_t *map)
         entry_t entry = map->entries[i];
         if (entry.key != NULL)
         {
-            error_t *error = map_set_entry(new_entries, new_capacity, entry.key, entry.data);
+            nw_error_t *error = map_set_entry(new_entries, new_capacity, entry.key, entry.data);
             if (error != NULL)
             {
                 free(new_entries);
@@ -187,13 +187,13 @@ static error_t *map_expand(map_t *map)
     return NULL;
 }
 
-error_t *map_set(map_t *map, string_t key, void *data)
+nw_error_t *map_set(map_t *map, string_t key, void *data)
 {
     CHECK_NULL_ARGUMENT(map, "map");
     CHECK_NULL_ARGUMENT(map->entries, "map->entries");
     CHECK_NULL_ARGUMENT(key, "key");
 
-    error_t *error;
+    nw_error_t *error;
     if (map->length >= map->capacity / 2)
     {
         error = map_expand(map);

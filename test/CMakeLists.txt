@@ -1,3 +1,6 @@
+find_package(Torch REQUIRED)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+
 set(TEST_TENSOR
     test_buffer
     # test_function
@@ -16,9 +19,12 @@ foreach(TEST ${TESTS})
             continue()
         endif()
     endif()
-    add_executable(${TEST} "${TEST}.c")
-    target_link_libraries(${TEST} ${PROJECT_NAME} check subunit)
+    if(${TEST} STREQUAL "test_buffer")
+        add_executable(${TEST} "${TEST}.cc")
+    else()
+        add_executable(${TEST} "${TEST}.c")
+    endif()
+    target_link_libraries(${TEST} ${PROJECT_NAME} check subunit "${TORCH_LIBRARIES}")
     add_test(NAME ${TEST} COMMAND ${TEST} WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${TEST_DIR})
     add_custom_target("valgrind_${TEST}" COMMAND valgrind --leak-check=full  --show-reachable=yes --error-limit=no --gen-suppressions=all --suppressions=../../suppressions.supp $<TARGET_FILE:${TEST}> DEPENDS ${TEST})
 endforeach()
-

@@ -3,7 +3,7 @@
 #include <map.h>
 
 map_t *map;
-error_t *error;
+nw_error_t *error;
 
 void setup(void)
 {

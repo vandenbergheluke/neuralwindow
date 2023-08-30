@@ -2,7 +2,7 @@
 #include <tensor.h>
 
 tensor_t *tensor;
-error_t *error;
+nw_error_t *error;
 
 void setup(void)
 {

@@ -3,9 +3,9 @@
 
 #include <errors.h>
 
-error_t *cu_memory_allocate(void **pp, size_t size);
+nw_error_t *cu_memory_allocate(void **pp, size_t size);
 void cu_memory_free(void *p);
-error_t *cu_create_context(void);
+nw_error_t *cu_create_context(void);
 void cu_destroy_context(void);
 void cu_exponential(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset);
 void cu_logarithm(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset);

@@ -3,13 +3,13 @@
 #include <mkl_runtime.h>
 #include <openblas_runtime.h>
 
-error_t *buffer_create(buffer_t **buffer,
+nw_error_t *buffer_create(buffer_t **buffer,
                        runtime_t runtime,
                        datatype_t datatype,
                        view_t *view,
                        void *data,
                        uint32_t n,
-                       bool_t new)
+                       bool_t copy)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(view, "view");
@@ -25,13 +25,13 @@ error_t *buffer_create(buffer_t **buffer,
     (*buffer)->runtime = runtime;
     (*buffer)->datatype = datatype;
     (*buffer)->view = view;
-    (*buffer)->new = new;
+    (*buffer)->copy = copy;
     (*buffer)->n = n;
     (*buffer)->size = (*buffer)->n * datatype_size((*buffer)->datatype);
 
-    if (new)
+    if (copy)
     {
-        error_t *error = runtime_malloc(*buffer);
+        nw_error_t *error = runtime_malloc(*buffer);
         if (error != NULL)
         {
             free(buffer);
@@ -60,7 +60,7 @@ void buffer_destroy(buffer_t *buffer)
         return;
     }
 
-    if (buffer->new)
+    if (buffer->copy)
     {
         runtime_free(buffer);
     }
@@ -68,9 +68,9 @@ void buffer_destroy(buffer_t *buffer)
     free(buffer);
 }
 
-error_t *runtime_create_context(runtime_t runtime)
+nw_error_t *runtime_create_context(runtime_t runtime)
 {
-    error_t *error;
+    nw_error_t *error;
     switch (runtime)
     {
     case OPENBLAS_RUNTIME:
@@ -112,7 +112,7 @@ void runtime_destroy_context(runtime_t runtime)
     }
 }
 
-error_t *runtime_malloc(buffer_t *buffer)
+nw_error_t *runtime_malloc(buffer_t *buffer)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(buffer->view, "buffer->view");
@@ -124,7 +124,7 @@ error_t *runtime_malloc(buffer_t *buffer)
                      NULL);
     }
 
-    error_t *error;
+    nw_error_t *error;
     switch (buffer->runtime)
     {
     case OPENBLAS_RUNTIME:
@@ -177,7 +177,7 @@ void runtime_free(buffer_t *buffer)
     }
 }
 
-error_t *runtime_exponential(buffer_t *x, buffer_t *result)
+nw_error_t *runtime_exponential(buffer_t *x, buffer_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->view, "x->view");
@@ -213,7 +213,7 @@ error_t *runtime_exponential(buffer_t *x, buffer_t *result)
     {
         string_t x_shape_string = uint32_array_to_string(x->view->shape, x->view->rank);
         string_t result_shape_string = uint32_array_to_string(result->view->shape, result->view->rank);
-        error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
+        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
                                string_create("conflicting shapes x %s and result %s.",
                                x_shape_string, result_shape_string), NULL);
         string_destroy(x_shape_string);
@@ -241,7 +241,7 @@ error_t *runtime_exponential(buffer_t *x, buffer_t *result)
     return NULL;
 }
 
-error_t *runtime_logarithm(buffer_t *x, buffer_t *result)
+nw_error_t *runtime_logarithm(buffer_t *x, buffer_t *result)
 {
     if (x->datatype != result->datatype)
     {
@@ -270,7 +270,7 @@ error_t *runtime_logarithm(buffer_t *x, buffer_t *result)
     {
         string_t x_shape_string = uint32_array_to_string(x->view->shape, x->view->rank);
         string_t result_shape_string = uint32_array_to_string(result->view->shape, result->view->rank);
-        error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
+        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
                                string_create("conflicting shapes x %s and result %s.",
                                x_shape_string, result_shape_string), NULL);
         string_destroy(x_shape_string);
@@ -298,7 +298,7 @@ error_t *runtime_logarithm(buffer_t *x, buffer_t *result)
     return NULL;
 }
 
-error_t *runtime_sine(buffer_t *x, buffer_t *result)
+nw_error_t *runtime_sine(buffer_t *x, buffer_t *result)
 {
     if (x->datatype != result->datatype)
     {
@@ -327,7 +327,7 @@ error_t *runtime_sine(buffer_t *x, buffer_t *result)
     {
         string_t x_shape_string = uint32_array_to_string(x->view->shape, x->view->rank);
         string_t result_shape_string = uint32_array_to_string(result->view->shape, result->view->rank);
-        error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
+        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
                                string_create("conflicting shapes x %s and result %s.",
                                x_shape_string, result_shape_string), NULL);
         string_destroy(x_shape_string);
@@ -355,7 +355,7 @@ error_t *runtime_sine(buffer_t *x, buffer_t *result)
     return NULL;
 }
 
-error_t *runtime_cosine(buffer_t *x, buffer_t *result)
+nw_error_t *runtime_cosine(buffer_t *x, buffer_t *result)
 {
     if (x->datatype != result->datatype)
     {
@@ -384,7 +384,7 @@ error_t *runtime_cosine(buffer_t *x, buffer_t *result)
     {
         string_t x_shape_string = uint32_array_to_string(x->view->shape, x->view->rank);
         string_t result_shape_string = uint32_array_to_string(result->view->shape, result->view->rank);
-        error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
+        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
                                string_create("conflicting shapes x %s and result %s.",
                                x_shape_string, result_shape_string), NULL);
         string_destroy(x_shape_string);
@@ -412,7 +412,7 @@ error_t *runtime_cosine(buffer_t *x, buffer_t *result)
     return NULL;
 }
 
-error_t *runtime_square_root(buffer_t *x, buffer_t *result)
+nw_error_t *runtime_square_root(buffer_t *x, buffer_t *result)
 {
     if (x->datatype != result->datatype)
     {
@@ -441,7 +441,7 @@ error_t *runtime_square_root(buffer_t *x, buffer_t *result)
     {
         string_t x_shape_string = uint32_array_to_string(x->view->shape, x->view->rank);
         string_t result_shape_string = uint32_array_to_string(result->view->shape, result->view->rank);
-        error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
+        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
                                string_create("conflicting shapes x %s and result %s.",
                                x_shape_string, result_shape_string), NULL);
         string_destroy(x_shape_string);
@@ -469,7 +469,7 @@ error_t *runtime_square_root(buffer_t *x, buffer_t *result)
     return NULL;
 }
 
-error_t *runtime_reciprocal(buffer_t *x, buffer_t *result)
+nw_error_t *runtime_reciprocal(buffer_t *x, buffer_t *result)
 {
     if (x->datatype != result->datatype)
     {
@@ -498,7 +498,7 @@ error_t *runtime_reciprocal(buffer_t *x, buffer_t *result)
     {
         string_t x_shape_string = uint32_array_to_string(x->view->shape, x->view->rank);
         string_t result_shape_string = uint32_array_to_string(result->view->shape, result->view->rank);
-        error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
+        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
                                string_create("conflicting shapes x %s and result %s.",
                                x_shape_string, result_shape_string), NULL);
         string_destroy(x_shape_string);
@@ -526,7 +526,7 @@ error_t *runtime_reciprocal(buffer_t *x, buffer_t *result)
     return NULL;
 }
 
-error_t *runtime_copy(buffer_t *x, buffer_t *result)
+nw_error_t *runtime_copy(buffer_t *x, buffer_t *result)
 {
     if (x->datatype != result->datatype)
     {
@@ -555,7 +555,7 @@ error_t *runtime_copy(buffer_t *x, buffer_t *result)
     {
         string_t x_shape_string = uint32_array_to_string(x->view->shape, x->view->rank);
         string_t result_shape_string = uint32_array_to_string(result->view->shape, result->view->rank);
-        error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
+        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
                                string_create("conflicting shapes x %s and result %s.",
                                x_shape_string, result_shape_string), NULL);
         string_destroy(x_shape_string);
@@ -583,7 +583,7 @@ error_t *runtime_copy(buffer_t *x, buffer_t *result)
     return NULL;
 }
 
-error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
+nw_error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->view, "x->view");
@@ -696,7 +696,7 @@ error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
     return NULL;
 }
 
-error_t *runtime_negation(buffer_t *x, buffer_t *result)
+nw_error_t *runtime_negation(buffer_t *x, buffer_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->view, "x->view");
@@ -743,7 +743,7 @@ error_t *runtime_negation(buffer_t *x, buffer_t *result)
     return NULL;
 }
 
-error_t *runtime_rectified_linear(buffer_t *x, buffer_t *result)
+nw_error_t *runtime_rectified_linear(buffer_t *x, buffer_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->view, "x->view");
@@ -801,7 +801,7 @@ typedef enum binary_elementwise_t
     RUNTIME_COMPARE_GREATER
 } binary_elementwise_t;
 
-static error_t *runtime_binary_elementwise(binary_elementwise_t binary_elementwise, buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
+static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elementwise, buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
 {
     switch (z_buffer->view->rank)
     {
@@ -1559,9 +1559,9 @@ static error_t *runtime_binary_elementwise(binary_elementwise_t binary_elementwi
     return NULL;
 }
 
-error_t *runtime_addition(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
+nw_error_t *runtime_addition(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
 {
-    error_t *error = runtime_binary_elementwise(RUNTIME_ADDITION, x_buffer, y_buffer, z_buffer);
+    nw_error_t *error = runtime_binary_elementwise(RUNTIME_ADDITION, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
         return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
@@ -1570,9 +1570,9 @@ error_t *runtime_addition(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_bu
     return NULL;
 }
 
-error_t *runtime_subtraction(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
+nw_error_t *runtime_subtraction(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
 {
-    error_t *error = runtime_binary_elementwise(RUNTIME_SUBTRACTION, x_buffer, y_buffer, z_buffer);
+    nw_error_t *error = runtime_binary_elementwise(RUNTIME_SUBTRACTION, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
         return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
@@ -1581,9 +1581,9 @@ error_t *runtime_subtraction(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z
     return NULL;
 }
 
-error_t *runtime_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
+nw_error_t *runtime_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
 {
-    error_t *error = runtime_binary_elementwise(RUNTIME_MULTIPLICATION, x_buffer, y_buffer, z_buffer);
+    nw_error_t *error = runtime_binary_elementwise(RUNTIME_MULTIPLICATION, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
         return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
@@ -1592,9 +1592,9 @@ error_t *runtime_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t
     return NULL;
 }
 
-error_t *runtime_division(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
+nw_error_t *runtime_division(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
 {
-    error_t *error = runtime_binary_elementwise(RUNTIME_DIVISION, x_buffer, y_buffer, z_buffer);
+    nw_error_t *error = runtime_binary_elementwise(RUNTIME_DIVISION, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
         return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
@@ -1603,9 +1603,9 @@ error_t *runtime_division(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_bu
     return NULL;
 }
 
-error_t *runtime_power(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
+nw_error_t *runtime_power(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
 {
-    error_t *error = runtime_binary_elementwise(RUNTIME_POWER, x_buffer, y_buffer, z_buffer);
+    nw_error_t *error = runtime_binary_elementwise(RUNTIME_POWER, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
         return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
@@ -1614,9 +1614,9 @@ error_t *runtime_power(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffe
     return NULL;
 }
 
-error_t *runtime_compare_equal(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
+nw_error_t *runtime_compare_equal(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
 {
-    error_t *error = runtime_binary_elementwise(RUNTIME_COMPARE_EQUAL, x_buffer, y_buffer, z_buffer);
+    nw_error_t *error = runtime_binary_elementwise(RUNTIME_COMPARE_EQUAL, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
         return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
@@ -1625,9 +1625,9 @@ error_t *runtime_compare_equal(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t 
     return NULL;
 }
 
-error_t *runtime_compare_greater(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
+nw_error_t *runtime_compare_greater(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
 {
-    error_t *error = runtime_binary_elementwise(RUNTIME_COMPARE_GREATER, x_buffer, y_buffer, z_buffer);
+    nw_error_t *error = runtime_binary_elementwise(RUNTIME_COMPARE_GREATER, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
         return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
@@ -1636,7 +1636,7 @@ error_t *runtime_compare_greater(buffer_t *x_buffer, buffer_t *y_buffer, buffer_
     return NULL;
 }
 
-error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
+nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
 {
 
     if (x_buffer->datatype != y_buffer->datatype || x_buffer->datatype != z_buffer->datatype)
@@ -1769,7 +1769,7 @@ typedef enum reduction_t
     RUNTIME_MAXIMUM
 } reduction_t;
 
-static error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_t *result, uint32_t axis)
+static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_t *result, uint32_t axis)
 {
     uint32_t idim;
     uint32_t jdim;
@@ -2034,9 +2034,9 @@ static error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_t *
     return NULL;
 }
 
-error_t *runtime_summation(buffer_t *x, buffer_t *result, uint32_t axis)
+nw_error_t *runtime_summation(buffer_t *x, buffer_t *result, uint32_t axis)
 {
-    error_t *error = runtime_reduction(RUNTIME_SUMMATION, x, result, axis);
+    nw_error_t *error = runtime_reduction(RUNTIME_SUMMATION, x, result, axis);
     if (error != NULL)
     {
         return ERROR(ERROR_REDUCTION, string_create("failed to apply reduction operation."), error);
@@ -2045,9 +2045,9 @@ error_t *runtime_summation(buffer_t *x, buffer_t *result, uint32_t axis)
     return NULL;
 }
 
-error_t *runtime_maximum(buffer_t *x, buffer_t *result, uint32_t axis)
+nw_error_t *runtime_maximum(buffer_t *x, buffer_t *result, uint32_t axis)
 {
-    error_t *error = runtime_reduction(RUNTIME_MAXIMUM, x, result, axis);
+    nw_error_t *error = runtime_reduction(RUNTIME_MAXIMUM, x, result, axis);
     if (error != NULL)
     {
         return ERROR(ERROR_REDUCTION, string_create("failed to apply reduction operation."), error);

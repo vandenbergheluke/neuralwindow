@@ -59,3 +59,6 @@ docs/
 
 # Vscode
 .vscode/
+
+# Torch
+libtorch*

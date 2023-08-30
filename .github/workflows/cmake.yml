@@ -28,10 +28,17 @@ jobs:
       run: sudo apt-get install -y check
     - name: Install Valgrind
       run: sudo apt-get install -y valgrind
-    - name: Configure CMake
-      run: CPU_ONLY=1 cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+    - name: Install Libtorch
+      run: |
+        sudo wget https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-2.0.1%2Bcpu.zip
+        unzip libtorch-shared-with-deps-2.0.1+cpu.zip
     - name: Build
-      run: CPU_ONLY=1 cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      working-directory: ${{github.workspace}}
+      run: |
+        mkdir build
+        cd build
+        CPU_ONLY=1 cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
+        make
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
+      run: ctest --output-on-failure

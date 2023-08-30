@@ -1,7 +1,7 @@
 #include <check.h>
 #include <view.h>
 
-error_t *error;
+nw_error_t *error;
 view_t *view;
 
 void setup(void)
@@ -38,7 +38,7 @@ START_TEST(test_view_create_error)
         (uint32_t[]) {1},
     };
 
-    error_type_t error_types[] = {
+    nw_error_type_t error_types[] = {
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
@@ -178,7 +178,7 @@ START_TEST(test_strides_from_shape_error)
         (uint32_t[]) {1},
         (uint32_t[]) {1},
     };
-    error_type_t expected_error_type[] = {
+    nw_error_type_t expected_error_type[] = {
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
@@ -256,7 +256,7 @@ START_TEST(test_reverse_permute_error)
     };
     uint32_t returned_axis[number_of_cases][MAX_RANK];
     uint32_t ranks[] = { 1, 1, 1, 0, MAX_RANK + 1 };
-    error_type_t error_types[] = {
+    nw_error_type_t error_types[] = {
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
@@ -424,7 +424,7 @@ START_TEST(test_permute_error)
     uint32_t permuted_ranks[] = { 1, 1, 1, 1, 1, 1, 2, 1, 0, MAX_RANK + 1 };
     uint32_t axis_lengths[] = { 1, 1, 1, 1, 1, 1, 1, 2, 0, MAX_RANK + 1 };
 
-    error_type_t expected_error_type[] = {
+    nw_error_type_t expected_error_type[] = {
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
@@ -624,7 +624,7 @@ START_TEST(test_reduce_recover_dimension_error)
         1,
     };
 
-    error_type_t error_types[] = {
+    nw_error_type_t error_types[] = {
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
@@ -883,7 +883,7 @@ START_TEST(test_reduce_error)
         1,
     };
 
-    error_type_t error_types[] = {
+    nw_error_type_t error_types[] = {
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,

@@ -7,7 +7,7 @@
 // This parameter can make a significant impact on performance.
 #define ALIGNMENT 64
 
-error_t *mkl_memory_allocate(void **pp, size_t size);
+nw_error_t *mkl_memory_allocate(void **pp, size_t size);
 void mkl_memory_free(void *p);
 void mkl_exponential(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset);
 void mkl_logarithm(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset);

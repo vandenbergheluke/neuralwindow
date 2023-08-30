@@ -1,6 +1,6 @@
 #include <queue.h>
 
-error_t *queue_create(queue_t **queue)
+nw_error_t *queue_create(queue_t **queue)
 {
     CHECK_NULL_ARGUMENT(queue, "queue");
 
@@ -36,12 +36,12 @@ void queue_destroy(queue_t *queue)
     free(queue);
 }
 
-error_t *queue_enqueue(queue_t *queue, void *data)
+nw_error_t *queue_enqueue(queue_t *queue, void *data)
 {
     CHECK_NULL_ARGUMENT(queue, "queue");
 
     element_t *element;
-    error_t *error = element_create(&element, data); 
+    nw_error_t *error = element_create(&element, data); 
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE,
@@ -64,7 +64,7 @@ error_t *queue_enqueue(queue_t *queue, void *data)
     return NULL;
 }
 
-error_t *queue_dequeue(queue_t *queue, void **data)
+nw_error_t *queue_dequeue(queue_t *queue, void **data)
 {
     CHECK_NULL_ARGUMENT(queue, "queue");
     CHECK_NULL_ARGUMENT(data, "data");

@@ -2,7 +2,7 @@
 #include <queue.h>
 
 queue_t *queue;
-error_t *error;
+nw_error_t *error;
 
 void setup(void)
 {

@@ -1,6 +1,6 @@
 #include <init.h>
 
-error_t *init_zeroes(tensor_t *x)
+nw_error_t *init_zeroes(tensor_t *x)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -21,7 +21,7 @@ error_t *init_zeroes(tensor_t *x)
     return NULL;
 }
 
-error_t *init_ones(tensor_t *x)
+nw_error_t *init_ones(tensor_t *x)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
