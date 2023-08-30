@@ -1,8 +1,8 @@
 #include <errors.h>
 
-error_t *error_create(error_type_t error_type, string_t file, uint32_t line_number, string_t function, string_t message, error_t *next_error)
+nw_error_t *error_create(nw_error_type_t error_type, string_t file, uint32_t line_number, string_t function, string_t message, nw_error_t *next_error)
 {
-    error_t *error = (error_t *) malloc(sizeof(error_t));
+    nw_error_t *error = (nw_error_t *) malloc(sizeof(nw_error_t));
     if (error == NULL)
         return NULL;
 
@@ -15,18 +15,18 @@ error_t *error_create(error_type_t error_type, string_t file, uint32_t line_numb
     return error;
 }
 
-void error_destroy(error_t *error)
+void error_destroy(nw_error_t *error)
 {
     while(error != NULL)
     {
-        error_t *next_error = error->next_error;
+        nw_error_t *next_error = error->next_error;
         string_destroy(error->message);
         free(error);
         error = next_error;
     }
 }
 
-string_t error_type_string(error_type_t error_type)
+string_t error_type_string(nw_error_type_t error_type)
 {
     switch (error_type)
     {
@@ -119,7 +119,7 @@ string_t error_type_string(error_type_t error_type)
     }
 }
 
-void error_print(error_t *error)
+void error_print(nw_error_t *error)
 {
     while (error != NULL)
     {

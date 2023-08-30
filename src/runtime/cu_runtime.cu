@@ -6,7 +6,7 @@ extern "C" {
 
 static cublasHandle_t handle = NULL;
 
-extern "C" error_t *cu_create_context(void)
+extern "C" nw_error_t *cu_create_context(void)
 {
     cublasStatus_t status = cublasCreate_v2(&handle);
     if (status != CUBLAS_STATUS_SUCCESS)
@@ -22,7 +22,7 @@ extern "C" void cu_destroy_context(void)
     cublasDestroy_v2(handle);
 }
 
-extern "C" error_t *cu_memory_allocate(void **pp, size_t size)
+extern "C" nw_error_t *cu_memory_allocate(void **pp, size_t size)
 {
     CHECK_NULL_ARGUMENT(pp, "pp");
 

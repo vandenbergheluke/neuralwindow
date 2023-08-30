@@ -2,7 +2,7 @@
 #include <cblas.h>
 #include <math.h>
 
-error_t *openblas_memory_allocate(void **pp, size_t size)
+nw_error_t *openblas_memory_allocate(void **pp, size_t size)
 {
     CHECK_NULL_ARGUMENT(pp, "pp");
 

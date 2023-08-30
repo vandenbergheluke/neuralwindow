@@ -10,9 +10,9 @@ typedef struct stack_t
     uint32_t size;
 } stack_t;
 
-error_t *stack_create(stack_t **stack);
+nw_error_t *stack_create(stack_t **stack);
 void stack_destroy(stack_t *stack);
-error_t *stack_push(stack_t *stack, void *data);
-error_t *stack_pop(stack_t *stack, void **data);
+nw_error_t *stack_push(stack_t *stack, void *data);
+nw_error_t *stack_pop(stack_t *stack, void **data);
 
 #endif

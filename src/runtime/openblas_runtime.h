@@ -4,7 +4,7 @@
 #include <errors.h>
 #include <datatype.h>
 
-error_t *openblas_memory_allocate(void **pp, size_t size);
+nw_error_t *openblas_memory_allocate(void **pp, size_t size);
 void openblas_memory_free(void *p);
 void openblas_exponential(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset);
 void openblas_logarithm(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset);

@@ -12,7 +12,7 @@
  *                assuming tensor is contiguous and in row major format.
  * @return Memory allocation error if failed to allocate memory for a member in the view.
  */
-error_t *view_create(view_t **view, uint32_t offset, uint32_t rank, const uint32_t *shape, const uint32_t *strides)
+nw_error_t *view_create(view_t **view, uint32_t offset, uint32_t rank, const uint32_t *shape, const uint32_t *strides)
 {
     CHECK_NULL_ARGUMENT(view, "view");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -62,7 +62,7 @@ error_t *view_create(view_t **view, uint32_t offset, uint32_t rank, const uint32
     }
     else
     {
-        error_t *error = strides_from_shape((*view)->strides, shape, rank);
+        nw_error_t *error = strides_from_shape((*view)->strides, shape, rank);
         if (error != NULL)
         {
             free((*view)->strides);
@@ -118,7 +118,7 @@ bool_t is_contiguous(const uint32_t *shape, uint32_t rank, const uint32_t *strid
     }
 
     uint32_t contiguous_strides[rank];    
-    error_t *error = strides_from_shape(contiguous_strides, shape, rank);
+    nw_error_t *error = strides_from_shape(contiguous_strides, shape, rank);
     if (error != NULL)
     {
         error_destroy(error);
@@ -149,7 +149,7 @@ bool_t is_contiguous(const uint32_t *shape, uint32_t rank, const uint32_t *strid
  * @return Rank conflict error if the permute shape array is not the 
  *         same size as the original shape array or axis length array.
  */
-error_t *permute(const uint32_t *original_shape,
+nw_error_t *permute(const uint32_t *original_shape,
                  uint32_t original_rank,
                  const uint32_t *original_strides, 
                  uint32_t *permuted_shape,
@@ -214,7 +214,7 @@ static int compare(const void *a, const void *b)
     return (pair_a->value - pair_b->value);
 }
 
-error_t *reverse_permute(const uint32_t *axis, uint32_t rank, uint32_t *reverse_axis)
+nw_error_t *reverse_permute(const uint32_t *axis, uint32_t rank, uint32_t *reverse_axis)
 {
     CHECK_NULL_ARGUMENT(axis, "axis");
     CHECK_NULL_ARGUMENT(reverse_axis, "reverse_axis");
@@ -252,7 +252,7 @@ error_t *reverse_permute(const uint32_t *axis, uint32_t rank, uint32_t *reverse_
     return NULL;
 }
 
-error_t *reduce_recover_dimensions(const uint32_t *original_shape,
+nw_error_t *reduce_recover_dimensions(const uint32_t *original_shape,
                                    uint32_t original_rank, 
                                    const uint32_t *original_strides,
                                    uint32_t *reduced_shape, 
@@ -320,7 +320,7 @@ error_t *reduce_recover_dimensions(const uint32_t *original_shape,
     return NULL;
 }
 
-error_t *reduce(const uint32_t *original_shape,
+nw_error_t *reduce(const uint32_t *original_shape,
                 uint32_t original_rank,
                 const uint32_t *original_strides, 
                 uint32_t *reduced_shape,
@@ -480,7 +480,7 @@ uint32_t shape_size(const uint32_t *shape, uint32_t rank)
  * @param rank The order of the tensor. Gives the number of elements in shape.
  * @return NULL if operation was successful. An error if strides or shape are NULL.
  */
-error_t *strides_from_shape(uint32_t *strides, const uint32_t *shape, uint32_t rank)
+nw_error_t *strides_from_shape(uint32_t *strides, const uint32_t *shape, uint32_t rank)
 {
     CHECK_NULL_ARGUMENT(strides, "strides");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -527,7 +527,7 @@ error_t *strides_from_shape(uint32_t *strides, const uint32_t *shape, uint32_t r
  * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
  *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
  */
-error_t *broadcast_strides(const uint32_t *original_shape,
+nw_error_t *broadcast_strides(const uint32_t *original_shape,
                            uint32_t original_rank,
                            const uint32_t *original_strides,
                            const uint32_t *broadcasted_shape,
@@ -551,7 +551,7 @@ error_t *broadcast_strides(const uint32_t *original_shape,
     {
         string_t original_shape_string = uint32_array_to_string(original_shape, original_rank);
         string_t broadcasted_shape_string = uint32_array_to_string(broadcasted_shape, broadcasted_rank);
-        error_t *error = ERROR(ERROR_BROADCAST,
+        nw_error_t *error = ERROR(ERROR_BROADCAST,
                                string_create("cannot broadcast shape %s to shape %s.",
                                original_shape_string,
                                broadcasted_shape_string),
@@ -575,7 +575,7 @@ error_t *broadcast_strides(const uint32_t *original_shape,
         {
             string_t original_shape_string = uint32_array_to_string(original_shape, original_rank);
             string_t broadcasted_shape_string = uint32_array_to_string(broadcasted_shape, broadcasted_rank);
-            error_t *error = ERROR(ERROR_BROADCAST,
+            nw_error_t *error = ERROR(ERROR_BROADCAST,
                                    string_create("cannot broadcast shape %s to shape %s.",
                                    original_shape_string,
                                    broadcasted_shape_string),
@@ -601,7 +601,7 @@ error_t *broadcast_strides(const uint32_t *original_shape,
  * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
  *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
  */
-error_t *broadcast_shapes(const uint32_t *x_original_shape,
+nw_error_t *broadcast_shapes(const uint32_t *x_original_shape,
                           uint32_t x_original_rank,
                           const uint32_t *y_original_shape,
                           uint32_t y_original_rank, 
@@ -636,7 +636,7 @@ error_t *broadcast_shapes(const uint32_t *x_original_shape,
         {
             string_t x_original_shape_string = uint32_array_to_string(x_original_shape, x_original_rank);
             string_t y_original_shape_string = uint32_array_to_string(y_original_shape, y_original_rank);
-            error_t *error = ERROR(ERROR_BROADCAST,
+            nw_error_t *error = ERROR(ERROR_BROADCAST,
                                    string_create("cannot broadcast shape %s to shape %s.",
                                    x_original_shape_string,
                                    y_original_shape_string),
@@ -674,7 +674,7 @@ bool_t is_broadcastable(const uint32_t *original_shape,
     return true;
 }
 
-error_t *reverse_broadcast_length(const uint32_t *original_shape,
+nw_error_t *reverse_broadcast_length(const uint32_t *original_shape,
                                   uint32_t original_rank,
                                   const uint32_t *broadcasted_shape,
                                   uint32_t broadcasted_rank, 
@@ -698,7 +698,7 @@ error_t *reverse_broadcast_length(const uint32_t *original_shape,
     {
         string_t original_shape_string = uint32_array_to_string(original_shape, original_rank);
         string_t broadcasted_shape_string = uint32_array_to_string(broadcasted_shape, broadcasted_rank);
-        error_t *error = ERROR(ERROR_BROADCAST,
+        nw_error_t *error = ERROR(ERROR_BROADCAST,
                                string_create("cannot broadcast shape %s to shape %s.",
                                original_shape_string,
                                broadcasted_shape_string),
@@ -728,7 +728,7 @@ error_t *reverse_broadcast_length(const uint32_t *original_shape,
     return NULL;
 }
 
-error_t *reverse_broadcast_axis(const uint32_t *original_shape,
+nw_error_t *reverse_broadcast_axis(const uint32_t *original_shape,
                                 uint32_t original_rank,
                                 const uint32_t *broadcasted_shape,
                                 uint32_t broadcasted_rank, 
@@ -752,7 +752,7 @@ error_t *reverse_broadcast_axis(const uint32_t *original_shape,
     {
         string_t original_shape_string = uint32_array_to_string(original_shape, original_rank);
         string_t broadcasted_shape_string = uint32_array_to_string(broadcasted_shape, broadcasted_rank);
-        error_t *error = ERROR(ERROR_BROADCAST,
+        nw_error_t *error = ERROR(ERROR_BROADCAST,
                                string_create("cannot broadcast shape %s to shape %s.",
                                original_shape_string,
                                broadcasted_shape_string),
@@ -784,7 +784,7 @@ error_t *reverse_broadcast_axis(const uint32_t *original_shape,
     return NULL;
 }
 
-error_t *slice_shape(const uint32_t *original_shape,
+nw_error_t *slice_shape(const uint32_t *original_shape,
                      uint32_t original_rank,
                      uint32_t *slice_shape,
                      uint32_t slice_rank,
@@ -839,7 +839,7 @@ error_t *slice_shape(const uint32_t *original_shape,
     return NULL;
 }
 
-error_t *slice_offset(const uint32_t *original_strides,
+nw_error_t *slice_offset(const uint32_t *original_strides,
                       uint32_t original_rank,
                       uint32_t *offset,
                       const uint32_t *arguments,
@@ -879,7 +879,7 @@ error_t *slice_offset(const uint32_t *original_strides,
     return NULL;
 }
 
-error_t *reverse_slice(const uint32_t *original_shape,
+nw_error_t *reverse_slice(const uint32_t *original_shape,
                        uint32_t original_rank,
                        const uint32_t *arguments,
                        uint32_t length,
@@ -927,7 +927,7 @@ error_t *reverse_slice(const uint32_t *original_shape,
     return NULL;
 }
 
-error_t *padding(const uint32_t *original_shape,
+nw_error_t *padding(const uint32_t *original_shape,
                  uint32_t original_rank,
                  uint32_t *padding_shape,
                  uint32_t padding_rank,
@@ -974,7 +974,7 @@ error_t *padding(const uint32_t *original_shape,
     return NULL;
 }
 
-error_t *reverse_padding(const uint32_t *original_shape, 
+nw_error_t *reverse_padding(const uint32_t *original_shape, 
                          uint32_t original_rank,
                          const uint32_t *arguments,
                          uint32_t length,

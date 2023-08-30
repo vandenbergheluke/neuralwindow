@@ -5,7 +5,7 @@
 #include <string.h>
 #include <datatype.h>
 
-typedef enum error_type_t
+typedef enum nw_error_type_t
 {
     ERROR_MEMORY_ALLOCATION,
     ERROR_MEMORY_FREE,
@@ -52,22 +52,22 @@ typedef enum error_type_t
     ERROR_PADDING,
     ERROR_RECTIFIED_LINEAR,
     ERROR_AXIS
-} error_type_t;
+} nw_error_type_t;
 
-typedef struct error_t
+typedef struct nw_error_t
 {
-    error_type_t error_type;
+    nw_error_type_t error_type;
     string_t file;
     uint32_t line_number;
     string_t function;
     string_t message;
-    struct error_t *next_error;
-} error_t;
+    struct nw_error_t *next_error;
+} nw_error_t;
 
-error_t *error_create(error_type_t error_type, string_t file, uint32_t line_number, string_t function, string_t message, error_t *next_error);
-void error_destroy(error_t *error);
-void error_print(error_t *error);
-string_t error_type_string(error_type_t error_type);
+nw_error_t *error_create(nw_error_type_t error_type, string_t file, uint32_t line_number, string_t function, string_t message, nw_error_t *next_error);
+void error_destroy(nw_error_t *error);
+void error_print(nw_error_t *error);
+string_t error_type_string(nw_error_type_t error_type);
 
 #define ERROR(error_type, error_string, error) (error_create(error_type, __FILE__, __LINE__, __FUNCTION__, error_string, error))
 

@@ -19,10 +19,10 @@ typedef struct map_t
 
 #define INITIAL_CAPACITY 16
 
-error_t *map_create(map_t **map);
+nw_error_t *map_create(map_t **map);
 void map_destroy(map_t *map);
-error_t *map_get(map_t *map, string_t key, void **data);
+nw_error_t *map_get(map_t *map, string_t key, void **data);
 bool_t map_contains(map_t *map, string_t key);
-error_t *map_set(map_t *map, string_t key, void *data);
+nw_error_t *map_set(map_t *map, string_t key, void *data);
 
 #endif

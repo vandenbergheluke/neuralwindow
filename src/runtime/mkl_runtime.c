@@ -1,7 +1,7 @@
 #include <mkl_runtime.h>
 #include <mkl.h>
 
-error_t *mkl_memory_allocate(void **pp, size_t size)
+nw_error_t *mkl_memory_allocate(void **pp, size_t size)
 {
     CHECK_NULL_ARGUMENT(pp, "pp");
 

@@ -9,7 +9,7 @@ typedef struct element_t
     struct element_t *next; 
 } element_t;
 
-error_t *element_create(element_t **element, void *data);
+nw_error_t *element_create(element_t **element, void *data);
 void element_destroy(element_t *element);
 
 #endif

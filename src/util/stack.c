@@ -1,6 +1,6 @@
 #include <stack.h>
 
-error_t *stack_create(stack_t **stack)
+nw_error_t *stack_create(stack_t **stack)
 {
     CHECK_NULL_ARGUMENT(stack, "stack");
 
@@ -33,12 +33,12 @@ void stack_destroy(stack_t *stack)
     free(stack);
 }
 
-error_t *stack_push(stack_t *stack, void *data)
+nw_error_t *stack_push(stack_t *stack, void *data)
 {
     CHECK_NULL_ARGUMENT(stack, "stack");
 
     element_t *element;
-    error_t *error = element_create(&element, data); 
+    nw_error_t *error = element_create(&element, data); 
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create element."), error);
@@ -58,7 +58,7 @@ error_t *stack_push(stack_t *stack, void *data)
     return NULL;
 }
 
-error_t *stack_pop(stack_t *stack, void **data)
+nw_error_t *stack_pop(stack_t *stack, void **data)
 {
     CHECK_NULL_ARGUMENT(stack, "stack");
     CHECK_NULL_ARGUMENT(data, "data");
