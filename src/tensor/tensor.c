@@ -2,6 +2,7 @@
 #include <stack.h>
 #include <map.h>
 #include <init.h>
+#include <function.h>
 
 nw_error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *context, tensor_t *gradient, bool_t requires_gradient, bool_t lock)
 {

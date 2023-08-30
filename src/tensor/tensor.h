@@ -4,7 +4,6 @@
 #include <errors.h>
 #include <datatype.h>
 #include <buffer.h>
-#include <function.h>
 
 typedef struct function_t function_t;
 
