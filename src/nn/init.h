@@ -2,6 +2,7 @@
 #define INIT_H
 
 #include <tensor.h>
+#include <errors.h>
 
 nw_error_t *init_zeroes(tensor_t *x);
 nw_error_t *init_ones(tensor_t *x);

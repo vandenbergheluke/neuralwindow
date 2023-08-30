@@ -1,8 +1,8 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
-#include <view.h>
 #include <errors.h>
+#include <view.h>
 
 typedef enum runtime_t
 {

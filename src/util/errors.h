@@ -2,7 +2,6 @@
 #define ERRORS_H
 
 #include <stdio.h>
-#include <string.h>
 #include <datatype.h>
 
 typedef enum nw_error_type_t

@@ -1,4 +1,6 @@
 #include <init.h>
+#include <datatype.h>
+#include <string.h>
 
 nw_error_t *init_zeroes(tensor_t *x)
 {

@@ -1,5 +1,6 @@
 #include <view.h>
 #include <stdio.h>
+#include <string.h>
 
 /**
  * @brief Allocate and initialize view. 

@@ -1,4 +1,5 @@
 #include <map.h>
+#include <string.h>
 
 // djb2
 static uint64_t map_hash_key(string_t string)
