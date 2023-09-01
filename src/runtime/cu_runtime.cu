@@ -56,7 +56,7 @@ extern "C" static void cu_exponential_float64(int n, const float64_t *x_data, in
     }
 }
 
-extern "C" void cu_exponential(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+extern "C" void cu_exponential(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -87,7 +87,7 @@ extern "C" static void cu_logarithm_float64(int n, const float64_t *x_data, int 
     }
 }
 
-extern "C" void cu_logarithm(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+extern "C" void cu_logarithm(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -118,7 +118,7 @@ extern "C" static void cu_sine_float64(int n, const float64_t *x_data, int x_str
     }
 }
 
-extern "C" void cu_sine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+extern "C" void cu_sine(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -149,7 +149,7 @@ extern "C" static void cu_cosine_float64(int n, const float64_t *x_data, int x_s
     }
 }
 
-extern "C" void cu_cosine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+extern "C" void cu_cosine(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -180,7 +180,7 @@ extern "C" static void cu_square_root_float64(int n, const float64_t *x_data, in
     }
 }
 
-extern "C" void cu_square_root(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+extern "C" void cu_square_root(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -211,7 +211,7 @@ extern "C" static void cu_reciprocal_float64(int n, const float64_t *x_data, int
     }
 }
 
-extern "C" void cu_reciprocal(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+extern "C" void cu_reciprocal(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -226,7 +226,7 @@ extern "C" void cu_reciprocal(datatype_t datatype, uint32_t n, const void *x_dat
     }
 }
 
-extern "C" void cu_copy(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+extern "C" void cu_copy(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -259,7 +259,7 @@ extern "C" static void cu_negation_float64(int n, const float64_t *x_data, int x
     cudaDeviceSynchronize();
 }
 
-void cu_negation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void cu_negation(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -292,7 +292,7 @@ extern "C" static void cu_rectified_linear_float64(int n, const float64_t *x_dat
     }
 }
 
-extern "C" void cu_rectified_linear(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+extern "C" void cu_rectified_linear(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -307,7 +307,7 @@ extern "C" void cu_rectified_linear(datatype_t datatype, uint32_t n, const void 
     }
 }
 
-extern "C" void cu_addition(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+extern "C" void cu_addition(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     float32_t alpha_32 = 1.0;
     float64_t alpha_64 = 1.0;
@@ -330,7 +330,7 @@ extern "C" void cu_addition(datatype_t datatype, uint32_t n, const void *x_data,
     }
 }
 
-extern "C" void cu_subtraction(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+extern "C" void cu_subtraction(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     float32_t alpha_32 = -1.0;
     float64_t alpha_64 = -1.0;
@@ -369,7 +369,7 @@ extern "C" static void cu_multiplication_float64(int n, const float64_t *x_data,
     }
 }
 
-extern "C" void cu_multiplication(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+extern "C" void cu_multiplication(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     switch (datatype)
     {
@@ -400,7 +400,7 @@ extern "C" static void cu_division_float64(int n, const float64_t *x_data, int x
     }
 }
 
-extern "C" void cu_division(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+extern "C" void cu_division(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     switch (datatype)
     {
@@ -431,7 +431,7 @@ extern "C" static void cu_power_float64(int n, const float64_t *x_data, int x_st
     }
 }
 
-extern "C" void cu_power(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+extern "C" void cu_power(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     switch (datatype)
     {
@@ -462,7 +462,7 @@ extern "C" static void cu_compare_equal_float64(int n, const float64_t *x_data, 
     }
 }
 
-extern "C" void cu_compare_equal(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+extern "C" void cu_compare_equal(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     switch (datatype)
     {
@@ -493,7 +493,7 @@ extern "C" static void cu_compare_greater_float64(int n, const float64_t *x_data
     }
 }
 
-extern "C" void cu_compare_greater(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+extern "C" void cu_compare_greater(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     switch (datatype)
     {
@@ -508,7 +508,7 @@ extern "C" void cu_compare_greater(datatype_t datatype, uint32_t n, const void *
     }
 }
 
-extern "C" void cu_matrix_multiplication(datatype_t datatype, uint32_t m, uint32_t k, uint32_t n, bool_t x_transpose, bool_t y_transpose, const void *x_data, uint32_t x_offset, const void *y_data, uint32_t y_offset, void *z_data, uint32_t z_offset)
+extern "C" void cu_matrix_multiplication(datatype_t datatype, uint64_t m, uint64_t k, uint64_t n, bool_t x_transpose, bool_t y_transpose, const void *x_data, uint64_t x_offset, const void *y_data, uint64_t y_offset, void *z_data, uint64_t z_offset)
 {
     float32_t beta_32 = 0.0;
     float32_t alpha_32 = 1.0;
@@ -543,7 +543,7 @@ extern "C" static void cu_summation_float64(int n, const float64_t *x_data, int 
     cublasDdot_v2(handle, n, x_data, x_stride, &temp, (int) 1, y_data);
 }
 
-extern "C" void cu_summation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_offset)
+extern "C" void cu_summation(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -586,7 +586,7 @@ extern "C" static void cu_maximum_float64(int n, const float64_t *x_data, int x_
     *y_data = maximum;
 }
 
-extern "C" void cu_maximum(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_offset)
+extern "C" void cu_maximum(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_offset)
 {
     switch (datatype)
     {

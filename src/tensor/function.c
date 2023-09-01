@@ -129,7 +129,7 @@ nw_error_t *apply_function_binary(binary_operation_type_t binary_operation_type,
     return NULL;
 }
 
-nw_error_t *apply_function_reduction(reduction_operation_type_t reduction_operation_type, const tensor_t *x, const uint32_t *axis, uint32_t length, bool_t keep_dimension, tensor_t *y)
+nw_error_t *apply_function_reduction(reduction_operation_type_t reduction_operation_type, const tensor_t *x, const uint64_t *axis, uint64_t length, bool_t keep_dimension, tensor_t *y)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -153,7 +153,7 @@ nw_error_t *apply_function_reduction(reduction_operation_type_t reduction_operat
     return NULL;
 }
 
-nw_error_t *apply_function_structure(structure_operation_type_t structure_operation_type, const tensor_t *x, const uint32_t *arguments, uint32_t length, tensor_t *y)
+nw_error_t *apply_function_structure(structure_operation_type_t structure_operation_type, const tensor_t *x, const uint64_t *arguments, uint64_t length, tensor_t *y)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -1664,18 +1664,18 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
             return ERROR(ERROR_CREATE, string_create("failed to create x_gradient_i tensor."), error);
         }
 
-        uint32_t *axis = (uint32_t *) malloc(y->buffer->view->rank * sizeof(uint32_t));
+        uint64_t *axis = (uint64_t *) malloc(y->buffer->view->rank * sizeof(uint64_t));
         if (axis == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated axis of size %zu bytes.", y->buffer->view->rank * sizeof(uint32_t)), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated axis of size %zu bytes.", y->buffer->view->rank * sizeof(uint64_t)), NULL);
         }
 
-        uint32_t rank = y->buffer->view->rank;
-        for (uint32_t i = 0; i < rank; ++i)
+        uint64_t rank = y->buffer->view->rank;
+        for (uint64_t i = 0; i < rank; ++i)
         {
             axis[i] = i;
         }
-        uint32_t temp = axis[rank - 1];
+        uint64_t temp = axis[rank - 1];
         axis[rank - 1] = axis[rank - 2];
         axis[rank - 2] = temp;
 
@@ -1715,18 +1715,18 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
             return ERROR(ERROR_CREATE, string_create("failed to create y_gradient_i tensor."), error);
         }
 
-        uint32_t *axis = (uint32_t *) malloc(x->buffer->view->rank * sizeof(uint32_t));
+        uint64_t *axis = (uint64_t *) malloc(x->buffer->view->rank * sizeof(uint64_t));
         if (axis == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated axis of size %zu bytes.", x->buffer->view->rank * sizeof(uint32_t)), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated axis of size %zu bytes.", x->buffer->view->rank * sizeof(uint64_t)), NULL);
         }
 
-        uint32_t rank = x->buffer->view->rank;
-        for (uint32_t i = 0; i < rank; ++i)
+        uint64_t rank = x->buffer->view->rank;
+        for (uint64_t i = 0; i < rank; ++i)
         {
             axis[i] = i;
         }
-        uint32_t temp = axis[rank - 1];
+        uint64_t temp = axis[rank - 1];
         axis[rank - 1] = axis[rank - 2];
         axis[rank - 2] = temp;
 
@@ -1836,8 +1836,8 @@ nw_error_t *binary_operation_backward(binary_operation_t *binary_operation, tens
 nw_error_t *reduction_operation_create(reduction_operation_t **reduction_operation, 
                                     reduction_operation_type_t reduction_operation_type,
                                     const tensor_t *x,
-                                    const uint32_t *axis,
-                                    uint32_t rank,
+                                    const uint64_t *axis,
+                                    uint64_t rank,
                                     bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(reduction_operation, "reduction_operation");
@@ -1850,13 +1850,13 @@ nw_error_t *reduction_operation_create(reduction_operation_t **reduction_operati
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate reduction operation of size %zu bytes.", sizeof(reduction_operation_t)), NULL);
     }
 
-    (*reduction_operation)->axis = (uint32_t *) malloc(rank * sizeof(uint32_t));
+    (*reduction_operation)->axis = (uint64_t *) malloc(rank * sizeof(uint64_t));
     if ((*reduction_operation)->axis == NULL)
     {
         free(*reduction_operation);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate reduction_operation->axis of size %zu bytes.", rank * sizeof(uint32_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate reduction_operation->axis of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
     }
-    memcpy((*reduction_operation)->axis, axis, rank * sizeof(uint32_t));
+    memcpy((*reduction_operation)->axis, axis, rank * sizeof(uint64_t));
 
     (*reduction_operation)->operation_type = reduction_operation_type;
     (*reduction_operation)->x = (tensor_t *) x; 
@@ -1878,7 +1878,7 @@ void reduction_operation_destroy(reduction_operation_t *reduction_operation)
     free(reduction_operation);
 }
 
-static nw_error_t *summation_operation_forward(tensor_t *x, uint32_t *axis, uint32_t rank, tensor_t *result, bool_t keep_dimension)
+static nw_error_t *summation_operation_forward(tensor_t *x, uint64_t *axis, uint64_t rank, tensor_t *result, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(axis, "axis");
@@ -1886,24 +1886,24 @@ static nw_error_t *summation_operation_forward(tensor_t *x, uint32_t *axis, uint
 
     buffer_t *x_buffer = x->buffer;
     buffer_t *result_buffer = NULL;
-    for (uint32_t i = 0; i < x->buffer->view->rank; ++i)
+    for (uint64_t i = 0; i < x->buffer->view->rank; ++i)
     {
-        uint32_t *reduced_shape = (uint32_t *) malloc(x->buffer->view->rank * sizeof(uint32_t));
+        uint64_t *reduced_shape = (uint64_t *) malloc(x->buffer->view->rank * sizeof(uint64_t));
         if (reduced_shape == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint32_t)), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint64_t)), NULL);
         }
 
-        uint32_t *reduced_strides = (uint32_t *) malloc(x->buffer->view->rank * sizeof(uint32_t));
+        uint64_t *reduced_strides = (uint64_t *) malloc(x->buffer->view->rank * sizeof(uint64_t));
         if (reduced_strides == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint32_t)), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint64_t)), NULL);
         }
 
         nw_error_t *error = reduce(x_buffer->view->shape, x_buffer->view->rank, x_buffer->view->strides, reduced_shape, x_buffer->view->rank, reduced_strides, &axis[i], 1, true);
         if (error != NULL)
         {
-            return ERROR(ERROR_REDUCTION, string_create("failed to remove reduce tensor view along axis %u.", axis[i]), error);
+            return ERROR(ERROR_REDUCTION, string_create("failed to remove reduce tensor view along axis %lu.", axis[i]), error);
         }
 
         view_t *view;
@@ -1942,16 +1942,16 @@ static nw_error_t *summation_operation_forward(tensor_t *x, uint32_t *axis, uint
             return ERROR(ERROR_NULL, string_create("reduced buffer is null."), NULL);
         }
 
-        uint32_t *reduced_shape = (uint32_t *) malloc((result_buffer->view->rank - rank) * sizeof(uint32_t));
+        uint64_t *reduced_shape = (uint64_t *) malloc((result_buffer->view->rank - rank) * sizeof(uint64_t));
         if (reduced_shape == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", (result_buffer->view->rank - rank) * sizeof(uint32_t)), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", (result_buffer->view->rank - rank) * sizeof(uint64_t)), NULL);
         }
 
-        uint32_t *reduced_strides = (uint32_t *) malloc((result_buffer->view->rank - rank) * sizeof(uint32_t));
+        uint64_t *reduced_strides = (uint64_t *) malloc((result_buffer->view->rank - rank) * sizeof(uint64_t));
         if (reduced_strides == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", (result_buffer->view->rank - rank) * sizeof(uint32_t)), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", (result_buffer->view->rank - rank) * sizeof(uint64_t)), NULL);
         }
 
         nw_error_t *error = reduce(result_buffer->view->shape, result_buffer->view->rank, result_buffer->view->strides, 
@@ -1973,7 +1973,7 @@ static nw_error_t *summation_operation_forward(tensor_t *x, uint32_t *axis, uint
     return NULL; 
 }
 
-static nw_error_t *summation_operation_backward(tensor_t *x, uint32_t *axis, uint32_t rank, tensor_t *gradient, bool_t keep_dimension)
+static nw_error_t *summation_operation_backward(tensor_t *x, uint64_t *axis, uint64_t rank, tensor_t *gradient, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(axis, "axis");
@@ -1990,16 +1990,16 @@ static nw_error_t *summation_operation_backward(tensor_t *x, uint32_t *axis, uin
 
         if (!keep_dimension)
         {
-            uint32_t *reduced_shape = (uint32_t *) malloc(x->buffer->view->rank * sizeof(uint32_t));
+            uint64_t *reduced_shape = (uint64_t *) malloc(x->buffer->view->rank * sizeof(uint64_t));
             if (reduced_shape == NULL)
             {
-                return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint32_t)), NULL);
+                return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint64_t)), NULL);
             }
 
-            uint32_t *reduced_strides = (uint32_t *) malloc(x->buffer->view->rank * sizeof(uint32_t));
+            uint64_t *reduced_strides = (uint64_t *) malloc(x->buffer->view->rank * sizeof(uint64_t));
             if (reduced_strides == NULL)
             {
-                return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint32_t)), NULL);
+                return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint64_t)), NULL);
             }
 
             error = reduce_recover_dimensions(x->buffer->view->shape, x->buffer->view->rank, x->buffer->view->strides, reduced_shape, x->buffer->view->rank, reduced_strides, axis, rank);
@@ -2031,7 +2031,7 @@ static nw_error_t *summation_operation_backward(tensor_t *x, uint32_t *axis, uin
     return NULL; 
 }
 
-static nw_error_t *maximum_operation_forward(tensor_t *x, uint32_t *axis, uint32_t rank, tensor_t *result, bool_t keep_dimension)
+static nw_error_t *maximum_operation_forward(tensor_t *x, uint64_t *axis, uint64_t rank, tensor_t *result, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(axis, "axis");
@@ -2039,24 +2039,24 @@ static nw_error_t *maximum_operation_forward(tensor_t *x, uint32_t *axis, uint32
 
     buffer_t *x_buffer = x->buffer;
     buffer_t *result_buffer;
-    for (uint32_t i = 0; i < rank; ++i)
+    for (uint64_t i = 0; i < rank; ++i)
     {
-        uint32_t *reduced_shape = (uint32_t *) malloc(rank * sizeof(uint32_t));
+        uint64_t *reduced_shape = (uint64_t *) malloc(rank * sizeof(uint64_t));
         if (reduced_shape == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", rank * sizeof(uint32_t)), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
         }
 
-        uint32_t *reduced_strides = (uint32_t *) malloc(rank * sizeof(uint32_t));
+        uint64_t *reduced_strides = (uint64_t *) malloc(rank * sizeof(uint64_t));
         if (reduced_strides == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", rank * sizeof(uint32_t)), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
         }
 
         nw_error_t *error = reduce(x_buffer->view->shape, x_buffer->view->rank, x_buffer->view->strides, reduced_shape, x_buffer->view->rank, reduced_strides, &axis[i], 1, true);
         if (error != NULL)
         {
-            return ERROR(ERROR_REDUCTION, string_create("failed to remove reduce tensor view along axis %u.", axis[i]), error);
+            return ERROR(ERROR_REDUCTION, string_create("failed to remove reduce tensor view along axis %lu.", axis[i]), error);
         }
 
         view_t *view;
@@ -2090,16 +2090,16 @@ static nw_error_t *maximum_operation_forward(tensor_t *x, uint32_t *axis, uint32
 
     if (!keep_dimension)
     {
-        uint32_t *reduced_shape = (uint32_t *) malloc(rank * sizeof(uint32_t));
+        uint64_t *reduced_shape = (uint64_t *) malloc(rank * sizeof(uint64_t));
         if (reduced_shape == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", rank * sizeof(uint32_t)), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
         }
 
-        uint32_t *reduced_strides = (uint32_t *) malloc(rank * sizeof(uint32_t));
+        uint64_t *reduced_strides = (uint64_t *) malloc(rank * sizeof(uint64_t));
         if (reduced_strides == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", rank * sizeof(uint32_t)), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
         }
 
         nw_error_t *error = reduce(result_buffer->view->shape, result_buffer->view->rank, result_buffer->view->strides, 
@@ -2121,7 +2121,7 @@ static nw_error_t *maximum_operation_forward(tensor_t *x, uint32_t *axis, uint32
     return NULL; 
 }
 
-static nw_error_t *maximum_operation_backward(tensor_t *x, uint32_t *axis, uint32_t rank, tensor_t *result, tensor_t *gradient, bool_t keep_dimension)
+static nw_error_t *maximum_operation_backward(tensor_t *x, uint64_t *axis, uint64_t rank, tensor_t *result, tensor_t *gradient, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(axis, "axis");
@@ -2187,16 +2187,16 @@ static nw_error_t *maximum_operation_backward(tensor_t *x, uint32_t *axis, uint3
 
         if (!keep_dimension)
         {
-            uint32_t *reduced_shape = (uint32_t *) malloc(x->buffer->view->rank * sizeof(uint32_t));
+            uint64_t *reduced_shape = (uint64_t *) malloc(x->buffer->view->rank * sizeof(uint64_t));
             if (reduced_shape == NULL)
             {
-                return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint32_t)), NULL);
+                return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint64_t)), NULL);
             }
 
-            uint32_t *reduced_strides = (uint32_t *) malloc(x->buffer->view->rank * sizeof(uint32_t));
+            uint64_t *reduced_strides = (uint64_t *) malloc(x->buffer->view->rank * sizeof(uint64_t));
             if (reduced_strides == NULL)
             {
-                return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint32_t)), NULL);
+                return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint64_t)), NULL);
             }
 
             error = reduce_recover_dimensions(x->buffer->view->shape, x->buffer->view->rank, x->buffer->view->strides, reduced_shape, x->buffer->view->rank, reduced_strides, axis, rank);
@@ -2309,7 +2309,7 @@ nw_error_t *reduction_operation_backward(reduction_operation_t *reduction_operat
     return NULL;
 }
 
-nw_error_t *structure_operation_create(structure_operation_t **structure_operation, structure_operation_type_t structure_operation_type, const tensor_t *x, const uint32_t *arguments, uint32_t length)
+nw_error_t *structure_operation_create(structure_operation_t **structure_operation, structure_operation_type_t structure_operation_type, const tensor_t *x, const uint64_t *arguments, uint64_t length)
 {
     CHECK_NULL_ARGUMENT(structure_operation, "structure_operation");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
@@ -2321,13 +2321,13 @@ nw_error_t *structure_operation_create(structure_operation_t **structure_operati
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate structure operation of size %zu bytes.", sizeof(structure_operation_t)), NULL);
     }
 
-    (*structure_operation)->arguments = (uint32_t *) malloc(length * sizeof(uint32_t));
+    (*structure_operation)->arguments = (uint64_t *) malloc(length * sizeof(uint64_t));
     if ((*structure_operation)->arguments == NULL)
     {
         free(*structure_operation);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate structure_operation->arguments of size %zu bytes.", length * sizeof(uint32_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate structure_operation->arguments of size %zu bytes.", length * sizeof(uint64_t)), NULL);
     }
-    memcpy((*structure_operation)->arguments, arguments, length * sizeof(uint32_t));
+    memcpy((*structure_operation)->arguments, arguments, length * sizeof(uint64_t));
 
     (*structure_operation)->operation_type = structure_operation_type;
     (*structure_operation)->x = (tensor_t *) x; 
@@ -2348,7 +2348,7 @@ void structure_operation_destroy(structure_operation_t *structure_operation)
     free(structure_operation);
 }
 
-static nw_error_t *expand_operation_forward(tensor_t *x, uint32_t *shape, uint32_t rank, tensor_t *result)
+static nw_error_t *expand_operation_forward(tensor_t *x, uint64_t *shape, uint64_t rank, tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -2357,13 +2357,13 @@ static nw_error_t *expand_operation_forward(tensor_t *x, uint32_t *shape, uint32
     CHECK_NULL_ARGUMENT(result, "result");
 
     nw_error_t *error;
-    uint32_t *strides;
+    uint64_t *strides;
     view_t *view;
 
-    strides = (uint32_t *) malloc(rank * sizeof(uint32_t));
+    strides = (uint64_t *) malloc(rank * sizeof(uint64_t));
     if (strides == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate strides of size %zu bytes.", rank * sizeof(uint32_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate strides of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
     }
 
     error = broadcast_strides(x->buffer->view->shape, x->buffer->view->rank, x->buffer->view->strides, shape, rank, strides);
@@ -2391,7 +2391,7 @@ static nw_error_t *expand_operation_forward(tensor_t *x, uint32_t *shape, uint32
     return NULL;
 }
 
-static nw_error_t *expand_operation_backward(tensor_t *x, uint32_t *shape, uint32_t rank, tensor_t *gradient)
+static nw_error_t *expand_operation_backward(tensor_t *x, uint64_t *shape, uint64_t rank, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -2400,20 +2400,20 @@ static nw_error_t *expand_operation_backward(tensor_t *x, uint32_t *shape, uint3
     if (x->requires_gradient)
     {
         nw_error_t *error;
-        uint32_t length_keep_dimension;
-        uint32_t length_remove_dimension;
+        uint64_t length_keep_dimension;
+        uint64_t length_remove_dimension;
         
         error = reverse_broadcast_length(x->buffer->view->shape, x->buffer->view->rank, shape, rank, &length_keep_dimension, &length_remove_dimension);
-        uint32_t *axis_keep_dimension = (uint32_t *) malloc(sizeof(uint32_t) * length_keep_dimension);
+        uint64_t *axis_keep_dimension = (uint64_t *) malloc(sizeof(uint64_t) * length_keep_dimension);
         if (axis_keep_dimension == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate axis of size %zu bytes.", sizeof(uint32_t) * length_keep_dimension), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate axis of size %zu bytes.", sizeof(uint64_t) * length_keep_dimension), NULL);
         }
 
-        uint32_t *axis_remove_dimension = (uint32_t *) malloc(sizeof(uint32_t) * length_remove_dimension);
+        uint64_t *axis_remove_dimension = (uint64_t *) malloc(sizeof(uint64_t) * length_remove_dimension);
         if (axis_remove_dimension == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate axis of size %zu bytes.", sizeof(uint32_t) * length_remove_dimension), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate axis of size %zu bytes.", sizeof(uint64_t) * length_remove_dimension), NULL);
         }
 
         error = reverse_broadcast_axis(x->buffer->view->shape, x->buffer->view->rank, shape, rank, axis_keep_dimension, axis_remove_dimension);
@@ -2461,7 +2461,7 @@ static nw_error_t *expand_operation_backward(tensor_t *x, uint32_t *shape, uint3
     return NULL;
 }
 
-static nw_error_t *permute_operation_forward(tensor_t *x, uint32_t *axis, uint32_t rank, tensor_t *result)
+static nw_error_t *permute_operation_forward(tensor_t *x, uint64_t *axis, uint64_t rank, tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -2470,21 +2470,21 @@ static nw_error_t *permute_operation_forward(tensor_t *x, uint32_t *axis, uint32
     CHECK_NULL_ARGUMENT(result, "result");
 
     nw_error_t *error;
-    uint32_t *shape;
-    uint32_t *strides;
+    uint64_t *shape;
+    uint64_t *strides;
     view_t *view;
 
-    strides = (uint32_t *) malloc(rank * sizeof(uint32_t));
+    strides = (uint64_t *) malloc(rank * sizeof(uint64_t));
     if (strides == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate strides of size %zu bytes.", rank * sizeof(uint32_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate strides of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
     }
 
-    shape = (uint32_t *) malloc(rank * sizeof(uint32_t));
+    shape = (uint64_t *) malloc(rank * sizeof(uint64_t));
     if (shape == NULL)
     {
         free(strides);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate shape of size %zu bytes.", rank * sizeof(uint32_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate shape of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
     }
 
     error = permute(x->buffer->view->shape, x->buffer->view->rank, x->buffer->view->strides, shape, rank, strides, axis, rank);
@@ -2515,7 +2515,7 @@ static nw_error_t *permute_operation_forward(tensor_t *x, uint32_t *axis, uint32
     return NULL;
 }
 
-static nw_error_t *permute_operation_backward(tensor_t *x, uint32_t *axis, uint32_t rank, tensor_t *gradient)
+static nw_error_t *permute_operation_backward(tensor_t *x, uint64_t *axis, uint64_t rank, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(axis, "axis");
@@ -2524,13 +2524,13 @@ static nw_error_t *permute_operation_backward(tensor_t *x, uint32_t *axis, uint3
     if (x->requires_gradient)
     {
         nw_error_t *error;
-        uint32_t *gradient_axis;
+        uint64_t *gradient_axis;
         tensor_t *x_gradient;
 
-        gradient_axis = (uint32_t *) malloc(rank * sizeof(uint32_t));
+        gradient_axis = (uint64_t *) malloc(rank * sizeof(uint64_t));
         if (gradient_axis == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate strides of size %zu bytes.", rank * sizeof(uint32_t)), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate strides of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
         }
 
         error = reverse_permute(axis, rank, gradient_axis);
@@ -2563,7 +2563,7 @@ static nw_error_t *permute_operation_backward(tensor_t *x, uint32_t *axis, uint3
     return NULL;
 }
 
-static nw_error_t *reshape_operation_forward(tensor_t *x, uint32_t *shape, uint32_t rank, tensor_t *result)
+static nw_error_t *reshape_operation_forward(tensor_t *x, uint64_t *shape, uint64_t rank, tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -2628,18 +2628,18 @@ static nw_error_t *reshape_operation_backward(tensor_t *x, tensor_t *gradient)
     return NULL;
 }
 
-static nw_error_t *slice_operation_forward(tensor_t *x, uint32_t *arguments, uint32_t length, tensor_t *result)
+static nw_error_t *slice_operation_forward(tensor_t *x, uint64_t *arguments, uint64_t length, tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
     CHECK_NULL_ARGUMENT(result, "result");
 
     view_t *view;
-    uint32_t offset = 0;
-    uint32_t *shape = (uint32_t *) malloc(x->buffer->view->rank * sizeof(uint32_t));
+    uint64_t offset = 0;
+    uint64_t *shape = (uint64_t *) malloc(x->buffer->view->rank * sizeof(uint64_t));
     if (shape == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed allocate shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint32_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed allocate shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint64_t)), NULL);
     }
 
     nw_error_t *error = slice_offset(x->buffer->view->strides, x->buffer->view->rank, &offset, arguments, length);
@@ -2671,7 +2671,7 @@ static nw_error_t *slice_operation_forward(tensor_t *x, uint32_t *arguments, uin
     return NULL;
 }
 
-static nw_error_t *slice_operation_backward(tensor_t *x, uint32_t *arguments, uint32_t length, tensor_t *gradient)
+static nw_error_t *slice_operation_backward(tensor_t *x, uint64_t *arguments, uint64_t length, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
@@ -2686,10 +2686,10 @@ static nw_error_t *slice_operation_backward(tensor_t *x, uint32_t *arguments, ui
             return ERROR(ERROR_CREATE, string_create("failed to create x_gradient tensor."), error);
         }
 
-        uint32_t *new_arguments = (uint32_t *) malloc(length * sizeof(uint32_t));
+        uint64_t *new_arguments = (uint64_t *) malloc(length * sizeof(uint64_t));
         if (new_arguments == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate new arguments of size %zu.", length * sizeof(uint32_t)), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate new arguments of size %zu.", length * sizeof(uint64_t)), NULL);
         }
 
         error = reverse_slice(x->buffer->view->shape, x->buffer->view->rank, arguments, length, new_arguments, length);
@@ -2715,22 +2715,22 @@ static nw_error_t *slice_operation_backward(tensor_t *x, uint32_t *arguments, ui
     return NULL;
 }
 
-static nw_error_t *padding_operation_forward(tensor_t *x, uint32_t *arguments, uint32_t length, tensor_t *result)
+static nw_error_t *padding_operation_forward(tensor_t *x, uint64_t *arguments, uint64_t length, tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
     CHECK_NULL_ARGUMENT(result, "result");
 
-    uint32_t *padding_shape = (uint32_t *) malloc(x->buffer->view->rank * sizeof(uint32_t));
+    uint64_t *padding_shape = (uint64_t *) malloc(x->buffer->view->rank * sizeof(uint64_t));
     if (padding_shape == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate padding shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint32_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate padding shape of size %zu bytes.", x->buffer->view->rank * sizeof(uint64_t)), NULL);
     }
 
-    uint32_t *slice_arguments = (uint32_t *) malloc(length * sizeof(uint32_t));
+    uint64_t *slice_arguments = (uint64_t *) malloc(length * sizeof(uint64_t));
     if (slice_arguments == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate slice arguments of size %zu bytes.", length * sizeof(uint32_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate slice arguments of size %zu bytes.", length * sizeof(uint64_t)), NULL);
     }
 
     nw_error_t *error = padding(x->buffer->view->shape, x->buffer->view->rank, padding_shape, x->buffer->view->rank, arguments, length);
@@ -2745,7 +2745,7 @@ static nw_error_t *padding_operation_forward(tensor_t *x, uint32_t *arguments, u
         return ERROR(ERROR_PADDING, string_create("failed to compute slice arguments."), error);
     }
 
-    uint32_t offset = 0;
+    uint64_t offset = 0;
     error = slice_offset(x->buffer->view->strides, x->buffer->view->rank, &offset, slice_arguments, length);
     if (error != NULL)
     {
@@ -2794,7 +2794,7 @@ static nw_error_t *padding_operation_forward(tensor_t *x, uint32_t *arguments, u
     return NULL;
 }
 
-static nw_error_t *padding_operation_backward(tensor_t *x, uint32_t *arguments, uint32_t length, tensor_t *gradient)
+static nw_error_t *padding_operation_backward(tensor_t *x, uint64_t *arguments, uint64_t length, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
@@ -2810,10 +2810,10 @@ static nw_error_t *padding_operation_backward(tensor_t *x, uint32_t *arguments, 
             return ERROR(ERROR_CREATE, string_create("failed to create x_gradient tensor."), error);
         }
 
-        uint32_t *new_arguments = (uint32_t *) malloc(length * sizeof(uint32_t));
+        uint64_t *new_arguments = (uint64_t *) malloc(length * sizeof(uint64_t));
         if (new_arguments == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate new arguments of size %zu.", length * sizeof(uint32_t)), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate new arguments of size %zu.", length * sizeof(uint64_t)), NULL);
         }
 
         error = reverse_padding(x->buffer->view->shape, x->buffer->view->rank, arguments, length, new_arguments, length);

@@ -7,7 +7,7 @@ nw_error_t *error;
 void setup(void)
 {
     view_t *view;
-    error = view_create(&view, 0, 2, (uint32_t[]){1, 2}, NULL);
+    error = view_create(&view, 0, 2, (uint64_t[]){1, 2}, NULL);
     if (error != NULL)
     {
         error_print(error);

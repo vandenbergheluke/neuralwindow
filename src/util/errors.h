@@ -58,13 +58,13 @@ typedef struct nw_error_t
 {
     nw_error_type_t error_type;
     string_t file;
-    uint32_t line_number;
+    uint64_t line_number;
     string_t function;
     string_t message;
     struct nw_error_t *next_error;
 } nw_error_t;
 
-nw_error_t *error_create(nw_error_type_t error_type, string_t file, uint32_t line_number, string_t function, string_t message, nw_error_t *next_error);
+nw_error_t *error_create(nw_error_type_t error_type, string_t file, uint64_t line_number, string_t function, string_t message, nw_error_t *next_error);
 void error_destroy(nw_error_t *error);
 void error_print(nw_error_t *error);
 string_t error_type_string(nw_error_type_t error_type);

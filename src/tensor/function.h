@@ -72,19 +72,19 @@ typedef struct reduction_operation_t
 {
     tensor_t *x;
     tensor_t *result;
-    uint32_t *axis;
-    uint32_t rank;
+    uint64_t *axis;
+    uint64_t rank;
     bool_t keep_dimension;
     reduction_operation_type_t operation_type;
 } reduction_operation_t;
 
 nw_error_t *reduction_operation_create(reduction_operation_t **reduction_operation,
                                     reduction_operation_type_t reduction_operation_type,
-                                    const tensor_t *x, const uint32_t *axis, uint32_t rank, bool_t keep_dimension);
+                                    const tensor_t *x, const uint64_t *axis, uint64_t rank, bool_t keep_dimension);
 void reduction_operation_destroy(reduction_operation_t *reduction_operation);
 nw_error_t *reduction_operation_forward(reduction_operation_t *reduction_operation, tensor_t *result);
 nw_error_t *reduction_operation_backward(reduction_operation_t *reduction_operation, tensor_t *gradient);
-nw_error_t *apply_function_reduction(reduction_operation_type_t reduction_operation_type, const tensor_t *x, const uint32_t *axis, uint32_t rank, bool_t keep_dimension, tensor_t *y);
+nw_error_t *apply_function_reduction(reduction_operation_type_t reduction_operation_type, const tensor_t *x, const uint64_t *axis, uint64_t rank, bool_t keep_dimension, tensor_t *y);
 
 // Structure Operation
 typedef enum structure_operation_type_t
@@ -100,16 +100,16 @@ typedef struct structure_operation_t
 {
     tensor_t *x;
     tensor_t *result;
-    uint32_t *arguments;
-    uint32_t length;
+    uint64_t *arguments;
+    uint64_t length;
     structure_operation_type_t operation_type;
 } structure_operation_t;
 
-nw_error_t *structure_operation_create(structure_operation_t **operation, structure_operation_type_t operation_type, const tensor_t *x, const uint32_t *arguments, uint32_t length);
+nw_error_t *structure_operation_create(structure_operation_t **operation, structure_operation_type_t operation_type, const tensor_t *x, const uint64_t *arguments, uint64_t length);
 void structure_operation_destroy(structure_operation_t *operation);
 nw_error_t *structure_operation_forward(structure_operation_t *structure_operation, tensor_t *result);
 nw_error_t *structure_operation_backward(structure_operation_t *structure_operation, tensor_t *gradient);
-nw_error_t *apply_function_structure(structure_operation_type_t structure_operation_type, const tensor_t *x, const uint32_t *arguments, uint32_t length, tensor_t *y);
+nw_error_t *apply_function_structure(structure_operation_type_t structure_operation_type, const tensor_t *x, const uint64_t *arguments, uint64_t length, tensor_t *y);
 
 // Operation
 typedef enum operation_type_t

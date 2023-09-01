@@ -23,6 +23,6 @@ string_t datatype_string(datatype_t datatype);
 size_t datatype_size(datatype_t datatype);
 string_t string_create(string_t format, ...);
 void string_destroy(string_t string);
-string_t uint32_array_to_string(const uint32_t *array, uint32_t length);
+string_t uint64_array_to_string(const uint64_t *array, uint64_t length);
 
 #endif

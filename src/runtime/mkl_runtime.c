@@ -19,7 +19,7 @@ void mkl_memory_free(void *p)
     mkl_free(p);
 }
 
-void mkl_exponential(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void mkl_exponential(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -34,7 +34,7 @@ void mkl_exponential(datatype_t datatype, uint32_t n, const void *x_data, uint32
     }
 }
 
-void mkl_logarithm(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void mkl_logarithm(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -49,7 +49,7 @@ void mkl_logarithm(datatype_t datatype, uint32_t n, const void *x_data, uint32_t
     }
 }
 
-void mkl_sine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void mkl_sine(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -64,7 +64,7 @@ void mkl_sine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_st
     }
 }
 
-void mkl_cosine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void mkl_cosine(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -79,7 +79,7 @@ void mkl_cosine(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_
     }
 }
 
-void mkl_square_root(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void mkl_square_root(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -94,7 +94,7 @@ void mkl_square_root(datatype_t datatype, uint32_t n, const void *x_data, uint32
     }
 }
 
-void mkl_reciprocal(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void mkl_reciprocal(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -109,7 +109,7 @@ void mkl_reciprocal(datatype_t datatype, uint32_t n, const void *x_data, uint32_
     }
 }
 
-void mkl_copy(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void mkl_copy(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -124,7 +124,7 @@ void mkl_copy(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_st
     }
 }
 
-void mkl_negation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void mkl_negation(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -157,7 +157,7 @@ static void mkl_rectified_linear_float64(int n, const float64_t *x_data, int x_s
     }
 }
 
-void mkl_rectified_linear(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_stride, uint32_t y_offset)
+void mkl_rectified_linear(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -172,7 +172,7 @@ void mkl_rectified_linear(datatype_t datatype, uint32_t n, const void *x_data, u
     }
 }
 
-void mkl_addition(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+void mkl_addition(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     switch (datatype)
     {
@@ -187,7 +187,7 @@ void mkl_addition(datatype_t datatype, uint32_t n, const void *x_data, uint32_t 
     }
 }
 
-void mkl_subtraction(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+void mkl_subtraction(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     switch (datatype)
     {
@@ -202,7 +202,7 @@ void mkl_subtraction(datatype_t datatype, uint32_t n, const void *x_data, uint32
     }
 }
 
-void mkl_multiplication(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+void mkl_multiplication(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     switch (datatype)
     {
@@ -217,7 +217,7 @@ void mkl_multiplication(datatype_t datatype, uint32_t n, const void *x_data, uin
     }
 }
 
-void mkl_division(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+void mkl_division(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     switch (datatype)
     {
@@ -232,7 +232,7 @@ void mkl_division(datatype_t datatype, uint32_t n, const void *x_data, uint32_t 
     }
 }
 
-void mkl_power(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+void mkl_power(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     switch (datatype)
     {
@@ -263,7 +263,7 @@ static void mkl_compare_equal_float64(int n, const float64_t *x_data, int x_stri
     }
 }
 
-void mkl_compare_equal(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+void mkl_compare_equal(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     switch (datatype)
     {
@@ -294,7 +294,7 @@ static void mkl_compare_greater_float64(int n, const float64_t *x_data, int x_st
     }
 }
 
-void mkl_compare_greater(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, const void *y_data, uint32_t y_stride, uint32_t y_offset, void *z_data, uint32_t z_stride, uint32_t z_offset)
+void mkl_compare_greater(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     switch (datatype)
     {
@@ -309,7 +309,7 @@ void mkl_compare_greater(datatype_t datatype, uint32_t n, const void *x_data, ui
     }
 }
 
-void mkl_matrix_multiplication(datatype_t datatype, uint32_t m, uint32_t k, uint32_t n, bool_t x_transpose, bool_t y_transpose, const void *x_data, uint32_t x_offset, const void *y_data, uint32_t y_offset, void *z_data, uint32_t z_offset)
+void mkl_matrix_multiplication(datatype_t datatype, uint64_t m, uint64_t k, uint64_t n, bool_t x_transpose, bool_t y_transpose, const void *x_data, uint64_t x_offset, const void *y_data, uint64_t y_offset, void *z_data, uint64_t z_offset)
 {
     switch (datatype)
     {
@@ -338,7 +338,7 @@ static void mkl_summation_float64(int n, const float64_t *x_data, int x_stride, 
     *y_data = cblas_ddot(n, x_data, x_stride, &temp, (int) 1);
 }
 
-void mkl_summation(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_offset)
+void mkl_summation(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_offset)
 {
     switch (datatype)
     {
@@ -381,7 +381,7 @@ static void mkl_maximum_float64(int n, const float64_t *x_data, int x_stride, fl
     *y_data = maximum;
 }
 
-void mkl_maximum(datatype_t datatype, uint32_t n, const void *x_data, uint32_t x_stride, uint32_t x_offset, void *y_data, uint32_t y_offset)
+void mkl_maximum(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_offset)
 {
     switch (datatype)
     {
