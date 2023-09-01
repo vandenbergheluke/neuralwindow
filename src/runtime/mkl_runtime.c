@@ -329,13 +329,13 @@ void mkl_matrix_multiplication(datatype_t datatype, uint64_t m, uint64_t k, uint
 static void mkl_summation_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data)
 {
     float32_t temp = 1.0;
-    *y_data = cblas_sdot(n, x_data, x_stride, &temp, (int) 1);
+    *y_data = cblas_sdot(n, x_data, x_stride, &temp, (int) 0);
 }
 
 static void mkl_summation_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data)
 {
     float64_t temp = 1.0;
-    *y_data = cblas_ddot(n, x_data, x_stride, &temp, (int) 1);
+    *y_data = cblas_ddot(n, x_data, x_stride, &temp, (int) 0);
 }
 
 void mkl_summation(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_offset)

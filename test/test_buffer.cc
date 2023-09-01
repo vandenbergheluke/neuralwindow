@@ -1,4 +1,5 @@
 #include <iostream>
+#include <tuple>
 extern "C"
 {
 #include <check.h>
@@ -797,12 +798,220 @@ START_TEST(test_compare_greater)
 }
 END_TEST
 
+#define REDUCTION_CASES 4
+
+nw_error_t *reduction_error;
+
+buffer_t *reduction_buffers[REDUCTION_CASES];
+buffer_t *returned_reduction_buffers[REDUCTION_CASES];
+buffer_t *expected_reduction_buffers[REDUCTION_CASES];
+
+view_t *reduction_views[REDUCTION_CASES];
+view_t *returned_reduction_views[REDUCTION_CASES];
+view_t *expected_reduction_views[REDUCTION_CASES];
+
+torch::Tensor reduction_tensors[REDUCTION_CASES];
+
+void reduction_setup(void)
+{
+    if (set_seed)
+    {
+        torch::manual_seed(SEED);
+        set_seed = false;
+    }
+
+    for (int i = 0; i < REDUCTION_CASES; ++i)
+    {
+        reduction_buffers[i] = NULL;
+        returned_reduction_buffers[i] = NULL;
+        expected_reduction_buffers[i] = NULL;
+
+        reduction_views[i] = NULL;
+        returned_reduction_views[i] = NULL;
+        expected_reduction_views[i] = NULL;
+    }
+
+    std::vector<int64_t> shapes[REDUCTION_CASES] = {
+        {2, 2},
+        {2, 2},
+        {2, 2},
+        {2, 2},
+    };
+    
+    runtime_t runtimes[REDUCTION_CASES] = {
+        OPENBLAS_RUNTIME,
+        MKL_RUNTIME,
+        OPENBLAS_RUNTIME,
+        MKL_RUNTIME,
+    };
+
+    datatype_t datatypes[REDUCTION_CASES] = {
+        FLOAT32,
+        FLOAT32,
+        FLOAT64,
+        FLOAT64,
+    };
+
+    torch::ScalarType torch_datatypes[REDUCTION_CASES] = {
+        torch::kFloat32,
+        torch::kFloat32,
+        torch::kFloat64,
+        torch::kFloat64,
+    };
+
+    for (int i = 0; i < REDUCTION_CASES; ++i)
+    {
+        reduction_tensors[i] = torch::randn(shapes[i], torch::TensorOptions().dtype(torch_datatypes[i]));
+
+        reduction_error = view_create(&reduction_views[i], 
+                                      (uint64_t) reduction_tensors[i].storage_offset(),
+                                      (uint64_t) reduction_tensors[i].ndimension(),
+                                      (uint64_t *) reduction_tensors[i].sizes().data(),
+                                      NULL);
+        ck_assert_ptr_null(reduction_error);
+        unary_error = buffer_create(&reduction_buffers[i],
+                                    runtimes[i],
+                                    datatypes[i],
+                                    reduction_views[i],
+                                    (void *) reduction_tensors[i].data_ptr(),
+                                    (uint64_t) reduction_tensors[i].numel(),
+                                    true);
+        ck_assert_ptr_null(reduction_error);
+    }
+}
+
+void reduction_teardown(void)
+{
+    for (int i = 0; i < REDUCTION_CASES; i++)
+    {
+        buffer_destroy(reduction_buffers[i]);
+        buffer_destroy(returned_reduction_buffers[i]);
+        buffer_destroy(expected_reduction_buffers[i]);
+    }
+    error_destroy(reduction_error);
+}
+
+START_TEST(test_summation)
+{
+    uint64_t axis[REDUCTION_CASES] = {
+        0,
+        0,
+        1,
+        1,
+    };
+
+    bool_t keep_dimension[REDUCTION_CASES] = {
+        true,
+        true,
+        true,
+        true,
+    };
+
+    for (int i = 0; i < REDUCTION_CASES; ++i)
+    {
+        torch::Tensor expected_tensor = torch::sum(reduction_tensors[i], std::vector<int64_t>({(int64_t) axis[i]}), keep_dimension[i]);
+
+        reduction_error = view_create(&returned_reduction_views[i],
+                                      (uint64_t) expected_tensor.storage_offset(),
+                                      (uint64_t) expected_tensor.ndimension(),
+                                      (uint64_t *) expected_tensor.sizes().data(),
+                                      NULL);
+        ck_assert_ptr_null(reduction_error);
+        reduction_error = buffer_create(&returned_reduction_buffers[i],
+                                        reduction_buffers[i]->runtime,
+                                        reduction_buffers[i]->datatype,
+                                        returned_reduction_views[i],
+                                        NULL,
+                                        (uint64_t) expected_tensor.numel(),
+                                        true);
+        ck_assert_ptr_null(reduction_error);
+        reduction_error = view_create(&expected_reduction_views[i],
+                                      (uint64_t) expected_tensor.storage_offset(),
+                                      (uint64_t) expected_tensor.ndimension(),
+                                      (uint64_t *) expected_tensor.sizes().data(),
+                                      NULL);
+        ck_assert_ptr_null(reduction_error);
+        reduction_error = buffer_create(&expected_reduction_buffers[i],
+                                        reduction_buffers[i]->runtime,
+                                        reduction_buffers[i]->datatype,
+                                        expected_reduction_views[i],
+                                        (void *) expected_tensor.data_ptr(),
+                                        (uint64_t) expected_tensor.numel(),
+                                        true);
+        ck_assert_ptr_null(reduction_error);
+
+        reduction_error = runtime_summation(reduction_buffers[i], returned_reduction_buffers[i], axis[i]);
+        ck_assert_ptr_null(reduction_error);
+
+        ck_assert_buffer_eq(returned_reduction_buffers[i], expected_reduction_buffers[i]);
+    }
+}
+END_TEST
+
+START_TEST(test_maximum)
+{
+    uint64_t axis[REDUCTION_CASES] = {
+        0,
+        0,
+        1,
+        1,
+    };
+
+    bool_t keep_dimension[REDUCTION_CASES] = {
+        true,
+        true,
+        true,
+        true,
+    };
+
+    for (int i = 0; i < REDUCTION_CASES; ++i)
+    {
+        torch::Tensor expected_tensor = std::get<0>(torch::max(reduction_tensors[i], {(int64_t) axis[i]}, keep_dimension[i]));
+
+        reduction_error = view_create(&returned_reduction_views[i],
+                                      (uint64_t) expected_tensor.storage_offset(),
+                                      (uint64_t) expected_tensor.ndimension(),
+                                      (uint64_t *) expected_tensor.sizes().data(),
+                                      NULL);
+        ck_assert_ptr_null(reduction_error);
+        reduction_error = buffer_create(&returned_reduction_buffers[i],
+                                        reduction_buffers[i]->runtime,
+                                        reduction_buffers[i]->datatype,
+                                        returned_reduction_views[i],
+                                        NULL,
+                                        (uint64_t) expected_tensor.numel(),
+                                        true);
+        ck_assert_ptr_null(reduction_error);
+        reduction_error = view_create(&expected_reduction_views[i],
+                                      (uint64_t) expected_tensor.storage_offset(),
+                                      (uint64_t) expected_tensor.ndimension(),
+                                      (uint64_t *) expected_tensor.sizes().data(),
+                                      NULL);
+        ck_assert_ptr_null(reduction_error);
+        reduction_error = buffer_create(&expected_reduction_buffers[i],
+                                        reduction_buffers[i]->runtime,
+                                        reduction_buffers[i]->datatype,
+                                        expected_reduction_views[i],
+                                        (void *) expected_tensor.data_ptr(),
+                                        (uint64_t) expected_tensor.numel(),
+                                        true);
+        ck_assert_ptr_null(reduction_error);
+
+        reduction_error = runtime_maximum(reduction_buffers[i], returned_reduction_buffers[i], axis[i]);
+        ck_assert_ptr_null(reduction_error);
+
+        ck_assert_buffer_eq(returned_reduction_buffers[i], expected_reduction_buffers[i]);
+    }
+}
+END_TEST
+
+
 Suite *make_buffer_suite(void)
 {
     Suite *s;
     TCase *tc_unary;
     TCase *tc_binary;
-    // TCase *tc_reduction;
+    TCase *tc_reduction;
 
     s = suite_create("Test Buffer Suite");
 
@@ -832,14 +1041,14 @@ Suite *make_buffer_suite(void)
     tcase_add_test(tc_binary, test_compare_greater);
 
     // Reduction Operations
-    // tc_reduction = tcase_create("Reduction Case");
-    // tcase_add_checked_fixture(tc_reduction, reduction_setup, reduction_teardown);
-    // tcase_add_test(tc_binary, test_summation);
-    // tcase_add_test(tc_binary, test_maximum);
+    tc_reduction = tcase_create("Reduction Case");
+    tcase_add_checked_fixture(tc_reduction, reduction_setup, reduction_teardown);
+    tcase_add_test(tc_reduction, test_summation);
+    tcase_add_test(tc_reduction, test_maximum);
 
     suite_add_tcase(s, tc_unary);
     suite_add_tcase(s, tc_binary);
-    // suite_add_tcase(s, tc_reduction);
+    suite_add_tcase(s, tc_reduction);
 
     return s;
 }

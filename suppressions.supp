@@ -14501,6 +14501,23 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
+   obj:/home/lvand/workspace/neuralwindow/libtorch/lib/libgomp-a34b3233.so.1
+   obj:/home/lvand/workspace/neuralwindow/libtorch/lib/libgomp-a34b3233.so.1
+   fun:GOMP_parallel
+   fun:_ZN2at18TensorIteratorBase8for_eachEN3c1012function_refIFvPPcPKlllEEEl
+   fun:_ZN2at6native12_GLOBAL__N_1L15max_kernel_implERKNS_6TensorES4_S4_lb
+   fun:_ZN2at6native15minmax_out_implINS0_8max_stubEEEvRKNS_6TensorElbS5_S5_RT_
+   fun:_ZN2at12_GLOBAL__N_119wrapper_CPU_max_dimERKNS_6TensorElb
+   fun:_ZN3c104impl28wrap_kernel_functor_unboxed_INS0_6detail24WrapFunctionIntoFunctor_INS_26CompileTimeFunctionPointerIFSt5tupleIJN2at6TensorES7_EERKS7_lbEXadL_ZNS6_12_GLOBAL__N_119wrapper_CPU_max_dimESA_lbEEEES8_NS_4guts8typelist8typelistIJSA_lbEEEEESB_E4callEPNS_14OperatorKernelENS_14DispatchKeySetESA_lb
+   fun:_ZN2at4_ops7max_dim10redispatchEN3c1014DispatchKeySetERKNS_6TensorElb
+   fun:_ZN5torch8autograd12VariableType12_GLOBAL__N_17max_dimEN3c1014DispatchKeySetERKN2at6TensorElb
+   fun:_ZN3c104impl28wrap_kernel_functor_unboxed_INS0_6detail24WrapFunctionIntoFunctor_INS_26CompileTimeFunctionPointerIFSt5tupleIJN2at6TensorES7_EENS_14DispatchKeySetERKS7_lbEXadL_ZN5torch8autograd12VariableType12_GLOBAL__N_17max_dimES9_SB_lbEEEES8_NS_4guts8typelist8typelistIJS9_SB_lbEEEEESC_E4callEPNS_14OperatorKernelES9_SB_lb
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
    fun:_ZN4llvm11safe_mallocEm
    fun:_ZN4llvm9StringMapIPNS_2cl6OptionENS_15MallocAllocatorEE11try_emplaceIIS3_EEESt4pairINS_17StringMapIteratorIS3_EEbENS_9StringRefEDpOT_
    fun:_ZN12_GLOBAL__N_117CommandLineParser16addLiteralOptionERN4llvm2cl6OptionEPNS2_10SubCommandENS1_9StringRefE.constprop.379
@@ -16828,6 +16845,23 @@
    <insert_a_suppression_name_here>
    Memcheck:Leak
    match-leak-kinds: reachable
+   fun:malloc
+   obj:/home/lvand/workspace/neuralwindow/libtorch/lib/libgomp-a34b3233.so.1
+   obj:/home/lvand/workspace/neuralwindow/libtorch/lib/libgomp-a34b3233.so.1
+   fun:omp_set_num_threads
+   fun:_ZN2at15get_num_threadsEv
+   fun:_ZN2at18TensorIteratorBase8for_eachEN3c1012function_refIFvPPcPKlllEEEl
+   fun:_ZN2at6native12_GLOBAL__N_1L15max_kernel_implERKNS_6TensorES4_S4_lb
+   fun:_ZN2at6native15minmax_out_implINS0_8max_stubEEEvRKNS_6TensorElbS5_S5_RT_
+   fun:_ZN2at12_GLOBAL__N_119wrapper_CPU_max_dimERKNS_6TensorElb
+   fun:_ZN3c104impl28wrap_kernel_functor_unboxed_INS0_6detail24WrapFunctionIntoFunctor_INS_26CompileTimeFunctionPointerIFSt5tupleIJN2at6TensorES7_EERKS7_lbEXadL_ZNS6_12_GLOBAL__N_119wrapper_CPU_max_dimESA_lbEEEES8_NS_4guts8typelist8typelistIJSA_lbEEEEESB_E4callEPNS_14OperatorKernelENS_14DispatchKeySetESA_lb
+   fun:_ZN2at4_ops7max_dim10redispatchEN3c1014DispatchKeySetERKNS_6TensorElb
+   fun:_ZN5torch8autograd12VariableType12_GLOBAL__N_17max_dimEN3c1014DispatchKeySetERKN2at6TensorElb
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: reachable
    fun:_Znwm
    fun:_ZN3c1016C10FlagsRegistryEv
    fun:_GLOBAL__sub_I_CPUAllocator.cpp
@@ -17170,6 +17204,26 @@
    fun:call_init
    fun:_dl_init
    obj:/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   fun:calloc
+   fun:allocate_dtv
+   fun:_dl_allocate_tls
+   fun:allocate_stack
+   fun:pthread_create@@GLIBC_2.34
+   obj:/home/lvand/workspace/neuralwindow/libtorch/lib/libgomp-a34b3233.so.1
+   fun:GOMP_parallel
+   fun:_ZN2at18TensorIteratorBase8for_eachEN3c1012function_refIFvPPcPKlllEEEl
+   fun:_ZN2at6native12_GLOBAL__N_1L15max_kernel_implERKNS_6TensorES4_S4_lb
+   fun:_ZN2at6native15minmax_out_implINS0_8max_stubEEEvRKNS_6TensorElbS5_S5_RT_
+   fun:_ZN2at12_GLOBAL__N_119wrapper_CPU_max_dimERKNS_6TensorElb
+   fun:_ZN3c104impl28wrap_kernel_functor_unboxed_INS0_6detail24WrapFunctionIntoFunctor_INS_26CompileTimeFunctionPointerIFSt5tupleIJN2at6TensorES7_EERKS7_lbEXadL_ZNS6_12_GLOBAL__N_119wrapper_CPU_max_dimESA_lbEEEES8_NS_4guts8typelist8typelistIJSA_lbEEEEESB_E4callEPNS_14OperatorKernelENS_14DispatchKeySetESA_lb
+   fun:_ZN2at4_ops7max_dim10redispatchEN3c1014DispatchKeySetERKNS_6TensorElb
+   fun:_ZN5torch8autograd12VariableType12_GLOBAL__N_17max_dimEN3c1014DispatchKeySetERKN2at6TensorElb
 }
 {
    <insert_a_suppression_name_here>

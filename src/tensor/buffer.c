@@ -1775,7 +1775,7 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
     uint64_t jdim;
     uint64_t kdim;
 
-    switch (result->view->rank)
+    switch (x->view->rank)
     {
     case 1:
         switch (reduction)
