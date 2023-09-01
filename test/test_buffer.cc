@@ -4,6 +4,7 @@ extern "C"
 {
 #include <check.h>
 #include <buffer.h>
+#include <view.h>
 #include <errors.h>
 #include <datatype.h>
 }
