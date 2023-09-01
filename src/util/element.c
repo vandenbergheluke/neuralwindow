@@ -1,4 +1,5 @@
 #include <element.h>
+#include <datatype.h>
 
 nw_error_t *element_create(element_t **element, void *data)
 {

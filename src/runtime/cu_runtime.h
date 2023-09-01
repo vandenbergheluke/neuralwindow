@@ -2,6 +2,7 @@
 #define CU_RUNTIME_H
 
 #include <errors.h>
+#include <datatype.h>
 
 nw_error_t *cu_memory_allocate(void **pp, size_t size);
 void cu_memory_free(void *p);

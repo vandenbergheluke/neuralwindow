@@ -1,6 +1,7 @@
-
 #include <check.h>
 #include <map.h>
+#include <errors.h>
+#include <datatype.h>
 
 map_t *map;
 nw_error_t *error;

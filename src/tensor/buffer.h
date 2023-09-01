@@ -2,7 +2,9 @@
 #define BUFFER_H
 
 #include <errors.h>
-#include <view.h>
+
+// Forward declarations
+typedef struct view_t view_t;
 
 typedef enum runtime_t
 {

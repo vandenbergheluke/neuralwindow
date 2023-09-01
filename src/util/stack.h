@@ -3,6 +3,7 @@
 
 #include <element.h>
 #include <datatype.h>
+#include <errors.h>
 
 typedef struct stack_t
 {

@@ -5,6 +5,7 @@
 #include <datatype.h>
 #include <errors.h>
 
+// Forward declarations
 typedef struct tensor_t tensor_t;
 
 // Unary Operation

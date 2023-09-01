@@ -4,6 +4,7 @@ extern "C"
 {
 #include <check.h>
 #include <buffer.h>
+#include <errors.h>
 }
 #include <torch/torch.h>
 

@@ -2,7 +2,9 @@
 #define LAYER_H
 
 #include <datatype.h>
-#include <tensor.h>
+
+// Forward declarations
+typedef struct tensor_t tensor_t;
 
 struct parameters_t;
 struct linear_t;

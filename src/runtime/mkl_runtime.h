@@ -2,6 +2,7 @@
 #define MKL_RUNTIME_H
 
 #include <errors.h>
+#include <datatype.h>
 
 // TODO: We should choose this based on detected CPU architecture.
 // This parameter can make a significant impact on performance.

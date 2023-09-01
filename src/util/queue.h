@@ -3,6 +3,7 @@
 
 #include <datatype.h>
 #include <element.h>
+#include <errors.h>
 
 typedef struct queue_t
 {
