@@ -1,3 +1,8 @@
+/**@file queue.c
+ * @brief Implements queue utilities.
+ *
+ */
+
 #include <queue.h>
 
 nw_error_t *queue_create(queue_t **queue)

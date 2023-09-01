@@ -1,5 +1,7 @@
 #include <check.h>
 #include <view.h>
+#include <errors.h>
+#include <datatype.h>
 
 nw_error_t *error;
 view_t *view;

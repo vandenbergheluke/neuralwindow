@@ -1,5 +1,6 @@
 #include <check.h>
 #include <function.h>
+#include <errors.h>
 
 nw_error_t *error;
 function_t *function;

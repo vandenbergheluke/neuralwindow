@@ -1,8 +1,14 @@
+/**@file stack.h
+ * @brief Provides stack type and its utilities.
+ *
+ */
+
 #ifndef STACK_H
 #define STACK_H
 
 #include <element.h>
 #include <datatype.h>
+#include <errors.h>
 
 typedef struct stack_t
 {

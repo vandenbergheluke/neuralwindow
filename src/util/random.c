@@ -1,3 +1,8 @@
+/**@file random.c
+ * @brief Implements probability distribution utilities.
+ *
+ */
+
 #include <random.h>
 
 void set_seed(uint64_t seed)

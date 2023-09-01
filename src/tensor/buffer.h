@@ -1,8 +1,15 @@
+/**@file buffer.h
+ * @brief
+ *
+ */
+
 #ifndef BUFFER_H
 #define BUFFER_H
 
-#include <view.h>
 #include <errors.h>
+
+// Forward declarations
+typedef struct view_t view_t;
 
 typedef enum runtime_t
 {
