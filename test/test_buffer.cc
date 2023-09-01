@@ -126,7 +126,7 @@ void unary_teardown(void)
     error_destroy(unary_error);
 }
 
-void ck_assert_buffer_eq(buffer_t *returned_buffer, buffer_t *expected_buffer)
+void ck_assert_buffer_eq(const buffer_t *returned_buffer, const buffer_t *expected_buffer)
 {
     ck_assert_uint_eq(expected_buffer->view->rank, returned_buffer->view->rank);
     ck_assert_uint_eq(expected_buffer->view->offset, returned_buffer->view->offset);
@@ -143,15 +143,30 @@ void ck_assert_buffer_eq(buffer_t *returned_buffer, buffer_t *expected_buffer)
 
     for (uint64_t i = 0; i < expected_buffer->n; ++i)
     {
+
         switch (expected_buffer->datatype)
         {
         case FLOAT32:
-            ck_assert_float_eq_tol(((float32_t *) returned_buffer->data)[i],
-                                    ((float32_t *) expected_buffer->data)[i], EPSILON);
+            if (isnanf(((float32_t *) expected_buffer->data)[i]))
+            {
+                ck_assert_float_nan(((float32_t *) returned_buffer->data)[i]);
+            }
+            else
+            {
+                ck_assert_float_eq_tol(((float32_t *) returned_buffer->data)[i],
+                                       ((float32_t *) expected_buffer->data)[i], EPSILON);
+            }
             break;
         case FLOAT64:
-            ck_assert_double_eq_tol(((float64_t *) returned_buffer->data)[i],
-                                    ((float64_t *) expected_buffer->data)[i], EPSILON);
+            if (isnan(((float64_t *) expected_buffer->data)[i]))
+            {
+                ck_assert_double_nan(((float64_t *) returned_buffer->data)[i]);
+            }
+            else
+            {
+                ck_assert_double_eq_tol(((float64_t *) returned_buffer->data)[i],
+                                        ((float64_t *) expected_buffer->data)[i], EPSILON);
+            }
         default:
             break;
         }
@@ -187,6 +202,35 @@ START_TEST(test_exponential)
 }
 END_TEST
 
+START_TEST(test_logarithm)
+{
+    for (int i = 0; i < CASES; ++i)
+    {
+        torch::Tensor expected_tensor = torch::log(tensors[i]);
+
+        unary_error = view_create(&expected_views[i],
+                                  (uint64_t) expected_tensor.storage_offset(),
+                                  (uint64_t) expected_tensor.ndimension(),
+                                  (uint64_t *) expected_tensor.sizes().data(),
+                                  NULL);
+        ck_assert_ptr_null(unary_error);
+        unary_error = buffer_create(&expected_unary_buffers[i],
+                                    unary_buffers[i]->runtime,
+                                    unary_buffers[i]->datatype,
+                                    expected_views[i],
+                                    (void *) expected_tensor.data_ptr(),
+                                    (uint64_t) expected_tensor.numel(),
+                                    true);
+        ck_assert_ptr_null(unary_error);
+
+        unary_error = runtime_logarithm(unary_buffers[i], returned_unary_buffers[i]);
+        ck_assert_ptr_null(unary_error);
+
+        ck_assert_buffer_eq(returned_unary_buffers[i], expected_unary_buffers[i]);
+    }
+}
+END_TEST
+
 Suite *make_buffer_suite(void)
 {
     Suite *s;
@@ -196,6 +240,7 @@ Suite *make_buffer_suite(void)
     tc_unary = tcase_create("Unary Case");
     tcase_add_checked_fixture(tc_unary, unary_setup, unary_teardown);
     tcase_add_test(tc_unary, test_exponential);
+    tcase_add_test(tc_unary, test_logarithm);
     suite_add_tcase(s, tc_unary);
 
     return s;
