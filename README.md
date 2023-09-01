@@ -102,3 +102,10 @@ Valgrind can be run with a specific test exectuable with the command
 ```bash
 make valgrind_<test_name>
 ```
+
+To generate a Valgrind suppression file run
+
+```bash
+valgrind --leak-check=full --show-reachable=yes --error-limit=no --gen-suppressions=all --log-file=suppressions.log ./test/<test_name>
+cat ./suppressions.log | ./../parse_valgrind_suppresions.sh > suppressions.supp
+```
