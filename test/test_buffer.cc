@@ -6,23 +6,24 @@ extern "C"
 }
 #include <torch/torch.h>
 
-#define CASES 6
 #define EPSILON 0.0001
 #define SEED 1234
 
 bool_t set_seed = true;
 
+#define UNARY_CASES 6
+
 nw_error_t *unary_error;
 
-buffer_t *unary_buffers[CASES];
-buffer_t *returned_unary_buffers[CASES];
-buffer_t *expected_unary_buffers[CASES];
+buffer_t *unary_buffers[UNARY_CASES];
+buffer_t *returned_unary_buffers[UNARY_CASES];
+buffer_t *expected_unary_buffers[UNARY_CASES];
 
-view_t *unary_views[CASES];
-view_t *returned_unary_views[CASES];
-view_t *expected_unary_views[CASES];
+view_t *unary_views[UNARY_CASES];
+view_t *returned_unary_views[UNARY_CASES];
+view_t *expected_unary_views[UNARY_CASES];
 
-torch::Tensor unary_tensors[CASES];
+torch::Tensor unary_tensors[UNARY_CASES];
 
 void unary_setup(void)
 {
@@ -32,7 +33,7 @@ void unary_setup(void)
         set_seed = false;
     }
 
-    for (int i = 0; i < CASES; i++)
+    for (int i = 0; i < UNARY_CASES; ++i)
     {
         unary_buffers[i] = NULL;
         returned_unary_buffers[i] = NULL;
@@ -43,7 +44,7 @@ void unary_setup(void)
         expected_unary_views[i] = NULL;
     }
 
-    std::vector<int64_t> shapes[CASES] = {
+    std::vector<int64_t> shapes[UNARY_CASES] = {
         {1},
         {1},
         {1},
@@ -52,7 +53,7 @@ void unary_setup(void)
         {3, 4, 5},
     };
     
-    runtime_t runtimes[CASES] = {
+    runtime_t runtimes[UNARY_CASES] = {
         OPENBLAS_RUNTIME,
         MKL_RUNTIME,
         OPENBLAS_RUNTIME,
@@ -61,7 +62,7 @@ void unary_setup(void)
         MKL_RUNTIME,
     };
 
-    datatype_t datatypes[CASES] = {
+    datatype_t datatypes[UNARY_CASES] = {
         FLOAT32,
         FLOAT32,
         FLOAT64,
@@ -70,7 +71,7 @@ void unary_setup(void)
         FLOAT32,
     };
 
-    torch::ScalarType torch_datatypes[CASES] = {
+    torch::ScalarType torch_datatypes[UNARY_CASES] = {
         torch::kFloat32,
         torch::kFloat32,
         torch::kFloat64,
@@ -79,7 +80,7 @@ void unary_setup(void)
         torch::kFloat32,
     };
 
-    for (int i = 0; i < CASES; ++i)
+    for (int i = 0; i < UNARY_CASES; ++i)
     {
         unary_tensors[i] = torch::randn(shapes[i], torch::TensorOptions().dtype(torch_datatypes[i]));
 
@@ -117,7 +118,7 @@ void unary_setup(void)
 
 void unary_teardown(void)
 {
-    for (int i = 0; i < CASES; i++)
+    for (int i = 0; i < UNARY_CASES; i++)
     {
         buffer_destroy(unary_buffers[i]);
         buffer_destroy(returned_unary_buffers[i]);
@@ -175,7 +176,7 @@ void ck_assert_buffer_eq(const buffer_t *returned_buffer, const buffer_t *expect
 
 START_TEST(test_exponential)
 {
-    for (int i = 0; i < CASES; ++i)
+    for (int i = 0; i < UNARY_CASES; ++i)
     {
         torch::Tensor expected_tensor = torch::exp(unary_tensors[i]);
 
@@ -204,7 +205,7 @@ END_TEST
 
 START_TEST(test_logarithm)
 {
-    for (int i = 0; i < CASES; ++i)
+    for (int i = 0; i < UNARY_CASES; ++i)
     {
         torch::Tensor expected_tensor = torch::log(unary_tensors[i]);
 
@@ -233,7 +234,7 @@ END_TEST
 
 START_TEST(test_sine)
 {
-    for (int i = 0; i < CASES; ++i)
+    for (int i = 0; i < UNARY_CASES; ++i)
     {
         torch::Tensor expected_tensor = torch::sin(unary_tensors[i]);
 
@@ -262,7 +263,7 @@ END_TEST
 
 START_TEST(test_cosine)
 {
-    for (int i = 0; i < CASES; ++i)
+    for (int i = 0; i < UNARY_CASES; ++i)
     {
         torch::Tensor expected_tensor = torch::cos(unary_tensors[i]);
 
@@ -291,7 +292,7 @@ END_TEST
 
 START_TEST(test_square_root)
 {
-    for (int i = 0; i < CASES; ++i)
+    for (int i = 0; i < UNARY_CASES; ++i)
     {
         torch::Tensor expected_tensor = torch::sqrt(unary_tensors[i]);
 
@@ -320,7 +321,7 @@ END_TEST
 
 START_TEST(test_reciprocal)
 {
-    for (int i = 0; i < CASES; ++i)
+    for (int i = 0; i < UNARY_CASES; ++i)
     {
         torch::Tensor expected_tensor = torch::reciprocal(unary_tensors[i]);
 
@@ -349,7 +350,7 @@ END_TEST
 
 START_TEST(test_copy)
 {
-    for (int i = 0; i < CASES; ++i)
+    for (int i = 0; i < UNARY_CASES; ++i)
     {
         torch::Tensor expected_tensor = torch::clone(unary_tensors[i]);
 
@@ -378,7 +379,7 @@ END_TEST
 
 START_TEST(test_contiguous)
 {
-    for (int i = 0; i < CASES; ++i)
+    for (int i = 0; i < UNARY_CASES; ++i)
     {
         torch::Tensor expected_tensor = unary_tensors[i].contiguous();
 
@@ -407,7 +408,7 @@ END_TEST
 
 START_TEST(test_negation)
 {
-    for (int i = 0; i < CASES; ++i)
+    for (int i = 0; i < UNARY_CASES; ++i)
     {
         torch::Tensor expected_tensor = torch::neg(unary_tensors[i]);
 
@@ -436,7 +437,7 @@ END_TEST
 
 START_TEST(test_rectified_linear)
 {
-    for (int i = 0; i < CASES; ++i)
+    for (int i = 0; i < UNARY_CASES; ++i)
     {
         torch::Tensor expected_tensor = torch::relu(unary_tensors[i]);
 
@@ -463,13 +464,175 @@ START_TEST(test_rectified_linear)
 }
 END_TEST
 
+#define BINARY_CASES 4
+
+nw_error_t *binary_error;
+
+buffer_t *binary_buffers_x[BINARY_CASES];
+buffer_t *binary_buffers_y[BINARY_CASES];
+buffer_t *returned_binary_buffers[BINARY_CASES];
+buffer_t *expected_binary_buffers[BINARY_CASES];
+
+view_t *binary_views_x[BINARY_CASES];
+view_t *binary_views_y[BINARY_CASES];
+view_t *returned_binary_views[BINARY_CASES];
+view_t *expected_binary_views[BINARY_CASES];
+
+torch::Tensor binary_tensors_x[BINARY_CASES];
+torch::Tensor binary_tensors_y[BINARY_CASES];
+
+void binary_setup(void)
+{
+    if (set_seed)
+    {
+        torch::manual_seed(SEED);
+        set_seed = false;
+    }
+
+    for (int i = 0; i < BINARY_CASES; ++i)
+    {
+        binary_buffers_x[i] = NULL;
+        binary_buffers_y[i] = NULL;
+        returned_binary_buffers[i] = NULL;
+        expected_binary_buffers[i] = NULL;
+
+        binary_views_x[i] = NULL;
+        binary_views_y[i] = NULL;
+        returned_binary_views[i] = NULL;
+        expected_binary_views[i] = NULL;
+    }
+
+    std::vector<int64_t> shapes[BINARY_CASES] = {
+        {1},
+        {1},
+        {1},
+        {1},
+    };
+    
+    runtime_t runtimes[BINARY_CASES] = {
+        OPENBLAS_RUNTIME,
+        MKL_RUNTIME,
+        OPENBLAS_RUNTIME,
+        MKL_RUNTIME,
+    };
+
+    datatype_t datatypes[BINARY_CASES] = {
+        FLOAT32,
+        FLOAT32,
+        FLOAT64,
+        FLOAT64,
+    };
+
+    torch::ScalarType torch_datatypes[BINARY_CASES] = {
+        torch::kFloat32,
+        torch::kFloat32,
+        torch::kFloat64,
+        torch::kFloat64,
+    };
+
+    for (int i = 0; i < BINARY_CASES; ++i)
+    {
+        binary_tensors_x[i] = torch::randn(shapes[i], torch::TensorOptions().dtype(torch_datatypes[i]));
+        binary_tensors_y[i] = torch::randn(shapes[i], torch::TensorOptions().dtype(torch_datatypes[i]));
+
+        binary_error = view_create(&binary_views_x[i], 
+                                   (uint64_t) binary_tensors_x[i].storage_offset(),
+                                   (uint64_t) binary_tensors_x[i].ndimension(),
+                                   (uint64_t *) binary_tensors_x[i].sizes().data(),
+                                   NULL);
+        ck_assert_ptr_null(binary_error);
+        binary_error = buffer_create(&binary_buffers_x[i],
+                                     runtimes[i],
+                                     datatypes[i],
+                                     binary_views_x[i],
+                                     (void *) binary_tensors_x[i].data_ptr(),
+                                     (uint64_t) binary_tensors_x[i].numel(),
+                                     true);
+        ck_assert_ptr_null(binary_error);
+
+        binary_error = view_create(&binary_views_y[i], 
+                                   (uint64_t) binary_tensors_y[i].storage_offset(),
+                                   (uint64_t) binary_tensors_y[i].ndimension(),
+                                   (uint64_t *) binary_tensors_y[i].sizes().data(),
+                                   NULL);
+        ck_assert_ptr_null(binary_error);
+        binary_error = buffer_create(&binary_buffers_y[i],
+                                     runtimes[i],
+                                     datatypes[i],
+                                     binary_views_y[i],
+                                     (void *) binary_tensors_y[i].data_ptr(),
+                                     (uint64_t) binary_tensors_y[i].numel(),
+                                     true);
+        ck_assert_ptr_null(binary_error);
+
+        binary_error = view_create(&returned_binary_views[i],
+                                   (uint64_t) binary_tensors_x[i].storage_offset(),
+                                   (uint64_t) binary_tensors_x[i].ndimension(),
+                                   (uint64_t *) binary_tensors_x[i].sizes().data(),
+                                   NULL);
+        ck_assert_ptr_null(binary_error);
+        binary_error = buffer_create(&returned_binary_buffers[i],
+                                     runtimes[i],
+                                     datatypes[i],
+                                     returned_binary_views[i],
+                                     NULL,
+                                     (uint64_t) binary_tensors_x[i].numel(),
+                                     true);
+        ck_assert_ptr_null(binary_error);
+    }
+}
+
+void binary_teardown(void)
+{
+    for (int i = 0; i < BINARY_CASES; i++)
+    {
+        buffer_destroy(binary_buffers_x[i]);
+        buffer_destroy(binary_buffers_y[i]);
+        buffer_destroy(returned_binary_buffers[i]);
+        buffer_destroy(expected_binary_buffers[i]);
+    }
+    error_destroy(binary_error);
+}
+
+START_TEST(test_addition)
+{
+    for (int i = 0; i < BINARY_CASES; ++i)
+    {
+        torch::Tensor expected_tensor = torch::add(binary_tensors_x[i], binary_tensors_y[i]);
+
+        binary_error = view_create(&expected_binary_views[i],
+                                   (uint64_t) expected_tensor.storage_offset(),
+                                   (uint64_t) expected_tensor.ndimension(),
+                                   (uint64_t *) expected_tensor.sizes().data(),
+                                   NULL);
+        ck_assert_ptr_null(binary_error);
+        binary_error = buffer_create(&expected_binary_buffers[i],
+                                     binary_buffers_x[i]->runtime,
+                                     binary_buffers_x[i]->datatype,
+                                     expected_binary_views[i],
+                                     (void *) expected_tensor.data_ptr(),
+                                     (uint64_t) expected_tensor.numel(),
+                                     true);
+        ck_assert_ptr_null(binary_error);
+
+        binary_error = runtime_addition(binary_buffers_x[i], binary_buffers_y[i], returned_binary_buffers[i]);
+        ck_assert_ptr_null(binary_error);
+
+        ck_assert_buffer_eq(returned_binary_buffers[i], expected_binary_buffers[i]);
+    }
+}
+END_TEST
+
 Suite *make_buffer_suite(void)
 {
     Suite *s;
     TCase *tc_unary;
-    // TCase *tc_binary;
+    TCase *tc_binary;
+    // TCase *tc_reduction;
 
     s = suite_create("Test Buffer Suite");
+
+    // Unary Operations
     tc_unary = tcase_create("Unary Case");
     tcase_add_checked_fixture(tc_unary, unary_setup, unary_teardown);
     tcase_add_test(tc_unary, test_exponential);
@@ -482,7 +645,27 @@ Suite *make_buffer_suite(void)
     tcase_add_test(tc_unary, test_contiguous);
     tcase_add_test(tc_unary, test_negation);
     tcase_add_test(tc_unary, test_rectified_linear);
+
+    // Binary Operations
+    tc_binary = tcase_create("Binary Case");
+    tcase_add_checked_fixture(tc_binary, binary_setup, binary_teardown);
+    tcase_add_test(tc_binary, test_addition);
+    // tcase_add_test(tc_binary, test_subtraction);
+    // tcase_add_test(tc_binary, test_multiplication);
+    // tcase_add_test(tc_binary, test_division);
+    // tcase_add_test(tc_binary, test_power);
+    // tcase_add_test(tc_binary, test_compare_equal);
+    // tcase_add_test(tc_binary, test_compare_greater);
+
+    // Reduction Operations
+    // tc_reduction = tcase_create("Reduction Case");
+    // tcase_add_checked_fixture(tc_reduction, reduction_setup, reduction_teardown);
+    // tcase_add_test(tc_binary, test_summation);
+    // tcase_add_test(tc_binary, test_maximum);
+
     suite_add_tcase(s, tc_unary);
+    suite_add_tcase(s, tc_binary);
+    // suite_add_tcase(s, tc_reduction);
 
     return s;
 }
