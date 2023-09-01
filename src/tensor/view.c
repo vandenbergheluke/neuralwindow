@@ -1,3 +1,8 @@
+/**@file view.c
+ * @brief
+ *
+ */
+
 #include <view.h>
 #include <stdio.h>
 #include <string.h>

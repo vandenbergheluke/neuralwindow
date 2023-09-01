@@ -1,3 +1,8 @@
+/**@file element.h
+ * @brief Provides an element of a collection and its utilities.
+ *
+ */
+
 #ifndef ELEMENT_H
 #define ELEMENT_H
 

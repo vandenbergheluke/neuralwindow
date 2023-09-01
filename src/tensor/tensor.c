@@ -1,3 +1,8 @@
+/**@file tensor.c
+ * @brief
+ *
+ */
+
 #include <tensor.h>
 #include <stack.h>
 #include <map.h>

@@ -1,3 +1,8 @@
+/**@file map.c
+ * @brief Implements hash-map utilities.
+ *
+ */
+
 #include <map.h>
 #include <string.h>
 

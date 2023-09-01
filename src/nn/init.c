@@ -1,3 +1,8 @@
+/**@file init.c
+ * @brief
+ *
+ */
+
 #include <init.h>
 #include <datatype.h>
 #include <string.h>

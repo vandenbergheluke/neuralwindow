@@ -1,3 +1,8 @@
+/**@file errors.c
+ * @brief Implements utilities that interact with error types.
+ *
+ */
+
 #include <errors.h>
 
 nw_error_t *error_create(nw_error_type_t error_type, string_t file, uint64_t line_number, string_t function, string_t message, nw_error_t *next_error)

@@ -1,3 +1,8 @@
+/**@file element.c
+ * @brief Implements collection element utilities.
+ *
+ */
+
 #include <element.h>
 #include <datatype.h>
 

@@ -1,3 +1,8 @@
+/**@file measure.h
+ * @brief Provides utilities for taking measurements.
+ *
+ */
+
 #ifndef MEASURE_H
 #define MEASURE_H
 

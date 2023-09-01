@@ -1,3 +1,8 @@
+/**@file stack.h
+ * @brief Provides stack type and its utilities.
+ *
+ */
+
 #ifndef STACK_H
 #define STACK_H
 

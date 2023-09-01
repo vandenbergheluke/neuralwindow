@@ -1,3 +1,8 @@
+/**@file stack.c
+ * @brief Implements stack utilities.
+ *
+ */
+
 #include <stack.h>
 
 nw_error_t *stack_create(stack_t **stack)

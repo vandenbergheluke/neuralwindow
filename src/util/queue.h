@@ -1,3 +1,8 @@
+/**@file queue.h
+ * @brief Provides the queue type and its utilities.
+ *
+ */
+
 #ifndef QUEUE_H
 #define QUEUE_H
 

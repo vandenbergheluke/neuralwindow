@@ -1,3 +1,8 @@
+/**@file errors.h
+ * @brief Provides error types and utilities that interact with them.
+ *
+ */
+
 #ifndef ERRORS_H
 #define ERRORS_H
 
