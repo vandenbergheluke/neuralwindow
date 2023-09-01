@@ -107,5 +107,5 @@ To generate a Valgrind suppression file run
 
 ```bash
 valgrind --leak-check=full --show-reachable=yes --error-limit=no --gen-suppressions=all --log-file=suppressions.log ./test/<test_name>
-cat ./suppressions.log | ./../parse_valgrind_suppresions.sh > suppressions.supp
+cat ./suppressions.log | ./../parse_valgrind_suppressions.sh > suppressions.supp
 ```
