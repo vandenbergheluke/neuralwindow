@@ -1,8 +1,14 @@
+/**@file queue.h
+ * @brief Provides the queue type and its utilities.
+ *
+ */
+
 #ifndef QUEUE_H
 #define QUEUE_H
 
 #include <datatype.h>
 #include <element.h>
+#include <errors.h>
 
 typedef struct queue_t
 {

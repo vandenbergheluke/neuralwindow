@@ -1,8 +1,12 @@
+/**@file errors.h
+ * @brief Provides error types and utilities that interact with them.
+ *
+ */
+
 #ifndef ERRORS_H
 #define ERRORS_H
 
 #include <stdio.h>
-#include <string.h>
 #include <datatype.h>
 
 typedef enum nw_error_type_t

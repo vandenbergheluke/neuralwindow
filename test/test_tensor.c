@@ -1,5 +1,9 @@
 #include <check.h>
 #include <tensor.h>
+#include <view.h>
+#include <buffer.h>
+#include <datatype.h>
+#include <errors.h>
 
 tensor_t *tensor;
 nw_error_t *error;

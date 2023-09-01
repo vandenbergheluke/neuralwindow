@@ -1,3 +1,8 @@
+/**@file map.h
+ * @brief Provides hash-maps and their utilities.
+ *
+ */
+
 #ifndef MAP_H
 #define MAP_H
 

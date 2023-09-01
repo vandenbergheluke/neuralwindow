@@ -1,11 +1,15 @@
+/**@file function.h
+ * @brief
+ *
+ */
 
 #ifndef FUNCTION_H
 #define FUNCTION_H
 
 #include <datatype.h>
 #include <errors.h>
-#include <tensor.h>
 
+// Forward declarations
 typedef struct tensor_t tensor_t;
 
 // Unary Operation

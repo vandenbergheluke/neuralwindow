@@ -1,3 +1,8 @@
+/**@file random.h
+ * @brief Provides probability distribution utilities.
+ *
+ */
+
 #ifndef RANDOM_H
 #define RANDOM_H
 

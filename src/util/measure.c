@@ -1,3 +1,8 @@
+/**@file measure.c
+ * @brief Implements utilities for taking measurements.
+ *
+ */
+
 #include <measure.h>
 #include <time.h>
 

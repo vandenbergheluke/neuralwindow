@@ -1,7 +1,14 @@
+/**@file buffer.c
+ * @brief
+ *
+ */
+
 #include <buffer.h>
+#include <view.h>
 #include <cu_runtime.h>
 #include <mkl_runtime.h>
 #include <openblas_runtime.h>
+#include <string.h>
 
 nw_error_t *buffer_create(buffer_t **buffer,
                        runtime_t runtime,

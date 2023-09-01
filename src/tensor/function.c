@@ -1,4 +1,13 @@
+/**@file function.c
+ * @brief
+ *
+ */
+
 #include <function.h>
+#include <tensor.h>
+#include <string.h>
+#include <view.h>
+#include <buffer.h>
 
 nw_error_t *function_create(function_t **function, operation_t *operation, operation_type_t operation_type)
 {

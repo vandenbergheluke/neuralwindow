@@ -1,5 +1,6 @@
 #include <check.h>
 #include <queue.h>
+#include <errors.h>
 
 queue_t *queue;
 nw_error_t *error;

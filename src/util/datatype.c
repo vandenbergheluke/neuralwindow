@@ -1,3 +1,8 @@
+/**@file datatype.c
+ * @brief Implements utilities that interact with common datatypes.
+ *
+ */
+
 #include <datatype.h>
 
 string_t datatype_string(datatype_t datatype)

@@ -1,12 +1,19 @@
+/**@file tensor.h
+ * @brief
+ *
+ */
+
 #ifndef TENSOR_H
 #define TENSOR_H
 
 #include <errors.h>
 #include <datatype.h>
-#include <buffer.h>
-#include <function.h>
 
+// Forward declarations
 typedef struct function_t function_t;
+
+typedef struct buffer_t buffer_t;
+typedef enum runtime_t runtime_t;
 
 typedef struct tensor_t
 {

@@ -1,3 +1,8 @@
+/**@file view.h
+ * @brief
+ *
+ */
+
 #ifndef VIEW_H
 #define VIEW_H
 
