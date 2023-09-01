@@ -623,6 +623,180 @@ START_TEST(test_addition)
 }
 END_TEST
 
+START_TEST(test_subtraction)
+{
+    for (int i = 0; i < BINARY_CASES; ++i)
+    {
+        torch::Tensor expected_tensor = torch::subtract(binary_tensors_x[i], binary_tensors_y[i]);
+
+        binary_error = view_create(&expected_binary_views[i],
+                                   (uint64_t) expected_tensor.storage_offset(),
+                                   (uint64_t) expected_tensor.ndimension(),
+                                   (uint64_t *) expected_tensor.sizes().data(),
+                                   NULL);
+        ck_assert_ptr_null(binary_error);
+        binary_error = buffer_create(&expected_binary_buffers[i],
+                                     binary_buffers_x[i]->runtime,
+                                     binary_buffers_x[i]->datatype,
+                                     expected_binary_views[i],
+                                     (void *) expected_tensor.data_ptr(),
+                                     (uint64_t) expected_tensor.numel(),
+                                     true);
+        ck_assert_ptr_null(binary_error);
+
+        binary_error = runtime_subtraction(binary_buffers_x[i], binary_buffers_y[i], returned_binary_buffers[i]);
+        ck_assert_ptr_null(binary_error);
+
+        ck_assert_buffer_eq(returned_binary_buffers[i], expected_binary_buffers[i]);
+    }
+}
+END_TEST
+
+START_TEST(test_multiplication)
+{
+    for (int i = 0; i < BINARY_CASES; ++i)
+    {
+        torch::Tensor expected_tensor = torch::mul(binary_tensors_x[i], binary_tensors_y[i]);
+
+        binary_error = view_create(&expected_binary_views[i],
+                                   (uint64_t) expected_tensor.storage_offset(),
+                                   (uint64_t) expected_tensor.ndimension(),
+                                   (uint64_t *) expected_tensor.sizes().data(),
+                                   NULL);
+        ck_assert_ptr_null(binary_error);
+        binary_error = buffer_create(&expected_binary_buffers[i],
+                                     binary_buffers_x[i]->runtime,
+                                     binary_buffers_x[i]->datatype,
+                                     expected_binary_views[i],
+                                     (void *) expected_tensor.data_ptr(),
+                                     (uint64_t) expected_tensor.numel(),
+                                     true);
+        ck_assert_ptr_null(binary_error);
+
+        binary_error = runtime_multiplication(binary_buffers_x[i], binary_buffers_y[i], returned_binary_buffers[i]);
+        ck_assert_ptr_null(binary_error);
+
+        ck_assert_buffer_eq(returned_binary_buffers[i], expected_binary_buffers[i]);
+    }
+}
+END_TEST
+
+START_TEST(test_division)
+{
+    for (int i = 0; i < BINARY_CASES; ++i)
+    {
+        torch::Tensor expected_tensor = torch::div(binary_tensors_x[i], binary_tensors_y[i]);
+
+        binary_error = view_create(&expected_binary_views[i],
+                                   (uint64_t) expected_tensor.storage_offset(),
+                                   (uint64_t) expected_tensor.ndimension(),
+                                   (uint64_t *) expected_tensor.sizes().data(),
+                                   NULL);
+        ck_assert_ptr_null(binary_error);
+        binary_error = buffer_create(&expected_binary_buffers[i],
+                                     binary_buffers_x[i]->runtime,
+                                     binary_buffers_x[i]->datatype,
+                                     expected_binary_views[i],
+                                     (void *) expected_tensor.data_ptr(),
+                                     (uint64_t) expected_tensor.numel(),
+                                     true);
+        ck_assert_ptr_null(binary_error);
+
+        binary_error = runtime_division(binary_buffers_x[i], binary_buffers_y[i], returned_binary_buffers[i]);
+        ck_assert_ptr_null(binary_error);
+
+        ck_assert_buffer_eq(returned_binary_buffers[i], expected_binary_buffers[i]);
+    }
+}
+END_TEST
+
+START_TEST(test_power)
+{
+    for (int i = 0; i < BINARY_CASES; ++i)
+    {
+        torch::Tensor expected_tensor = torch::pow(binary_tensors_x[i], binary_tensors_y[i]);
+
+        binary_error = view_create(&expected_binary_views[i],
+                                   (uint64_t) expected_tensor.storage_offset(),
+                                   (uint64_t) expected_tensor.ndimension(),
+                                   (uint64_t *) expected_tensor.sizes().data(),
+                                   NULL);
+        ck_assert_ptr_null(binary_error);
+        binary_error = buffer_create(&expected_binary_buffers[i],
+                                     binary_buffers_x[i]->runtime,
+                                     binary_buffers_x[i]->datatype,
+                                     expected_binary_views[i],
+                                     (void *) expected_tensor.data_ptr(),
+                                     (uint64_t) expected_tensor.numel(),
+                                     true);
+        ck_assert_ptr_null(binary_error);
+
+        binary_error = runtime_power(binary_buffers_x[i], binary_buffers_y[i], returned_binary_buffers[i]);
+        ck_assert_ptr_null(binary_error);
+
+        ck_assert_buffer_eq(returned_binary_buffers[i], expected_binary_buffers[i]);
+    }
+}
+END_TEST
+
+START_TEST(test_compare_equal)
+{
+    for (int i = 0; i < BINARY_CASES; ++i)
+    {
+        torch::Tensor expected_tensor = torch::eq(binary_tensors_x[i], binary_tensors_y[i]).to(binary_tensors_x[i].dtype());
+
+        binary_error = view_create(&expected_binary_views[i],
+                                   (uint64_t) expected_tensor.storage_offset(),
+                                   (uint64_t) expected_tensor.ndimension(),
+                                   (uint64_t *) expected_tensor.sizes().data(),
+                                   NULL);
+        ck_assert_ptr_null(binary_error);
+        binary_error = buffer_create(&expected_binary_buffers[i],
+                                     binary_buffers_x[i]->runtime,
+                                     binary_buffers_x[i]->datatype,
+                                     expected_binary_views[i],
+                                     (void *) expected_tensor.data_ptr(),
+                                     (uint64_t) expected_tensor.numel(),
+                                     true);
+        ck_assert_ptr_null(binary_error);
+
+        binary_error = runtime_compare_equal(binary_buffers_x[i], binary_buffers_y[i], returned_binary_buffers[i]);
+        ck_assert_ptr_null(binary_error);
+
+        ck_assert_buffer_eq(returned_binary_buffers[i], expected_binary_buffers[i]);
+    }
+}
+END_TEST
+
+START_TEST(test_compare_greater)
+{
+    for (int i = 0; i < BINARY_CASES; ++i)
+    {
+        torch::Tensor expected_tensor = torch::gt(binary_tensors_x[i], binary_tensors_y[i]).to(binary_tensors_x[i].dtype());
+
+        binary_error = view_create(&expected_binary_views[i],
+                                   (uint64_t) expected_tensor.storage_offset(),
+                                   (uint64_t) expected_tensor.ndimension(),
+                                   (uint64_t *) expected_tensor.sizes().data(),
+                                   NULL);
+        ck_assert_ptr_null(binary_error);
+        binary_error = buffer_create(&expected_binary_buffers[i],
+                                     binary_buffers_x[i]->runtime,
+                                     binary_buffers_x[i]->datatype,
+                                     expected_binary_views[i],
+                                     (void *) expected_tensor.data_ptr(),
+                                     (uint64_t) expected_tensor.numel(),
+                                     true);
+        ck_assert_ptr_null(binary_error);
+
+        binary_error = runtime_compare_greater(binary_buffers_x[i], binary_buffers_y[i], returned_binary_buffers[i]);
+        ck_assert_ptr_null(binary_error);
+
+        ck_assert_buffer_eq(returned_binary_buffers[i], expected_binary_buffers[i]);
+    }
+}
+END_TEST
+
 Suite *make_buffer_suite(void)
 {
     Suite *s;
@@ -650,12 +824,12 @@ Suite *make_buffer_suite(void)
     tc_binary = tcase_create("Binary Case");
     tcase_add_checked_fixture(tc_binary, binary_setup, binary_teardown);
     tcase_add_test(tc_binary, test_addition);
-    // tcase_add_test(tc_binary, test_subtraction);
-    // tcase_add_test(tc_binary, test_multiplication);
-    // tcase_add_test(tc_binary, test_division);
-    // tcase_add_test(tc_binary, test_power);
-    // tcase_add_test(tc_binary, test_compare_equal);
-    // tcase_add_test(tc_binary, test_compare_greater);
+    tcase_add_test(tc_binary, test_subtraction);
+    tcase_add_test(tc_binary, test_multiplication);
+    tcase_add_test(tc_binary, test_division);
+    tcase_add_test(tc_binary, test_power);
+    tcase_add_test(tc_binary, test_compare_equal);
+    tcase_add_test(tc_binary, test_compare_greater);
 
     // Reduction Operations
     // tc_reduction = tcase_create("Reduction Case");
