@@ -53,7 +53,7 @@ void string_destroy(string_t string)
     free((char *) string);
 }
 
-string_t uint32_array_to_string(const uint32_t *array, uint32_t length)
+string_t uint64_array_to_string(const uint64_t *array, uint64_t length)
 {
     if (array == NULL || length < 1)
     {
@@ -61,8 +61,8 @@ string_t uint32_array_to_string(const uint32_t *array, uint32_t length)
     }
 
     char *string = (char *) malloc((size_t) (sizeof(char) * (10 * length + 11)));
-    uint32_t index = 0;
-    for (uint32_t i = 0; i < length; ++i)
+    uint64_t index = 0;
+    for (uint64_t i = 0; i < length; ++i)
     {
         if (i == 0)
         {
@@ -70,7 +70,7 @@ string_t uint32_array_to_string(const uint32_t *array, uint32_t length)
             ++index;
         }
 
-        index += sprintf(&string[index], "%u", (unsigned int) array[i]);
+        index += sprintf(&string[index], "%lu", (unsigned long) array[i]);
 
         if (i < length - 1)
         {

@@ -1,6 +1,6 @@
 #include <random.h>
 
-void set_seed(uint32_t seed)
+void set_seed(uint64_t seed)
 {
     srand(seed);
 }

@@ -73,15 +73,15 @@ nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_origi
     CHECK_NULL_ARGUMENT(y_broadcasted, "y_broadcasted");
 
     nw_error_t *error;
-    uint32_t *x_shape = x_original->buffer->view->shape; 
-    uint32_t x_rank = x_original->buffer->view->rank; 
-    uint32_t *y_shape = y_original->buffer->view->shape; 
-    uint32_t y_rank = y_original->buffer->view->rank; 
-    uint32_t broadcasted_rank = MAX(x_rank, y_rank);
-    uint32_t *broadcasted_shape = (uint32_t *) malloc(broadcasted_rank * sizeof(uint32_t));
+    uint64_t *x_shape = x_original->buffer->view->shape; 
+    uint64_t x_rank = x_original->buffer->view->rank; 
+    uint64_t *y_shape = y_original->buffer->view->shape; 
+    uint64_t y_rank = y_original->buffer->view->rank; 
+    uint64_t broadcasted_rank = MAX(x_rank, y_rank);
+    uint64_t *broadcasted_shape = (uint64_t *) malloc(broadcasted_rank * sizeof(uint64_t));
     if (broadcasted_shape == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate broadcast shape of %zu bytes.", broadcasted_rank * sizeof(uint32_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate broadcast shape of %zu bytes.", broadcasted_rank * sizeof(uint64_t)), NULL);
     }
 
     error = broadcast_shapes(x_shape, x_rank, y_shape, y_rank, broadcasted_shape, broadcasted_rank);
@@ -110,7 +110,7 @@ nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_origi
     return NULL;
 }
 
-nw_error_t *tensor_expand(const tensor_t *x, const uint32_t *shape, uint32_t rank, tensor_t *y)
+nw_error_t *tensor_expand(const tensor_t *x, const uint64_t *shape, uint64_t rank, tensor_t *y)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -215,7 +215,7 @@ nw_error_t *tensor_matrix_multiplication(const tensor_t *x, const tensor_t *y, t
     return NULL;
 }
 
-nw_error_t *tensor_summation(const tensor_t *x, tensor_t *y, const uint32_t *axis, uint32_t rank, bool_t keep_dimension)
+nw_error_t *tensor_summation(const tensor_t *x, tensor_t *y, const uint64_t *axis, uint64_t rank, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -230,7 +230,7 @@ nw_error_t *tensor_summation(const tensor_t *x, tensor_t *y, const uint32_t *axi
     return NULL;
 }
 
-nw_error_t *tensor_maximum(const tensor_t *x, tensor_t *y, const uint32_t *axis, uint32_t rank, bool_t keep_dimension)
+nw_error_t *tensor_maximum(const tensor_t *x, tensor_t *y, const uint64_t *axis, uint64_t rank, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -254,7 +254,7 @@ bool_t tensor_is_contiguous(const tensor_t *x)
     return is_contiguous(x->buffer->view->shape, x->buffer->view->rank, x->buffer->view->strides);
 }
 
-nw_error_t *tensor_reshape(const tensor_t *x, tensor_t *y, const uint32_t *shape, uint32_t rank)
+nw_error_t *tensor_reshape(const tensor_t *x, tensor_t *y, const uint64_t *shape, uint64_t rank)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -295,7 +295,7 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t *y, const uint32_t *shape
     return NULL;
 }
 
-nw_error_t *tensor_permute(const tensor_t *x, tensor_t *y, uint32_t *axis, uint32_t rank)
+nw_error_t *tensor_permute(const tensor_t *x, tensor_t *y, uint64_t *axis, uint64_t rank)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -310,7 +310,7 @@ nw_error_t *tensor_permute(const tensor_t *x, tensor_t *y, uint32_t *axis, uint3
     return NULL;
 }
 
-nw_error_t *tensor_slice(const tensor_t *x, tensor_t *y, uint32_t *arguments, uint32_t length)
+nw_error_t *tensor_slice(const tensor_t *x, tensor_t *y, uint64_t *arguments, uint64_t length)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -325,7 +325,7 @@ nw_error_t *tensor_slice(const tensor_t *x, tensor_t *y, uint32_t *arguments, ui
     return NULL;
 }
 
-nw_error_t *tensor_padding(const tensor_t *x, tensor_t *y, uint32_t *arguments, uint32_t length)
+nw_error_t *tensor_padding(const tensor_t *x, tensor_t *y, uint64_t *arguments, uint64_t length)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -463,7 +463,7 @@ nw_error_t *tensor_constant(void *constant, datatype_t datatype, runtime_t runti
     buffer_t *buffer;
     nw_error_t *error;
 
-    error = view_create(&view, 0, 1, (uint32_t[]){1}, NULL);
+    error = view_create(&view, 0, 1, (uint64_t[]){1}, NULL);
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create view."), error);

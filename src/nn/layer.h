@@ -21,8 +21,8 @@ typedef struct parameters_t
 
 typedef struct linear_t
 {
-    uint32_t input_features;
-    uint32_t output_features;
+    uint64_t input_features;
+    uint64_t output_features;
     parameters_t *parameters;
 } linear_t;
 
@@ -54,7 +54,7 @@ typedef struct unit_t
 typedef struct module_t
 {
     unit_t **units;
-    uint32_t depth;
+    uint64_t depth;
 } module_t;
 
 #endif

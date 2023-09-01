@@ -8,7 +8,7 @@ typedef struct queue_t
 {
     element_t *head;
     element_t *tail;
-    uint32_t size;
+    uint64_t size;
 } queue_t;
 
 nw_error_t *queue_create(queue_t **queue);

@@ -1,6 +1,6 @@
 #include <errors.h>
 
-nw_error_t *error_create(nw_error_type_t error_type, string_t file, uint32_t line_number, string_t function, string_t message, nw_error_t *next_error)
+nw_error_t *error_create(nw_error_type_t error_type, string_t file, uint64_t line_number, string_t function, string_t message, nw_error_t *next_error)
 {
     nw_error_t *error = (nw_error_t *) malloc(sizeof(nw_error_t));
     if (error == NULL)
@@ -125,7 +125,7 @@ void error_print(nw_error_t *error)
     {
         fprintf(
             stderr, 
-            "%s:%s:%u:%s:%s\n", 
+            "%s:%s:%lu:%s:%s\n", 
             error_type_string(error->error_type),
             error->file != NULL ? error->file : "NULL", 
             error->line_number, 

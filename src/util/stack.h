@@ -7,7 +7,7 @@
 typedef struct stack_t
 {
     element_t *head;
-    uint32_t size;
+    uint64_t size;
 } stack_t;
 
 nw_error_t *stack_create(stack_t **stack);
