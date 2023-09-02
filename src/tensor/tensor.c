@@ -118,13 +118,13 @@ nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_origi
     return NULL;
 }
 
-nw_error_t *tensor_expand(const tensor_t *x, const uint64_t *shape, uint64_t rank, tensor_t *y)
+nw_error_t *tensor_expand(const tensor_t *x, const uint64_t *shape, uint64_t length, tensor_t *y)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
-    nw_error_t *error = apply_function_structure(EXPAND_OPERATION, x, shape, rank, y);
+    nw_error_t *error = apply_function_structure(EXPAND_OPERATION, x, shape, length, y);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to broadcast tensor x."), error);
@@ -223,13 +223,13 @@ nw_error_t *tensor_matrix_multiplication(const tensor_t *x, const tensor_t *y, t
     return NULL;
 }
 
-nw_error_t *tensor_summation(const tensor_t *x, tensor_t *y, const uint64_t *axis, uint64_t rank, bool_t keep_dimension)
+nw_error_t *tensor_summation(const tensor_t *x, tensor_t *y, const uint64_t *axis, uint64_t length, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(axis, "axis");
 
-    nw_error_t *error = apply_function_reduction(SUMMATION_OPERATION, x, axis, rank, keep_dimension, y);
+    nw_error_t *error = apply_function_reduction(SUMMATION_OPERATION, x, axis, length, keep_dimension, y);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to reduce tensor."), error);
@@ -238,13 +238,13 @@ nw_error_t *tensor_summation(const tensor_t *x, tensor_t *y, const uint64_t *axi
     return NULL;
 }
 
-nw_error_t *tensor_maximum(const tensor_t *x, tensor_t *y, const uint64_t *axis, uint64_t rank, bool_t keep_dimension)
+nw_error_t *tensor_maximum(const tensor_t *x, tensor_t *y, const uint64_t *axis, uint64_t length, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(axis, "axis");
 
-    nw_error_t *error = apply_function_reduction(MAXIMUM_OPERATION, x, axis, rank, keep_dimension, y);
+    nw_error_t *error = apply_function_reduction(MAXIMUM_OPERATION, x, axis, length, keep_dimension, y);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to reduce tensor."), error);
@@ -262,7 +262,7 @@ bool_t tensor_is_contiguous(const tensor_t *x)
     return is_contiguous(x->buffer->view->shape, x->buffer->view->rank, x->buffer->view->strides);
 }
 
-nw_error_t *tensor_reshape(const tensor_t *x, tensor_t *y, const uint64_t *shape, uint64_t rank)
+nw_error_t *tensor_reshape(const tensor_t *x, tensor_t *y, const uint64_t *shape, uint64_t length)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -285,7 +285,7 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t *y, const uint64_t *shape
             return ERROR(ERROR_CONTIGUOUS, string_create("failed to apply contiguous operation to tensor."), error);
         }
 
-        error = apply_function_structure(RESHAPE_OPERATION, x_contiguous, shape, rank, y);
+        error = apply_function_structure(RESHAPE_OPERATION, x_contiguous, shape, length, y);
         if (error != NULL)
         {
             return ERROR(ERROR_FORWARD, string_create("failed to reshape tensor."), error);
@@ -293,7 +293,7 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t *y, const uint64_t *shape
     }
     else
     {
-        error = apply_function_structure(RESHAPE_OPERATION, x, shape, rank, y);
+        error = apply_function_structure(RESHAPE_OPERATION, x, shape, length, y);
         if (error != NULL)
         {
             return ERROR(ERROR_FORWARD, string_create("failed to reshape tensor."), error);
@@ -303,13 +303,13 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t *y, const uint64_t *shape
     return NULL;
 }
 
-nw_error_t *tensor_permute(const tensor_t *x, tensor_t *y, uint64_t *axis, uint64_t rank)
+nw_error_t *tensor_permute(const tensor_t *x, tensor_t *y, uint64_t *axis, uint64_t length)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(axis, "axis");
 
-    nw_error_t *error = apply_function_structure(PERMUTE_OPERATION, x, axis, rank, y);
+    nw_error_t *error = apply_function_structure(PERMUTE_OPERATION, x, axis, length, y);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
