@@ -6,7 +6,7 @@ set(TEST_TENSOR
     # test_function
     test_map
     test_queue
-    # test_autograd
+    # test_tensor
     test_view
 )
 set(TESTS ${TEST_TENSOR})
@@ -19,7 +19,7 @@ foreach(TEST ${TESTS})
             continue()
         endif()
     endif()
-    if(${TEST} STREQUAL "test_buffer" OR ${TEST} STREQUAL "test_autograd" OR ${TEST} STREQUAL "test_function")
+    if(${TEST} STREQUAL "test_buffer" OR ${TEST} STREQUAL "test_tensor" OR ${TEST} STREQUAL "test_function")
         add_executable(${TEST} "${TEST}.cc")
     else()
         add_executable(${TEST} "${TEST}.c")

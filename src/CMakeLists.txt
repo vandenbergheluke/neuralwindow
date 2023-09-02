@@ -21,7 +21,6 @@ set(
     "${RUNTIME_DIR}/cu_runtime.cu"
     "${RUNTIME_DIR}/mkl_runtime.c"
     "${RUNTIME_DIR}/openblas_runtime.c"
-    "${NN_DIR}/init.c"
     "${NN_DIR}/layer.c"
 )
 
@@ -42,7 +41,6 @@ set(
     "${RUNTIME_DIR}/cu_runtime.h"
     "${RUNTIME_DIR}/mkl_runtime.h"
     "${RUNTIME_DIR}/openblas_runtime.h"
-    "${NN_DIR}/init.h"
     "${NN_DIR}/layer.h"
 )
 

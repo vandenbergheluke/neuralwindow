@@ -1,6 +1,6 @@
-/**@file function.c
- * @brief
- *
+/**
+ * @file function.c
+ * @brief Mid-level Operations and Automatic Differentiation Engine
  */
 
 #include <function.h>
@@ -9,7 +9,18 @@
 #include <view.h>
 #include <buffer.h>
 
-nw_error_t *function_create(function_t **function, operation_t *operation, operation_type_t operation_type)
+/**
+ * @brief The function constructor.
+ * @param function The address of the pointer to the function being instantiated.
+ * @param operation The operation the function applies.
+ * @param operation_type The type of operation the function applies. 
+ * @return Error in `function` or `operation` is NULL.
+ *         Error if failed to allocate memory for `function`.
+ *         NULL if function is created successfully.
+ */
+nw_error_t *function_create(function_t **function,
+                            operation_t *operation,
+                            operation_type_t operation_type)
 {
     CHECK_NULL_ARGUMENT(function, "function");
     CHECK_NULL_ARGUMENT(operation, "operation");
@@ -17,7 +28,10 @@ nw_error_t *function_create(function_t **function, operation_t *operation, opera
     *function = (function_t *) malloc(sizeof(function_t));
     if (*function == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate function of size %zu bytes.", sizeof(function_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, 
+                     string_create("failed to allocate function of size %lu bytes.",
+                     (unsigned long) sizeof(function_t)), 
+                     NULL);
     }
 
     (*function)->operation = operation;
@@ -26,6 +40,11 @@ nw_error_t *function_create(function_t **function, operation_t *operation, opera
     return NULL;
 }
 
+/**
+ * @brief The function destroyer.
+ * @param function Free a function created with `function_create`. 
+ *                 Argument can be NULL.
+ */
 void function_destroy(function_t *function)
 {
     if (function == NULL)
@@ -37,186 +56,372 @@ void function_destroy(function_t *function)
     free(function);
 }
 
-static nw_error_t *apply_function(operation_type_t operation_type, void *type_operation, tensor_t *result)
+/**
+ * @brief Execute the operation of a generic function.
+ * @param operation_type The type of operation being applied.
+ * @param type_operation The generic operation being applied.
+ * @return Error if `type_operation` is NULL.
+ *         Error if function failed to execute.
+ *         NULL if function executed successfully.
+ */
+static nw_error_t *apply_function(operation_type_t operation_type,
+                                  void *type_operation)
 {
     CHECK_NULL_ARGUMENT(type_operation, "type_operation");
-    CHECK_NULL_ARGUMENT(result, "result");
 
-    nw_error_t *error;
-    operation_t *operation;
-    function_t *function;
+    nw_error_t *error = NULL;
+    operation_t *operation = NULL;
+    function_t *function = NULL;
 
     error = operation_create(&operation, operation_type, type_operation);
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create operation."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create operation of type %s.",
+                     operation_type_string(operation_type)),
+                     error);
     }
 
     error = function_create(&function, operation, operation_type);
     if (error != NULL)
     {
         operation_destroy(operation, operation_type);
-        return ERROR(ERROR_CREATE, string_create("failed to create function operation."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create function operation of type %s.",
+                     operation_type_string(operation_type)), 
+                     error);
     }
 
-    error = function_forward(function, result);
+    error = function_forward(function);
     if (error != NULL)
     {
         function_destroy(function);
-        return ERROR(ERROR_CREATE, string_create("failed to execute function forward pass."), error);
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to execute function forward pass of type %s.",
+                     operation_type_string(operation_type)), 
+                     error);
     }
 
     return NULL;
 }
 
-nw_error_t *apply_function_unary(unary_operation_type_t unary_operation_type, const tensor_t *x, tensor_t *y)
+/**
+ * @brief Execute the unary operation of a function.
+ * @param unary_operation_type The type of unary operation being applied.
+ * @param x The input tensor of the unary function.
+ * @param result The output tensor of the unary function.
+ * @return Error if `x` or `result` is NULL.
+ *         Error if unary operation failed to execute.
+ *         NULL if unary operation executed successfully.
+ */
+nw_error_t *apply_function_unary(unary_operation_type_t unary_operation_type,
+                                 const tensor_t *x,
+                                 tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(result, "result");
 
-    nw_error_t *error;
+    nw_error_t *error = NULL;
     unary_operation_t *unary_operation = NULL;
 
-    error = unary_operation_create(&unary_operation, unary_operation_type, x);
+    error = unary_operation_create(&unary_operation, unary_operation_type, x, result);
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create unary operation."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create unary operation of type %s.",
+                     unary_operation_type_string(unary_operation_type)), 
+                     error);
     }
 
-    error = apply_function(UNARY_OPERATION, (void *) unary_operation, y);
+    error = apply_function(UNARY_OPERATION, (void *) unary_operation);
     if (error != NULL)
     {
         unary_operation_destroy(unary_operation);
-        return ERROR(ERROR_FORWARD, string_create("failed to apply unary function."), error);
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to apply unary function of type %s.",
+                     unary_operation_type_string(unary_operation_type)), 
+                     error);
     }
     
     return NULL;
 }
 
-nw_error_t *apply_function_binary(binary_operation_type_t binary_operation_type, const tensor_t *x, const tensor_t *y, tensor_t *z)
+/**
+ * @brief Execute the binary operation of a function.
+ * @param binary_operation_type The type of binary operation being applied.
+ * @param x The first operand of the binary function.
+ * @param y The second operand of the binary function.
+ * @param result The output tensor of the binary function.
+ * @return Error if `x`, `y`, or `result` is NULL.
+ *         Error if binary function failed to execute.
+ *         NULL if binary function executed successfully.
+ */
+nw_error_t *apply_function_binary(binary_operation_type_t binary_operation_type,
+                                  const tensor_t *x,
+                                  const tensor_t *y,
+                                  tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
-    CHECK_NULL_ARGUMENT(z, "z");
+    CHECK_NULL_ARGUMENT(result, "result");
 
-    nw_error_t *error;
-    tensor_t *x_brodcasted;
-    tensor_t *y_brodcasted;
+    nw_error_t *error = NULL;
+    tensor_t *x_brodcasted = NULL;
+    tensor_t *y_brodcasted = NULL;
     binary_operation_t *binary_operation = NULL;
 
     error = tensor_create_empty(&x_brodcasted);
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to tensor."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create empty tensor x_broadcasted."),
+                     error);
     }
 
     error = tensor_create_empty(&y_brodcasted);
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to tensor."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create empty tensor y_broadcasted."),
+                     error);
     }
     
     error = tensor_broadcast(x, y, x_brodcasted, y_brodcasted);
     if (error != NULL)
     {
-        return ERROR(ERROR_BROADCAST, string_create("failed to broacast tensors."), error);
+        return ERROR(ERROR_BROADCAST,
+                     string_create("failed to broadcast tensors x and y."),
+                     error);
     }
 
-    error = binary_operation_create(&binary_operation, binary_operation_type, x_brodcasted, y_brodcasted);
+    error = binary_operation_create(&binary_operation,
+                                    binary_operation_type,
+                                    x_brodcasted,
+                                    y_brodcasted,
+                                    result);
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create binary operation."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create binary operation of type %s.",
+                     binary_operation_type_string(binary_operation_type)), 
+                     error);
     }
 
-    error = apply_function(BINARY_OPERATION, (void *) binary_operation, z);
+    error = apply_function(BINARY_OPERATION, (void *) binary_operation);
     if (error != NULL)
     {
         binary_operation_destroy(binary_operation);
-        return ERROR(ERROR_FORWARD, string_create("failed to apply binary function."), error);
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to apply binary function of type %s.",
+                     binary_operation_type_string(binary_operation_type)),
+                     error);
     }
     
     return NULL;
 }
 
-nw_error_t *apply_function_reduction(reduction_operation_type_t reduction_operation_type, const tensor_t *x, const uint64_t *axis, uint64_t length, bool_t keep_dimension, tensor_t *y)
+/**
+ * @brief Execute the reduction operation of a function.
+ * @param reduction_operation_type The type of reduction operation being applied.
+ * @param x The input tensor of the reduction function.
+ * @param axis An array containing the indicies of the dimensions of the input tensor to reduce.
+ * @param length The number of indicies in `axis`.
+ * @param keep_dimension True to keep dimension of input tensor after it is reduced.
+ *                       False to remove input tensor dimension after it is reduced.
+ * @param result The output tensor of the reduction function.
+ * @return Error if `x`, `axis`, or `result` is NULL.
+ *         Error if reduction operation failed to execute.
+ *         NULL if reduction operation executed successfully.
+ */
+nw_error_t *apply_function_reduction(reduction_operation_type_t reduction_operation_type,
+                                     const tensor_t *x,
+                                     const uint64_t *axis,
+                                     uint64_t length,
+                                     bool_t keep_dimension,
+                                     tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(axis, "axis");
+    CHECK_NULL_ARGUMENT(result, "result");
 
-    nw_error_t *error;
+    nw_error_t *error = NULL;
     reduction_operation_t *reduction_operation = NULL;
 
-    error = reduction_operation_create(&reduction_operation, reduction_operation_type, x, axis, length, keep_dimension);
+    error = reduction_operation_create(&reduction_operation,
+                                       reduction_operation_type,
+                                       x, axis, length, keep_dimension, result);
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create reduction operation."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create reduction operation of type %s.",
+                     reduction_operation_type_string(reduction_operation_type)),
+                     error);
     }
 
-    error = apply_function(REDUCTION_OPERATION, (void *) reduction_operation, y);
+    error = apply_function(REDUCTION_OPERATION, (void *) reduction_operation);
     if (error != NULL)
     {
         reduction_operation_destroy(reduction_operation);
-        return ERROR(ERROR_FORWARD, string_create("failed to apply reduction function."), error);
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to apply reduction function of type %s.",
+                     reduction_operation_type_string(reduction_operation_type)),
+                     error);
     }
     
     return NULL;
 }
 
-nw_error_t *apply_function_structure(structure_operation_type_t structure_operation_type, const tensor_t *x, const uint64_t *arguments, uint64_t length, tensor_t *y)
+/**
+ * @brief Execute the structure operation of a function.
+ * @param structure_operation_type The type of structure operation being applied.
+ * @param x The input tensor of the structure function.
+ * @param arguments An array containing the arguments of the structure operation.
+ * @param length The number of elements in `arguments`.
+ * @param result The output tensor of the structure function.
+ * @return Error if `x`, `arguments`, or `result` is NULL.
+ *         Error if structure operation failed to execute.
+ *         NULL if structure operation executed successfully.
+ */
+nw_error_t *apply_function_structure(structure_operation_type_t structure_operation_type,
+                                     const tensor_t *x,
+                                     const uint64_t *arguments,
+                                     uint64_t length,
+                                     tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+    CHECK_NULL_ARGUMENT(result, "result");
 
-    nw_error_t *error;
+    nw_error_t *error = NULL;
     structure_operation_t *structure_operation = NULL;
 
-    error = structure_operation_create(&structure_operation, structure_operation_type, x, arguments, length);
+    error = structure_operation_create(&structure_operation,
+                                       structure_operation_type,
+                                       x, arguments, length, result);
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create structure operation."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create structure operation of type %s.",
+                     structure_operation_type_string(structure_operation_type)),
+                     error);
     }
 
-    error = apply_function(STRUCTURE_OPERATION, (void *) structure_operation, y);
+    error = apply_function(STRUCTURE_OPERATION, (void *) structure_operation);
     if (error != NULL)
     {
         structure_operation_destroy(structure_operation);
-        return ERROR(ERROR_FORWARD, string_create("failed to apply structure function."), error);
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to apply structure function of type %s.",
+                     structure_operation_type_string(structure_operation_type)),
+                     error);
     }
     
     return NULL;
 }
 
-nw_error_t *function_forward(function_t *function, tensor_t *result)
+/**
+ * @brief Execute forward pass of a function. The function is stored in the result's context.
+ * @param function The function to execute.
+ * @return Error if `function`, `function->operation`, `function->operation-><type>_operation`, 
+ *         `function->operation-><type>_operation->result` is NULL.
+ *         Error if operation type of `function` is unknown. 
+ *         Error if operation failed to execute.
+ *         NULL if function successfully executed.
+ */
+nw_error_t *function_forward(function_t *function)
 {
     CHECK_NULL_ARGUMENT(function, "function");
-    CHECK_NULL_ARGUMENT(result, "result");
+    CHECK_NULL_ARGUMENT(function->operation, "function->operation");
 
-    nw_error_t *error = operation_forward(function->operation, function->operation_type, result);
+    nw_error_t *error = operation_forward(function->operation, function->operation_type);
     if (error != NULL)
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to execute operation forward pass."), error);
+        return ERROR(ERROR_FORWARD, 
+                     string_create("failed to execute operation forward pass of type %s.",
+                     operation_type_string(function->operation_type)), 
+                     error);
     }
 
-    result->context = function;
+    switch (function->operation_type)
+    {
+    case UNARY_OPERATION:
+        CHECK_NULL_ARGUMENT(function->operation->unary_operation,
+                            "function->operation->unary_operation");
+        CHECK_NULL_ARGUMENT(function->operation->unary_operation->result,
+                            "function->operation->unary_operation->result");
+        function->operation->unary_operation->result->context = function;
+        break;
+    case BINARY_OPERATION:
+        CHECK_NULL_ARGUMENT(function->operation->binary_operation,
+                            "function->operation->binary_operation");
+        CHECK_NULL_ARGUMENT(function->operation->binary_operation->result,
+                            "function->operation->binary_operation->result");
+        function->operation->binary_operation->result->context = function;
+        break;
+    case REDUCTION_OPERATION:
+        CHECK_NULL_ARGUMENT(function->operation->reduction_operation,
+                            "function->operation->reduction_operation");
+        CHECK_NULL_ARGUMENT(function->operation->reduction_operation->result,
+                            "function->operation->reduction_operation->result");
+        function->operation->reduction_operation->result->context = function;
+        break;
+    case STRUCTURE_OPERATION:
+        CHECK_NULL_ARGUMENT(function->operation->structure_operation,
+                            "function->operation->structure_operation");
+        CHECK_NULL_ARGUMENT(function->operation->structure_operation->result,
+                            "function->operation->structure_operation->result");
+        function->operation->structure_operation->result->context = function;
+        break;
+    default:
+        return ERROR(ERROR_UKNOWN_OPERATION_TYPE,
+                     string_create("unknown operation type %d.",
+                     (int) function->operation_type),
+                     NULL);
+    }
     
     return NULL;
 }
 
+/**
+ * @brief Compute the resultant gradient of the operands of the function.
+ * @param function The function being differentiated.
+ * @param gradient The incoming gradient of the result of the function.
+ * @return Error if `function` or `gradient` is NULL.
+ *         Error if the gradients of the operands failed to be computed.
+ *         NULL, if the gradients of the operands were successfully computed.
+ */
 nw_error_t *function_backward(function_t *function, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(function, "function");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
 
-    nw_error_t *error = operation_backward(function->operation, function->operation_type, gradient);
+    nw_error_t *error = operation_backward(function->operation,
+                                           function->operation_type,
+                                           gradient);
     if (error != NULL)
     {
-        return ERROR(ERROR_BACKWARD, string_create("failed to execute operation backward pass."), error);
+        return ERROR(ERROR_BACKWARD,
+                     string_create("failed to execute operation backward pass of type %s.",
+                     operation_type_string(function->operation_type)),
+                     error);
     }
 
     return NULL;
 }
 
-nw_error_t *operation_create(operation_t **operation, operation_type_t operation_type, void *type_operation)
+/**
+ * @brief The operation constructor.
+ * @param operation The address to the pointer of the operation being instantiated.
+ * @param operation_type The type of operation being created.
+ * @param type_operation The operation of type `operation_type` to be assigned to the generic `operation`.
+ * @return Error if `operation` or `type_operation` are NULL.
+ *         Error if failed to allocate memory for `operation`.
+ *         Error if `operation_type` is not a known operation type.
+ *         NULL if operation was successfully created.
+ */
+nw_error_t *operation_create(operation_t **operation,
+                             operation_type_t operation_type,
+                             void *type_operation)
 {
     CHECK_NULL_ARGUMENT(operation, "operation");
     CHECK_NULL_ARGUMENT(type_operation, "type_operation");
@@ -224,7 +429,10 @@ nw_error_t *operation_create(operation_t **operation, operation_type_t operation
     *operation = (operation_t *) malloc(sizeof(operation_t));
     if (*operation == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate operation of size %zu bytes.", sizeof(operation_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate operation of size %lu bytes.",
+                     (unsigned int) sizeof(operation_t)),
+                     NULL);
     }
 
     switch (operation_type)
@@ -242,13 +450,22 @@ nw_error_t *operation_create(operation_t **operation, operation_type_t operation
         (*operation)->structure_operation = (structure_operation_t *) type_operation;
         break;
     default:
-        return ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        return ERROR(ERROR_UKNOWN_OPERATION_TYPE,
+                     string_create("unknown operation type %d.",
+                     (int) operation_type),
+                     NULL);
         break;
     }
 
     return NULL;
 }
 
+/**
+ * @brief Destroy an operation of a given type.
+ * @param operation The operation created with `operation_create` to free.
+ *                  Argument can be NULL. 
+ * @param operation_type The type of the operation being destroyed.
+ */
 void operation_destroy(operation_t *operation, operation_type_t operation_type)
 {
     if (operation == NULL)
@@ -276,40 +493,88 @@ void operation_destroy(operation_t *operation, operation_type_t operation_type)
     free(operation);
 }
 
-nw_error_t *operation_forward(operation_t *operation, operation_type_t operation_type, tensor_t *result)
+/**
+ * @brief Get string representation of `operation_type`.
+ * @param operation_type Operation type to display as string.
+ * @return A string literal representing the `operation_type`.
+ */
+string_t operation_type_string(operation_type_t operation_type)
 {
-    CHECK_NULL_ARGUMENT(operation, "operation");
-    CHECK_NULL_ARGUMENT(result, "result");
-
-    nw_error_t *error;
     switch (operation_type)
     {
     case UNARY_OPERATION:
-        error = unary_operation_forward(operation->unary_operation, result);
+        return "UNARY_OPERATION";
+    case BINARY_OPERATION:
+        return "BINARY_OPERATION";
+    case REDUCTION_OPERATION:
+        return "REDUCTION_OPERATION";
+    case STRUCTURE_OPERATION:
+        return "STRUCTURE_OPERATION";
+    default:
+        return "UNKNOWN_OPERATION";
+    }
+}
+
+/**
+ * @brief Execute an operation of a given type.
+ * @param operation The operation to execute.
+ * @param operation_type The type of `operation` being executed.
+ * @return Error if `operation` is NULL.
+ *         Error if `operation_type` is unknown.
+ *         Error if `operation` failed to execute.
+ *         NULL if `operation` ran successfully.
+ */
+nw_error_t *operation_forward(operation_t *operation, operation_type_t operation_type)
+{
+    CHECK_NULL_ARGUMENT(operation, "operation");
+
+    nw_error_t *error = NULL;
+    switch (operation_type)
+    {
+    case UNARY_OPERATION:
+        error = unary_operation_forward(operation->unary_operation);
         break;
     case BINARY_OPERATION:
-        error = binary_operation_forward(operation->binary_operation, result);
+        error = binary_operation_forward(operation->binary_operation);
         break;
     case REDUCTION_OPERATION:
-        error = reduction_operation_forward(operation->reduction_operation, result);
+        error = reduction_operation_forward(operation->reduction_operation);
         break;
     case STRUCTURE_OPERATION:
-        error = structure_operation_forward(operation->structure_operation, result);
+        error = structure_operation_forward(operation->structure_operation);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
+                      string_create("unknown operation type %d.",
+                      (int) operation_type),
+                      NULL);
         break;
     }
 
     if (error != NULL)
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to execute operation type %d forward pass.", (int) operation_type), error);
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to execute operation forward pass of type %s.", 
+                     operation_type_string(operation_type)),
+                     error);
     }
 
     return NULL;
 }
 
-nw_error_t *operation_backward(operation_t *operation, operation_type_t operation_type, tensor_t *gradient)
+/**
+ * @brief Compute gradient of operands for a given operation.
+ * @param operation The operation being differeniated.
+ * @param operation_type The type of operation being differentiated.
+ * @param gradient The incoming gradient of the result of the operation.
+ * @return Error if `operation` or `gradient` is NULL. 
+ *         Error if `operation_type` is unknown.
+ *  `      Error if gradient of operands failed to compute.
+ *         NULL if gradient of operands were computed successfully.
+ */
+nw_error_t *operation_backward(operation_t *operation,
+                               operation_type_t operation_type,
+                               tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(operation, "operation");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
@@ -330,35 +595,63 @@ nw_error_t *operation_backward(operation_t *operation, operation_type_t operatio
         error = structure_operation_backward(operation->structure_operation, gradient);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
+                      string_create("unknown operation type %d.",
+                      (int) operation_type),
+                      NULL);
         break;
     }
 
     if (error != NULL)
     {
-        return ERROR(ERROR_BACKWARD, string_create("failed to execute operation type %d backward pass.", operation_type), error);
+        return ERROR(ERROR_BACKWARD,
+                     string_create("failed to execute operation backward pass of %s.",
+                     operation_type_string(operation_type)),
+                     error);
     }
 
     return NULL;
 }
 
-nw_error_t *unary_operation_create(unary_operation_t **unary_operation, unary_operation_type_t unary_operation_type, const tensor_t *x)
+/**
+ * @brief The unary operation constructor. 
+ * @param unary_operation The address of the pointer to the unary operation to instantiate.
+ * @param unary_operation_type The type of unary operation to create.
+ * @param x The input operand of the unary operation.
+ * @param result The resultant output of the unary operation.
+ * @return Error if `unary_operation`, `x`, or `result` is NULL.
+ *          
+ */
+nw_error_t *unary_operation_create(unary_operation_t **unary_operation,
+                                   unary_operation_type_t unary_operation_type,
+                                   const tensor_t *x,
+                                   tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(unary_operation, "unary_operation");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(result, "result");
 
     *unary_operation = (unary_operation_t *) malloc(sizeof(unary_operation_t));
     if (*unary_operation == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate unary operation of size %zu bytes.", sizeof(unary_operation_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate unary operation of size %lu bytes.",
+                     (unsigned long) sizeof(unary_operation_t)),
+                     NULL);
     }
 
     (*unary_operation)->operation_type = unary_operation_type;
     (*unary_operation)->x = (tensor_t *) x; 
-    (*unary_operation)->result = NULL;
+    (*unary_operation)->result = result;
 
     return NULL;
 }
 
+/**
+ * @brief Destroy a unary operation.
+ * @param unary_operation The unary operation created with `unary_operation_create` to free.
+ *                        Argument can be NULL.
+ */
 void unary_operation_destroy(unary_operation_t *unary_operation)
 {
     if (unary_operation == NULL)
@@ -369,37 +662,115 @@ void unary_operation_destroy(unary_operation_t *unary_operation)
     free(unary_operation);
 }
 
+/**
+ * @brief Get string representation of `unary_operation_type`.
+ * @param operation_type Operation type to display as string.
+ * @return A string literal representing the `unary_operation_type`.
+ */
+string_t unary_operation_type_string(unary_operation_type_t unary_operation_type)
+{
+    switch (unary_operation_type)
+    {
+    case EXPONENTIAL_OPERATION:
+        return "UKNOWN_OPERATION";
+    case LOGARITHM_OPERATION:
+        return "LOGARITHM_OPERATION";
+    case SINE_OPERATION:
+        return "SINE_OPERATION";
+    case COSINE_OPERATION:
+        return "COSINE_OPERATION";
+    case SQUARE_ROOT_OPERATION:
+        return "SQUARE_ROOT_OPERATION";
+    case RECIPROCAL_OPERATION:
+        return "RECIPROCAL_OPERATION";
+    case COPY_OPERATION:
+        return "COPY_OPERATION";
+    case CONTIGUOUS_OPERATION:
+        return "CONTIGUOUS_OPERATION";
+    case NEGATION_OPERATION:
+        return "NEGATION_OPERATION";
+    case RECTIFIED_LINEAR_OPERATION:
+        return "RECTIFIED_LINEAR_OPERATION";
+    default:
+        return "UKNOWN_OPERATION";
+    }
+}
+
+/**
+ * @brief Execute exponential operation forward.
+ * @param x The input operand.
+ * @param result The output of the xponential operation.
+ * @return Error if `x` or `result` is NULL.
+ *         Error if exponential operation failed.
+ *         NULL if exponential operation was successfully applied.
+ */
 static nw_error_t *exponential_operation_forward(tensor_t *x, tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(result, "result");
 
-    nw_error_t *error = tensor_as_empty(x, result);    
+    nw_error_t *error = NULL;
+
+    error = tensor_as_empty(x, result);    
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create empty tensor."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create empty tensor."),
+                     error);
     }
 
     error = runtime_exponential(x->buffer, result->buffer);
     if (error != NULL)
     {
-        return ERROR(ERROR_EXPONENTIAL, string_create("failed to successfully run exponential operation."), error);
+        return ERROR(ERROR_EXPONENTIAL,
+                     string_create("failed to successfully run exponential operation."),
+                     error);
     }
 
     return NULL;
 }
 
-static nw_error_t *exponential_operation_backward(tensor_t *x, tensor_t *gradient)
+/**
+ * @brief Execute expo
+ * 
+ * @param x 
+ * @param result 
+ * @param gradient 
+ * @return nw_error_t* 
+ */
+static nw_error_t *exponential_operation_backward(tensor_t *x, tensor_t *result, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(result, "result");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
 
     if (x->requires_gradient)
     {
-        nw_error_t *error = tensor_accumulate_gradient(x, gradient);
+        nw_error_t *error = NULL;
+        tensor_t *x_gradient = NULL;
+
+        error = tensor_create_empty(&x_gradient);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create empty tensor x_gradient."),
+                         error);
+        }
+
+        error = tensor_multiplication(gradient, result, x_gradient);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_MULTIPLICATION,
+                         string_create("failed to multiply tensors gradient and result."),
+                         error);
+        }
+
+        error = tensor_accumulate_gradient(x, x_gradient);
         if (error != NULL) 
         {
-            return ERROR(ERROR_ADDITION, string_create("failed to accumualate gradient."), error);
+            return ERROR(ERROR_ADDITION,
+                         string_create("failed to accumulate gradient."),
+                         error);
         }
     }
 
@@ -1031,56 +1402,61 @@ static nw_error_t *rectified_linear_operation_backward(tensor_t *x, tensor_t *gr
     return NULL;
 }
 
-nw_error_t *unary_operation_forward(unary_operation_t *unary_operation, tensor_t *result)
+nw_error_t *unary_operation_forward(unary_operation_t *unary_operation)
 {
     CHECK_NULL_ARGUMENT(unary_operation, "unary_operation");
-    CHECK_NULL_ARGUMENT(result, "result");
 
-    nw_error_t *error;
+    nw_error_t *error = NULL;
+
     switch (unary_operation->operation_type)
     {
     case EXPONENTIAL_OPERATION:
-        error = exponential_operation_forward(unary_operation->x, result);
+        error = exponential_operation_forward(unary_operation->x, unary_operation->result);
         break;
     case LOGARITHM_OPERATION:
-        error = logarithm_operation_forward(unary_operation->x, result);
+        error = logarithm_operation_forward(unary_operation->x, unary_operation->result);
         break;
     case SINE_OPERATION:
-        error = sine_operation_forward(unary_operation->x, result);
+        error = sine_operation_forward(unary_operation->x, unary_operation->result);
         break;
     case COSINE_OPERATION:
-        error = cosine_operation_forward(unary_operation->x, result);
+        error = cosine_operation_forward(unary_operation->x, unary_operation->result);
         break;
     case SQUARE_ROOT_OPERATION:
-        error = square_root_operation_forward(unary_operation->x, result);
+        error = square_root_operation_forward(unary_operation->x, unary_operation->result);
         break;
     case RECIPROCAL_OPERATION:
-        error = reciprocal_operation_forward(unary_operation->x, result);
+        error = reciprocal_operation_forward(unary_operation->x, unary_operation->result);
         break;
     case COPY_OPERATION:
-        error = copy_operation_forward(unary_operation->x, result);
+        error = copy_operation_forward(unary_operation->x, unary_operation->result);
         break;
     case CONTIGUOUS_OPERATION:
-        error = contiguous_operation_forward(unary_operation->x, result);
+        error = contiguous_operation_forward(unary_operation->x, unary_operation->result);
         break;
     case NEGATION_OPERATION:
-        error = negation_operation_forward(unary_operation->x, result);
+        error = negation_operation_forward(unary_operation->x, unary_operation->result);
         break;
     case RECTIFIED_LINEAR_OPERATION:
-        error = rectified_linear_operation_forward(unary_operation->x, result);
+        error = rectified_linear_operation_forward(unary_operation->x, unary_operation->result);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) unary_operation->operation_type), NULL);
+        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
+                      string_create("unknown operation type %d.",
+                      (int) unary_operation->operation_type),
+                      NULL);
         break;
     }
 
     if (error != NULL)
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to apply forward unary operation."), error);
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to apply forward unary operation of type %s.",
+                     unary_operation_type_string(unary_operation->operation_type)),
+                     error);
     }
 
-    unary_operation->result = result;
-    result->requires_gradient = unary_operation->x->requires_gradient;
+    unary_operation->result->requires_gradient = unary_operation->x->requires_gradient;
     
     return NULL;
 }
@@ -1090,11 +1466,12 @@ nw_error_t *unary_operation_backward(unary_operation_t *unary_operation, tensor_
     CHECK_NULL_ARGUMENT(unary_operation, "unary_operation");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
 
-    nw_error_t *error;
+    nw_error_t *error = NULL;
+
     switch (unary_operation->operation_type)
     {
     case EXPONENTIAL_OPERATION:
-        error = exponential_operation_backward(unary_operation->x, gradient);
+        error = exponential_operation_backward(unary_operation->x, unary_operation->result, gradient);
         break;
     case LOGARITHM_OPERATION:
         error = logarithm_operation_backward(unary_operation->x, gradient);
@@ -1124,34 +1501,48 @@ nw_error_t *unary_operation_backward(unary_operation_t *unary_operation, tensor_
         error = rectified_linear_operation_backward(unary_operation->x, gradient);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) unary_operation->operation_type), NULL);
+        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
+                      string_create("unknown operation type %d.",
+                      (int) unary_operation->operation_type),
+                      NULL);
         break;
     }
 
     if (error != NULL)
     {
-        return ERROR(ERROR_BACKWARD, string_create("failed to apply backward unary operation."), error);
+        return ERROR(ERROR_BACKWARD,
+                     string_create("failed to apply backward unary operation of type %s.",
+                     unary_operation_type_string(unary_operation->operation_type)),
+                     error);
     }
     
     return NULL;
 }
 
-nw_error_t *binary_operation_create(binary_operation_t **binary_operation, binary_operation_type_t binary_operation_type, const tensor_t *x, const tensor_t *y)
+nw_error_t *binary_operation_create(binary_operation_t **binary_operation,
+                                    binary_operation_type_t binary_operation_type,
+                                    const tensor_t *x,
+                                    const tensor_t *y,
+                                    tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(binary_operation, "binary_operation");
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(result, "result");
 
     *binary_operation = (binary_operation_t *) malloc(sizeof(binary_operation_t));
     if (*binary_operation == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate binary operation of size %zu bytes.", sizeof(binary_operation_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate binary operation of size %lu bytes.",
+                     (unsigned long) sizeof(binary_operation_t)),
+                     NULL);
     }
 
     (*binary_operation)->operation_type = binary_operation_type;
     (*binary_operation)->x = (tensor_t *) x; 
     (*binary_operation)->y = (tensor_t *) y;
-    (*binary_operation)->result = NULL;
+    (*binary_operation)->result = result;
 
     return NULL;
 }
@@ -1164,6 +1555,27 @@ void binary_operation_destroy(binary_operation_t *binary_operation)
     }
 
     free(binary_operation);
+}
+
+string_t binary_operation_type_string(binary_operation_type_t binary_operation_type)
+{
+    switch (binary_operation_type)
+    {
+    case ADDITION_OPERATION:
+        return "ADDITION_OPERATION";
+    case SUBTRACTION_OPERATION:
+        return "SUBTRACTION_OPERATION";
+    case MULTIPLICATION_OPERATION:
+        return "MULTIPLICATION_OPERATION";
+    case DIVISION_OPERATION:
+        return "DIVISION_OPERATION";
+    case POWER_OPERATION:
+        return "POWER_OPERATION";
+    case MATRIX_MULTIPLICATION_OPERATION:
+        return "MATRIX_MULTIPLICATION_OPERATION";
+    default:
+        return "UKNOWN_OPERATION";
+    }
 }
 
 static nw_error_t *addition_operation_forward(const tensor_t *x, const tensor_t *y, tensor_t *result)
@@ -1761,44 +2173,49 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
     return NULL;
 }
 
-nw_error_t *binary_operation_forward(binary_operation_t *binary_operation, tensor_t *result)
+nw_error_t *binary_operation_forward(binary_operation_t *binary_operation)
 {
     CHECK_NULL_ARGUMENT(binary_operation, "binary_operation");
-    CHECK_NULL_ARGUMENT(result, "result");
 
     nw_error_t *error = NULL;
+
     switch (binary_operation->operation_type)
     {
     case ADDITION_OPERATION:
-        error = addition_operation_forward(binary_operation->x, binary_operation->y, result);
+        error = addition_operation_forward(binary_operation->x, binary_operation->y, binary_operation->result);
         break;
     case SUBTRACTION_OPERATION:
-        error = subtraction_operation_forward(binary_operation->x, binary_operation->y, result);
+        error = subtraction_operation_forward(binary_operation->x, binary_operation->y, binary_operation->result);
         break;
     case MULTIPLICATION_OPERATION:
-        error = multiplication_operation_forward(binary_operation->x, binary_operation->y, result);
+        error = multiplication_operation_forward(binary_operation->x, binary_operation->y, binary_operation->result);
         break;
     case DIVISION_OPERATION:
-        error = division_operation_forward(binary_operation->x, binary_operation->y, result);
+        error = division_operation_forward(binary_operation->x, binary_operation->y, binary_operation->result);
         break;
     case POWER_OPERATION:
-        error = power_operation_forward(binary_operation->x, binary_operation->y, result);
+        error = power_operation_forward(binary_operation->x, binary_operation->y, binary_operation->result);
         break;
     case MATRIX_MULTIPLICATION_OPERATION:
-        error = matrix_multiplication_operation_forward(binary_operation->x, binary_operation->y, result);
+        error = matrix_multiplication_operation_forward(binary_operation->x, binary_operation->y, binary_operation->result);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown binary operation type %d.", (int) binary_operation->operation_type), NULL);
+        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
+                      string_create("unknown binary operation type %d.",
+                      (int) binary_operation->operation_type),
+                      NULL);
         break;
     }
 
     if (error != NULL)
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to execute binary operation forward pass."), error);
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to execute binary operation forward pass of type %s.",
+                     binary_operation_type_string(binary_operation->operation_type)),
+                     error);
     }
 
-    binary_operation->result = result;
-    result->requires_gradient = binary_operation->x->requires_gradient || binary_operation->y->requires_gradient;
+    binary_operation->result->requires_gradient = binary_operation->x->requires_gradient || binary_operation->y->requires_gradient;
     
     return NULL;
 }
@@ -1809,6 +2226,7 @@ nw_error_t *binary_operation_backward(binary_operation_t *binary_operation, tens
     CHECK_NULL_ARGUMENT(gradient, "gradient");
 
     nw_error_t *error = NULL;
+
     switch (binary_operation->operation_type)
     {
     case ADDITION_OPERATION:
@@ -1830,48 +2248,62 @@ nw_error_t *binary_operation_backward(binary_operation_t *binary_operation, tens
         error = matrix_multiplication_operation_backward(binary_operation->x, binary_operation->y, gradient);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown binary operation type %d.", (int) binary_operation->operation_type), NULL);
+        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
+                      string_create("unknown binary operation type %d.",
+                      (int) binary_operation->operation_type),
+                      NULL);
         break;
     }
 
     if (error != NULL)
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to execute binary operation backward pass."), error);
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to execute binary operation backward pass of type %s.",
+                     binary_operation_type_string(binary_operation->operation_type)),
+                     error);
     }
     
     return NULL;
 }
 
 nw_error_t *reduction_operation_create(reduction_operation_t **reduction_operation, 
-                                    reduction_operation_type_t reduction_operation_type,
-                                    const tensor_t *x,
-                                    const uint64_t *axis,
-                                    uint64_t rank,
-                                    bool_t keep_dimension)
+                                       reduction_operation_type_t reduction_operation_type,
+                                       const tensor_t *x,
+                                       const uint64_t *axis,
+                                       uint64_t length,
+                                       bool_t keep_dimension,
+                                       tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(reduction_operation, "reduction_operation");
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(axis, "axis");
+    CHECK_NULL_ARGUMENT(result, "result");
 
     *reduction_operation = (reduction_operation_t *) malloc(sizeof(reduction_operation_t));
     if (*reduction_operation == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate reduction operation of size %zu bytes.", sizeof(reduction_operation_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate reduction operation of size %lu bytes.",
+                     (unsigned int) sizeof(reduction_operation_t)),
+                     NULL);
     }
 
-    (*reduction_operation)->axis = (uint64_t *) malloc(rank * sizeof(uint64_t));
+    (*reduction_operation)->axis = (uint64_t *) malloc((size_t) (length * sizeof(uint64_t)));
     if ((*reduction_operation)->axis == NULL)
     {
         free(*reduction_operation);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate reduction_operation->axis of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate reduction_operation->axis of size %lu bytes.",
+                     (unsigned long) (length * sizeof(uint64_t))),
+                     NULL);
     }
-    memcpy((*reduction_operation)->axis, axis, rank * sizeof(uint64_t));
+    memcpy((*reduction_operation)->axis, axis, (size_t) (length * sizeof(uint64_t)));
 
     (*reduction_operation)->operation_type = reduction_operation_type;
     (*reduction_operation)->x = (tensor_t *) x; 
-    (*reduction_operation)->rank = rank;
+    (*reduction_operation)->length = length;
     (*reduction_operation)->keep_dimension = keep_dimension;
-    (*reduction_operation)->result = NULL;
+    (*reduction_operation)->result = result;
 
     return NULL;
 }
@@ -1885,6 +2317,19 @@ void reduction_operation_destroy(reduction_operation_t *reduction_operation)
 
     free(reduction_operation->axis);
     free(reduction_operation);
+}
+
+string_t reduction_operation_type_string(reduction_operation_type_t reduction_operation_type)
+{
+    switch (reduction_operation_type)
+    {
+    case SUMMATION_OPERATION:
+        return "SUMMATION_OPERATION";
+    case MAXIMUM_OPERATION:
+        return "MAXIMUM_OPERATION";
+    default:
+        return "UNKNOWN_OPERATION";
+    }
 }
 
 static nw_error_t *summation_operation_forward(tensor_t *x, uint64_t *axis, uint64_t rank, tensor_t *result, bool_t keep_dimension)
@@ -2261,32 +2706,45 @@ static nw_error_t *maximum_operation_backward(tensor_t *x, uint64_t *axis, uint6
     return NULL; 
 }
 
-nw_error_t *reduction_operation_forward(reduction_operation_t *reduction_operation, tensor_t *result)
+nw_error_t *reduction_operation_forward(reduction_operation_t *reduction_operation)
 {
     CHECK_NULL_ARGUMENT(reduction_operation, "reduction_operation");
-    CHECK_NULL_ARGUMENT(result, "result");
 
     nw_error_t *error = NULL;
+
     switch (reduction_operation->operation_type)
     {
     case SUMMATION_OPERATION:
-        error = summation_operation_forward(reduction_operation->x, reduction_operation->axis, reduction_operation->rank, result, reduction_operation->keep_dimension);
+        error = summation_operation_forward(reduction_operation->x,
+                                            reduction_operation->axis,
+                                            reduction_operation->length,
+                                            reduction_operation->result,
+                                            reduction_operation->keep_dimension);
         break;
     case MAXIMUM_OPERATION:
-        error = maximum_operation_forward(reduction_operation->x, reduction_operation->axis, reduction_operation->rank, result, reduction_operation->keep_dimension);
+        error = maximum_operation_forward(reduction_operation->x,
+                                          reduction_operation->axis,
+                                          reduction_operation->length,
+                                          reduction_operation->result,
+                                          reduction_operation->keep_dimension);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown reduction operation type %d.", (int) reduction_operation->operation_type), NULL);
+        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
+                      string_create("unknown reduction operation type %d.",
+                      (int) reduction_operation->operation_type),
+                      NULL);
         break;
     }
 
     if (error != NULL)
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to execute reduction operation forward pass."), error);
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to execute reduction operation forward pass of type %s.",
+                     reduction_operation_type_string(reduction_operation->operation_type)),
+                     error);
     }
 
-    reduction_operation->result = result;
-    result->requires_gradient = reduction_operation->x->requires_gradient;
+    reduction_operation->result->requires_gradient = reduction_operation->x->requires_gradient;
 
     return NULL;
 }
@@ -2297,51 +2755,79 @@ nw_error_t *reduction_operation_backward(reduction_operation_t *reduction_operat
     CHECK_NULL_ARGUMENT(gradient, "gradient");
 
     nw_error_t *error = NULL;
+
     switch (reduction_operation->operation_type)
     {
     case SUMMATION_OPERATION:
-        error = summation_operation_backward(reduction_operation->x, reduction_operation->axis, reduction_operation->rank, gradient, reduction_operation->keep_dimension);
+        error = summation_operation_backward(reduction_operation->x,
+                                             reduction_operation->axis,
+                                             reduction_operation->length,
+                                             gradient,
+                                             reduction_operation->keep_dimension);
         break;
     case MAXIMUM_OPERATION:
-        error = maximum_operation_backward(reduction_operation->x, reduction_operation->axis, reduction_operation->rank, reduction_operation->result, gradient, reduction_operation->keep_dimension);
+        error = maximum_operation_backward(reduction_operation->x,
+                                           reduction_operation->axis,
+                                           reduction_operation->length,
+                                           reduction_operation->result,
+                                           gradient,
+                                           reduction_operation->keep_dimension);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown reduction operation type %d.", (int) reduction_operation->operation_type), NULL);
+        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
+                      string_create("unknown reduction operation type %d.",
+                      (int) reduction_operation->operation_type),
+                      NULL);
         break;
     }
 
     if (error != NULL)
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to execute reduction operation backward pass."), error);
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to execute reduction operation backward pass %s.",
+                     reduction_operation_type_string(reduction_operation->operation_type)),
+                     error);
     }
 
     return NULL;
 }
 
-nw_error_t *structure_operation_create(structure_operation_t **structure_operation, structure_operation_type_t structure_operation_type, const tensor_t *x, const uint64_t *arguments, uint64_t length)
+nw_error_t *structure_operation_create(structure_operation_t **structure_operation,
+                                       structure_operation_type_t structure_operation_type,
+                                       const tensor_t *x,
+                                       const uint64_t *arguments,
+                                       uint64_t length,
+                                       tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(structure_operation, "structure_operation");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
     CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(result, "result");
 
     *structure_operation = (structure_operation_t *) malloc(sizeof(structure_operation_t));
     if (*structure_operation == NULL)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate structure operation of size %zu bytes.", sizeof(structure_operation_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate structure operation of size %lu bytes.",
+                     (unsigned long) sizeof(structure_operation_t)),
+                     NULL);
     }
 
-    (*structure_operation)->arguments = (uint64_t *) malloc(length * sizeof(uint64_t));
+    (*structure_operation)->arguments = (uint64_t *) malloc((size_t) (length * sizeof(uint64_t)));
     if ((*structure_operation)->arguments == NULL)
     {
         free(*structure_operation);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate structure_operation->arguments of size %zu bytes.", length * sizeof(uint64_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate structure_operation->arguments of size %lu bytes.",
+                     (unsigned long) (length * sizeof(uint64_t))), 
+                     NULL);
     }
-    memcpy((*structure_operation)->arguments, arguments, length * sizeof(uint64_t));
+    memcpy((*structure_operation)->arguments, arguments, (size_t) (length * sizeof(uint64_t)));
 
     (*structure_operation)->operation_type = structure_operation_type;
     (*structure_operation)->x = (tensor_t *) x; 
     (*structure_operation)->length = length;
-    (*structure_operation)->result = NULL;
+    (*structure_operation)->result = result;
 
     return NULL;
 }
@@ -2355,6 +2841,25 @@ void structure_operation_destroy(structure_operation_t *structure_operation)
 
     free(structure_operation->arguments);
     free(structure_operation);
+}
+
+string_t structure_operation_type_string(structure_operation_type_t structure_operation_type)
+{
+    switch (structure_operation_type)
+    {
+    case EXPAND_OPERATION:
+        return "EXPAND_OPERATION";
+    case PERMUTE_OPERATION:
+        return "PERMUTE_OPERATION";
+    case RESHAPE_OPERATION:
+        return "RESHAPE_OPERATION";
+    case SLICE_OPERATION:
+        return "SLICE_OPERATION";
+    case PADDING_OPERATION:
+        return "PADDING_OPERATION";
+    default:
+        return "UNKNOWN_OPERATION";
+    }
 }
 
 static nw_error_t *expand_operation_forward(tensor_t *x, uint64_t *shape, uint64_t rank, tensor_t *result)
@@ -2811,113 +3316,206 @@ static nw_error_t *padding_operation_backward(tensor_t *x, uint64_t *arguments, 
 
     if (x->requires_gradient)
     {
-        tensor_t *x_gradient;
+        nw_error_t *error = NULL;
+        tensor_t *x_gradient = NULL;
+        uint64_t *new_arguments = NULL;
 
-        nw_error_t *error = tensor_create_empty(&x_gradient);
+        error = tensor_create_empty(&x_gradient);
         if (error != NULL)
         {
-            return ERROR(ERROR_CREATE, string_create("failed to create x_gradient tensor."), error);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create tensor x_gradient."),
+                         error);
         }
 
-        uint64_t *new_arguments = (uint64_t *) malloc(length * sizeof(uint64_t));
+        new_arguments = (uint64_t *) malloc((size_t) (length * sizeof(uint64_t)));
         if (new_arguments == NULL)
         {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate new arguments of size %zu.", length * sizeof(uint64_t)), NULL);
+            return ERROR(ERROR_MEMORY_ALLOCATION,
+                         string_create("failed to allocate new arguments of size %lu bytes.",
+                         (unsigned long) (length * sizeof(uint64_t))),
+                         NULL);
         }
 
-        error = reverse_padding(x->buffer->view->shape, x->buffer->view->rank, arguments, length, new_arguments, length);
+        error = reverse_padding(x->buffer->view->shape,
+                                x->buffer->view->rank,
+                                arguments, length,
+                                new_arguments, length);
         if (error != NULL)
         {
-            return ERROR(ERROR_SLICE, string_create("failed to compute padding arguments."), error);
+            string_t shape_string = uint64_array_to_string(x->buffer->view->shape,
+                                                           x->buffer->view->rank);
+            string_t arguments_string = uint64_array_to_string(arguments, length);
+            nw_error_t *new_error = ERROR(ERROR_PADDING,
+                                          string_create("cannot compute slice arguments from shape %s and padding arguments %s.",
+                                          shape_string, arguments_string),
+                                          error);
+            string_destroy(shape_string);
+            string_destroy(arguments_string);
+            free(new_arguments);
+            return new_error;
         }
 
         error = tensor_slice(gradient, x_gradient, new_arguments, length);
         if (error != NULL)
         {
-            return ERROR(ERROR_NEGATION, string_create("failed to successfully run negation operation."), error);
+            string_t shape_string = uint64_array_to_string(gradient->buffer->view->shape,
+                                                           gradient->buffer->view->rank);
+            string_t new_arguments_string = uint64_array_to_string(new_arguments, length);
+            nw_error_t *new_error = ERROR(ERROR_SLICE,
+                                          string_create("cannot slice tensor shape %s with arguments %s.",
+                                          shape_string, new_arguments_string),
+                                          error);
+            string_destroy(shape_string);
+            string_destroy(new_arguments_string);
+            tensor_destroy(x_gradient);
+            free(new_arguments);
+            return new_error;
         }
-        free(new_arguments);
 
         error = tensor_accumulate_gradient(x, x_gradient);
         if (error != NULL) 
         {
-            return ERROR(ERROR_ADDITION, string_create("failed to accumulate gradient."), error);
+            free(new_arguments);
+            return ERROR(ERROR_ADDITION,
+                         string_create("failed to accumulate gradient."),
+                         error);
         }
+
+        free(new_arguments);
     }
 
     return NULL;
 }
 
-nw_error_t *structure_operation_forward(structure_operation_t *structure_operation, tensor_t *result)
+/**
+ * @brief Apply structure operation forward.
+ * @param structure_operation Structure operation to execute.
+ * @return Error if `structure_operation` is NULL.
+ *         Error if `structure_operation` failed to run.
+ *         Error if operation type is unknown.
+ *         NULL if `structure_operation` successfully executed.
+ */
+nw_error_t *structure_operation_forward(structure_operation_t *structure_operation)
 {
     CHECK_NULL_ARGUMENT(structure_operation, "structure_operation");
-    CHECK_NULL_ARGUMENT(result, "result");
 
     nw_error_t *error = NULL;
+
     switch (structure_operation->operation_type)
     {
     case EXPAND_OPERATION:
-        error = expand_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
+        error = expand_operation_forward(structure_operation->x,
+                                         structure_operation->arguments,
+                                         structure_operation->length,
+                                         structure_operation->result);
         break;
     case PERMUTE_OPERATION:
-        error = permute_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
+        error = permute_operation_forward(structure_operation->x,
+                                          structure_operation->arguments,
+                                          structure_operation->length,
+                                          structure_operation->result);
         break;
     case RESHAPE_OPERATION:
-        error = reshape_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
+        error = reshape_operation_forward(structure_operation->x,
+                                          structure_operation->arguments,
+                                          structure_operation->length,
+                                          structure_operation->result);
         break;
     case SLICE_OPERATION:
-        error = slice_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
+        error = slice_operation_forward(structure_operation->x,
+                                        structure_operation->arguments,
+                                        structure_operation->length,
+                                        structure_operation->result);
         break;
     case PADDING_OPERATION:
-        error = padding_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
+        error = padding_operation_forward(structure_operation->x,
+                                          structure_operation->arguments,
+                                          structure_operation->length,
+                                          structure_operation->result);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown structure operation type %d.", (int) structure_operation->operation_type), NULL);
+        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
+                      string_create("unknown structure operation type %d.",
+                      (int) structure_operation->operation_type),
+                      NULL);
         break;
     }
 
     if (error != NULL)
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to execute structure operation forward pass."), error);
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to execute structure operation forward pass of type %s.",
+                     structure_operation_type_string(structure_operation->operation_type)),
+                     error);
     }
 
-    structure_operation->result = result;
-    result->requires_gradient = structure_operation->x->requires_gradient;
+    structure_operation->result->requires_gradient = structure_operation->x->requires_gradient;
 
     return NULL;
 }
 
+/**
+ * @brief Apply structure operation backward.
+ * @param structure_operation Structure operation being differeniated.
+ * @param gradient Incoming gradient of the result of the structure operation.
+ * @return Error if `structure_operation` or `gradient` is NULL.
+ *         Error if the gradient of the structure operation with respect to the operand failed to compute.
+ *         Error if operation type is unknown.
+ *         NULL if `structure_operation` successfully executed.
+ *         NULL if the gradient of the structure operation with respect to the operand was successfully computed.
+ */
 nw_error_t *structure_operation_backward(structure_operation_t *structure_operation, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(structure_operation, "structure_operation");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
 
     nw_error_t *error = NULL;
+
     switch (structure_operation->operation_type)
     {
     case EXPAND_OPERATION:
-        error = expand_operation_backward(structure_operation->x, structure_operation->arguments, structure_operation->length, gradient);
+        error = expand_operation_backward(structure_operation->x,
+                                          structure_operation->arguments,
+                                          structure_operation->length,
+                                          gradient);
         break;
     case PERMUTE_OPERATION:
-        error = permute_operation_backward(structure_operation->x, structure_operation->arguments, structure_operation->length, gradient);
+        error = permute_operation_backward(structure_operation->x,
+                                           structure_operation->arguments,
+                                           structure_operation->length,
+                                           gradient);
         break;
     case RESHAPE_OPERATION:
-        error = reshape_operation_backward(structure_operation->x, gradient);
+        error = reshape_operation_backward(structure_operation->x,
+                                           gradient);
         break;
     case SLICE_OPERATION:
-        error = slice_operation_backward(structure_operation->x, structure_operation->arguments, structure_operation->length, gradient);
+        error = slice_operation_backward(structure_operation->x,
+                                         structure_operation->arguments,
+                                         structure_operation->length,
+                                         gradient);
         break;
     case PADDING_OPERATION:
-        error = padding_operation_backward(structure_operation->x, structure_operation->arguments, structure_operation->length, gradient);
+        error = padding_operation_backward(structure_operation->x,
+                                           structure_operation->arguments,
+                                           structure_operation->length,
+                                           gradient);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown structure operation type %d.", (int) structure_operation->operation_type), NULL);
+        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
+                      string_create("unknown structure operation type %d.",
+                      (int) structure_operation->operation_type),
+                      NULL);
         break;
     }
 
     if (error != NULL)
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to execute structure operation backward pass."), error);
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to execute structure operation backward pass of type %s.",
+                     structure_operation_type_string(structure_operation->operation_type)),
+                     error);
     }
 
     return NULL;

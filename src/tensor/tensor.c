@@ -1,15 +1,15 @@
-/**@file tensor.c
- * @brief
- *
+/**
+ * @file tensor.c
+ * @brief 
  */
 
 #include <tensor.h>
 #include <stack.h>
 #include <map.h>
-#include <init.h>
 #include <function.h>
 #include <buffer.h>
 #include <view.h>
+#include <string.h>
 
 nw_error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *context, tensor_t *gradient, bool_t requires_gradient, bool_t lock)
 {
@@ -462,22 +462,27 @@ nw_error_t *tensor_negation(const tensor_t *x, tensor_t *y)
 
 nw_error_t *tensor_constant(void *constant, datatype_t datatype, runtime_t runtime, tensor_t *x)
 {
+    CHECK_NULL_ARGUMENT(constant, "constant");
+    CHECK_NULL_ARGUMENT(x, "x");
+
+    view_t *view = NULL;
+    buffer_t *buffer = NULL;
+    nw_error_t *error = NULL;
+
     if (!tensor_is_empty(x))
     {
-        return ERROR(ERROR_CREATE, string_create("tensor x is not empty."), NULL);
+        return ERROR(ERROR_CREATE, 
+                     string_create("tensor x is not empty."),
+                     NULL);
     }
 
-    view_t *view;
-    buffer_t *buffer;
-    nw_error_t *error;
-
-    error = view_create(&view, 0, 1, (uint64_t[]){1}, NULL);
+    error = view_create(&view, 0, 0, (uint64_t[]){}, NULL);
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
     }
 
-    error = buffer_create(&buffer, runtime, datatype, view, constant, datatype_size(datatype), true);
+    error = buffer_create(&buffer, runtime, datatype, view, constant, 1, true);
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
@@ -760,6 +765,48 @@ nw_error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient)
         }
         tensor_destroy(x->gradient);
         x->gradient = updated_gradient;
+    }
+
+    return NULL;
+}
+
+nw_error_t *init_zeroes(tensor_t *x)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->data, "x->buffer->data");
+
+    switch (x->buffer->datatype)
+    {
+    case FLOAT32:
+        memset(x->buffer->data, (float32_t) 0.0, x->buffer->size); 
+        break;
+    case FLOAT64:
+        memset(x->buffer->data, (float64_t) 0.0, x->buffer->size); 
+        break;
+    default:
+        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", x->buffer->datatype), NULL);
+    }
+
+    return NULL;
+}
+
+nw_error_t *init_ones(tensor_t *x)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->data, "x->buffer->data");
+
+    switch (x->buffer->datatype)
+    {
+    case FLOAT32:
+        memset(x->buffer->data, (float32_t) 1.0, x->buffer->size); 
+        break;
+    case FLOAT64:
+        memset(x->buffer->data, (float64_t) 1.0, x->buffer->size); 
+        break;
+    default:
+        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", x->buffer->datatype), NULL);
     }
 
     return NULL;

@@ -11,12 +11,12 @@
 #include <string.h>
 
 nw_error_t *buffer_create(buffer_t **buffer,
-                       runtime_t runtime,
-                       datatype_t datatype,
-                       view_t *view,
-                       void *data,
-                       uint64_t n,
-                       bool_t copy)
+                          runtime_t runtime,
+                          datatype_t datatype,
+                          view_t *view,
+                          void *data,
+                          uint64_t n,
+                          bool_t copy)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(view, "view");
