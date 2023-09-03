@@ -11,14 +11,9 @@
 
 // Forward declarations
 typedef struct function_t function_t;
-// C++ does not allow variable-width enum forward decls.
-// TODO: See if a better solution exists
-#if defined __cplusplus
-#include <buffer.h>
-#else
+
 typedef struct buffer_t buffer_t;
 typedef enum runtime_t runtime_t;
-#endif
 
 typedef struct tensor_t
 {

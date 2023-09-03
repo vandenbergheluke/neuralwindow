@@ -11,7 +11,11 @@
 // Forward declarations
 typedef struct view_t view_t;
 
+#ifdef __cplusplus
+typedef enum runtime_t: int
+#else
 typedef enum runtime_t
+#endif
 {
    OPENBLAS_RUNTIME,
    MKL_RUNTIME,
