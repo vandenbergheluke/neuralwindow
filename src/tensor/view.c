@@ -432,6 +432,47 @@ nw_error_t *reduce(const uint64_t *original_shape,
     return NULL;
 }
 
+nw_error_t *reduce_compute_buffer_size(const uint64_t *shape,
+                                       const uint64_t *strides,
+                                       uint64_t rank,
+                                       uint64_t n,
+                                       const uint64_t *axis,
+                                       uint64_t length,
+                                       uint64_t *reduced_n)
+{
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NULL_ARGUMENT(strides, "strides");
+    CHECK_NULL_ARGUMENT(axis, "axis");
+    CHECK_NULL_ARGUMENT(reduced_n, "reduced_n");
+
+    *reduced_n = n;
+    if (n == 0)
+    {
+        return NULL;
+    }
+
+    for (uint64_t i = 0; i < length; ++i)
+    {
+        if (axis[i] < rank)
+        {
+            if (strides[axis[i]] > 0)
+            {
+                *reduced_n /= shape[axis[i]];
+            }
+        }
+        else
+        {
+            return ERROR(ERROR_AXIS,
+                         string_create("axis %lu is out of range of rank %lu.",
+                         (unsigned long) axis[i], (unsigned long) rank),
+                         NULL);
+        }
+    }
+
+    return NULL;
+}
+
+
 /**
  * @brief Given the shape and rank of two tensors, determine if both tensors have the same dimensions. 
  * @param x_shape An array of size x_rank representing the dimensions of a tensor.

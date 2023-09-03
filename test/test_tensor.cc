@@ -16,6 +16,7 @@ extern "C"
 #define EPSILON 0.00001
 #define SEED 1234
 #define UNARY_CASES 7
+#define REDUCTION_CASES 7
 
 bool_t set_seed = true;
 
@@ -341,6 +342,292 @@ START_TEST(test_exponential_forward)
 }
 END_TEST
 
+// Reduction Operations
+nw_error_t *reduction_error;
+
+buffer_t *reduction_buffers[REDUCTION_CASES];
+buffer_t *expected_reduction_buffers[REDUCTION_CASES];
+
+view_t *reduction_views[REDUCTION_CASES];
+view_t *expected_reduction_views[REDUCTION_CASES];
+
+tensor_t *reduction_tensors[REDUCTION_CASES];
+tensor_t *returned_reduction_tensors[REDUCTION_CASES];
+tensor_t *expected_reduction_tensors[REDUCTION_CASES];
+
+torch::Tensor reduction_torch_tensors[REDUCTION_CASES];
+
+std::vector<int64_t> reduction_axis[REDUCTION_CASES] = {
+    {0},
+    {0},
+    {1},
+    {1},
+    {0, 2},
+    {1},
+    {0, 1, 2, 3},
+};
+
+uint64_t reduction_length[REDUCTION_CASES] = {
+    1,
+    1,
+    1,
+    1,
+    2,
+    1,
+    4,
+};
+
+
+bool_t reduction_keep_dimension[REDUCTION_CASES] = {
+    false,
+    true,
+    false,
+    true,
+    true,
+    false,
+    false,
+};
+
+std::vector<int64_t> reduction_shapes[REDUCTION_CASES] = {
+    {2},
+    {10},
+    {10, 1},
+    {10, 10},
+    {3, 4, 5},
+    {3, 4, 5},
+    {2, 3, 4, 5},
+};
+
+uint64_t reduction_expected_shapes[][REDUCTION_CASES] = {
+    {},
+    {1},
+    {10},
+    {10, 1},
+    {1, 4, 1},
+    {3, 5},
+    {},
+};
+
+uint64_t reduction_ranks[REDUCTION_CASES] = {
+    1,
+    1,
+    2,
+    2,
+    3,
+    3,
+    4,
+};
+
+uint64_t reduction_expected_ranks[REDUCTION_CASES] = {
+    0,
+    1,
+    1,
+    2,
+    3,
+    2,
+    0,
+};
+
+uint64_t reduction_strides[][REDUCTION_CASES] = {
+    {1},
+    {1},
+    {1, 0},
+    {10, 1},
+    {20, 5, 1},
+    {20, 5, 1},
+    {60, 20, 5, 1},
+};
+
+uint64_t reduction_expected_strides[][REDUCTION_CASES] = {
+    {},
+    {0},
+    {1},
+    {1, 0},
+    {0, 1, 0},
+    {5, 1},
+    {},
+};
+
+uint64_t reduction_n[REDUCTION_CASES] = {
+    2,
+    10,
+    10,
+    100,
+    60,
+    60,
+    120,
+};
+
+uint64_t reduction_expected_n[REDUCTION_CASES] = {
+    1,
+    1,
+    10,
+    10,
+    4,
+    15,
+    1,
+};
+
+runtime_t reduction_runtimes[REDUCTION_CASES] = {
+    OPENBLAS_RUNTIME,
+    MKL_RUNTIME,
+    OPENBLAS_RUNTIME,
+    MKL_RUNTIME,
+    OPENBLAS_RUNTIME,
+    MKL_RUNTIME,
+    OPENBLAS_RUNTIME,
+};
+
+datatype_t reduction_datatypes[REDUCTION_CASES] = {
+    FLOAT32,
+    FLOAT32,
+    FLOAT64,
+    FLOAT64,
+    FLOAT32,
+    FLOAT32,
+    FLOAT32,
+};
+
+torch::ScalarType reduction_torch_datatypes[REDUCTION_CASES] = {
+    torch::kFloat32,
+    torch::kFloat32,
+    torch::kFloat64,
+    torch::kFloat64,
+    torch::kFloat32,
+    torch::kFloat32,
+    torch::kFloat32,
+};
+
+void reduction_setup(void)
+{
+    if (set_seed)
+    {
+        torch::manual_seed(SEED);
+        set_seed = false;
+    }
+
+    for (int i = 0; i < REDUCTION_CASES; ++i)
+    {
+        reduction_buffers[i] = NULL;
+        expected_reduction_buffers[i] = NULL;
+
+        reduction_views[i] = NULL;
+        expected_reduction_views[i] = NULL;
+
+        reduction_tensors[i] = NULL;
+        returned_reduction_tensors[i] = NULL;
+        expected_reduction_tensors[i] = NULL;
+    }
+
+    
+    for (int i = 0; i < REDUCTION_CASES; ++i)
+    {
+        reduction_torch_tensors[i] = torch::randn(reduction_shapes[i], torch::TensorOptions().dtype(reduction_torch_datatypes[i]));
+
+        reduction_error = view_create(&reduction_views[i], 
+                                      (uint64_t) reduction_torch_tensors[i].storage_offset(),
+                                      reduction_ranks[i],
+                                      (uint64_t *) reduction_shapes[i].data(),
+                                      reduction_strides[i]);
+        ck_assert_ptr_null(reduction_error);
+
+        reduction_error = buffer_create(&reduction_buffers[i],
+                                        reduction_runtimes[i],
+                                        reduction_datatypes[i],
+                                        reduction_views[i],
+                                        (void *) reduction_torch_tensors[i].data_ptr(),
+                                        reduction_n[i],
+                                        true);
+        ck_assert_ptr_null(reduction_error);
+
+        reduction_error = tensor_create(&reduction_tensors[i],
+                                        reduction_buffers[i],
+                                        NULL,
+                                        NULL,
+                                        false,
+                                        false);
+        ck_assert_ptr_null(reduction_error);
+
+        reduction_error = tensor_create_empty(&expected_reduction_tensors[i]);
+        ck_assert_ptr_null(reduction_error);
+
+        reduction_error = view_create(&expected_reduction_views[i],
+                                      (uint64_t) reduction_torch_tensors[i].storage_offset(),
+                                      reduction_expected_ranks[i],
+                                      reduction_expected_shapes[i],
+                                      reduction_expected_strides[i]);
+        ck_assert_ptr_null(reduction_error);
+
+        reduction_error = tensor_create_empty(&returned_reduction_tensors[i]);
+        ck_assert_ptr_null(reduction_error);
+    }
+}
+
+void reduction_teardown(void)
+{
+    for (int i = 0; i < REDUCTION_CASES; i++)
+    {
+        tensor_destroy(reduction_tensors[i]);
+        tensor_destroy(expected_reduction_tensors[i]);
+        tensor_destroy(returned_reduction_tensors[i]);
+    }
+    if (reduction_error != NULL)
+    {
+        error_print(reduction_error);
+    }
+    error_destroy(reduction_error);
+}
+
+START_TEST(test_summation_forward)
+{
+    for (int i = 0; i < REDUCTION_CASES; ++i)
+    {
+        torch::Tensor expected_tensor = torch::sum(reduction_torch_tensors[i], 
+                                                   reduction_axis[i],
+                                                   reduction_keep_dimension[i]);
+
+        reduction_error = buffer_create(&expected_reduction_buffers[i],
+                                        reduction_buffers[i]->runtime,
+                                        reduction_buffers[i]->datatype,
+                                        expected_reduction_views[i],
+                                        (void *) expected_tensor.data_ptr(),
+                                        reduction_expected_n[i],
+                                        true);
+        ck_assert_ptr_null(reduction_error);
+
+        function_t *function = NULL; 
+        operation_t *operation = NULL;
+        reduction_operation_t *reduction_operation = NULL;
+
+        reduction_error = reduction_operation_create(&reduction_operation,
+                                                     SUMMATION_OPERATION,
+                                                     reduction_tensors[i],
+                                                     (uint64_t *) reduction_axis[i].data(),
+                                                     reduction_length[i], 
+                                                     reduction_keep_dimension[i],
+                                                     expected_reduction_tensors[i]);
+        ck_assert_ptr_null(reduction_error);
+        reduction_error = operation_create(&operation, REDUCTION_OPERATION, reduction_operation);
+        ck_assert_ptr_null(reduction_error);
+        reduction_error = function_create(&function, operation, REDUCTION_OPERATION);
+        ck_assert_ptr_null(reduction_error);
+
+        expected_reduction_tensors[i]->buffer = expected_reduction_buffers[i];
+        expected_reduction_tensors[i]->context = function;
+        expected_reduction_tensors[i]->requires_gradient = reduction_tensors[i]->requires_gradient;
+        expected_reduction_tensors[i]->lock = reduction_tensors[i]->lock;
+
+        reduction_error = tensor_summation(reduction_tensors[i], 
+                                           returned_reduction_tensors[i],
+                                           (uint64_t *) reduction_axis[i].data(),
+                                           reduction_length[i],
+                                           reduction_keep_dimension[i]);
+        ck_assert_ptr_null(reduction_error);
+
+        ck_assert_tensor_eq(returned_reduction_tensors[i], expected_reduction_tensors[i]);
+    }
+}
+END_TEST
 // nw_error_t *error;
 
 // runtime_t runtimes[] = {
@@ -446,12 +733,20 @@ Suite *make_sample_creation_suite(void)
 {
     Suite *s;
     TCase *tc_unary;
+    TCase *tc_reduction;
 
     s = suite_create("Test Tensor Suite");
+
     tc_unary = tcase_create("Test Unary Tensor Case");
     tcase_add_checked_fixture(tc_unary, unary_setup, unary_teardown);
     tcase_add_test(tc_unary, test_exponential_forward);
+
+    tc_reduction = tcase_create("Test Reduction Tensor Case");
+    tcase_add_checked_fixture(tc_reduction, reduction_setup, reduction_teardown);
+    tcase_add_test(tc_reduction, test_summation_forward);
+
     suite_add_tcase(s, tc_unary);
+    suite_add_tcase(s, tc_reduction);
 
     return s;
 }

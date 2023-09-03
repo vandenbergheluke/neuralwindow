@@ -2505,10 +2505,11 @@ static nw_error_t *summation_operation_forward(tensor_t *x,
     buffer_t *x_buffer = x->buffer;
     buffer_t *result_buffer = NULL;
 
-    for (uint64_t i = 0; i < x->buffer->view->rank; ++i)
+    for (uint64_t i = 0; i < length; ++i)
     {
         uint64_t *reduced_shape = NULL;
         uint64_t *reduced_strides = NULL;
+        uint64_t reduced_n = x->buffer->n;
         nw_error_t *error = NULL;
         view_t *view = NULL;
 
@@ -2550,6 +2551,23 @@ static nw_error_t *summation_operation_forward(tensor_t *x,
                          error);
         }
 
+        error = reduce_compute_buffer_size(x->buffer->view->shape,
+                                           x_buffer->view->strides,
+                                           x_buffer->view->rank,
+                                           x_buffer->n,
+                                           &axis[i],
+                                           (uint64_t) 1,
+                                           &reduced_n);
+        if (error != NULL)
+        {
+            free(reduced_shape);
+            free(reduced_strides);
+            return ERROR(ERROR_REDUCTION,
+                         string_create("failed to remove reduce buffer size %lu axis %lu.",
+                         (unsigned long) x_buffer->n, (unsigned long) axis[i]), 
+                         error);
+        }
+
         error = view_create(&view,
                             x->buffer->view->offset,
                             x->buffer->view->rank,
@@ -2569,7 +2587,7 @@ static nw_error_t *summation_operation_forward(tensor_t *x,
                               x->buffer->datatype,
                               view,
                               NULL,
-                              shape_size(view->shape, view->rank),
+                              reduced_n,
                               true);
         if (error != NULL)
         {
@@ -2740,7 +2758,7 @@ static nw_error_t *summation_operation_backward(tensor_t *x,
         if (error != NULL)
         {
             return ERROR(ERROR_EXPAND,
-                         string_create("failed to expand tensor."),
+                         string_create("failed to expand gradient."),
                          error);
         }
 
