@@ -397,21 +397,12 @@ nw_error_t *reduce(const uint64_t *original_shape,
         if (reduce_dimension && keep_dimensions)
         {
             reduced_shape[k] = 1;
-            if (k < reduced_rank - 1)
-            {
-                stride *= reduced_shape[k + 1];
-            }
             reduced_strides[k] = 0;
             k--;
         }
         else if (!reduce_dimension)
         {
             reduced_shape[k] = original_shape[i];
-            if (k < reduced_rank - 1)
-            {
-                stride *= reduced_shape[k + 1];
-            }
-
             if (original_strides[i] == 0)
             {
                 reduced_strides[k] = 0;
@@ -419,6 +410,7 @@ nw_error_t *reduce(const uint64_t *original_shape,
             else
             {
                 reduced_strides[k] = stride;
+                stride *= reduced_shape[k];
             }
             k--;
         }

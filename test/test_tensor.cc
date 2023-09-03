@@ -13,10 +13,9 @@ extern "C"
 #include <torch/torch.h>
 #include <cstring>
 
-#define EPSILON 0.00001
+#define EPSILON 0.0001
 #define SEED 1234
 #define UNARY_CASES 7
-#define REDUCTION_CASES 7
 
 bool_t set_seed = true;
 
@@ -343,6 +342,8 @@ START_TEST(test_exponential_forward)
 END_TEST
 
 // Reduction Operations
+#define REDUCTION_CASES 9
+
 nw_error_t *reduction_error;
 
 buffer_t *reduction_buffers[REDUCTION_CASES];
@@ -365,6 +366,8 @@ std::vector<int64_t> reduction_axis[REDUCTION_CASES] = {
     {0, 2},
     {1},
     {0, 1, 2, 3},
+    {0, 1, 2, 3},
+    {0, 2, 3},
 };
 
 uint64_t reduction_length[REDUCTION_CASES] = {
@@ -375,6 +378,8 @@ uint64_t reduction_length[REDUCTION_CASES] = {
     2,
     1,
     4,
+    4,
+    3,
 };
 
 
@@ -386,6 +391,20 @@ bool_t reduction_keep_dimension[REDUCTION_CASES] = {
     true,
     false,
     false,
+    false,
+    true,
+};
+
+std::vector<int64_t> torch_reduction_shapes[REDUCTION_CASES] = {
+    {1},
+    {10},
+    {10, 1},
+    {10, 10},
+    {3, 4, 5},
+    {3, 4, 5},
+    {2, 3, 4, 5},
+    {5},
+    {3, 1, 1},
 };
 
 std::vector<int64_t> reduction_shapes[REDUCTION_CASES] = {
@@ -395,6 +414,8 @@ std::vector<int64_t> reduction_shapes[REDUCTION_CASES] = {
     {10, 10},
     {3, 4, 5},
     {3, 4, 5},
+    {2, 3, 4, 5},
+    {2, 3, 4, 5},
     {2, 3, 4, 5},
 };
 
@@ -406,6 +427,8 @@ uint64_t reduction_expected_shapes[][REDUCTION_CASES] = {
     {1, 4, 1},
     {3, 5},
     {},
+    {},
+    {1, 3, 1, 1},
 };
 
 uint64_t reduction_ranks[REDUCTION_CASES] = {
@@ -415,6 +438,8 @@ uint64_t reduction_ranks[REDUCTION_CASES] = {
     2,
     3,
     3,
+    4,
+    4,
     4,
 };
 
@@ -426,16 +451,20 @@ uint64_t reduction_expected_ranks[REDUCTION_CASES] = {
     3,
     2,
     0,
+    0,
+    4,
 };
 
 uint64_t reduction_strides[][REDUCTION_CASES] = {
-    {1},
+    {0},
     {1},
     {1, 0},
     {10, 1},
     {20, 5, 1},
     {20, 5, 1},
     {60, 20, 5, 1},
+    {0, 0, 0, 1},
+    {0, 1, 0, 0},
 };
 
 uint64_t reduction_expected_strides[][REDUCTION_CASES] = {
@@ -446,16 +475,20 @@ uint64_t reduction_expected_strides[][REDUCTION_CASES] = {
     {0, 1, 0},
     {5, 1},
     {},
+    {},
+    {0, 1, 0, 0},
 };
 
 uint64_t reduction_n[REDUCTION_CASES] = {
-    2,
+    1,
     10,
     10,
     100,
     60,
     60,
     120,
+    5,
+    3,
 };
 
 uint64_t reduction_expected_n[REDUCTION_CASES] = {
@@ -466,9 +499,13 @@ uint64_t reduction_expected_n[REDUCTION_CASES] = {
     4,
     15,
     1,
+    1,
+    3,
 };
 
 runtime_t reduction_runtimes[REDUCTION_CASES] = {
+    OPENBLAS_RUNTIME,
+    MKL_RUNTIME,
     OPENBLAS_RUNTIME,
     MKL_RUNTIME,
     OPENBLAS_RUNTIME,
@@ -486,6 +523,8 @@ datatype_t reduction_datatypes[REDUCTION_CASES] = {
     FLOAT32,
     FLOAT32,
     FLOAT32,
+    FLOAT32,
+    FLOAT32,
 };
 
 torch::ScalarType reduction_torch_datatypes[REDUCTION_CASES] = {
@@ -493,6 +532,8 @@ torch::ScalarType reduction_torch_datatypes[REDUCTION_CASES] = {
     torch::kFloat32,
     torch::kFloat64,
     torch::kFloat64,
+    torch::kFloat32,
+    torch::kFloat32,
     torch::kFloat32,
     torch::kFloat32,
     torch::kFloat32,
@@ -522,7 +563,7 @@ void reduction_setup(void)
     
     for (int i = 0; i < REDUCTION_CASES; ++i)
     {
-        reduction_torch_tensors[i] = torch::randn(reduction_shapes[i], torch::TensorOptions().dtype(reduction_torch_datatypes[i]));
+        reduction_torch_tensors[i] = torch::randn(torch_reduction_shapes[i], torch::TensorOptions().dtype(reduction_torch_datatypes[i])).expand(reduction_shapes[i]);;
 
         reduction_error = view_create(&reduction_views[i], 
                                       (uint64_t) reduction_torch_tensors[i].storage_offset(),
