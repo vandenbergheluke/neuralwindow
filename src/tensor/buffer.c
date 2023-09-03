@@ -41,10 +41,10 @@ nw_error_t *buffer_create(buffer_t **buffer,
         nw_error_t *error = runtime_malloc(*buffer);
         if (error != NULL)
         {
-            free(buffer);
+            free(*buffer);
             return ERROR(ERROR_MEMORY_ALLOCATION,
-                         string_create("failed to allocate buffer data for runtime %s.",
-                         runtime_string(runtime)), error);
+                         string_create("failed to allocate buffer data for runtime %s and datatype %s.",
+                         runtime_string(runtime), datatype_string(datatype)), error);
         }
 
         if (data != NULL)

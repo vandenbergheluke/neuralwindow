@@ -42,12 +42,6 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
     // Initialize
     (*view)->offset = offset;
     (*view)->rank = rank;
-    if (rank == 0)
-    {
-        (*view)->shape = NULL;
-        (*view)->strides = NULL;
-        return NULL;
-    }
 
     // Shape
     (*view)->shape = (uint64_t *) malloc((size_t) (rank * sizeof(uint64_t)));
@@ -71,6 +65,11 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
     }
 
     // Copy
+    if (rank == 0)
+    {
+       return NULL; 
+    }
+
     memcpy((void *) ((*view)->shape), (const void *) shape, (size_t) (rank * sizeof(uint64_t)));
     if (strides != NULL)
     {

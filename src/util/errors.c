@@ -119,6 +119,10 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_RECTIFIED_LINEAR";
     case ERROR_AXIS:
         return "ERROR_AXIS";
+    case ERROR_SORT:
+        return "ERROR_SORT";
+    case ERROR_POP:
+        return "ERROR_POP";
     default:
         return "ERROR";
     }

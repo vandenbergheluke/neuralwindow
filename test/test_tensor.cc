@@ -21,7 +21,7 @@ bool_t set_seed = true;
 runtime_t runtimes[] = {
    OPENBLAS_RUNTIME,
    MKL_RUNTIME,
-   CU_RUNTIME
+//    CU_RUNTIME
 };
 
 void setup(void)
@@ -37,6 +37,7 @@ void setup(void)
 
 void teardown(void)
 {
+    error_print(error);
     error_destroy(error);
 }
 
@@ -61,19 +62,19 @@ START_TEST(test_exponential)
                             NULL);
         ck_assert_ptr_null(error);
         error = buffer_create(&buffer,
-                                runtimes[i],
-                                FLOAT32,
-                                view,
-                                (void *) X.data_ptr(),
-                                (uint64_t) X.numel(),
-                                true);
+                              runtimes[i],
+                              FLOAT32,
+                              view,
+                              (void *) X.data_ptr(),
+                              (uint64_t) X.numel(),
+                              true);
         ck_assert_ptr_null(error);
         error = tensor_create(&nw_X,
-                                buffer,
-                                NULL,
-                                NULL,
-                                true,
-                                false);
+                              buffer,
+                              NULL,
+                              NULL,
+                              true,
+                              true);
         ck_assert_ptr_null(error);
 
         error = tensor_create_empty(&nw_Y);
@@ -86,21 +87,27 @@ START_TEST(test_exponential)
         ck_assert_ptr_null(error);
 
         error = tensor_summation(nw_Y,
-                                    nw_J,
-                                    (uint64_t *) X.sizes().data(),
-                                    (uint64_t) X.ndimension(),
-                                    false);
+                                 nw_J,
+                                 NULL,
+                                 (uint64_t) X.ndimension(),
+                                 false);
         ck_assert_ptr_null(error);
 
         error = tensor_backward(nw_J, NULL);
         ck_assert_ptr_null(error);
 
-        error = tensor_accumulate_gradient(nw_X, nw_J->gradient); 
-        ck_assert_ptr_null(error);
-
+        // printf("%lu\n", nw_X->gradient->buffer->view->shape[0]);
+        // printf("%lu\n", nw_X->gradient->buffer->view->shape[1]);
+        // printf("%lu\n", nw_X->gradient->buffer->view->shape[0]);
+        for (uint64_t j = 0; j < nw_X->gradient->buffer->n; ++j)
+            printf("%f, ", ((float *) nw_X->gradient->buffer->data)[j]);
+        printf("\n");
+        for (uint64_t j = 0; j < nw_X->gradient->buffer->n; ++j)
+            printf("%f, ", ((float *) X.grad().data_ptr())[j]);
+        printf("\n");
         ck_assert(std::memcmp(nw_X->gradient->buffer->data,
-                                X.grad().data_ptr(),
-                                X.grad().numel() * sizeof(float32_t)) == 0);
+                              X.grad().data_ptr(),
+                              X.grad().numel() * sizeof(float32_t)) == 0);
 
         tensor_destroy(nw_X);
         tensor_destroy(nw_Y);

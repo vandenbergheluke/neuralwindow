@@ -6,7 +6,7 @@ set(TEST_TENSOR
     # test_function
     test_map
     test_queue
-    # test_tensor
+    test_tensor
     test_view
 )
 set(TESTS ${TEST_TENSOR})
@@ -26,5 +26,5 @@ foreach(TEST ${TESTS})
     endif()
     target_link_libraries(${TEST} ${PROJECT_NAME} check subunit "${TORCH_LIBRARIES}")
     add_test(NAME ${TEST} COMMAND ${TEST} WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${TEST_DIR})
-    add_custom_target("valgrind_${TEST}" COMMAND valgrind --leak-check=full  --show-reachable=yes --error-limit=no --gen-suppressions=all --suppressions=../../suppressions.supp $<TARGET_FILE:${TEST}> DEPENDS ${TEST})
+    add_custom_target("valgrind_${TEST}" COMMAND valgrind --leak-check=full  --show-reachable=yes --error-limit=no --gen-suppressions=all --suppressions=../../suppressions.supp --log-file=../suppressions.log $<TARGET_FILE:${TEST}> DEPENDS ${TEST})
 endforeach()

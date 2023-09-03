@@ -55,7 +55,9 @@ typedef enum nw_error_type_t
     ERROR_COMPARE_GREATER,
     ERROR_PADDING,
     ERROR_RECTIFIED_LINEAR,
-    ERROR_AXIS
+    ERROR_AXIS,
+    ERROR_SORT,
+    ERROR_POP,
 } nw_error_type_t;
 
 typedef struct nw_error_t

@@ -1,6 +1,6 @@
 /**
  * @file tensor.c
- * @brief 
+ * @brief High Level Operations - Tensor Interface
  */
 
 #include <tensor.h>
@@ -11,7 +11,12 @@
 #include <view.h>
 #include <string.h>
 
-nw_error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *context, tensor_t *gradient, bool_t requires_gradient, bool_t lock)
+nw_error_t *tensor_create(tensor_t **tensor,
+                          buffer_t *buffer,
+                          function_t *context,
+                          tensor_t *gradient,
+                          bool_t requires_gradient,
+                          bool_t lock)
 {
     CHECK_NULL_ARGUMENT(tensor, "tensor");
 
@@ -227,13 +232,54 @@ nw_error_t *tensor_summation(const tensor_t *x, tensor_t *y, const uint64_t *axi
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
-    CHECK_NULL_ARGUMENT(axis, "axis");
 
-    nw_error_t *error = apply_function_reduction(SUMMATION_OPERATION, x, axis, length, keep_dimension, y);
-    if (error != NULL)
+    if (axis == NULL)
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to reduce tensor."), error);
+        uint64_t *full_axis = (uint64_t *) malloc((size_t) (length * sizeof(uint64_t)));
+        if (full_axis == NULL)
+        {
+            return ERROR(ERROR_MEMORY_ALLOCATION,
+                         string_create("failed to allocate full_axis of size %lu bytes.",
+                         (unsigned long) (length * sizeof(uint64_t))),
+                         NULL);
+        }
+
+        for (uint64_t i = 0; i < length; ++i)
+        {
+            full_axis[i] = i;
+        }
+
+        nw_error_t *error = apply_function_reduction(SUMMATION_OPERATION, 
+                                                     x,
+                                                     full_axis,
+                                                     length,
+                                                     keep_dimension,
+                                                     y);
+        if (error != NULL)
+        {
+            free(full_axis);
+            return ERROR(ERROR_FORWARD, string_create("failed to reduce tensor."), error);
+        }
+
+        free(full_axis);
+
     }
+    else
+    {
+        nw_error_t *error = apply_function_reduction(SUMMATION_OPERATION,
+                                                     x,
+                                                     axis,
+                                                     length,
+                                                     keep_dimension,
+                                                     y);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_FORWARD,
+                         string_create("failed to reduce tensor."),
+                         error);
+        }
+    }
+
 
     return NULL;
 }
@@ -592,7 +638,7 @@ nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t *y)
         return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
     }
 
-    error = buffer_create(&buffer, x->buffer->runtime, x->buffer->datatype, view, x->buffer->data, x->buffer->size, false);
+    error = buffer_create(&buffer, x->buffer->runtime, x->buffer->datatype, view, x->buffer->data, x->buffer->n, false);
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
@@ -639,20 +685,32 @@ nw_error_t *tensor_as_empty(const tensor_t *x, tensor_t *y)
 
     if (!tensor_is_empty(y))
     {
-        return ERROR(ERROR_CREATE, string_create("tensor y is not empty."), NULL);
+        return ERROR(ERROR_CREATE, 
+                     string_create("tensor y is not empty."),
+                     NULL);
     }
 
-    view_t *view;
-    buffer_t *buffer;
-    nw_error_t *error;
+    view_t *view = NULL;
+    buffer_t *buffer = NULL;
+    nw_error_t *error = NULL;
 
-    error = view_create(&view, 0,  x->buffer->view->rank, x->buffer->view->shape, NULL);
+    error = view_create(&view, 
+                        0,
+                        x->buffer->view->rank,
+                        x->buffer->view->shape,
+                        x->buffer->view->strides);
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
     }
 
-    error = buffer_create(&buffer, x->buffer->runtime, x->buffer->datatype, view, NULL, x->buffer->size, true);
+    error = buffer_create(&buffer,
+                          x->buffer->runtime,
+                          x->buffer->datatype,
+                          view,
+                          NULL,
+                          x->buffer->n,
+                          true);
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
@@ -667,52 +725,75 @@ nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
 
-    nw_error_t *error;
-    stack_t *tensors;
-    map_t *visited;
+    nw_error_t *error = NULL;
+    stack_t *tensors = NULL;
+    map_t *visited = NULL;
 
     if (gradient == NULL)
     {
         error = tensor_create_empty(&x->gradient);
         if (error != NULL)
         {
-            return ERROR(ERROR_CREATE, string_create("failed to gradient tensor."), error);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to gradient tensor."),
+                         error);
         }
 
         error = tensor_as_ones(x, x->gradient);
         if (error != NULL)
         {
-            return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize gradient tensor with ones."), error);
+            return ERROR(ERROR_INITIALIZATION,
+                         string_create("failed to initialize gradient tensor with ones."),
+                         error);
         }
     }
 
     error = stack_create(&tensors);
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create stack."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create stack."),
+                     error);
     }
 
     error = map_create(&visited);
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create map."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create map."),
+                     error);
     }
 
     error = topological_sort(x, visited, tensors);
     if (error != NULL)
     {
-        return ERROR(ERROR_SQUARE_ROOT, string_create("failed to topologically sort nodes."), error);
+        return ERROR(ERROR_SORT,
+                     string_create("failed to topologically sort nodes."),
+                     error);
     }
 
     while (tensors->size > 0)
     {
-        tensor_t *y;
+        tensor_t *y = NULL;
         error = stack_pop(tensors, (void **) &y);
         if (error != NULL)
         {
-            return ERROR(ERROR_DESTROY, string_create("failed to pop tensor from stack"), error);
+            return ERROR(ERROR_POP, 
+                         string_create("failed to pop tensor from stack"),
+                         error);
         }
-        function_backward(y->context, y->gradient);
+
+        if (y->context != NULL)
+        {
+            error = function_backward(y->context, y->gradient);
+            if (error != NULL)
+            {
+                return ERROR(ERROR_BACKWARD, 
+                             string_create("failed to run backward pass."),
+                             error);
+            }
+        }
+
         if (!y->lock)
         {
             tensor_destroy(y);
@@ -776,17 +857,24 @@ nw_error_t *init_zeroes(tensor_t *x)
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
     CHECK_NULL_ARGUMENT(x->buffer->data, "x->buffer->data");
 
-    switch (x->buffer->datatype)
+    for (uint64_t i = 0; i < x->buffer->n; ++i)
     {
-    case FLOAT32:
-        memset(x->buffer->data, (float32_t) 0.0, x->buffer->size); 
-        break;
-    case FLOAT64:
-        memset(x->buffer->data, (float64_t) 0.0, x->buffer->size); 
-        break;
-    default:
-        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", x->buffer->datatype), NULL);
+        switch (x->buffer->datatype)
+        {
+        case FLOAT32:
+            ((float32_t *) x->buffer->data)[i] = (float32_t) 0.0;
+            break;
+        case FLOAT64:
+            ((float64_t *) x->buffer->data)[i] = (float64_t) 0.0;
+            break;
+        default:
+            return ERROR(ERROR_DATATYPE,
+                         string_create("unknown datatype %d.",
+                         (int) x->buffer->datatype),
+                         NULL);
+        }
     }
+
 
     return NULL;
 }
@@ -797,16 +885,22 @@ nw_error_t *init_ones(tensor_t *x)
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
     CHECK_NULL_ARGUMENT(x->buffer->data, "x->buffer->data");
 
-    switch (x->buffer->datatype)
+    for (uint64_t i = 0; i < x->buffer->n; ++i)
     {
-    case FLOAT32:
-        memset(x->buffer->data, (float32_t) 1.0, x->buffer->size); 
-        break;
-    case FLOAT64:
-        memset(x->buffer->data, (float64_t) 1.0, x->buffer->size); 
-        break;
-    default:
-        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", x->buffer->datatype), NULL);
+        switch (x->buffer->datatype)
+        {
+        case FLOAT32:
+            ((float32_t *) x->buffer->data)[i] = 1.0;
+            break;
+        case FLOAT64:
+            ((float64_t *) x->buffer->data)[i] = 1.0;
+            break;
+        default:
+            return ERROR(ERROR_DATATYPE,
+                         string_create("unknown datatype %d.",
+                         (int) x->buffer->datatype),
+                         NULL);
+        }
     }
 
     return NULL;
