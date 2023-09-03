@@ -14,6 +14,10 @@ extern "C"
 #include <cstring>
 
 #define EPSILON 0.00001
+#define SEED 1234
+#define UNARY_CASES 7
+
+bool_t set_seed = true;
 
 void ck_assert_tensor_eq(const tensor_t *returned_tensor, const tensor_t *expected_tensor)
 {
@@ -142,12 +146,7 @@ void ck_assert_tensor_eq(const tensor_t *returned_tensor, const tensor_t *expect
     ck_assert(returned_tensor->requires_gradient == expected_tensor->requires_gradient);
 }
 
-#define SEED 1234
-
-bool_t set_seed = true;
-
-#define UNARY_CASES 6
-
+// Unary Operations
 nw_error_t *unary_error;
 
 buffer_t *unary_buffers[UNARY_CASES];
@@ -190,6 +189,27 @@ void unary_setup(void)
         {1},
         {3, 4, 5},
         {3, 4, 5},
+        {1, 2, 3, 4, 5},
+    };
+
+    uint64_t strides[][UNARY_CASES] = {
+        {0},
+        {0},
+        {0},
+        {0},
+        {20, 5, 1},
+        {0, 0, 0},
+        {0, 0, 4, 1, 0},
+    };
+
+    uint64_t n[UNARY_CASES] = {
+        1,
+        1,
+        1,
+        1,
+        60,
+        1,
+        12,
     };
     
     runtime_t runtimes[UNARY_CASES] = {
@@ -199,6 +219,7 @@ void unary_setup(void)
         MKL_RUNTIME,
         OPENBLAS_RUNTIME,
         MKL_RUNTIME,
+        OPENBLAS_RUNTIME,
     };
 
     datatype_t datatypes[UNARY_CASES] = {
@@ -208,6 +229,7 @@ void unary_setup(void)
         FLOAT64,
         FLOAT32,
         FLOAT32,
+        FLOAT32,
     };
 
     torch::ScalarType torch_datatypes[UNARY_CASES] = {
@@ -215,6 +237,7 @@ void unary_setup(void)
         torch::kFloat32,
         torch::kFloat64,
         torch::kFloat64,
+        torch::kFloat32,
         torch::kFloat32,
         torch::kFloat32,
     };
@@ -227,7 +250,7 @@ void unary_setup(void)
                                   (uint64_t) unary_torch_tensors[i].storage_offset(),
                                   (uint64_t) unary_torch_tensors[i].ndimension(),
                                   (uint64_t *) unary_torch_tensors[i].sizes().data(),
-                                  NULL);
+                                  strides[i]);
         ck_assert_ptr_null(unary_error);
 
         unary_error = buffer_create(&unary_buffers[i],
@@ -235,7 +258,7 @@ void unary_setup(void)
                                     datatypes[i],
                                     unary_views[i],
                                     (void *) unary_torch_tensors[i].data_ptr(),
-                                    (uint64_t) unary_torch_tensors[i].numel(),
+                                    n[i],
                                     true);
         ck_assert_ptr_null(unary_error);
 
@@ -277,17 +300,17 @@ START_TEST(test_exponential_forward)
         torch::Tensor expected_tensor = torch::exp(unary_torch_tensors[i]);
 
         unary_error = view_create(&expected_unary_views[i],
-                                  (uint64_t) expected_tensor.storage_offset(),
-                                  (uint64_t) expected_tensor.ndimension(),
-                                  (uint64_t *) expected_tensor.sizes().data(),
-                                  NULL);
+                                  0,
+                                  unary_tensors[i]->buffer->view->rank,
+                                  unary_tensors[i]->buffer->view->shape,
+                                  unary_tensors[i]->buffer->view->strides);
         ck_assert_ptr_null(unary_error);
         unary_error = buffer_create(&expected_unary_buffers[i],
                                     unary_buffers[i]->runtime,
                                     unary_buffers[i]->datatype,
                                     expected_unary_views[i],
                                     (void *) expected_tensor.data_ptr(),
-                                    (uint64_t) expected_tensor.numel(),
+                                    unary_buffers[i]->n,
                                     true);
         ck_assert_ptr_null(unary_error);
 
