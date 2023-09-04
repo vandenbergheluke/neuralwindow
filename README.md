@@ -53,7 +53,7 @@ sudo wget https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-2.
 unzip libtorch-shared-with-deps-2.0.1+cpu.zip
 ```
 
-Install CUDA
+Install CUDA (Optional)
 
 ```bash
 lspci | grep -i nvidia  
@@ -76,12 +76,16 @@ nvcc --version
 
 ## Build
 
+To build neuralwindow run
+
 ```bash
 mkdir build
 cd build
 cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
 make
 ```
+
+To build without CUDA define enviroment variable `CPU_ONLY=1`.
 
 ## Test
 
@@ -102,3 +106,12 @@ Valgrind can be run with a specific test exectuable with the command
 ```bash
 make valgrind_<test_name>
 ```
+
+To generate a Valgrind suppression file run
+
+```bash
+valgrind --leak-check=full --show-reachable=yes --error-limit=no --gen-suppressions=all --log-file=suppressions.log ./test/<test_name>
+cat ./suppressions.log | ./../parse_valgrind_suppressions.sh > suppressions.supp
+```
+
+To test without CUDA define enviroment variable `CPU_ONLY=1`.

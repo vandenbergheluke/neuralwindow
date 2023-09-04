@@ -15,11 +15,6 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v3
-    - name: Install CUDA Toolkit
-      uses: Jimver/cuda-toolkit@v0.2.11
-      id: cuda-toolkit
-      with:
-        cuda: '12.1.0'
     - name: Install Intel MKL
       run: sudo apt-get install -y intel-mkl
     - name: Install OpenBLAS

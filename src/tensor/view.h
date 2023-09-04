@@ -1,6 +1,6 @@
-/**@file view.h
- * @brief
- *
+/**
+ * @file view.h
+ * @brief Memory view of tensor. 
  */
 
 #ifndef VIEW_H
@@ -19,7 +19,11 @@ typedef struct view_t
     uint64_t offset;
 } view_t;
 
-nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uint64_t *shape, const uint64_t *strides);
+nw_error_t *view_create(view_t **view,
+                        uint64_t offset,
+                        uint64_t rank,
+                        const uint64_t *shape,
+                        const uint64_t *strides);
 void view_destroy(view_t *view);
 bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strides);
 nw_error_t *permute(const uint64_t *original_shape,
@@ -110,7 +114,13 @@ bool_t is_broadcastable(const uint64_t *original_shape,
                         uint64_t original_rank,
                         const uint64_t *broadcasted_shape,
                         uint64_t broadcasted_rank);
-
+nw_error_t *reduce_compute_buffer_size(const uint64_t *shape,
+                                       const uint64_t *strides,
+                                       uint64_t rank,
+                                       uint64_t n,
+                                       const uint64_t *axis,
+                                       uint64_t length,
+                                       uint64_t *reduced_n);
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 

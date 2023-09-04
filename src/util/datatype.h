@@ -24,6 +24,8 @@ typedef enum datatype_t
     FLOAT64
 } datatype_t;
 
+#define DATATYPES 2
+
 string_t datatype_string(datatype_t datatype);
 size_t datatype_size(datatype_t datatype);
 string_t string_create(string_t format, ...);

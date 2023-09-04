@@ -23,10 +23,10 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
     CHECK_NULL_ARGUMENT(view, "view");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
-    if (rank < 1 || rank > MAX_RANK)
+    if (rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("rank %lu must be between 1 and %d.",
+                     string_create("rank %lu must be less or equal to %d.",
                      (unsigned long) rank, (int) MAX_RANK), NULL);
     }
 
@@ -38,6 +38,10 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
                      string_create("failed to allocate view of size %lu.",
                      (unsigned long) sizeof(view_t)), NULL);
     } 
+
+    // Initialize
+    (*view)->offset = offset;
+    (*view)->rank = rank;
 
     // Shape
     (*view)->shape = (uint64_t *) malloc((size_t) (rank * sizeof(uint64_t)));
@@ -61,6 +65,11 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
     }
 
     // Copy
+    if (rank == 0)
+    {
+       return NULL; 
+    }
+
     memcpy((void *) ((*view)->shape), (const void *) shape, (size_t) (rank * sizeof(uint64_t)));
     if (strides != NULL)
     {
@@ -79,10 +88,6 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
                          error);
         }
     }
-
-    // Initialize
-    (*view)->offset = offset;
-    (*view)->rank = rank;
 
     return NULL;
 }
@@ -118,7 +123,7 @@ bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strid
         return false;
     }
 
-    if (rank < 1 || rank > MAX_RANK)
+    if (rank > MAX_RANK)
     {
         return false;
     }
@@ -156,13 +161,13 @@ bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strid
  *         same size as the original shape array or axis length array.
  */
 nw_error_t *permute(const uint64_t *original_shape,
-                 uint64_t original_rank,
-                 const uint64_t *original_strides, 
-                 uint64_t *permuted_shape,
-                 uint64_t permuted_rank,
-                 uint64_t *permuted_strides,
-                 const uint64_t *axis,
-                 uint64_t length)
+                    uint64_t original_rank,
+                    const uint64_t *original_strides, 
+                    uint64_t *permuted_shape,
+                    uint64_t permuted_rank,
+                    uint64_t *permuted_strides,
+                    const uint64_t *axis,
+                    uint64_t length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(original_strides, "original_strides");
@@ -177,12 +182,10 @@ nw_error_t *permute(const uint64_t *original_shape,
                      (unsigned long) original_rank, (unsigned long) permuted_rank, (unsigned long) length), NULL);
     }
 
-    if (original_rank < 1 || original_rank > MAX_RANK || 
-        permuted_rank < 1 || permuted_rank > MAX_RANK ||
-        length < 1 || length > MAX_RANK)
+    if (original_rank > MAX_RANK || permuted_rank > MAX_RANK || length > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("original rank %lu, permuted rank %lu and axis length %lu must be between 1 and %d.",
+                     string_create("original rank %lu, permuted rank %lu and axis length %lu must be less than or equal to %d.",
                      (unsigned long) original_rank, (unsigned long) permuted_rank, (unsigned long) length, (int) MAX_RANK),
                      NULL);
     }
@@ -225,10 +228,10 @@ nw_error_t *reverse_permute(const uint64_t *axis, uint64_t rank, uint64_t *rever
     CHECK_NULL_ARGUMENT(axis, "axis");
     CHECK_NULL_ARGUMENT(reverse_axis, "reverse_axis");
 
-    if (rank < 1 || rank > MAX_RANK)
+    if (rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("rank %lu must be between 1 and %d.",
+                     string_create("rank %lu must be less than or equal to %d.",
                      (unsigned long) rank, (int) MAX_RANK), NULL);
     }
 
@@ -259,13 +262,13 @@ nw_error_t *reverse_permute(const uint64_t *axis, uint64_t rank, uint64_t *rever
 }
 
 nw_error_t *reduce_recover_dimensions(const uint64_t *original_shape,
-                                   uint64_t original_rank, 
-                                   const uint64_t *original_strides,
-                                   uint64_t *reduced_shape, 
-                                   uint64_t reduced_rank,
-                                   uint64_t *reduced_strides,
-                                   const uint64_t *axis,
-                                   uint64_t rank)
+                                      uint64_t original_rank, 
+                                      const uint64_t *original_strides,
+                                      uint64_t *reduced_shape, 
+                                      uint64_t reduced_rank,
+                                      uint64_t *reduced_strides,
+                                      const uint64_t *axis,
+                                      uint64_t rank)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(original_strides , "original_strides");
@@ -280,12 +283,10 @@ nw_error_t *reduce_recover_dimensions(const uint64_t *original_shape,
                      (unsigned long) original_rank, (unsigned long) reduced_rank, (unsigned long) rank), NULL);
     }
 
-    if (original_rank < 1 || original_rank > MAX_RANK || 
-        reduced_rank < 1 || reduced_rank > MAX_RANK ||
-        rank < 1 || rank > MAX_RANK)
+    if (original_rank > MAX_RANK || reduced_rank > MAX_RANK || rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("original rank %lu, reduced rank %lu and axis length %lu must be between 1 and %d.",
+                     string_create("original rank %lu, reduced rank %lu and axis length %lu must be less than or equal to %d.",
                      (unsigned long) original_rank, (unsigned long) reduced_rank, (unsigned long) rank, (int) MAX_RANK),
                      NULL);
     }
@@ -327,20 +328,25 @@ nw_error_t *reduce_recover_dimensions(const uint64_t *original_shape,
 }
 
 nw_error_t *reduce(const uint64_t *original_shape,
-                uint64_t original_rank,
-                const uint64_t *original_strides, 
-                uint64_t *reduced_shape,
-                uint64_t reduced_rank,
-                uint64_t *reduced_strides,
-                const uint64_t *axis,
-                uint64_t rank,
-                bool_t keep_dimensions)
+                   uint64_t original_rank,
+                   const uint64_t *original_strides, 
+                   uint64_t *reduced_shape,
+                   uint64_t reduced_rank,
+                   uint64_t *reduced_strides,
+                   const uint64_t *axis,
+                   uint64_t rank,
+                   bool_t keep_dimensions)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(original_strides , "original_strides");
     CHECK_NULL_ARGUMENT(reduced_shape, "reduced_shape");
     CHECK_NULL_ARGUMENT(reduced_strides, "reduced_strides");
     CHECK_NULL_ARGUMENT(axis, "axis");
+
+    if (original_rank == 0)
+    {
+        return NULL;
+    }
 
     if (keep_dimensions && original_rank != reduced_rank)
     {
@@ -356,12 +362,10 @@ nw_error_t *reduce(const uint64_t *original_shape,
                      (unsigned long) (original_rank - rank), (unsigned long) reduced_rank), NULL);
     }
 
-    if (rank < 1 || rank > original_rank || 
-        original_rank < 1 || original_rank > MAX_RANK ||
-        reduced_rank < 1 || reduced_rank > MAX_RANK)
+    if (rank > original_rank || original_rank > MAX_RANK || reduced_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("original rank %lu, permuted rank %lu and axis length %lu must be between 1 and %d and rank <= original rank.",
+                     string_create("original rank %lu, permuted rank %lu and axis length %lu must be less than or equal to %d and rank <= original rank.",
                      (unsigned long) original_rank, (unsigned long) reduced_rank, (unsigned long) rank, (int) MAX_RANK),
                      NULL);
     }
@@ -390,24 +394,15 @@ nw_error_t *reduce(const uint64_t *original_shape,
             }
         }
 
-        if (reduce_dimension && (keep_dimensions || (i == original_rank - 1 && original_rank - rank == 0)))
+        if (reduce_dimension && keep_dimensions)
         {
             reduced_shape[k] = 1;
-            if (k < reduced_rank - 1)
-            {
-                stride *= reduced_shape[k + 1];
-            }
             reduced_strides[k] = 0;
             k--;
         }
         else if (!reduce_dimension)
         {
             reduced_shape[k] = original_shape[i];
-            if (k < reduced_rank - 1)
-            {
-                stride *= reduced_shape[k + 1];
-            }
-
             if (original_strides[i] == 0)
             {
                 reduced_strides[k] = 0;
@@ -415,6 +410,7 @@ nw_error_t *reduce(const uint64_t *original_shape,
             else
             {
                 reduced_strides[k] = stride;
+                stride *= reduced_shape[k];
             }
             k--;
         }
@@ -427,6 +423,47 @@ nw_error_t *reduce(const uint64_t *original_shape,
 
     return NULL;
 }
+
+nw_error_t *reduce_compute_buffer_size(const uint64_t *shape,
+                                       const uint64_t *strides,
+                                       uint64_t rank,
+                                       uint64_t n,
+                                       const uint64_t *axis,
+                                       uint64_t length,
+                                       uint64_t *reduced_n)
+{
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NULL_ARGUMENT(strides, "strides");
+    CHECK_NULL_ARGUMENT(axis, "axis");
+    CHECK_NULL_ARGUMENT(reduced_n, "reduced_n");
+
+    *reduced_n = n;
+    if (n == 0)
+    {
+        return NULL;
+    }
+
+    for (uint64_t i = 0; i < length; ++i)
+    {
+        if (axis[i] < rank)
+        {
+            if (strides[axis[i]] > 0)
+            {
+                *reduced_n /= shape[axis[i]];
+            }
+        }
+        else
+        {
+            return ERROR(ERROR_AXIS,
+                         string_create("axis %lu is out of range of rank %lu.",
+                         (unsigned long) axis[i], (unsigned long) rank),
+                         NULL);
+        }
+    }
+
+    return NULL;
+}
+
 
 /**
  * @brief Given the shape and rank of two tensors, determine if both tensors have the same dimensions. 
@@ -491,10 +528,10 @@ nw_error_t *strides_from_shape(uint64_t *strides, const uint64_t *shape, uint64_
     CHECK_NULL_ARGUMENT(strides, "strides");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
-    if (rank < 1 || rank > MAX_RANK)
+    if (rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("rank %lu must be between 1 and %d.", 
+                     string_create("rank %lu must be less than or equal to %d.", 
                      (unsigned long) rank, (int) MAX_RANK), NULL);
     }
 
@@ -534,22 +571,21 @@ nw_error_t *strides_from_shape(uint64_t *strides, const uint64_t *shape, uint64_
  *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
  */
 nw_error_t *broadcast_strides(const uint64_t *original_shape,
-                           uint64_t original_rank,
-                           const uint64_t *original_strides,
-                           const uint64_t *broadcasted_shape,
-                           uint64_t broadcasted_rank,
-                           uint64_t *broadcasted_strides)
+                              uint64_t original_rank,
+                              const uint64_t *original_strides,
+                              const uint64_t *broadcasted_shape,
+                              uint64_t broadcasted_rank,
+                              uint64_t *broadcasted_strides)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(original_strides, "original_strides");
     CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
     CHECK_NULL_ARGUMENT(broadcasted_strides, "broadcasted_strides");
 
-    if (original_rank < 1 || original_rank > MAX_RANK || 
-        broadcasted_rank < 1 || broadcasted_rank > MAX_RANK)
+    if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("original rank %lu and broadcasted rank %lu must be between 1 and %d.", 
+                     string_create("original rank %lu and broadcasted rank %lu must be less than or equal to %d.", 
                      (unsigned long) original_rank, (unsigned long) broadcasted_rank, (int) MAX_RANK), NULL);
     }
 
@@ -608,21 +644,20 @@ nw_error_t *broadcast_strides(const uint64_t *original_shape,
  *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
  */
 nw_error_t *broadcast_shapes(const uint64_t *x_original_shape,
-                          uint64_t x_original_rank,
-                          const uint64_t *y_original_shape,
-                          uint64_t y_original_rank, 
-                          uint64_t *broadcasted_shape,
-                          uint64_t broadcasted_rank)
+                             uint64_t x_original_rank,
+                             const uint64_t *y_original_shape,
+                             uint64_t y_original_rank, 
+                             uint64_t *broadcasted_shape,
+                             uint64_t broadcasted_rank)
 {
     CHECK_NULL_ARGUMENT(x_original_shape, "x_original_shape"); 
     CHECK_NULL_ARGUMENT(y_original_shape, "y_original_shape"); 
     CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape"); 
 
-    if (x_original_rank < 1 || x_original_rank > MAX_RANK || 
-        y_original_rank < 1 || y_original_rank > MAX_RANK)
+    if (x_original_rank > MAX_RANK || y_original_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("x original rank %lu and y original rank %lu must be between 1 and %d.", 
+                     string_create("x original rank %lu and y original rank %lu must be less than or equal to %d.", 
                      (unsigned long) x_original_rank, (unsigned long) y_original_rank, (int) MAX_RANK), NULL);
     }
 
@@ -681,22 +716,21 @@ bool_t is_broadcastable(const uint64_t *original_shape,
 }
 
 nw_error_t *reverse_broadcast_length(const uint64_t *original_shape,
-                                  uint64_t original_rank,
-                                  const uint64_t *broadcasted_shape,
-                                  uint64_t broadcasted_rank, 
-                                  uint64_t *length_keep_dimension,
-                                  uint64_t *length_remove_dimension)
+                                     uint64_t original_rank,
+                                     const uint64_t *broadcasted_shape,
+                                     uint64_t broadcasted_rank, 
+                                     uint64_t *length_keep_dimension,
+                                     uint64_t *length_remove_dimension)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
     CHECK_NULL_ARGUMENT(length_keep_dimension, "length_keep_dimension");
     CHECK_NULL_ARGUMENT(length_remove_dimension, "length_remove_dimension");
     
-    if (original_rank < 1 || original_rank > MAX_RANK || 
-        broadcasted_rank < 1 || broadcasted_rank > MAX_RANK)
+    if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("original rank %lu and broadcasted rank %lu must be between 1 and %d.", 
+                     string_create("original rank %lu and broadcasted rank %lu must be less than or equal to %d.", 
                      (unsigned long) original_rank, (unsigned long) broadcasted_rank, (int) MAX_RANK), NULL);
     }
 
@@ -735,22 +769,21 @@ nw_error_t *reverse_broadcast_length(const uint64_t *original_shape,
 }
 
 nw_error_t *reverse_broadcast_axis(const uint64_t *original_shape,
-                                uint64_t original_rank,
-                                const uint64_t *broadcasted_shape,
-                                uint64_t broadcasted_rank, 
-                                uint64_t *axis_keep_dimension,
-                                uint64_t *axis_remove_dimension)
+                                   uint64_t original_rank,
+                                   const uint64_t *broadcasted_shape,
+                                   uint64_t broadcasted_rank, 
+                                   uint64_t *axis_keep_dimension,
+                                   uint64_t *axis_remove_dimension)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
     CHECK_NULL_ARGUMENT(axis_keep_dimension, "axis_keep_dimension");
     CHECK_NULL_ARGUMENT(axis_remove_dimension, "axis_remove_dimension");
 
-    if (original_rank < 1 || original_rank > MAX_RANK || 
-        broadcasted_rank < 1 || broadcasted_rank > MAX_RANK)
+    if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("original rank %lu and broadcasted rank %lu must be between 1 and %d.", 
+                     string_create("original rank %lu and broadcasted rank %lu must be less than or equal to %d.", 
                      (unsigned long) original_rank, (unsigned long) broadcasted_rank, (int) MAX_RANK), NULL);
     }
 
@@ -791,11 +824,11 @@ nw_error_t *reverse_broadcast_axis(const uint64_t *original_shape,
 }
 
 nw_error_t *slice_shape(const uint64_t *original_shape,
-                     uint64_t original_rank,
-                     uint64_t *slice_shape,
-                     uint64_t slice_rank,
-                     const uint64_t *arguments,
-                     uint64_t length)
+                        uint64_t original_rank,
+                        uint64_t *slice_shape,
+                        uint64_t slice_rank,
+                        const uint64_t *arguments,
+                        uint64_t length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(slice_shape, "slice_shape");
@@ -808,10 +841,10 @@ nw_error_t *slice_shape(const uint64_t *original_shape,
                      (unsigned long) original_rank, (unsigned long) slice_rank), NULL);
     }
 
-    if (original_rank < 1 || original_rank > MAX_RANK)
+    if (original_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("rank %lu must be between 1 and %d.", 
+                     string_create("rank %lu must be less than or equal to %d.", 
                      (unsigned long) original_rank, (int) MAX_RANK), NULL);
     }
 
@@ -846,19 +879,19 @@ nw_error_t *slice_shape(const uint64_t *original_shape,
 }
 
 nw_error_t *slice_offset(const uint64_t *original_strides,
-                      uint64_t original_rank,
-                      uint64_t *offset,
-                      const uint64_t *arguments,
-                      uint64_t length)
+                         uint64_t original_rank,
+                         uint64_t *offset,
+                         const uint64_t *arguments,
+                         uint64_t length)
 {
     CHECK_NULL_ARGUMENT(original_strides, "original_strides");
     CHECK_NULL_ARGUMENT(offset, "offset");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
 
-    if (original_rank < 1 || original_rank > MAX_RANK)
+    if (original_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("original rank %lu must be between 1 and %d.", 
+                     string_create("original rank %lu must be less than or equal to %d.", 
                      (unsigned long) original_rank, (int) MAX_RANK), NULL);
     }
 
@@ -886,11 +919,11 @@ nw_error_t *slice_offset(const uint64_t *original_strides,
 }
 
 nw_error_t *reverse_slice(const uint64_t *original_shape,
-                       uint64_t original_rank,
-                       const uint64_t *arguments,
-                       uint64_t length,
-                       uint64_t *new_arguments,
-                       uint64_t new_length)
+                          uint64_t original_rank,
+                          const uint64_t *arguments,
+                          uint64_t length,
+                          uint64_t *new_arguments,
+                          uint64_t new_length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
@@ -917,10 +950,10 @@ nw_error_t *reverse_slice(const uint64_t *original_shape,
                      (unsigned long) original_rank, (unsigned long) length), NULL);
     }
 
-    if (original_rank < 1 || original_rank > MAX_RANK)
+    if (original_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("original rank %lu must be between 1 and %d.", 
+                     string_create("original rank %lu must be less than or equal to %d.", 
                      (unsigned long) original_rank, (int) MAX_RANK), NULL);
     }
 
@@ -934,11 +967,11 @@ nw_error_t *reverse_slice(const uint64_t *original_shape,
 }
 
 nw_error_t *padding(const uint64_t *original_shape,
-                 uint64_t original_rank,
-                 uint64_t *padding_shape,
-                 uint64_t padding_rank,
-                 const uint64_t *arguments,
-                 uint64_t length)
+                    uint64_t original_rank,
+                    uint64_t *padding_shape,
+                    uint64_t padding_rank,
+                    const uint64_t *arguments,
+                    uint64_t length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(padding_shape, "padding_shape");
@@ -965,10 +998,10 @@ nw_error_t *padding(const uint64_t *original_shape,
                      (unsigned long) original_rank, (unsigned long) length), NULL);
     }
 
-    if (original_rank < 1 || original_rank > MAX_RANK)
+    if (original_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("original rank %lu must be between 1 and %d.", 
+                     string_create("original rank %lu must be less than or equal to %d.", 
                      (unsigned long) original_rank, (int) MAX_RANK), NULL);
     }
 
@@ -981,11 +1014,11 @@ nw_error_t *padding(const uint64_t *original_shape,
 }
 
 nw_error_t *reverse_padding(const uint64_t *original_shape, 
-                         uint64_t original_rank,
-                         const uint64_t *arguments,
-                         uint64_t length,
-                         uint64_t *new_arguments,
-                         uint64_t new_length)
+                            uint64_t original_rank,
+                            const uint64_t *arguments,
+                            uint64_t length,
+                            uint64_t *new_arguments,
+                            uint64_t new_length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
@@ -1012,10 +1045,10 @@ nw_error_t *reverse_padding(const uint64_t *original_shape,
                      (unsigned long) original_rank, (unsigned long) length), NULL);
     }
 
-    if (original_rank < 1 || original_rank > MAX_RANK)
+    if (original_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("original rank %lu must be between 1 and %d.", 
+                     string_create("original rank %lu must be less than or equal to %d.", 
                      (unsigned long) original_rank, (int) MAX_RANK), NULL);
     }
 

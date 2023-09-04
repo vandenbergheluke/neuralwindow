@@ -1,30 +1,38 @@
 find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
-set(TEST_TENSOR
-    test_buffer
-    # test_function
+set(TEST_C
     test_map
     test_queue
-    # test_tensor
     test_view
 )
-set(TESTS ${TEST_TENSOR})
+
+set(TEST_CXX
+    test_tensor_reduction
+    test_tensor_unary
+    test_buffer_reduction
+    test_buffer_unary
+    test_buffer_binary
+)
+
+set(TEST_HELPER
+    test_helper
+)
+
+set(TESTS ${TEST_C} ${TEST_CXX})
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --nvlink-options=--disable-warnings")
 foreach(TEST ${TESTS})
-    if(${TEST} STREQUAL "test_cu_runtime")
-        if (NOT DEFINED ENV{CPU_ONLY})
-            add_custom_target("compute_sanitizer_${TEST}" COMMAND compute-sanitizer --leak-check full --target-processes all $<TARGET_FILE:${TEST}> DEPENDS ${TEST})
-        else()
-            continue()
-        endif()
+    if (NOT DEFINED ENV{CPU_ONLY})
+        add_custom_target("compute_sanitizer_${TEST}" COMMAND compute-sanitizer --leak-check full --target-processes all $<TARGET_FILE:${TEST}> DEPENDS ${TEST})
     endif()
-    if(${TEST} STREQUAL "test_buffer")
-        add_executable(${TEST} "${TEST}.cc")
-    else()
-        add_executable(${TEST} "${TEST}.c")
+    if(${TEST} IN_LIST TEST_CXX)
+        add_executable(${TEST} "${TEST}.cc" "${TEST_HELPER}.c")
+    elseif(${TEST} IN_LIST TEST_C)
+        add_executable(${TEST} "${TEST}.c" "${TEST_HELPER}.c")
     endif()
-    target_link_libraries(${TEST} ${PROJECT_NAME} check subunit "${TORCH_LIBRARIES}")
+    target_include_directories(${TEST} PUBLIC ".")
+    set_target_properties(${TEST} PROPERTIES PUBLIC_HEADER "${TEST_HELPER}.h")
+    target_link_libraries(${TEST} ${PROJECT_NAME} check subunit m "${TORCH_LIBRARIES}")
     add_test(NAME ${TEST} COMMAND ${TEST} WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${TEST_DIR})
-    add_custom_target("valgrind_${TEST}" COMMAND valgrind --leak-check=full  --show-reachable=yes --error-limit=no --gen-suppressions=all --suppressions=../../suppressions.supp $<TARGET_FILE:${TEST}> DEPENDS ${TEST})
+    add_custom_target("valgrind_${TEST}" COMMAND valgrind --leak-check=full  --show-reachable=yes --error-limit=no --gen-suppressions=all --suppressions=../../suppressions.supp --log-file=../suppressions.log $<TARGET_FILE:${TEST}> DEPENDS ${TEST})
 endforeach()

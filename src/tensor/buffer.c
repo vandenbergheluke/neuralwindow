@@ -5,18 +5,20 @@
 
 #include <buffer.h>
 #include <view.h>
+#ifndef CPU_ONLY
 #include <cu_runtime.h>
+#endif
 #include <mkl_runtime.h>
 #include <openblas_runtime.h>
 #include <string.h>
 
 nw_error_t *buffer_create(buffer_t **buffer,
-                       runtime_t runtime,
-                       datatype_t datatype,
-                       view_t *view,
-                       void *data,
-                       uint64_t n,
-                       bool_t copy)
+                          runtime_t runtime,
+                          datatype_t datatype,
+                          view_t *view,
+                          void *data,
+                          uint64_t n,
+                          bool_t copy)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(view, "view");
@@ -41,10 +43,10 @@ nw_error_t *buffer_create(buffer_t **buffer,
         nw_error_t *error = runtime_malloc(*buffer);
         if (error != NULL)
         {
-            free(buffer);
+            free(*buffer);
             return ERROR(ERROR_MEMORY_ALLOCATION,
-                         string_create("failed to allocate buffer data for runtime %s.",
-                         runtime_string(runtime)), error);
+                         string_create("failed to allocate buffer data for runtime %s and datatype %s.",
+                         runtime_string(runtime), datatype_string(datatype)), error);
         }
 
         if (data != NULL)
@@ -84,9 +86,11 @@ nw_error_t *runtime_create_context(runtime_t runtime)
     case MKL_RUNTIME:
         error = NULL;
         break;
+#ifndef CPU_ONLY
     case CU_RUNTIME:
         error = cu_create_context();
         break;
+#endif
     default:
         error = ERROR(ERROR_UNKNOWN_RUNTIME,
                       string_create("unknown runtime %d.",
@@ -111,9 +115,11 @@ void runtime_destroy_context(runtime_t runtime)
     case OPENBLAS_RUNTIME:
     case MKL_RUNTIME:
         break;
+#ifndef CPU_ONLY
     case CU_RUNTIME:
         cu_destroy_context();
         break;
+#endif
     default:
         break;
     }
@@ -140,9 +146,11 @@ nw_error_t *runtime_malloc(buffer_t *buffer)
     case MKL_RUNTIME:
         error = mkl_memory_allocate(&buffer->data, buffer->size);
         break;
+#ifndef CPU_ONLY
     case CU_RUNTIME:
         error = cu_memory_allocate(&buffer->data, buffer->size);
         break;
+#endif
     default:
         error = ERROR(ERROR_UNKNOWN_RUNTIME,
                       string_create("unknown runtime %d.",
@@ -176,9 +184,11 @@ void runtime_free(buffer_t *buffer)
     case MKL_RUNTIME:
         mkl_memory_free(buffer->data);
         break;
+#ifndef CPU_ONLY
     case CU_RUNTIME:
         cu_memory_free(buffer->data);
         break;
+#endif
     default:
         break;
     }
@@ -236,9 +246,11 @@ nw_error_t *runtime_exponential(buffer_t *x, buffer_t *result)
     case MKL_RUNTIME:
         mkl_exponential(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
         break;
+#ifndef CPU_ONLY
     case CU_RUNTIME:
         cu_exponential(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
         break;
+#endif
     default:
         return ERROR(ERROR_UNKNOWN_RUNTIME,
                      string_create("unknown runtime %d.",
@@ -293,9 +305,11 @@ nw_error_t *runtime_logarithm(buffer_t *x, buffer_t *result)
     case MKL_RUNTIME:
         mkl_logarithm(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
         break;
+#ifndef CPU_ONLY
     case CU_RUNTIME:
         cu_logarithm(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
         break;
+#endif
     default:
         return ERROR(ERROR_UNKNOWN_RUNTIME,
                      string_create("unknown runtime %d.",
@@ -350,9 +364,11 @@ nw_error_t *runtime_sine(buffer_t *x, buffer_t *result)
     case MKL_RUNTIME:
         mkl_sine(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
         break;
+#ifndef CPU_ONLY
     case CU_RUNTIME:
         cu_sine(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
         break;
+#endif
     default:
         return ERROR(ERROR_UNKNOWN_RUNTIME,
                      string_create("unknown runtime %d.",
@@ -407,9 +423,11 @@ nw_error_t *runtime_cosine(buffer_t *x, buffer_t *result)
     case MKL_RUNTIME:
         mkl_cosine(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
         break;
+#ifndef CPU_ONLY
     case CU_RUNTIME:
         cu_cosine(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
         break;
+#endif
     default:
         return ERROR(ERROR_UNKNOWN_RUNTIME,
                      string_create("unknown runtime %d.",
@@ -464,9 +482,11 @@ nw_error_t *runtime_square_root(buffer_t *x, buffer_t *result)
     case MKL_RUNTIME:
         mkl_square_root(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
         break;
+#ifndef CPU_ONLY
     case CU_RUNTIME:
         cu_square_root(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
         break;
+#endif
     default:
         return ERROR(ERROR_UNKNOWN_RUNTIME,
                      string_create("unknown runtime %d.",
@@ -521,9 +541,11 @@ nw_error_t *runtime_reciprocal(buffer_t *x, buffer_t *result)
     case MKL_RUNTIME:
         mkl_reciprocal(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
         break;
+#ifndef CPU_ONLY
     case CU_RUNTIME:
         cu_reciprocal(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
         break;
+#endif
     default:
         return ERROR(ERROR_UNKNOWN_RUNTIME,
                      string_create("unknown runtime %d.",
@@ -578,9 +600,11 @@ nw_error_t *runtime_copy(buffer_t *x, buffer_t *result)
     case MKL_RUNTIME:
         mkl_copy(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
         break;
+#ifndef CPU_ONLY
     case CU_RUNTIME:
         cu_copy(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
         break;
+#endif
     default:
         return ERROR(ERROR_UNKNOWN_RUNTIME,
                      string_create("unknown runtime %d.",
@@ -614,9 +638,11 @@ nw_error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
         case MKL_RUNTIME:
             mkl_copy(x->datatype, x->view->shape[0], x->data, x->view->strides[0], x->view->offset, result->data, result->view->strides[0], result->view->offset);
             break;
+#ifndef CPU_ONLY
         case CU_RUNTIME:
             cu_copy(x->datatype, x->view->shape[0], x->data, x->view->strides[0], x->view->offset, result->data, result->view->strides[0], result->view->offset);
             break;
+#endif
         default:
             return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->datatype), NULL);
         }
@@ -634,10 +660,12 @@ nw_error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
                 mkl_copy(x->datatype, x->view->shape[1], x->data, x->view->strides[1], x->view->offset + i * x->view->strides[0], 
                          result->data, result->view->strides[1], result->view->offset + i * result->view->strides[0]);
                 break;
+#ifndef CPU_ONLY
             case CU_RUNTIME:
                 cu_copy(x->datatype, x->view->shape[1], x->data, x->view->strides[1], x->view->offset + i * x->view->strides[0], 
                         result->data, result->view->strides[1], result->view->offset + i * result->view->strides[0]);
                 break;
+#endif
             default:
                 return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->datatype), NULL);
             }
@@ -658,10 +686,12 @@ nw_error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
                     mkl_copy(x->datatype, x->view->shape[2], x->data, x->view->strides[2], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1], 
                              result->data, result->view->strides[2], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1]);
                     break;
+#ifndef CPU_ONLY
                 case CU_RUNTIME:
                     cu_copy(x->datatype, x->view->shape[2], x->data, x->view->strides[2], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1], 
                             result->data, result->view->strides[2], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1]);
                     break;
+#endif
                 default:
                     return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->datatype), NULL);
                 }
@@ -685,10 +715,12 @@ nw_error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
                         mkl_copy(x->datatype, x->view->shape[3], x->data, x->view->strides[3], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1] + k * x->view->strides[2], 
                                  result->data, result->view->strides[3], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1] + k * result->view->strides[2]);
                         break;
+#ifndef CPU_ONLY
                     case CU_RUNTIME:
                         cu_copy(x->datatype, x->view->shape[3], x->data, x->view->strides[3], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1] + k * x->view->strides[2], 
                                 result->data, result->view->strides[3], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1] + k * result->view->strides[2]);
                         break;
+#endif
                     default:
                         return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->datatype), NULL);
                     }
@@ -740,9 +772,11 @@ nw_error_t *runtime_negation(buffer_t *x, buffer_t *result)
     case MKL_RUNTIME:
         mkl_negation(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
         break;
+#ifndef CPU_ONLY
     case CU_RUNTIME:
         cu_negation(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
         break;
+#endif
     default:
         return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->datatype), NULL);
     }
@@ -787,9 +821,11 @@ nw_error_t *runtime_rectified_linear(buffer_t *x, buffer_t *result)
     case MKL_RUNTIME:
         mkl_rectified_linear(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
         break;
+#ifndef CPU_ONLY
     case CU_RUNTIME:
         cu_rectified_linear(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
         break;
+#endif
     default:
         return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->datatype), NULL);
     }
@@ -830,12 +866,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                              y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
                              z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
+#ifndef CPU_ONLY
             case CU_RUNTIME:
                 cu_addition(z_buffer->datatype, z_buffer->view->shape[0],
                             x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
                             y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
                             z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
+#endif
             default:
                 break;
             }
@@ -855,12 +893,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                 y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
                                 z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
+#ifndef CPU_ONLY
             case CU_RUNTIME:
                 cu_subtraction(z_buffer->datatype, z_buffer->view->shape[0],
                                x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
                                y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
                                z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
+#endif
             default:
                 break;
             }
@@ -880,12 +920,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                    y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
                                    z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
+#ifndef CPU_ONLY
             case CU_RUNTIME:
                 cu_multiplication(z_buffer->datatype, z_buffer->view->shape[0],
                                   x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
                                   y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
                                   z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
+#endif
             default:
                 break;
             }
@@ -905,12 +947,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                              y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
                              z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
+#ifndef CPU_ONLY
             case CU_RUNTIME:
                 cu_division(z_buffer->datatype, z_buffer->view->shape[0],
                             x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
                             y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
                             z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
+#endif
             default:
                 break;
             }
@@ -930,12 +974,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                           y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
                           z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
+#ifndef CPU_ONLY
             case CU_RUNTIME:
                 cu_power(z_buffer->datatype, z_buffer->view->shape[0],
                          x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
                          y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
                          z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
+#endif
             default:
                 break;
             }
@@ -955,12 +1001,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                   y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
                                   z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
+#ifndef CPU_ONLY
             case CU_RUNTIME:
                 cu_compare_equal(z_buffer->datatype, z_buffer->view->shape[0],
                                  x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
                                  y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
                                  z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
+#endif
             default:
                 break;
             }
@@ -980,12 +1028,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                   y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
                                   z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
+#ifndef CPU_ONLY
             case CU_RUNTIME:
                 cu_compare_greater(z_buffer->datatype, z_buffer->view->shape[0],
                                  x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
                                  y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
                                  z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
+#endif
             default:
                 break;
             }
@@ -1014,12 +1064,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                  y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
                                  z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
+#ifndef CPU_ONLY
                 case CU_RUNTIME:
                     cu_addition(z_buffer->datatype, z_buffer->view->shape[1],
                                 x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
                                 y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
                                 z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
+#endif
                 default:
                     break;
                 }
@@ -1039,12 +1091,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                     y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
                                     z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
+#ifndef CPU_ONLY
                 case CU_RUNTIME:
                     cu_subtraction(z_buffer->datatype, z_buffer->view->shape[1],
                                    x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
                                    y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
                                    z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
+#endif
                 default:
                     break;
                 }
@@ -1064,12 +1118,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                        y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
                                        z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
+#ifndef CPU_ONLY
                 case CU_RUNTIME:
                     cu_multiplication(z_buffer->datatype, z_buffer->view->shape[1],
                                       x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
                                       y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
                                       z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
+#endif
                 default:
                     break;
                 }
@@ -1089,12 +1145,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                  y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
                                  z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
+#ifndef CPU_ONLY
                 case CU_RUNTIME:
                     cu_division(z_buffer->datatype, z_buffer->view->shape[1],
                                 x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
                                 y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
                                 z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
+#endif
                 default:
                     break;
                 }
@@ -1114,12 +1172,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                               y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
                               z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
+#ifndef CPU_ONLY
                 case CU_RUNTIME:
                     cu_power(z_buffer->datatype, z_buffer->view->shape[1],
                              x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
                              y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
                              z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
+#endif
                 default:
                     break;
                 }
@@ -1139,12 +1199,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                       y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
                                       z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
+#ifndef CPU_ONLY
                 case CU_RUNTIME:
                     cu_compare_equal(z_buffer->datatype, z_buffer->view->shape[1],
                                      x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
                                      y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
                                      z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
+#endif
                 default:
                     break;
                 }
@@ -1164,12 +1226,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                       y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
                                       z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
+#ifndef CPU_ONLY
                 case CU_RUNTIME:
                     cu_compare_greater(z_buffer->datatype, z_buffer->view->shape[1],
                                      x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
                                      y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
                                      z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
+#endif
                 default:
                     break;
                 }
@@ -1202,12 +1266,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                      y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                      z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
+#ifndef CPU_ONLY
                     case CU_RUNTIME:
                         cu_addition(z_buffer->datatype, z_buffer->view->shape[2],
                                     x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
                                     y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                     z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
+#endif
                     default:
                         break;
                     }
@@ -1227,12 +1293,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                         y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                         z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
+#ifndef CPU_ONLY
                     case CU_RUNTIME:
                         cu_subtraction(z_buffer->datatype, z_buffer->view->shape[2],
                                        x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
                                        y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                        z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
+#endif
                     default:
                         break;
                     }
@@ -1252,12 +1320,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                            y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                            z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
+#ifndef CPU_ONLY
                     case CU_RUNTIME:
                         cu_multiplication(z_buffer->datatype, z_buffer->view->shape[2],
                                           x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
                                           y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                           z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
+#endif
                     default:
                         break;
                     }
@@ -1277,12 +1347,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                      y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                      z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
+#ifndef CPU_ONLY
                     case CU_RUNTIME:
                         cu_division(z_buffer->datatype, z_buffer->view->shape[2],
                                     x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
                                     y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                     z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
+#endif
                     default:
                         break;
                     }
@@ -1302,12 +1374,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                   y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                   z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
+#ifndef CPU_ONLY
                     case CU_RUNTIME:
                         cu_power(z_buffer->datatype, z_buffer->view->shape[2],
                                  x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
                                  y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                  z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
+#endif
                     default:
                         break;
                     }
@@ -1327,12 +1401,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                           y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                           z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
+#ifndef CPU_ONLY
                     case CU_RUNTIME:
                         cu_compare_equal(z_buffer->datatype, z_buffer->view->shape[2],
                                          x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
                                          y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                          z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
+#endif
                     default:
                         break;
                     }
@@ -1352,12 +1428,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                           y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                           z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
+#ifndef CPU_ONLY
                     case CU_RUNTIME:
                         cu_compare_greater(z_buffer->datatype, z_buffer->view->shape[2],
                                          x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
                                          y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                          z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
+#endif
                     default:
                         break;
                     }
@@ -1392,12 +1470,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                          y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
                                          z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
+#ifndef CPU_ONLY
                         case CU_RUNTIME:
                             cu_addition(z_buffer->datatype, z_buffer->view->shape[3],
                                         x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
                                         y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
                                         z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
+#endif
                         default:
                             break;
                         }
@@ -1417,12 +1497,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                             y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
                                             z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
+#ifndef CPU_ONLY
                         case CU_RUNTIME:
                             cu_subtraction(z_buffer->datatype, z_buffer->view->shape[3],
                                            x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
                                            y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
                                            z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
+#endif
                         default:
                             break;
                         }
@@ -1442,12 +1524,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                                y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
                                                z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
+#ifndef CPU_ONLY
                         case CU_RUNTIME:
                             cu_multiplication(z_buffer->datatype, z_buffer->view->shape[3],
                                               x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
                                               y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
                                               z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
+#endif
                         default:
                             break;
                         }
@@ -1467,12 +1551,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                          y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
                                          z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
+#ifndef CPU_ONLY
                         case CU_RUNTIME:
                             cu_division(z_buffer->datatype, z_buffer->view->shape[3],
                                         x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
                                         y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
                                         z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
+#endif
                         default:
                             break;
                         }
@@ -1492,12 +1578,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                       y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
                                       z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
+#ifndef CPU_ONLY
                         case CU_RUNTIME:
                             cu_power(z_buffer->datatype, z_buffer->view->shape[3],
                                      x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
                                      y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
                                      z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
+#endif
                         default:
                             break;
                         }
@@ -1517,12 +1605,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                               y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
                                               z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
+#ifndef CPU_ONLY
                         case CU_RUNTIME:
                             cu_compare_equal(z_buffer->datatype, z_buffer->view->shape[3],
                                              x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
                                              y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
                                              z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
+#endif
                         default:
                             break;
                         }
@@ -1542,12 +1632,14 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                                               y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
                                               z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
+#ifndef CPU_ONLY
                         case CU_RUNTIME:
                             cu_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
                                              x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
                                              y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
                                              z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
+#endif
                         default:
                             break;
                         }
@@ -1694,12 +1786,14 @@ nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer
                                       y_buffer->data, y_buffer->view->offset,
                                       z_buffer->data, z_buffer->view->offset);
             break;
+#ifndef CPU_ONLY
         case CU_RUNTIME:
             cu_matrix_multiplication(z_buffer->datatype, m, k, n, x_transpose, y_transpose,
                                      x_buffer->data, x_buffer->view->offset,
                                      y_buffer->data, y_buffer->view->offset,
                                      z_buffer->data, z_buffer->view->offset);
             break;
+#endif
         default:
             return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->runtime), NULL);
         }
@@ -1721,12 +1815,14 @@ nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer
                                           y_buffer->data, y_buffer->view->offset + i * y_buffer->view->strides[0],
                                           z_buffer->data, z_buffer->view->offset + i * z_buffer->view->strides[0]);
                 break;
+#ifndef CPU_ONLY
             case CU_RUNTIME:
                 cu_matrix_multiplication(z_buffer->datatype, m, k, n, x_transpose, y_transpose,
                                          x_buffer->data, x_buffer->view->offset + i * x_buffer->view->strides[0],
                                          y_buffer->data, y_buffer->view->offset + i * y_buffer->view->strides[0],
                                          z_buffer->data, z_buffer->view->offset + i * z_buffer->view->strides[0]);
                 break;
+#endif
             default:
                 return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->runtime), NULL);
             }
@@ -1751,12 +1847,14 @@ nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer
                                               y_buffer->data, y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                               z_buffer->data, z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                     break;
+#ifndef CPU_ONLY
                 case CU_RUNTIME:
                     cu_matrix_multiplication(z_buffer->datatype, m, k, n, x_transpose, y_transpose,
                                              x_buffer->data, x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
                                              y_buffer->data, y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
                                              z_buffer->data, z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                     break;
+#endif
                 default:
                     return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->runtime), NULL);
                 }
@@ -1796,9 +1894,11 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
             case MKL_RUNTIME:
                 mkl_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
                 break;
+#ifndef CPU_ONLY
             case CU_RUNTIME:
                 cu_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
                 break;
+#endif
             default:
                 break;
             }
@@ -1812,9 +1912,11 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
             case MKL_RUNTIME:
                 mkl_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
                 break;
+#ifndef CPU_ONLY
             case CU_RUNTIME:
                 cu_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
                 break;
+#endif
             default:
                 break;
             }
@@ -1851,10 +1953,12 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
                     mkl_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
                                   result->data, result->view->offset + i * result->view->strides[idim]);
                     break;
+#ifndef CPU_ONLY
                 case CU_RUNTIME:
                     cu_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
                                  result->data, result->view->offset + i * result->view->strides[idim]);
                     break;
+#endif
                 default:
                     break;
                 }
@@ -1870,10 +1974,12 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
                     mkl_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
                                 result->data, result->view->offset + i * result->view->strides[idim]);
                     break;
+#ifndef CPU_ONLY
                 case CU_RUNTIME:
                     cu_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
                                result->data, result->view->offset + i * result->view->strides[idim]);
                     break;
+#endif
                 default:
                     break;
                 }
@@ -1919,10 +2025,12 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
                         mkl_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
                                       result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
                         break;
+#ifndef CPU_ONLY
                     case CU_RUNTIME:
                         cu_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
                                      result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
                         break;
+#endif
                     default:
                         break;
                     }
@@ -1938,10 +2046,12 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
                         mkl_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
                                     result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
                         break;
+#ifndef CPU_ONLY
                     case CU_RUNTIME:
                         cu_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
                                    result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
                         break;
+#endif
                     default:
                         break;
                     }
@@ -1999,10 +2109,12 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
                             mkl_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
                                           result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
                             break;
+#ifndef CPU_ONLY
                         case CU_RUNTIME:
                             cu_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
                                          result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
                             break;
+#endif
                         default:
                             break;
                         }
@@ -2018,10 +2130,12 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
                             mkl_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
                                         result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
                             break;
+#ifndef CPU_ONLY
                         case CU_RUNTIME:
                             cu_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
                                        result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
                             break;
+#endif
                         default:
                             break;
                         }
