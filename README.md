@@ -1,5 +1,5 @@
 # neuralwindow
-
+[![Build Unit Tests](https://github.com/vandluke/neuralwindow/actions/workflows/cmake.yml/badge.svg)](https://github.com/vandluke/neuralwindow/actions/workflows/cmake.yml)
 ## Setup
 
 Clone the repository
@@ -85,8 +85,6 @@ cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
 make
 ```
 
-To build without CUDA define enviroment variable `CPU_ONLY=1`.
-
 ## Test
 
 Run all the unit tests with
@@ -113,5 +111,5 @@ To generate a Valgrind suppression file run
 valgrind --leak-check=full --show-reachable=yes --error-limit=no --gen-suppressions=all --log-file=suppressions.log ./test/<test_name>
 cat ./suppressions.log | ./../parse_valgrind_suppressions.sh > suppressions.supp
 ```
-
-To test without CUDA define enviroment variable `CPU_ONLY=1`.
+## CPU Only
+To build and test without CUDA define enviroment variable `CPU_ONLY=1`.
