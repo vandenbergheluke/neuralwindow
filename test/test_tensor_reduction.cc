@@ -1,10 +1,11 @@
-#include "datatype.h"
 #include <ATen/core/TensorBody.h>
 #include <ATen/ops/sum.h>
 #include <iostream>
+#include <tuple>
 extern "C"
 {
 #include <check.h>
+#include <datatype.h>
 #include <view.h>
 #include <buffer.h>
 #include <tensor.h>
@@ -228,10 +229,7 @@ void setup(void)
                                       true);
                 ck_assert_ptr_null(error);
 
-                error = tensor_create(&tensors[i][j][k], buffers[i][j][k], NULL, NULL, false, false);
-                ck_assert_ptr_null(error);
-
-                error = tensor_create_empty(&expected_tensors[i][j][k]);
+                error = tensor_create(&tensors[i][j][k], buffers[i][j][k], NULL, NULL, true, true);
                 ck_assert_ptr_null(error);
 
                 error = view_create(&expected_views[i][j][k],
@@ -268,7 +266,7 @@ void teardown(void)
     error_destroy(error);
 }
 
-START_TEST(test_summation_forward)
+void test_reduction(reduction_operation_type_t reduction_operation_type)
 {
     for (int i = 0; i < RUNTIMES; i++)
     {
@@ -276,16 +274,26 @@ START_TEST(test_summation_forward)
         {
             for (int k = 0; k < CASES; k++)
             {
-                printf("test_summation_forward:runtime %s:datatype %d:case %d\n", 
-                       runtime_string((runtime_t) i), j, k);
+                printf("test:%s:runtime %s:datatype %s:case %d\n", 
+                       reduction_operation_type_string(reduction_operation_type),
+                       runtime_string((runtime_t) i), datatype_string((datatype_t) j), k);
 
-                function_t *function = NULL; 
                 reduction_operation_t *reduction_operation = NULL;
                 operation_t *operation = NULL;
+                torch::Tensor expected_tensor;
 
-                torch::Tensor expected_tensor = torch::sum(torch_tensors[i][j][k], 
-                                                           axis[k],
-                                                           keep_dimension[k]);
+                switch (reduction_operation_type)
+                {
+                case SUMMATION_OPERATION:
+                    expected_tensor = torch::sum(torch_tensors[i][j][k], axis[k], keep_dimension[k]);
+                    break;
+                case MAXIMUM_OPERATION:
+                    expected_tensor = torch::amax(torch_tensors[i][j][k], axis[k], keep_dimension[k]);
+                    break;
+                default:
+                    ck_abort_msg("unknown reduction type.");
+                }
+
                 error = buffer_create(&expected_buffers[i][j][k],
                                       (runtime_t) i,
                                       (datatype_t) j,
@@ -295,9 +303,16 @@ START_TEST(test_summation_forward)
                                       true);
                 ck_assert_ptr_null(error);
 
+                error = tensor_create(&expected_tensors[i][j][k],
+                                      expected_buffers[i][j][k],
+                                      NULL,
+                                      NULL,
+                                      tensors[i][j][k]->requires_gradient,
+                                      tensors[i][j][k]->lock);
+                ck_assert_ptr_null(error);
 
                 error = reduction_operation_create(&reduction_operation,
-                                                   SUMMATION_OPERATION,
+                                                   reduction_operation_type,
                                                    tensors[i][j][k],
                                                    (uint64_t *) axis[k].data(),
                                                    length[k], 
@@ -306,25 +321,45 @@ START_TEST(test_summation_forward)
                 ck_assert_ptr_null(error);
                 error = operation_create(&operation, REDUCTION_OPERATION, reduction_operation);
                 ck_assert_ptr_null(error);
-                error = function_create(&function, operation, REDUCTION_OPERATION);
+                error = function_create(&expected_tensors[i][j][k]->context, operation, REDUCTION_OPERATION);
                 ck_assert_ptr_null(error);
 
-                expected_tensors[i][j][k]->buffer = expected_buffers[i][j][k];
-                expected_tensors[i][j][k]->context = function;
-                expected_tensors[i][j][k]->requires_gradient = tensors[i][j][k]->requires_gradient;
-                expected_tensors[i][j][k]->lock = tensors[i][j][k]->lock;
-
-                error = tensor_summation(tensors[i][j][k], 
-                                         returned_tensors[i][j][k],
-                                         (uint64_t *) axis[k].data(),
-                                         length[k],
-                                         keep_dimension[k]);
+                switch (reduction_operation_type)
+                {
+                case SUMMATION_OPERATION:
+                    error = tensor_summation(tensors[i][j][k], 
+                                             returned_tensors[i][j][k],
+                                             (uint64_t *) axis[k].data(),
+                                             length[k],
+                                             keep_dimension[k]);
+                    break;
+                case MAXIMUM_OPERATION:
+                    error = tensor_maximum(tensors[i][j][k], 
+                                           returned_tensors[i][j][k],
+                                           (uint64_t *) axis[k].data(),
+                                           length[k],
+                                           keep_dimension[k]);
+                    break;
+                default:
+                    ck_abort_msg("unknown reduction type.");
+                }
                 ck_assert_ptr_null(error);
 
                 ck_assert_tensor_eq(returned_tensors[i][j][k], expected_tensors[i][j][k]);
             }
         }
     }
+}
+
+START_TEST(test_summation)
+{
+    test_reduction(SUMMATION_OPERATION);
+}
+END_TEST
+
+START_TEST(test_maximum)
+{
+    test_reduction(MAXIMUM_OPERATION);
 }
 END_TEST
 
@@ -337,7 +372,8 @@ Suite *make_reduction_suite(void)
 
     tc_reduction = tcase_create("Test Reduction Tensor Case");
     tcase_add_checked_fixture(tc_reduction, setup, teardown);
-    tcase_add_test(tc_reduction, test_summation_forward);
+    tcase_add_test(tc_reduction, test_summation);
+    tcase_add_test(tc_reduction, test_maximum);
 
     suite_add_tcase(s, tc_reduction);
 

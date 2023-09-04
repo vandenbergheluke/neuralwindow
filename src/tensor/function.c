@@ -2484,11 +2484,12 @@ string_t reduction_operation_type_string(reduction_operation_type_t reduction_op
     }
 }
 
-static nw_error_t *summation_operation_forward(tensor_t *x,
-                                               uint64_t *axis,
-                                               uint64_t length,
-                                               tensor_t *result,
-                                               bool_t keep_dimension)
+static nw_error_t *reduction_forward(reduction_operation_type_t reduction_operation_type,
+                                     tensor_t *x,
+                                     uint64_t *axis,
+                                     uint64_t length,
+                                     tensor_t *result,
+                                     bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(axis, "axis");
@@ -2598,14 +2599,35 @@ static nw_error_t *summation_operation_forward(tensor_t *x,
                          error);
         }
 
-        error = runtime_summation(x_buffer, result_buffer, axis[i]);
-        if (error != NULL)
+        switch (reduction_operation_type)
         {
-            free(reduced_shape);
-            free(reduced_strides);
-            return ERROR(ERROR_SUMMATION,
-                         string_create("failed to successfully run summation operation."),
-                         error);
+        case SUMMATION_OPERATION:
+            error = runtime_summation(x_buffer, result_buffer, axis[i]);
+            if (error != NULL)
+            {
+                free(reduced_shape);
+                free(reduced_strides);
+                return ERROR(ERROR_SUMMATION,
+                            string_create("failed to successfully run summation operation."),
+                            error);
+            }
+            break;
+        case MAXIMUM_OPERATION:
+            error = runtime_maximum(x_buffer, result_buffer, axis[i]);
+            if (error != NULL)
+            {
+                free(reduced_shape);
+                free(reduced_strides);
+                return ERROR(ERROR_MAXIMUM,
+                            string_create("failed to successfully run maximum operation."),
+                            error);
+            }
+            break;
+        default:
+            return ERROR(ERROR_UKNOWN_OPERATION_TYPE,
+                         string_create("unknown reduction operation type %d.",
+                         (int) reduction_operation_type),
+                         NULL);
         }
 
         free(reduced_shape);
@@ -2676,6 +2698,29 @@ static nw_error_t *summation_operation_forward(tensor_t *x,
     }
 
     result->buffer = result_buffer;
+
+    return NULL; 
+}
+
+static nw_error_t *summation_operation_forward(tensor_t *x,
+                                               uint64_t *axis,
+                                               uint64_t length,
+                                               tensor_t *result,
+                                               bool_t keep_dimension)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(axis, "axis");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    nw_error_t *error = NULL;
+
+    error = reduction_forward(SUMMATION_OPERATION, x, axis, length, result, keep_dimension);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_REDUCTION, 
+                     string_create("failed to reduce tensor."),
+                     error);
+    }
 
     return NULL; 
 }
@@ -2774,94 +2819,29 @@ static nw_error_t *summation_operation_backward(tensor_t *x,
     return NULL; 
 }
 
-static nw_error_t *maximum_operation_forward(tensor_t *x, uint64_t *axis, uint64_t rank, tensor_t *result, bool_t keep_dimension)
+static nw_error_t *maximum_operation_forward(tensor_t *x,
+                                             uint64_t *axis,
+                                             uint64_t length,
+                                             tensor_t *result,
+                                             bool_t keep_dimension)
 {
+
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(axis, "axis");
     CHECK_NULL_ARGUMENT(result, "result");
 
-    buffer_t *x_buffer = x->buffer;
-    buffer_t *result_buffer;
-    for (uint64_t i = 0; i < rank; ++i)
+    nw_error_t *error = NULL;
+
+    error = reduction_forward(MAXIMUM_OPERATION, x, axis, length, result, keep_dimension);
+    if (error != NULL)
     {
-        uint64_t *reduced_shape = (uint64_t *) malloc(rank * sizeof(uint64_t));
-        if (reduced_shape == NULL)
-        {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
-        }
-
-        uint64_t *reduced_strides = (uint64_t *) malloc(rank * sizeof(uint64_t));
-        if (reduced_strides == NULL)
-        {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
-        }
-
-        nw_error_t *error = reduce(x_buffer->view->shape, x_buffer->view->rank, x_buffer->view->strides, reduced_shape, x_buffer->view->rank, reduced_strides, &axis[i], 1, true);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_REDUCTION, string_create("failed to remove reduce tensor view along axis %lu.", axis[i]), error);
-        }
-
-        view_t *view;
-        error = view_create(&view, x->buffer->view->offset, x->buffer->view->rank, reduced_shape, reduced_strides);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
-        }
-
-        error = buffer_create(&result_buffer, x->buffer->runtime, x->buffer->datatype, view, NULL, 0, true);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-        }
-
-        error = runtime_maximum(x_buffer, result_buffer, axis[i]);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_SUMMATION, string_create("failed to successfully run maximum operation."), error);
-        }
-
-        free(reduced_shape);
-        free(reduced_strides);
-
-        if (i > 0)
-        {
-            buffer_destroy(x_buffer);
-        }
-        x_buffer = result_buffer;
+        return ERROR(ERROR_REDUCTION, 
+                     string_create("failed to reduce tensor."),
+                     error);
     }
-
-    if (!keep_dimension)
-    {
-        uint64_t *reduced_shape = (uint64_t *) malloc(rank * sizeof(uint64_t));
-        if (reduced_shape == NULL)
-        {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
-        }
-
-        uint64_t *reduced_strides = (uint64_t *) malloc(rank * sizeof(uint64_t));
-        if (reduced_strides == NULL)
-        {
-            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocated reduced_shape of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
-        }
-
-        nw_error_t *error = reduce(result_buffer->view->shape, result_buffer->view->rank, result_buffer->view->strides, 
-                                reduced_shape, result_buffer->view->rank - rank, reduced_strides, axis, rank, keep_dimension);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_REDUCTION, string_create("failed to remove dimensions from reduced tensor."), error);
-        }
-
-        free(result_buffer->view->shape);
-        free(result_buffer->view->strides);
-        result_buffer->view->shape = reduced_shape;
-        result_buffer->view->strides = reduced_strides;
-        result_buffer->view->rank -= rank;
-    }
-
-    result->buffer = result_buffer;
 
     return NULL; 
+
 }
 
 static nw_error_t *maximum_operation_backward(tensor_t *x, uint64_t *axis, uint64_t rank, tensor_t *result, tensor_t *gradient, bool_t keep_dimension)

@@ -58,6 +58,7 @@ typedef enum nw_error_type_t
     ERROR_AXIS,
     ERROR_SORT,
     ERROR_POP,
+    ERROR_MAXIMUM,
 } nw_error_type_t;
 
 typedef struct nw_error_t

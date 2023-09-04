@@ -17483,4 +17483,35 @@
    fun:_dl_init
    obj:/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:_Znwm
+   fun:_ZN2at6detail12getCUDAHooksEv
+   fun:_ZN2atL11manual_seedEm
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:_Znwm
+   fun:_ZN2at17CUDAHooksRegistryEv
+   fun:_ZN2at6detail12getCUDAHooksEv
+   fun:_ZN2atL11manual_seedEm
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:_Znwm
+   fun:_ZN2at16MPSHooksRegistryEv
+   fun:_ZN2at6detail11getMPSHooksEv
+   fun:_ZN2at7Context6hasMPSEv
+   fun:_ZN2atL6hasMPSEv
+   fun:_ZN2atL11manual_seedEm
+   fun:main
+}
 
