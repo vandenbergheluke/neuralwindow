@@ -14,7 +14,6 @@ extern "C"
 #include <torch/torch.h>
 #include <cstring>
 
-#define SEED 1234
 #define CASES 9
 
 nw_error_t *error;

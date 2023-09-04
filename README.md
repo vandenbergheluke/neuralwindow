@@ -53,7 +53,7 @@ sudo wget https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-2.
 unzip libtorch-shared-with-deps-2.0.1+cpu.zip
 ```
 
-Install CUDA
+Install CUDA (Optional)
 
 ```bash
 lspci | grep -i nvidia  
@@ -85,7 +85,7 @@ cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
 make
 ```
 
-To build without GPU define enviroment variable `CPU_ONLY=1`.
+To build without CUDA define enviroment variable `CPU_ONLY=1`.
 
 ## Test
 
@@ -114,4 +114,4 @@ valgrind --leak-check=full --show-reachable=yes --error-limit=no --gen-suppressi
 cat ./suppressions.log | ./../parse_valgrind_suppressions.sh > suppressions.supp
 ```
 
-To test without GPU define enviroment variable `CPU_ONLY=1`.
+To test without CUDA define enviroment variable `CPU_ONLY=1`.
