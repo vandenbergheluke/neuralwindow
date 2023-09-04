@@ -37,8 +37,8 @@ jobs:
       run: |
         mkdir build
         cd build
-        CPU_ONLY=1 cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
+        cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
         make
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: ctest --output-on-failure
+      run: CPU_ONLY=1 ctest --output-on-failure

@@ -22,6 +22,12 @@ typedef enum runtime_t
    CU_RUNTIME
 } runtime_t;
 
+#if defined CPU_ONLY
+#define RUNTIMES 2
+#else
+#define RUNTIMES 3
+#endif
+
 typedef struct buffer_t
 {
     view_t *view;

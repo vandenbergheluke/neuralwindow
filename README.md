@@ -76,12 +76,16 @@ nvcc --version
 
 ## Build
 
+To build neuralwindow run
+
 ```bash
 mkdir build
 cd build
 cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
 make
 ```
+
+To build without GPU define enviroment variable `CPU_ONLY=1`.
 
 ## Test
 
@@ -109,3 +113,5 @@ To generate a Valgrind suppression file run
 valgrind --leak-check=full --show-reachable=yes --error-limit=no --gen-suppressions=all --log-file=suppressions.log ./test/<test_name>
 cat ./suppressions.log | ./../parse_valgrind_suppressions.sh > suppressions.supp
 ```
+
+To test without GPU define enviroment variable `CPU_ONLY=1`.

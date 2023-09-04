@@ -7,6 +7,7 @@ extern "C"
 #include <view.h>
 #include <errors.h>
 #include <datatype.h>
+#include <test_helper.h>
 }
 #include <torch/torch.h>
 
@@ -131,52 +132,6 @@ void unary_teardown(void)
     error_destroy(unary_error);
 }
 
-void ck_assert_buffer_eq(const buffer_t *returned_buffer, const buffer_t *expected_buffer)
-{
-    ck_assert_uint_eq(expected_buffer->view->rank, returned_buffer->view->rank);
-    ck_assert_uint_eq(expected_buffer->view->offset, returned_buffer->view->offset);
-    ck_assert_uint_eq(expected_buffer->n, returned_buffer->n);
-    ck_assert_uint_eq(expected_buffer->size, returned_buffer->size);
-    ck_assert_int_eq(expected_buffer->datatype, returned_buffer->datatype);
-    ck_assert_int_eq(expected_buffer->runtime, returned_buffer->runtime);
-
-    for (uint64_t i = 0; i < expected_buffer->view->rank; ++i)
-    {
-        ck_assert_uint_eq(expected_buffer->view->shape[i], returned_buffer->view->shape[i]);
-        ck_assert_uint_eq(expected_buffer->view->strides[i], returned_buffer->view->strides[i]);
-    }
-
-    for (uint64_t i = 0; i < expected_buffer->n; ++i)
-    {
-
-        switch (expected_buffer->datatype)
-        {
-        case FLOAT32:
-            if (isnanf(((float32_t *) expected_buffer->data)[i]))
-            {
-                ck_assert_float_nan(((float32_t *) returned_buffer->data)[i]);
-            }
-            else
-            {
-                ck_assert_float_eq_tol(((float32_t *) returned_buffer->data)[i],
-                                       ((float32_t *) expected_buffer->data)[i], EPSILON);
-            }
-            break;
-        case FLOAT64:
-            if (isnan(((float64_t *) expected_buffer->data)[i]))
-            {
-                ck_assert_double_nan(((float64_t *) returned_buffer->data)[i]);
-            }
-            else
-            {
-                ck_assert_double_eq_tol(((float64_t *) returned_buffer->data)[i],
-                                        ((float64_t *) expected_buffer->data)[i], EPSILON);
-            }
-        default:
-            break;
-        }
-    }
-}
 
 START_TEST(test_exponential)
 {

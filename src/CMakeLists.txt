@@ -18,10 +18,14 @@ set(
     "${UTIL_DIR}/queue.c"
     "${UTIL_DIR}/random.c"
     "${UTIL_DIR}/stack.c"
-    "${RUNTIME_DIR}/cu_runtime.cu"
     "${RUNTIME_DIR}/mkl_runtime.c"
     "${RUNTIME_DIR}/openblas_runtime.c"
     "${NN_DIR}/layer.c"
+)
+
+set(
+    SOURCE_CUDA
+    "${RUNTIME_DIR}/cu_runtime.cu"
 )
 
 set(
@@ -38,19 +42,41 @@ set(
     "${UTIL_DIR}/queue.h"
     "${UTIL_DIR}/random.h"
     "${UTIL_DIR}/stack.h"
-    "${RUNTIME_DIR}/cu_runtime.h"
     "${RUNTIME_DIR}/mkl_runtime.h"
     "${RUNTIME_DIR}/openblas_runtime.h"
     "${NN_DIR}/layer.h"
 )
 
-add_library(${PROJECT_NAME} STATIC ${SOURCE})
+set(
+    HEADER_CUDA
+    "${RUNTIME_DIR}/cu_runtime.h"
+)
 
+set(
+    CPU_LIBRARIES
+    openblas
+    mkl_core
+    mkl_rt
+)
+
+set(
+    GPU_LIBRARIES
+    cublas
+)
+
+
+if (NOT DEFINED ENV{CPU_ONLY})
+    add_library(${PROJECT_NAME} STATIC ${SOURCE} ${SOURCE_CUDA})
+    set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+    target_link_libraries(${TEST} ${PROJECT_NAME} ${CPU_LIBRARIES} ${GPU_LIBRARIES})
+    set_target_properties(${PROJECT_NAME} PROPERTIES SOVERSION 1)
+    set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${HEADERS} ${CUDA_HEADERS}")
+else()
+    add_library(${PROJECT_NAME} STATIC ${SOURCE})
+    target_link_libraries(${TEST} ${PROJECT_NAME} ${CPU_LIBRARIES})
+    set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${HEADERS}")
+endif()
 target_include_directories(${PROJECT_NAME} PUBLIC ${TENSOR_DIR} ${UTIL_DIR} ${RUNTIME_DIR} ${MKL_DIR} ${NN_DIR} ${INCLUDE_DIR})
-set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${HEADERS}")
-set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-set_target_properties(${PROJECT_NAME} PROPERTIES SOVERSION 1)
-target_link_libraries(${TEST} ${PROJECT_NAME} openblas cublas mkl_core mkl_rt)
 install(
     TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION bin
