@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.22.1)
 
-project(neuralwindow LANGUAGES CUDA C CXX)
+if (DEFINED ENV{CPU_ONLY})
+    project(neuralwindow LANGUAGES C CXX)
+else()
+    project(neuralwindow LANGUAGES CUDA C CXX)
+endif()
 
 set(TEST_DIR test)
 set(SRC_DIR src)
