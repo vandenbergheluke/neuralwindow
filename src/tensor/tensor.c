@@ -532,6 +532,20 @@ nw_error_t *tensor_negation(const tensor_t *x, tensor_t *y)
     return NULL;
 }
 
+nw_error_t *tensor_rectified_linear(const tensor_t *x, tensor_t *y)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = apply_function_unary(RECTIFIED_LINEAR_OPERATION, x, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to apply rectified linear to tensor."), error);
+    }
+
+    return NULL;
+}
+
 nw_error_t *tensor_constant(void *constant, datatype_t datatype, runtime_t runtime, tensor_t *x)
 {
     CHECK_NULL_ARGUMENT(constant, "constant");
