@@ -85,6 +85,13 @@ nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_origi
     CHECK_NULL_ARGUMENT(x_broadcasted, "x_broadcasted");
     CHECK_NULL_ARGUMENT(y_broadcasted, "y_broadcasted");
 
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x_original", x_original);
+    PRINTLN_DEBUG_TENSOR("y_original", y_original);
+    PRINTLN_DEBUG_TENSOR("x_broadcasted", x_broadcasted);
+    PRINTLN_DEBUG_TENSOR("y_broadcasted", y_broadcasted);
+    PRINT_DEBUG_NEWLINE;
+
     nw_error_t *error;
     uint64_t *x_shape = x_original->buffer->view->shape; 
     uint64_t x_rank = x_original->buffer->view->rank; 
@@ -120,6 +127,13 @@ nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_origi
 
     free(broadcasted_shape);
 
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x_original", x_original);
+    PRINTLN_DEBUG_TENSOR("y_original", y_original);
+    PRINTLN_DEBUG_TENSOR("x_broadcasted", x_broadcasted);
+    PRINTLN_DEBUG_TENSOR("y_broadcasted", y_broadcasted);
+    PRINT_DEBUG_NEWLINE;
+
     return NULL;
 }
 
@@ -129,11 +143,23 @@ nw_error_t *tensor_expand(const tensor_t *x, const uint64_t *shape, uint64_t len
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINTLN_DEBUG_UINT64_ARRAY("shape", shape, length);
+    PRINT_DEBUG_NEWLINE;
+
     nw_error_t *error = apply_function_structure(EXPAND_OPERATION, x, shape, length, y);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to broadcast tensor x."), error);
     }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINTLN_DEBUG_UINT64_ARRAY("shape", shape, length);
+    PRINT_DEBUG_NEWLINE;
 
     return NULL;
 }
@@ -725,6 +751,12 @@ nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
 
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("x->gradient", x->gradient);
+    PRINTLN_DEBUG_TENSOR("gradient", gradient);
+    PRINT_DEBUG_NEWLINE;
+
     nw_error_t *error = NULL;
     stack_t *tensors = NULL;
     map_t *visited = NULL;
@@ -810,6 +842,12 @@ nw_error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient)
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
 
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("x->gradient", x->gradient);
+    PRINTLN_DEBUG_TENSOR("gradient", gradient);
+    PRINT_DEBUG_NEWLINE;
+
     nw_error_t *error;
 
     if (x->gradient == NULL)
@@ -825,10 +863,6 @@ nw_error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient)
         {
             return ERROR(ERROR_CREATE, string_create("failed to create add gradient."), error);
         }
-
-        // Avoid destroying data in gradient when propogated to operands.
-        gradient->buffer->copy = false;
-        x->gradient->buffer->copy = true;
     }
     else
     {
@@ -847,6 +881,12 @@ nw_error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient)
         tensor_destroy(x->gradient);
         x->gradient = updated_gradient;
     }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("x->gradient", x->gradient);
+    PRINTLN_DEBUG_TENSOR("gradient", gradient);
+    PRINT_DEBUG_NEWLINE;
 
     return NULL;
 }

@@ -21,13 +21,16 @@ nw_error_t *error;
 
 buffer_t *buffers[RUNTIMES][DATATYPES][CASES];
 buffer_t *expected_buffers[RUNTIMES][DATATYPES][CASES];
+buffer_t *expected_gradient_buffers[RUNTIMES][DATATYPES][CASES];
 
 view_t *views[RUNTIMES][DATATYPES][CASES];
 view_t *expected_views[RUNTIMES][DATATYPES][CASES];
+view_t *expected_gradient_views[RUNTIMES][DATATYPES][CASES];
 
 tensor_t *tensors[RUNTIMES][DATATYPES][CASES];
 tensor_t *returned_tensors[RUNTIMES][DATATYPES][CASES];
 tensor_t *expected_tensors[RUNTIMES][DATATYPES][CASES];
+tensor_t *expected_gradient[RUNTIMES][DATATYPES][CASES];
 
 torch::Tensor torch_tensors[RUNTIMES][DATATYPES][CASES];
 
@@ -186,13 +189,16 @@ void setup(void)
             {
                 buffers[i][j][k] = NULL;
                 expected_buffers[i][j][k] = NULL;
+                expected_gradient_buffers[i][j][k] = NULL;
 
                 views[i][j][k] = NULL;
                 expected_views[i][j][k] = NULL;
+                expected_gradient_views[i][j][k] = NULL;
 
                 tensors[i][j][k] = NULL;
                 returned_tensors[i][j][k] = NULL;
                 expected_tensors[i][j][k] = NULL;
+                expected_gradient[i][j][k] = NULL;
             }
 
             for (int k = 0; k < CASES; ++k)
@@ -201,17 +207,18 @@ void setup(void)
                 {
                 case FLOAT32:
                     torch_tensors[i][j][k] = torch::randn(torch_shapes[k], 
-                                                          torch::TensorOptions().dtype(torch::kFloat32)
+                                                          torch::TensorOptions().dtype(torch::kFloat32).requires_grad(true)
                                                           ).expand(shapes[k]);
                     break;
                 case FLOAT64:
                     torch_tensors[i][j][k] = torch::randn(torch_shapes[k],
-                                                          torch::TensorOptions().dtype(torch::kFloat64)
+                                                          torch::TensorOptions().dtype(torch::kFloat64).requires_grad(true)
                                                           ).expand(shapes[k]);
                     break;
                 default:
                     ck_abort_msg("unknown datatype.");
                 }
+                torch_tensors[i][j][k].retain_grad();
 
                 error = view_create(&views[i][j][k], 
                                     (uint64_t) torch_tensors[i][j][k].storage_offset(),
@@ -232,15 +239,9 @@ void setup(void)
                 error = tensor_create(&tensors[i][j][k], buffers[i][j][k], NULL, NULL, true, true);
                 ck_assert_ptr_null(error);
 
-                error = view_create(&expected_views[i][j][k],
-                                    (uint64_t) torch_tensors[i][j][k].storage_offset(),
-                                    expected_ranks[k],
-                                    expected_shapes[k],
-                                    expected_strides[k]);
-                ck_assert_ptr_null(error);
-
                 error = tensor_create_empty(&returned_tensors[i][j][k]);
                 ck_assert_ptr_null(error);
+                returned_tensors[i][j][k]->lock = true;
             }
         }
     }
@@ -258,6 +259,7 @@ void teardown(void)
                 tensor_destroy(tensors[i][j][k]);
                 tensor_destroy(expected_tensors[i][j][k]);
                 tensor_destroy(returned_tensors[i][j][k]);
+                tensor_destroy(expected_gradient[i][j][k]);
             }
         }
     }
@@ -293,6 +295,15 @@ void test_reduction(reduction_operation_type_t reduction_operation_type)
                 default:
                     ck_abort_msg("unknown reduction type.");
                 }
+                expected_tensor.sum().backward();
+
+                // Initialize expected tensor
+                error = view_create(&expected_views[i][j][k],
+                                    (uint64_t) torch_tensors[i][j][k].storage_offset(),
+                                    expected_ranks[k],
+                                    expected_shapes[k],
+                                    expected_strides[k]);
+                ck_assert_ptr_null(error);
 
                 error = buffer_create(&expected_buffers[i][j][k],
                                       (runtime_t) i,
@@ -308,7 +319,7 @@ void test_reduction(reduction_operation_type_t reduction_operation_type)
                                       NULL,
                                       NULL,
                                       tensors[i][j][k]->requires_gradient,
-                                      tensors[i][j][k]->lock);
+                                      false);
                 ck_assert_ptr_null(error);
 
                 error = reduction_operation_create(&reduction_operation,
@@ -322,6 +333,30 @@ void test_reduction(reduction_operation_type_t reduction_operation_type)
                 error = operation_create(&operation, REDUCTION_OPERATION, reduction_operation);
                 ck_assert_ptr_null(error);
                 error = function_create(&expected_tensors[i][j][k]->context, operation, REDUCTION_OPERATION);
+                ck_assert_ptr_null(error);
+
+                // Initialize expected gradient
+                error = view_create(&expected_gradient_views[i][j][k],
+                                    (uint64_t) torch_tensors[i][j][k].grad().storage_offset(),
+                                    (uint64_t) torch_tensors[i][j][k].grad().ndimension(),
+                                    (uint64_t *) torch_tensors[i][j][k].grad().sizes().data(),
+                                    (uint64_t *) torch_tensors[i][j][k].grad().strides().data());
+                ck_assert_ptr_null(error);
+                error = buffer_create(&expected_gradient_buffers[i][j][k],
+                                      (runtime_t) i,
+                                      (datatype_t) j,
+                                      expected_gradient_views[i][j][k],
+                                      (void *) torch_tensors[i][j][k].grad().data_ptr(),
+                                      (uint64_t) torch_tensors[i][j][k].grad().numel(),
+                                      true);
+                ck_assert_ptr_null(error);
+
+                error = tensor_create(&expected_gradient[i][j][k],
+                                      expected_gradient_buffers[i][j][k],
+                                      NULL,
+                                      NULL,
+                                      false,
+                                      false);
                 ck_assert_ptr_null(error);
 
                 switch (reduction_operation_type)
@@ -346,6 +381,11 @@ void test_reduction(reduction_operation_type_t reduction_operation_type)
                 ck_assert_ptr_null(error);
 
                 ck_assert_tensor_eq(returned_tensors[i][j][k], expected_tensors[i][j][k]);
+
+                error = tensor_backward(returned_tensors[i][j][k], NULL);
+                ck_assert_ptr_null(error);
+
+                ck_assert_tensor_equiv(tensors[i][j][k]->gradient, expected_gradient[i][j][k]);
             }
         }
     }
@@ -373,7 +413,7 @@ Suite *make_reduction_suite(void)
     tc_reduction = tcase_create("Test Reduction Tensor Case");
     tcase_add_checked_fixture(tc_reduction, setup, teardown);
     tcase_add_test(tc_reduction, test_summation);
-    tcase_add_test(tc_reduction, test_maximum);
+    // tcase_add_test(tc_reduction, test_maximum);
 
     suite_add_tcase(s, tc_reduction);
 

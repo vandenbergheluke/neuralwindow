@@ -28,7 +28,7 @@ nw_error_t *element_create(element_t **element, void *data)
 
 void element_destroy(element_t *element)
 {
-    if (element != NULL)
+    if (element == NULL)
     {
         return;
     }

@@ -1,5 +1,19 @@
 # neuralwindow
-[![Build Unit Tests](https://github.com/vandluke/neuralwindow/actions/workflows/cmake.yml/badge.svg)](https://github.com/vandluke/neuralwindow/actions/workflows/cmake.yml)
+
+<p align="center">
+    <img src="docs/logo.png", height=300, width=300>
+</p>
+
+<div align="center">
+  
+  [![Build Unit Tests](https://github.com/vandluke/neuralwindow/actions/workflows/cmake.yml/badge.svg)](https://github.com/vandluke/neuralwindow/actions/workflows/cmake.yml)
+  
+</div>
+
+## Description
+
+A basic deep learning library written in C.
+
 ## Setup
 
 Clone the repository
@@ -85,18 +99,30 @@ cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
 make
 ```
 
+To build and test without CUDA define enviroment variable `CPU_ONLY=1`.
+
+```bash
+CPU_ONLY=1 cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
+```
+
+Display Debug information by defining the enviroment variable `DEBUG=1`.
+
+```bash
+DEBUG=1 cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
+```
+
 ## Test
 
 Run all the unit tests with
 
 ```bash
-make test
+ctest --output-on-failure
 ```
 
-A specific test executable can be run using the command
+A specific test executable can be run with
 
 ```bash
-make <test_name>
+./test/<test_name>
 ```
 
 Valgrind can be run with a specific test exectuable with the command
@@ -111,5 +137,3 @@ To generate a Valgrind suppression file run
 valgrind --leak-check=full --show-reachable=yes --error-limit=no --gen-suppressions=all --log-file=suppressions.log ./test/<test_name>
 cat ./suppressions.log | ./../parse_valgrind_suppressions.sh > suppressions.supp
 ```
-## CPU Only
-To build and test without CUDA define enviroment variable `CPU_ONLY=1`.

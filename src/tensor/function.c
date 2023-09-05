@@ -350,28 +350,56 @@ nw_error_t *function_forward(function_t *function)
                             "function->operation->unary_operation");
         CHECK_NULL_ARGUMENT(function->operation->unary_operation->result,
                             "function->operation->unary_operation->result");
-        function->operation->unary_operation->result->context = function;
+        if (function->operation->unary_operation->result->requires_gradient)
+        {
+            function->operation->unary_operation->result->context = function;
+        }
+        else
+        {
+            function_destroy(function);
+        }
         break;
     case BINARY_OPERATION:
         CHECK_NULL_ARGUMENT(function->operation->binary_operation,
                             "function->operation->binary_operation");
         CHECK_NULL_ARGUMENT(function->operation->binary_operation->result,
                             "function->operation->binary_operation->result");
-        function->operation->binary_operation->result->context = function;
+        if (function->operation->binary_operation->result->requires_gradient)
+        {
+            function->operation->binary_operation->result->context = function;
+        }
+        else
+        {
+            function_destroy(function);
+        }
         break;
     case REDUCTION_OPERATION:
         CHECK_NULL_ARGUMENT(function->operation->reduction_operation,
                             "function->operation->reduction_operation");
         CHECK_NULL_ARGUMENT(function->operation->reduction_operation->result,
                             "function->operation->reduction_operation->result");
-        function->operation->reduction_operation->result->context = function;
+        if (function->operation->reduction_operation->result->requires_gradient)
+        {
+            function->operation->reduction_operation->result->context = function;
+        }
+        else
+        {
+            function_destroy(function);
+        }
         break;
     case STRUCTURE_OPERATION:
         CHECK_NULL_ARGUMENT(function->operation->structure_operation,
                             "function->operation->structure_operation");
         CHECK_NULL_ARGUMENT(function->operation->structure_operation->result,
                             "function->operation->structure_operation->result");
-        function->operation->structure_operation->result->context = function;
+        if (function->operation->structure_operation->result->requires_gradient)
+        {
+            function->operation->structure_operation->result->context = function;
+        }
+        else
+        {
+            function_destroy(function);
+        }
         break;
     default:
         return ERROR(ERROR_UKNOWN_OPERATION_TYPE,
@@ -776,7 +804,6 @@ static nw_error_t *exponential_operation_backward(tensor_t *x, tensor_t *result,
                          error);
         }
 
-        tensor_destroy(x_gradient);
     }
 
     return NULL;
@@ -1080,7 +1107,6 @@ static nw_error_t *cosine_operation_backward(tensor_t *x, tensor_t *gradient)
                          error);
         }
 
-        tensor_destroy(x_gradient);
         tensor_destroy(x_gradient_i);
         tensor_destroy(x_gradient_j);
     }
@@ -1207,7 +1233,6 @@ static nw_error_t *square_root_operation_backward(tensor_t *x, tensor_t *result,
                          error);
         }
 
-        tensor_destroy(x_gradient);
         tensor_destroy(x_gradient_i);
         tensor_destroy(constant);
     }
@@ -1327,7 +1352,6 @@ static nw_error_t *reciprocal_operation_backward(tensor_t *x, tensor_t *result, 
                          error);
         }
 
-        tensor_destroy(x_gradient);
         tensor_destroy(x_gradient_i);
         tensor_destroy(x_gradient_j);
     }
@@ -2735,6 +2759,13 @@ static nw_error_t *summation_operation_backward(tensor_t *x,
     CHECK_NULL_ARGUMENT(axis, "axis");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
 
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("gradient", gradient);
+    PRINTLN_DEBUG_UINT64_ARRAY("axis", axis, length);
+    PRINTLN_DEBUG_BOOLEAN("keep_dimension", keep_dimension);
+    PRINT_DEBUG_NEWLINE;
+
     if (x->requires_gradient)
     {
         tensor_t *x_gradient = NULL;
@@ -2807,14 +2838,30 @@ static nw_error_t *summation_operation_backward(tensor_t *x,
                          error);
         }
 
+        tensor_t *x_gradient_original = x->gradient;
         error = tensor_accumulate_gradient(x, x_gradient);
         if (error != NULL) 
         {
             return ERROR(ERROR_ADDITION,
-                         string_create("failed to accumulate gradient."),
-                         error);
+                        string_create("failed to accumulate gradient."),
+                        error);
         }
+
+        if (x_gradient_original == NULL)
+        {
+            gradient->buffer->copy = false;
+            x->gradient->buffer->copy = true;
+        }
+
+        tensor_destroy(x_gradient);
     }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("gradient", gradient);
+    PRINTLN_DEBUG_UINT64_ARRAY("axis", axis, length);
+    PRINTLN_DEBUG_BOOLEAN("keep_dimension", keep_dimension);
+    PRINT_DEBUG_NEWLINE;
 
     return NULL; 
 }
@@ -3328,7 +3375,6 @@ static nw_error_t *expand_operation_backward(tensor_t *x,
 
         free(axis_keep_dimension);
         free(axis_remove_dimension);
-        tensor_destroy(x_gradient);
         tensor_destroy(x_gradient_i);
     }
 

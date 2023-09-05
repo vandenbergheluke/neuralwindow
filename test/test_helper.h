@@ -16,5 +16,6 @@ void ck_assert_function_eq(const tensor_t *returned_tensor,
                            const tensor_t *expected_tensor,
                            const function_t *expected_function);
 void ck_assert_tensor_eq(const tensor_t *returned_tensor, const tensor_t *expected_tensor);
+void ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tensor_t *expected_tensor);
 
 #endif
