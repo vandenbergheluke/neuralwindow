@@ -1,7 +1,7 @@
 # neuralwindow
 
 <p align="center">
-    <img src="docs/logo.png", height=300, width=300>
+    <img src="extra/logo.png", height=300, width=300>
 </p>
 
 <div align="center">
