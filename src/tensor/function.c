@@ -783,6 +783,7 @@ static nw_error_t *exponential_operation_backward(tensor_t *x, tensor_t *result,
     {
         nw_error_t *error = NULL;
         tensor_t *x_gradient = NULL;
+        tensor_t *x_gradient_i = NULL;
 
         error = tensor_create_empty(&x_gradient);
         if (error != NULL)
@@ -792,10 +793,30 @@ static nw_error_t *exponential_operation_backward(tensor_t *x, tensor_t *result,
                          error);
         }
 
-        error = tensor_multiplication(gradient, result, x_gradient);
+        error = tensor_create_empty(&x_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create empty tensor x_gradient."),
+                         error);
+        }
+
+        error = tensor_as_tensor(result, x_gradient_i);
+        if (error != NULL)
+        {
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create empty tensor x_gradient."),
+                         error);
+        }
+
+        error = tensor_multiplication(gradient, x_gradient_i, x_gradient);
+        if (error != NULL)
+        {
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
             return ERROR(ERROR_MULTIPLICATION,
                          string_create("failed to multiply tensors gradient and result."),
                          error);
@@ -805,11 +826,14 @@ static nw_error_t *exponential_operation_backward(tensor_t *x, tensor_t *result,
         if (error != NULL) 
         {
             tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
             return ERROR(ERROR_ADDITION,
                          string_create("failed to accumulate gradient."),
                          error);
         }
 
+        tensor_destroy(x_gradient);
+        tensor_destroy(x_gradient_i);
     }
 
     return NULL;
@@ -866,6 +890,7 @@ static nw_error_t *logarithm_operation_backward(tensor_t *x, tensor_t *gradient)
     {
         nw_error_t *error = NULL;
         tensor_t *x_gradient = NULL;
+        tensor_t *x_gradient_i = NULL;
 
         error = tensor_create_empty(&x_gradient);
         if (error != NULL)
@@ -875,9 +900,30 @@ static nw_error_t *logarithm_operation_backward(tensor_t *x, tensor_t *gradient)
                          error);
         }
 
-        error = tensor_division(gradient, x, x_gradient);
+        error = tensor_create_empty(&x_gradient_i);
         if (error != NULL)
         {
+            tensor_destroy(x_gradient);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create tensor x_gradient."),
+                         error);
+        }
+
+        error = tensor_as_tensor(x, x_gradient_i);
+        if (error != NULL)
+        {
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            return ERROR(ERROR_INITIALIZATION,
+                         string_create("failed to initialize x_gradient_i."),
+                         error);
+        }
+
+        error = tensor_division(gradient, x_gradient_i, x_gradient);
+        if (error != NULL)
+        {
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
             return ERROR(ERROR_DIVISION,
                          string_create("failed to successfully run division operation."),
                          error);
@@ -886,10 +932,15 @@ static nw_error_t *logarithm_operation_backward(tensor_t *x, tensor_t *gradient)
         error = tensor_accumulate_gradient(x, x_gradient);
         if (error != NULL) 
         {
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
             return ERROR(ERROR_ADDITION,
                          string_create("failed to accumulate gradient."),
                          error);
         }
+
+        tensor_destroy(x_gradient);
+        tensor_destroy(x_gradient_i);
     }
 
     return NULL;
@@ -944,6 +995,7 @@ static nw_error_t *sine_operation_backward(tensor_t *x, tensor_t *gradient)
         nw_error_t *error = NULL;
         tensor_t *x_gradient = NULL;
         tensor_t *x_gradient_i = NULL;
+        tensor_t *x_gradient_j = NULL;
 
         error = tensor_create_empty(&x_gradient);
         if (error != NULL)
@@ -962,11 +1014,33 @@ static nw_error_t *sine_operation_backward(tensor_t *x, tensor_t *gradient)
                          error);
         }
 
-        error = tensor_cosine(x, x_gradient_i);
+        error = tensor_create_empty(&x_gradient_j);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
             tensor_destroy(x_gradient_i);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create tensor x_gradient_j."),
+                         error);
+        }
+
+        error = tensor_as_tensor(x, x_gradient_j);
+        if (error != NULL)
+        {
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to initialize tensor x_gradient_j."),
+                         error);
+        }
+
+        error = tensor_cosine(x_gradient_j, x_gradient_i);
+        if (error != NULL)
+        {
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
             return ERROR(ERROR_COSINE,
                          string_create("failed to successfully run cosine operation."),
                          error);
@@ -977,6 +1051,7 @@ static nw_error_t *sine_operation_backward(tensor_t *x, tensor_t *gradient)
         {
             tensor_destroy(x_gradient);
             tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
             return ERROR(ERROR_MULTIPLICATION,
                          string_create("failed to successfully run multiplication operation."),
                          error);
@@ -987,12 +1062,15 @@ static nw_error_t *sine_operation_backward(tensor_t *x, tensor_t *gradient)
         {
             tensor_destroy(x_gradient);
             tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
             return ERROR(ERROR_ADDITION,
                          string_create("failed to accumulate gradient."),
                          error);
         }
 
+        tensor_destroy(x_gradient);
         tensor_destroy(x_gradient_i);
+        tensor_destroy(x_gradient_j);
     }
 
     return NULL;
@@ -1038,11 +1116,13 @@ static nw_error_t *cosine_operation_backward(tensor_t *x, tensor_t *gradient)
 
     if (x->requires_gradient)
     {
-        tensor_t *x_gradient;
-        tensor_t *x_gradient_i;
-        tensor_t *x_gradient_j;
+        nw_error_t *error = NULL;
+        tensor_t *x_gradient = NULL;
+        tensor_t *x_gradient_i = NULL;
+        tensor_t *x_gradient_j = NULL;
+        tensor_t *x_gradient_k = NULL;
 
-        nw_error_t *error = tensor_create_empty(&x_gradient);
+        error = tensor_create_empty(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -1069,12 +1149,36 @@ static nw_error_t *cosine_operation_backward(tensor_t *x, tensor_t *gradient)
                          error);
         }
 
-        error = tensor_sine(x, x_gradient_j);
+        error = tensor_create_empty(&x_gradient_k);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
             tensor_destroy(x_gradient_i);
             tensor_destroy(x_gradient_j);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create x_gradient_k tensor."),
+                         error);
+        }
+
+        error = tensor_as_tensor(x, x_gradient_k);
+        if (error != NULL)
+        {
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to initialize tensor x_gradient_k."),
+                         error);
+        }
+
+        error = tensor_sine(x_gradient_k, x_gradient_j);
+        if (error != NULL)
+        {
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
             return ERROR(ERROR_SINE,
                          string_create("failed to successfully run sine operation."),
                          error);
@@ -1086,6 +1190,7 @@ static nw_error_t *cosine_operation_backward(tensor_t *x, tensor_t *gradient)
             tensor_destroy(x_gradient);
             tensor_destroy(x_gradient_i);
             tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
             return ERROR(ERROR_NEGATION,
                          string_create("failed to successfully run negation operation."),
                          error);
@@ -1097,6 +1202,7 @@ static nw_error_t *cosine_operation_backward(tensor_t *x, tensor_t *gradient)
             tensor_destroy(x_gradient);
             tensor_destroy(x_gradient_i);
             tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
             return ERROR(ERROR_MULTIPLICATION,
                          string_create("failed to successfully run multiplication operation."),
                          error);
@@ -1108,13 +1214,16 @@ static nw_error_t *cosine_operation_backward(tensor_t *x, tensor_t *gradient)
             tensor_destroy(x_gradient);
             tensor_destroy(x_gradient_i);
             tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
             return ERROR(ERROR_ADDITION,
                          string_create("failed to accumulate gradient."),
                          error);
         }
 
+        tensor_destroy(x_gradient);
         tensor_destroy(x_gradient_i);
         tensor_destroy(x_gradient_j);
+        tensor_destroy(x_gradient_k);
     }
 
     return NULL;
@@ -1163,6 +1272,7 @@ static nw_error_t *square_root_operation_backward(tensor_t *x, tensor_t *result,
     {
         tensor_t *x_gradient;
         tensor_t *x_gradient_i;
+        tensor_t *x_gradient_j;
         tensor_t *constant;
 
         nw_error_t *error = tensor_create_empty(&constant);
@@ -1177,29 +1287,47 @@ static nw_error_t *square_root_operation_backward(tensor_t *x, tensor_t *result,
         {
         case FLOAT32:
             float32_t constant_32 = 2.0;
-            error = tensor_constant(&constant_32, x->buffer->datatype, x->buffer->runtime, constant);
+            error = tensor_constant(&constant_32, 
+                                    x->buffer->datatype,
+                                    x->buffer->runtime,
+                                    constant);
             if (error != NULL)
             {
-                return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize constant tensor."), error);
+                tensor_destroy(constant);
+                return ERROR(ERROR_INITIALIZATION,
+                             string_create("failed to initialize constant tensor."),
+                             error);
             }
             break;
         case FLOAT64:
             float64_t constant_64 = 2.0;
-            error = tensor_constant(&constant_64, x->buffer->datatype, x->buffer->runtime, constant);
+            error = tensor_constant(&constant_64,
+                                    x->buffer->datatype,
+                                    x->buffer->runtime,
+                                    constant);
             if (error != NULL)
             {
-                return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize constant tensor."), error);
+                tensor_destroy(constant);
+                return ERROR(ERROR_INITIALIZATION,
+                             string_create("failed to initialize constant tensor."),
+                             error);
             }
             break;
         default:
-            break;
+            tensor_destroy(constant);
+            return ERROR(ERROR_DATATYPE,
+                         string_create("unknown datatype %d",
+                         (int) x->buffer->datatype),
+                         NULL);
         }
 
         error = tensor_create_empty(&x_gradient);
         if (error != NULL)
         {
             tensor_destroy(constant);
-            return ERROR(ERROR_CREATE, string_create("failed to create x_gradient tensor."), error);
+            return ERROR(ERROR_CREATE, 
+                         string_create("failed to create x_gradient tensor."),
+                         error);
         }
 
         error = tensor_create_empty(&x_gradient_i);
@@ -1207,16 +1335,44 @@ static nw_error_t *square_root_operation_backward(tensor_t *x, tensor_t *result,
         {
             tensor_destroy(x_gradient);
             tensor_destroy(constant);
-            return ERROR(ERROR_CREATE, string_create("failed to create x_gradient_i tensor."), error);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create x_gradient_i tensor."),
+                         error);
         }
 
-        error = tensor_multiplication(result, constant, x_gradient_i);
+        error = tensor_create_empty(&x_gradient_j);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
             tensor_destroy(x_gradient_i);
             tensor_destroy(constant);
-            return ERROR(ERROR_MULTIPLICATION, string_create("failed to successfully run multiplication operation."), error);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create x_gradient_i tensor."),
+                         error);
+        }
+
+        error = tensor_as_tensor(result, x_gradient_j);
+        if (error != NULL)
+        {
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
+            tensor_destroy(constant);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to initialize tensor x_gradient_j."),
+                         error);
+        }
+
+        error = tensor_multiplication(x_gradient_j, constant, x_gradient_i);
+        if (error != NULL)
+        {
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
+            tensor_destroy(constant);
+            return ERROR(ERROR_MULTIPLICATION,
+                         string_create("failed to successfully run multiplication operation."),
+                         error);
         }
 
         error = tensor_division(gradient, x_gradient_i, x_gradient);
@@ -1224,8 +1380,11 @@ static nw_error_t *square_root_operation_backward(tensor_t *x, tensor_t *result,
         {
             tensor_destroy(x_gradient);
             tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
             tensor_destroy(constant);
-            return ERROR(ERROR_MULTIPLICATION, string_create("failed to successfully run multiplication operation."), error);
+            return ERROR(ERROR_MULTIPLICATION,
+                         string_create("failed to successfully run multiplication operation."),
+                         error);
         }
 
         error = tensor_accumulate_gradient(x, x_gradient);
@@ -1233,13 +1392,16 @@ static nw_error_t *square_root_operation_backward(tensor_t *x, tensor_t *result,
         {
             tensor_destroy(x_gradient);
             tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
             tensor_destroy(constant);
             return ERROR(ERROR_ADDITION, 
                          string_create("failed to accumulate gradient."),
                          error);
         }
 
+        tensor_destroy(x_gradient);
         tensor_destroy(x_gradient_i);
+        tensor_destroy(x_gradient_j);
         tensor_destroy(constant);
     }
 
@@ -1254,13 +1416,17 @@ static nw_error_t *reciprocal_operation_forward(tensor_t *x, tensor_t *result)
     nw_error_t *error = tensor_as_empty(x, result);    
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create empty tensor."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create empty tensor."),
+                     error);
     }
 
     error = runtime_reciprocal(x->buffer, result->buffer);
     if (error != NULL)
     {
-        return ERROR(ERROR_RECIPROCAL, string_create("failed to successfully run reciprocal operation."), error);
+        return ERROR(ERROR_RECIPROCAL,
+                     string_create("failed to successfully run reciprocal operation."),
+                     error);
     }
 
     return NULL;
@@ -1286,6 +1452,7 @@ static nw_error_t *reciprocal_operation_backward(tensor_t *x, tensor_t *result, 
         tensor_t *x_gradient = NULL;
         tensor_t *x_gradient_i = NULL;
         tensor_t *x_gradient_j = NULL;
+        tensor_t *x_gradient_k = NULL;
 
         error = tensor_create_empty(&x_gradient);
         if (error != NULL)
@@ -1314,12 +1481,36 @@ static nw_error_t *reciprocal_operation_backward(tensor_t *x, tensor_t *result, 
                          error);
         }
 
-        error = tensor_multiplication(result, result, x_gradient_i);
+        error = tensor_create_empty(&x_gradient_k);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
             tensor_destroy(x_gradient_i);
             tensor_destroy(x_gradient_j);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create x_gradient_k tensor."),
+                         error);
+        }
+
+        error = tensor_as_tensor(result, x_gradient_k);
+        if (error != NULL)
+        {
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to initialize tensor x_gradient_k."),
+                         error);
+        }
+
+        error = tensor_multiplication(x_gradient_k, x_gradient_k, x_gradient_i);
+        if (error != NULL)
+        {
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
             return ERROR(ERROR_MULTIPLICATION,
                          string_create("failed to successfully run multiplication operation."),
                          error);
@@ -1331,6 +1522,7 @@ static nw_error_t *reciprocal_operation_backward(tensor_t *x, tensor_t *result, 
             tensor_destroy(x_gradient);
             tensor_destroy(x_gradient_i);
             tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
             return ERROR(ERROR_NEGATION,
                          string_create("failed to successfully run negation operation."),
                          error);
@@ -1342,6 +1534,7 @@ static nw_error_t *reciprocal_operation_backward(tensor_t *x, tensor_t *result, 
             tensor_destroy(x_gradient);
             tensor_destroy(x_gradient_i);
             tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
             return ERROR(ERROR_MULTIPLICATION,
                          string_create("failed to successfully run multiplication operation."),
                          error);
@@ -1353,13 +1546,16 @@ static nw_error_t *reciprocal_operation_backward(tensor_t *x, tensor_t *result, 
             tensor_destroy(x_gradient);
             tensor_destroy(x_gradient_i);
             tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
             return ERROR(ERROR_ADDITION,
                          string_create("failed to accumulate gradient."),
                          error);
         }
 
+        tensor_destroy(x_gradient);
         tensor_destroy(x_gradient_i);
         tensor_destroy(x_gradient_j);
+        tensor_destroy(x_gradient_k);
     }
 
     return NULL;
@@ -1416,13 +1612,17 @@ static nw_error_t *contiguous_operation_forward(tensor_t *x, tensor_t *result)
     nw_error_t *error = tensor_as_empty(x, result);    
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create empty tensor."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create empty tensor."),
+                     error);
     }
 
     error = runtime_contiguous(x->buffer, result->buffer);
     if (error != NULL)
     {
-        return ERROR(ERROR_COPY, string_create("failed to successfully run contiguous operation."), error);
+        return ERROR(ERROR_CONTIGUOUS,
+                     string_create("failed to successfully run contiguous operation."),
+                     error);
     }
 
     return NULL;
@@ -1438,7 +1638,9 @@ static nw_error_t *contiguous_operation_backward(tensor_t *x, tensor_t *gradient
         nw_error_t *error = tensor_accumulate_gradient(x, gradient);
         if (error != NULL) 
         {
-            return ERROR(ERROR_ADDITION, string_create("failed to accumulate gradient."), error);
+            return ERROR(ERROR_ADDITION,
+                         string_create("failed to accumulate gradient."),
+                         error);
         }
     }
 
@@ -1453,13 +1655,17 @@ static nw_error_t *negation_operation_forward(tensor_t *x, tensor_t *result)
     nw_error_t *error = tensor_as_empty(x, result);    
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create empty tensor."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create empty tensor."),
+                     error);
     }
 
     error = runtime_negation(x->buffer, result->buffer);
     if (error != NULL)
     {
-        return ERROR(ERROR_NEGATION, string_create("failed to successfully run negation operation."), error);
+        return ERROR(ERROR_NEGATION,
+                     string_create("failed to successfully run negation operation."),
+                     error);
     }
 
     return NULL;
@@ -1472,25 +1678,36 @@ static nw_error_t *negation_operation_backward(tensor_t *x, tensor_t *gradient)
 
     if (x->requires_gradient)
     {
-        tensor_t *x_gradient;
+        nw_error_t *error = NULL;
+        tensor_t *x_gradient = NULL;
 
-        nw_error_t *error = tensor_create_empty(&x_gradient);
+        error = tensor_create_empty(&x_gradient);
         if (error != NULL)
         {
-            return ERROR(ERROR_CREATE, string_create("failed to create x_gradient tensor."), error);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create x_gradient tensor."),
+                         error);
         }
 
         error = tensor_negation(gradient, x_gradient);
         if (error != NULL)
         {
-            return ERROR(ERROR_NEGATION, string_create("failed to successfully run negation operation."), error);
+            tensor_destroy(x_gradient);
+            return ERROR(ERROR_NEGATION,
+                         string_create("failed to successfully run negation operation."),
+                         error);
         }
 
         error = tensor_accumulate_gradient(x, x_gradient);
         if (error != NULL) 
         {
-            return ERROR(ERROR_ADDITION, string_create("failed to accumulate gradient."), error);
+            tensor_destroy(x_gradient);
+            return ERROR(ERROR_ADDITION,
+                         string_create("failed to accumulate gradient."),
+                         error);
         }
+
+        tensor_destroy(x_gradient);
     }
 
     return NULL;
@@ -1504,13 +1721,17 @@ static nw_error_t *rectified_linear_operation_forward(tensor_t *x, tensor_t *res
     nw_error_t *error = tensor_as_empty(x, result);    
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create empty tensor."), error);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create empty tensor."),
+                     error);
     }
 
     error = runtime_rectified_linear(x->buffer, result->buffer);
     if (error != NULL)
     {
-        return ERROR(ERROR_RECTIFIED_LINEAR, string_create("failed to successfully run rectified linear operation."), error);
+        return ERROR(ERROR_RECTIFIED_LINEAR,
+                     string_create("failed to successfully run rectified linear operation."),
+                     error);
     }
 
     return NULL;
@@ -1527,58 +1748,160 @@ static nw_error_t *rectified_linear_operation_backward(tensor_t *x, tensor_t *gr
         tensor_t *x_gradient = NULL;
         tensor_t *x_gradient_i = NULL;
         tensor_t *x_gradient_j = NULL;
-        float64_t singularity = 0.0;
+        tensor_t *x_gradient_k = NULL;
 
         error = tensor_create_empty(&x_gradient);
         if (error != NULL)
         {
-            return ERROR(ERROR_CREATE, string_create("failed to create x_gradient tensor."), error);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create x_gradient tensor."),
+                         error);
         }
 
         error = tensor_create_empty(&x_gradient_i);
         if (error != NULL)
         {
-            return ERROR(ERROR_CREATE, string_create("failed to create x_gradient_i tensor."), error);
+            tensor_destroy(x_gradient);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create x_gradient_i tensor."),
+                         error);
         }
 
         error = tensor_create_empty(&x_gradient_j);
         if (error != NULL)
         {
-            return ERROR(ERROR_CREATE, string_create("failed to create x_gradient_j tensor."), error);
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create x_gradient_j tensor."),
+                         error);
         }
 
-        error = tensor_constant(&singularity, x->buffer->datatype, x->buffer->runtime, x_gradient_i);
+        error = tensor_create_empty(&x_gradient_k);
         if (error != NULL)
         {
-            return ERROR(ERROR_INITIALIZATION, string_create("failed to create constant tensor."), error);
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create x_gradient_k tensor."),
+                         error);
+        }
+
+        switch (x->buffer->datatype)
+        {
+        case FLOAT32:
+            float32_t constant_32 = 0.0;
+            error = tensor_constant(&constant_32, 
+                                    x->buffer->datatype,
+                                    x->buffer->runtime,
+                                    x_gradient_i);
+            if (error != NULL)
+            {
+                tensor_destroy(x_gradient);
+                tensor_destroy(x_gradient_i);
+                tensor_destroy(x_gradient_j);
+                tensor_destroy(x_gradient_k);
+                return ERROR(ERROR_INITIALIZATION,
+                             string_create("failed to initialize constant tensor."),
+                             error);
+            }
+            break;
+        case FLOAT64:
+            float64_t constant_64 = 0.0;
+            error = tensor_constant(&constant_64,
+                                    x->buffer->datatype,
+                                    x->buffer->runtime,
+                                    x_gradient_i);
+            if (error != NULL)
+            {
+                tensor_destroy(x_gradient);
+                tensor_destroy(x_gradient_i);
+                tensor_destroy(x_gradient_j);
+                tensor_destroy(x_gradient_k);
+                return ERROR(ERROR_INITIALIZATION,
+                             string_create("failed to initialize constant tensor."),
+                             error);
+            }
+            break;
+        default:
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
+            return ERROR(ERROR_DATATYPE,
+                         string_create("unknown datatype %d",
+                         (int) x->buffer->datatype),
+                         NULL);
         }
 
         error = tensor_as_empty(x, x_gradient_j);
         if (error != NULL)
         {
-            return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize empty tensor."), error);
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
+            return ERROR(ERROR_INITIALIZATION,
+                         string_create("failed to initialize empty tensor."),
+                         error);
         }
 
-        error = runtime_compare_greater(x->buffer, x_gradient_i->buffer, x_gradient_j->buffer);
+        error = tensor_expand(x_gradient_i,
+                              x->buffer->view->shape,
+                              x->buffer->view->rank,
+                              x_gradient_k);
         if (error != NULL)
         {
-            return ERROR(ERROR_COMPARE_GREATER, string_create("failed to suvvessfully run compare greater operation."), error);
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
+            return ERROR(ERROR_EXPAND,
+                         string_create("failed to expand tensor."),
+                         error);
+        }
+
+        error = runtime_compare_greater(x->buffer, x_gradient_k->buffer, x_gradient_j->buffer);
+        if (error != NULL)
+        {
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
+            return ERROR(ERROR_COMPARE_GREATER,
+                         string_create("failed to suvvessfully run compare greater operation."),
+                         error);
         }
         
         error = tensor_multiplication(x_gradient_j, gradient, x_gradient);
         if (error != NULL)
         {
-            return ERROR(ERROR_MULTIPLICATION, string_create("failed to successfully run multiplication operation."), error);
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
+            return ERROR(ERROR_MULTIPLICATION,
+                         string_create("failed to successfully run multiplication operation."),
+                         error);
         }
 
         error = tensor_accumulate_gradient(x, x_gradient);
         if (error != NULL) 
         {
-            return ERROR(ERROR_ADDITION, string_create("failed to accumulate gradient."), error);
+            tensor_destroy(x_gradient);
+            tensor_destroy(x_gradient_i);
+            tensor_destroy(x_gradient_j);
+            tensor_destroy(x_gradient_k);
+            return ERROR(ERROR_ADDITION,
+                         string_create("failed to accumulate gradient."),
+                         error);
         }
 
+        tensor_destroy(x_gradient);
         tensor_destroy(x_gradient_i);
         tensor_destroy(x_gradient_j);
+        tensor_destroy(x_gradient_k);
     }
 
     return NULL;

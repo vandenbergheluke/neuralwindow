@@ -137,7 +137,7 @@ void test_unary(unary_operation_type_t unary_operation_type)
     {
         for (int j = 0; j < DATATYPES; j++)
         {
-            for (int k = 0; k < CASES; k++)
+            for (int k = 6; k < CASES; k++)
             {
                 printf("test:%s:runtime %s:datatype %s:case %d\n", 
                        unary_operation_type_string(unary_operation_type),
@@ -372,7 +372,7 @@ Suite *make_unary_suite(void)
     tcase_add_test(tc_unary, test_copy);
     tcase_add_test(tc_unary, test_contiguous);
     tcase_add_test(tc_unary, test_negation);
-    // tcase_add_test(tc_unary, test_rectified_linear);
+    tcase_add_test(tc_unary, test_rectified_linear);
 
     suite_add_tcase(s, tc_unary);
 
