@@ -139,10 +139,6 @@ void test_unary(unary_operation_type_t unary_operation_type)
         {
             for (int k = 6; k < CASES; k++)
             {
-                printf("test:%s:runtime %s:datatype %s:case %d\n", 
-                       unary_operation_type_string(unary_operation_type),
-                       runtime_string((runtime_t) i), datatype_string((datatype_t) j), k);
-
                 unary_operation_t *unary_operation = NULL;
                 operation_t *operation = NULL;
                 torch::Tensor expected_tensor;
