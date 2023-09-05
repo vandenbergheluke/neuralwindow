@@ -51,6 +51,7 @@ nw_error_t *tensor_exponential(const tensor_t *x, tensor_t *y);
 nw_error_t *tensor_square_root(const tensor_t *x, tensor_t *y);
 nw_error_t *tensor_reciprocal(const tensor_t *x, tensor_t *y);
 nw_error_t *tensor_negation(const tensor_t *x, tensor_t *y);
+nw_error_t *tensor_rectified_linear(const tensor_t *x, tensor_t *y);
 nw_error_t *tensor_constant(void *constant, datatype_t datatype, runtime_t runtime, tensor_t *x);
 nw_error_t *tensor_as_zeroes(const tensor_t *x, tensor_t *y);
 nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t *y);
