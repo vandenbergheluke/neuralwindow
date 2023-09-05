@@ -863,6 +863,9 @@ nw_error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient)
         {
             return ERROR(ERROR_CREATE, string_create("failed to create add gradient."), error);
         }
+
+        x->gradient->buffer->copy = true;
+        gradient->buffer->copy = false;
     }
     else
     {

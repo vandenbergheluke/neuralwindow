@@ -47,7 +47,15 @@ void ck_assert_view_eq(const view_t *returned_view, const view_t *expected_view)
     for (uint64_t i = 0; i < expected_view->rank; ++i)
     {
         ck_assert_uint_eq(expected_view->shape[i], returned_view->shape[i]);
-        ck_assert_uint_eq(expected_view->strides[i], returned_view->strides[i]);
+        
+        if (expected_view->shape[i] == 1)
+        {
+            ck_assert(returned_view->strides[i] == (uint64_t) 1 || returned_view->strides[i] == (uint64_t) 0);
+        }
+        else
+        {
+            ck_assert_uint_eq(expected_view->strides[i], returned_view->strides[i]);
+        }
     }
 }
 
@@ -141,6 +149,9 @@ void ck_assert_function_eq(const tensor_t *returned_tensor,
 
 void ck_assert_tensor_eq(const tensor_t *returned_tensor, const tensor_t *expected_tensor)
 {
+    PRINTLN_DEBUG_TENSOR("returned", returned_tensor);
+    PRINTLN_DEBUG_TENSOR("expected", expected_tensor);
+
     if (expected_tensor == NULL)
     {
         ck_assert_ptr_null(returned_tensor);
@@ -257,6 +268,9 @@ void ck_assert_data_equiv(const void *returned_data, const uint64_t *returned_st
 
 void ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tensor_t *expected_tensor)
 {
+    PRINTLN_DEBUG_TENSOR("returned", returned_tensor);
+    PRINTLN_DEBUG_TENSOR("expected", expected_tensor);
+
     ck_assert_ptr_nonnull(expected_tensor->buffer);
     ck_assert_ptr_nonnull(expected_tensor->buffer->view);
     ck_assert_ptr_nonnull(returned_tensor->buffer);

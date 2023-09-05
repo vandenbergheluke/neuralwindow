@@ -54,7 +54,7 @@
     else\
     {\
         fprintf(stderr, "(");\
-        for (uint64_t i = 0; i < length; ++i)\
+        for (uint64_t i = 0; i < (length); ++i)\
         {\
             if (!i)\
             {\
