@@ -166,10 +166,6 @@ void test_reduction(reduction_operation_type_t reduction_operation_type)
         {
             for (int k = 0; k < CASES; k++)
             {
-                printf("test:%s:runtime %s:datatype %s:case %d\n", 
-                       reduction_operation_type_string(reduction_operation_type),
-                       runtime_string((runtime_t) i), datatype_string((datatype_t) j), k);
-
                 reduction_operation_t *reduction_operation = NULL;
                 operation_t *operation = NULL;
                 torch::Tensor expected_tensor;

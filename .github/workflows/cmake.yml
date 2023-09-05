@@ -48,3 +48,14 @@ jobs:
     - name: Test
       working-directory: ${{github.workspace}}/build
       run: ctest --output-on-failure
+    - name: Memory Tests
+      working-directory: ${{github.workspace}}/build
+      run: |
+        make valgrind_test_buffer_binary
+        make valgrind_test_buffer_reduction
+        make valgrind_test_buffer_unary
+        make valgrind_test_map
+        make valgrind_test_queue
+        make valgrind_test_tensor_reduction
+        make valgrind_test_tensor_unary
+        make valgrind_test_view
