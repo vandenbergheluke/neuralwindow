@@ -129,7 +129,7 @@ void setup(void)
                                       buffers[i][j][k],
                                       NULL,
                                       NULL,
-                                      false,
+                                      true,
                                       false);
                 ck_assert_ptr_null(error);
 

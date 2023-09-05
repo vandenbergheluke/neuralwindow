@@ -9,6 +9,8 @@ extern "C" {
     #include <cu_runtime.h>
 }
 
+#define EPSILON 0.00001
+
 static cublasHandle_t handle = NULL;
 
 extern "C" nw_error_t *cu_create_context(void)
@@ -455,7 +457,7 @@ extern "C" static void cu_compare_equal_float32(int n, const float32_t *x_data, 
 {
     for (int i = 0; i < n; ++i)
     {
-        z_data[i * z_stride] = (x_data[i * x_stride] == y_data[i * y_stride]) ? (float32_t) 1.0 : (float32_t) 0.0;
+        z_data[i * z_stride] = fabsf(x_data[i * x_stride] - y_data[i * y_stride]) < EPSILON ? (float32_t) 1.0 : (float32_t) 0.0;
     }
 }
 
@@ -463,7 +465,7 @@ extern "C" static void cu_compare_equal_float64(int n, const float64_t *x_data, 
 {
     for (int i = 0; i < n; ++i)
     {
-        z_data[i * z_stride] = (x_data[i * x_stride] == y_data[i * y_stride]) ? (float64_t) 1.0 : (float64_t) 0.0;
+        z_data[i * z_stride] = fabs(x_data[i * x_stride] - y_data[i * y_stride]) < EPSILON ? (float64_t) 1.0 : (float64_t) 0.0;
     }
 }
 

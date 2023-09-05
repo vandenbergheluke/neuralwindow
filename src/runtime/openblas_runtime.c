@@ -7,6 +7,8 @@
 #include <cblas.h>
 #include <math.h>
 
+#define EPSILON 0.00001
+
 nw_error_t *openblas_memory_allocate(void **pp, size_t size)
 {
     CHECK_NULL_ARGUMENT(pp, "pp");
@@ -405,7 +407,7 @@ static void openblas_compare_equal_float32(int n, const float32_t *x_data, int x
 {
     for (int i = 0; i < n; ++i)
     {
-        z_data[i * z_stride] = (x_data[i * x_stride] == y_data[i * y_stride]) ? (float32_t) 1.0 : (float32_t) 0.0;
+        z_data[i * z_stride] = fabsf(x_data[i * x_stride] - y_data[i * y_stride]) < EPSILON ? (float32_t) 1.0 : (float32_t) 0.0;
     }
 }
 
@@ -413,7 +415,7 @@ static void openblas_compare_equal_float64(int n, const float64_t *x_data, int x
 {
     for (int i = 0; i < n; ++i)
     {
-        z_data[i * z_stride] = (x_data[i * x_stride] == y_data[i * y_stride]) ? (float64_t) 1.0 : (float64_t) 0.0;
+        z_data[i * z_stride] = fabs(x_data[i * x_stride] - y_data[i * y_stride]) < EPSILON ? (float64_t) 1.0 : (float64_t) 0.0;
     }
 }
 

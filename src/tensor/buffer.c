@@ -1241,7 +1241,6 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
             default:
                 break;
             }
-            break;
         }
         break;
     case 3:

@@ -5,6 +5,41 @@
 #include <function.h>
 #include <test_helper.h>
 
+void ck_assert_element_eq(const void *returned_data, uint64_t returned_index,
+                          const void *expected_data, uint64_t expected_index,
+                          datatype_t datatype)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        if (isnanf(((float32_t *) expected_data)[expected_index]))
+        {
+            ck_assert_float_nan(((float32_t *) returned_data)[returned_index]);
+        }
+        else
+        {
+            ck_assert_float_eq_tol(((float32_t *) returned_data)[returned_index],
+                                   ((float32_t *) expected_data)[expected_index],
+                                   EPSILON);
+        }
+        break;
+    case FLOAT64:
+        if (isnanf(((float64_t *) expected_data)[expected_index]))
+        {
+            ck_assert_double_nan(((float64_t *) returned_data)[returned_index]);
+        }
+        else
+        {
+            ck_assert_double_eq_tol(((float64_t *) returned_data)[returned_index],
+                                    ((float64_t *) expected_data)[expected_index],
+                                    EPSILON);
+        }
+        break;
+    default:
+        ck_abort_msg("unknown datatype.");
+    }
+}
+
 void ck_assert_view_eq(const view_t *returned_view, const view_t *expected_view)
 {
     ck_assert_uint_eq(expected_view->rank, returned_view->rank);
@@ -12,7 +47,15 @@ void ck_assert_view_eq(const view_t *returned_view, const view_t *expected_view)
     for (uint64_t i = 0; i < expected_view->rank; ++i)
     {
         ck_assert_uint_eq(expected_view->shape[i], returned_view->shape[i]);
-        ck_assert_uint_eq(expected_view->strides[i], returned_view->strides[i]);
+        
+        if (expected_view->shape[i] == 1)
+        {
+            ck_assert(returned_view->strides[i] == (uint64_t) 1 || returned_view->strides[i] == (uint64_t) 0);
+        }
+        else
+        {
+            ck_assert_uint_eq(expected_view->strides[i], returned_view->strides[i]);
+        }
     }
 }
 
@@ -26,33 +69,9 @@ void ck_assert_buffer_eq(const buffer_t *returned_buffer, const buffer_t *expect
 
     for (uint64_t i = 0; i < expected_buffer->n; ++i)
     {
-
-        switch (expected_buffer->datatype)
-        {
-        case FLOAT32:
-            if (isnanf(((float32_t *) expected_buffer->data)[i]))
-            {
-                ck_assert_float_nan(((float32_t *) returned_buffer->data)[i]);
-            }
-            else
-            {
-                ck_assert_float_eq_tol(((float32_t *) returned_buffer->data)[i],
-                                       ((float32_t *) expected_buffer->data)[i], EPSILON);
-            }
-            break;
-        case FLOAT64:
-            if (isnan(((float64_t *) expected_buffer->data)[i]))
-            {
-                ck_assert_double_nan(((float64_t *) returned_buffer->data)[i]);
-            }
-            else
-            {
-                ck_assert_double_eq_tol(((float64_t *) returned_buffer->data)[i],
-                                        ((float64_t *) expected_buffer->data)[i], EPSILON);
-            }
-        default:
-            break;
-        }
+        ck_assert_element_eq(returned_buffer->data, i, 
+                             expected_buffer->data, i,
+                             expected_buffer->datatype);
     }
 }
 
@@ -130,6 +149,9 @@ void ck_assert_function_eq(const tensor_t *returned_tensor,
 
 void ck_assert_tensor_eq(const tensor_t *returned_tensor, const tensor_t *expected_tensor)
 {
+    PRINTLN_DEBUG_TENSOR("returned", returned_tensor);
+    PRINTLN_DEBUG_TENSOR("expected", expected_tensor);
+
     if (expected_tensor == NULL)
     {
         ck_assert_ptr_null(returned_tensor);
@@ -156,4 +178,114 @@ void ck_assert_tensor_eq(const tensor_t *returned_tensor, const tensor_t *expect
     }
 
     ck_assert(returned_tensor->requires_gradient == expected_tensor->requires_gradient);
+}
+
+void ck_assert_data_equiv(const void *returned_data, const uint64_t *returned_strides, uint64_t returned_offset,
+                          const void *expected_data, const uint64_t *expected_strides, uint64_t expected_offset,
+                          const uint64_t *shape, uint64_t rank, datatype_t datatype)
+{
+    switch (rank)
+    {
+    case 0:
+        ck_assert_element_eq(returned_data, returned_offset, 
+                             expected_data, expected_offset, 
+                             datatype);
+        break;
+    case 1:
+        for (uint64_t i = 0; i < shape[0]; ++i)
+        {
+            ck_assert_element_eq(returned_data, returned_offset + i * returned_strides[0], 
+                                 expected_data, expected_offset + i * expected_strides[0],
+                                 datatype);
+        }
+        break;
+    case 2:
+        for (uint64_t i = 0; i < shape[0]; ++i)
+        {
+            for (uint64_t j = 0; j < shape[1]; ++j)
+            {
+                ck_assert_element_eq(returned_data, returned_offset + i * returned_strides[0] + j * returned_strides[1], 
+                                     expected_data, expected_offset + i * expected_strides[0] + j * expected_strides[1],
+                                     datatype);
+            }
+        }
+        break;
+    case 3:
+        for (uint64_t i = 0; i < shape[0]; ++i)
+        {
+            for (uint64_t j = 0; j < shape[1]; ++j)
+            {
+                for (uint64_t k = 0; k < shape[2]; ++k)
+                {
+                    ck_assert_element_eq(returned_data, returned_offset + i * returned_strides[0] + j * returned_strides[1] + k * returned_strides[2], 
+                                         expected_data, expected_offset + i * expected_strides[0] + j * expected_strides[1] + k * expected_strides[2],
+                                         datatype);
+                }
+            }
+        }
+        break;
+    case 4:
+        for (uint64_t i = 0; i < shape[0]; ++i)
+        {
+            for (uint64_t j = 0; j < shape[1]; ++j)
+            {
+                for (uint64_t k = 0; k < shape[2]; ++k)
+                {
+                    for (uint64_t l = 0; l < shape[3]; ++l)
+                    {
+                        ck_assert_element_eq(returned_data, returned_offset + i * returned_strides[0] + j * returned_strides[1] + k * returned_strides[2] + l * returned_strides[3], 
+                                             expected_data, expected_offset + i * expected_strides[0] + j * expected_strides[1] + k * expected_strides[2] + l * expected_strides[3],
+                                             datatype);
+                    }
+                }
+            }
+        }
+        break;
+    case 5:
+        for (uint64_t i = 0; i < shape[0]; ++i)
+        {
+            for (uint64_t j = 0; j < shape[1]; ++j)
+            {
+                for (uint64_t k = 0; k < shape[2]; ++k)
+                {
+                    for (uint64_t l = 0; l < shape[3]; ++l)
+                    {
+                        for (uint64_t m = 0; m < shape[4]; ++m)
+                        {
+                            ck_assert_element_eq(returned_data, returned_offset + i * returned_strides[0] + j * returned_strides[1] + k * returned_strides[2] + l * returned_strides[3] + m * returned_strides[4], 
+                                                 expected_data, expected_offset + i * expected_strides[0] + j * expected_strides[1] + k * expected_strides[2] + l * expected_strides[3] + m * expected_strides[4],
+                                                 datatype);
+                        }
+                    }
+                }
+            }
+        }
+        break;
+    default:
+        ck_abort_msg("unsupported rank.");
+    }
+}
+
+void ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tensor_t *expected_tensor)
+{
+    PRINTLN_DEBUG_TENSOR("returned", returned_tensor);
+    PRINTLN_DEBUG_TENSOR("expected", expected_tensor);
+
+    ck_assert_ptr_nonnull(expected_tensor->buffer);
+    ck_assert_ptr_nonnull(expected_tensor->buffer->view);
+    ck_assert_ptr_nonnull(returned_tensor->buffer);
+    ck_assert_ptr_nonnull(returned_tensor->buffer->view);
+
+    ck_assert_uint_eq(returned_tensor->buffer->view->rank, expected_tensor->buffer->view->rank);
+    for (uint64_t i = 0; i < expected_tensor->buffer->view->rank; ++i)
+    {
+        ck_assert_uint_eq(returned_tensor->buffer->view->shape[i], 
+                          expected_tensor->buffer->view->shape[i]);
+    }
+    ck_assert_int_eq(returned_tensor->buffer->datatype, expected_tensor->buffer->datatype);
+
+    ck_assert_data_equiv(returned_tensor->buffer->data, returned_tensor->buffer->view->strides, returned_tensor->buffer->view->offset,
+                         expected_tensor->buffer->data, expected_tensor->buffer->view->strides, expected_tensor->buffer->view->offset,
+                         expected_tensor->buffer->view->shape, expected_tensor->buffer->view->rank, expected_tensor->buffer->datatype);
+
 }

@@ -22,7 +22,7 @@ typedef enum runtime_t
    CU_RUNTIME
 } runtime_t;
 
-#if defined CPU_ONLY
+#ifdef CPU_ONLY
 #define RUNTIMES 2
 #else
 #define RUNTIMES 3
