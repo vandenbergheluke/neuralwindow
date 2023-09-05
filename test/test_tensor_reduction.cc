@@ -305,7 +305,7 @@ Suite *make_reduction_suite(void)
 
     tc_reduction = tcase_create("Test Reduction Tensor Case");
     tcase_add_checked_fixture(tc_reduction, setup, teardown);
-    // tcase_add_test(tc_reduction, test_summation);
+    tcase_add_test(tc_reduction, test_summation);
     tcase_add_test(tc_reduction, test_maximum);
 
     suite_add_tcase(s, tc_reduction);
