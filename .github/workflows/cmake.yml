@@ -15,6 +15,11 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v3
+    - name: Install CUDA Toolkit
+      uses: Jimver/cuda-toolkit@v0.2.11
+      id: cuda-toolkit
+      with:
+        cuda: '12.1.0'
     - name: Install Intel MKL
       run: sudo apt-get install -y intel-mkl
     - name: Install OpenBLAS
@@ -27,11 +32,17 @@ jobs:
       run: |
         sudo wget https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-2.0.1%2Bcpu.zip
         unzip libtorch-shared-with-deps-2.0.1+cpu.zip
-    - name: Build
+    - name: Setup Build Directory
       working-directory: ${{github.workspace}}
+      run: mkdir build
+    - name: GPU Build
+      working-directory: ${{github.workspace}}/build
       run: |
-        mkdir build
-        cd build
+        cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
+        make
+    - name: CPU Build
+      working-directory: ${{github.workspace}}/build
+      run: |
         CPU_ONLY=1 cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
         make
     - name: Test
