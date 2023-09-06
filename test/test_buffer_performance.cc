@@ -301,3 +301,46 @@ START_TEST(test_reciprocal_computational_performance)
     printf("Fraction (NW/PyTorch): %lf\n", nw_avg_perf / torch_avg_perf);
 }
 END_TEST
+
+Suite *make_buffer_unary_perf_suite(void)
+{
+    Suite *s;
+    TCase *tc_unary;
+
+    s = suite_create("Test Buffer Unary Performance Suite");
+
+    // Unary Performance Operations
+    tc_unary = tcase_create("Buffer Unary Case");
+    tcase_add_checked_fixture(tc_unary, setup, teardown);
+    tcase_add_test(tc_unary, test_exponential_computational_performance);
+    tcase_add_test(tc_unary, test_logarithm_computational_performance);
+    tcase_add_test(tc_unary, test_sine_computational_performance);
+    tcase_add_test(tc_unary, test_cosine_computational_performance);
+    tcase_add_test(tc_unary, test_square_root_computational_performance);
+    tcase_add_test(tc_unary, test_reciprocal_computational_performance);
+    // tcase_add_test(tc_unary, test_copy_computational_performance);
+    // tcase_add_test(tc_unary, test_contiguous_computational_performance);
+    // tcase_add_test(tc_unary, test_negation_computational_performance);
+    // tcase_add_test(tc_unary, test_rectified_linear_computational_performance);
+
+    suite_add_tcase(s, tc_unary);
+
+    return s;
+}
+
+int main(void)
+{
+    // Set seed
+    torch::manual_seed(SEED);
+
+    int number_failed;
+    SRunner *sr;
+
+    sr = srunner_create(make_buffer_unary_perf_suite());
+    srunner_set_fork_status(sr, CK_NOFORK);
+    srunner_run_all(sr, CK_VERBOSE);
+
+    number_failed = srunner_ntests_failed(sr);
+    srunner_free(sr);
+    return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
+}
