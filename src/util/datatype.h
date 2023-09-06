@@ -20,7 +20,11 @@ typedef const char * string_t;
 typedef char char_t;
 typedef unsigned char uchar_t;
 
+#ifdef __cplusplus
+typedef enum datatype_t: int
+#else
 typedef enum datatype_t
+#endif
 {
     FLOAT32,
     FLOAT64
