@@ -1,5 +1,3 @@
-#include <ATen/core/TensorBody.h>
-#include <ATen/ops/sum.h>
 #include <iostream>
 #include <tuple>
 extern "C"
@@ -13,7 +11,6 @@ extern "C"
 #include <test_helper.h>
 }
 #include <torch/torch.h>
-#include <cstring>
 
 #define CASES 9
 
@@ -207,7 +204,7 @@ void test_reduction(reduction_operation_type_t reduction_operation_type)
                                       buffer,
                                       NULL,
                                       NULL,
-                                      tensors[i][j][k]->requires_gradient,
+                                      true,
                                       false);
                 ck_assert_ptr_null(error);
 
@@ -272,6 +269,16 @@ void test_reduction(reduction_operation_type_t reduction_operation_type)
                                       false);
                 ck_assert_ptr_null(error);
                 error = tensor_backward(returned_tensors[i][j][k], NULL);
+
+                // Back prop
+                tensor_t *cost;
+                error = tensor_create_empty(&cost);
+                ck_assert_ptr_null(error);
+                error = tensor_summation(returned_tensors[i][j][k], cost, NULL, returned_tensors[i][j][k]->buffer->view->rank, false);
+                ck_assert_ptr_null(error);
+                error = tensor_backward(cost, NULL);
+                ck_assert_ptr_null(error);
+
                 ck_assert_ptr_null(error);
 
                 ck_assert_tensor_equiv(tensors[i][j][k]->gradient, expected_gradient[i][j][k]);

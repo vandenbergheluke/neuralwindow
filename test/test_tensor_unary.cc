@@ -1,5 +1,3 @@
-#include <ATen/core/TensorBody.h>
-#include <ATen/ops/sum.h>
 #include <iostream>
 extern "C"
 {
@@ -12,7 +10,6 @@ extern "C"
 #include <test_helper.h>
 }
 #include <torch/torch.h>
-#include <cstring>
 
 #define CASES 7
 
@@ -137,7 +134,7 @@ void test_unary(unary_operation_type_t unary_operation_type)
     {
         for (int j = 0; j < DATATYPES; j++)
         {
-            for (int k = 6; k < CASES; k++)
+            for (int k = 0; k < CASES; k++)
             {
                 unary_operation_t *unary_operation = NULL;
                 operation_t *operation = NULL;
@@ -204,7 +201,7 @@ void test_unary(unary_operation_type_t unary_operation_type)
                                       buffer,
                                       NULL,
                                       NULL,
-                                      tensors[i][j][k]->requires_gradient,
+                                      expected_tensor.requires_grad(),
                                       false);
                 ck_assert_ptr_null(error);
 
@@ -281,7 +278,13 @@ void test_unary(unary_operation_type_t unary_operation_type)
                                       false,
                                       false);
                 ck_assert_ptr_null(error);
-                error = tensor_backward(returned_tensors[i][j][k], NULL);
+                // Back prop
+                tensor_t *cost;
+                error = tensor_create_empty(&cost);
+                ck_assert_ptr_null(error);
+                error = tensor_summation(returned_tensors[i][j][k], cost, NULL, returned_tensors[i][j][k]->buffer->view->rank, false);
+                ck_assert_ptr_null(error);
+                error = tensor_backward(cost, NULL);
                 ck_assert_ptr_null(error);
 
                 ck_assert_tensor_equiv(tensors[i][j][k]->gradient, expected_gradients[i][j][k]);

@@ -149,8 +149,10 @@ void ck_assert_function_eq(const tensor_t *returned_tensor,
 
 void ck_assert_tensor_eq(const tensor_t *returned_tensor, const tensor_t *expected_tensor)
 {
+    PRINTLN_DEBUG_LOCATION("test");
     PRINTLN_DEBUG_TENSOR("returned", returned_tensor);
     PRINTLN_DEBUG_TENSOR("expected", expected_tensor);
+    PRINT_DEBUG_NEWLINE;
 
     if (expected_tensor == NULL)
     {
@@ -268,8 +270,10 @@ void ck_assert_data_equiv(const void *returned_data, const uint64_t *returned_st
 
 void ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tensor_t *expected_tensor)
 {
+    PRINTLN_DEBUG_LOCATION("test");
     PRINTLN_DEBUG_TENSOR("returned", returned_tensor);
     PRINTLN_DEBUG_TENSOR("expected", expected_tensor);
+    PRINT_DEBUG_NEWLINE;
 
     ck_assert_ptr_nonnull(expected_tensor->buffer);
     ck_assert_ptr_nonnull(expected_tensor->buffer->view);
