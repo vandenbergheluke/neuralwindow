@@ -406,4 +406,6 @@ string_t error_type_string(nw_error_type_t error_type);
             }\
         } while (0)
 
+#define UNUSED(x) (void)(x)
+
 #endif
