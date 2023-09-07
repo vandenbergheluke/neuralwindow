@@ -377,9 +377,9 @@ START_TEST(test_reciprocal_computational_performance)
                     nw_completion_time = nw_end - nw_start;
 
                     torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    torch_avg_flops += ((float64_t) num_flop / (float64_t) torch_completion_time) / total_runs;
+                    torch_avg_flops += ((float64_t) num_flop * 1000000000) / ((float64_t) torch_completion_time * total_runs);
                     nw_avg_perf += (float64_t) nw_completion_time / total_runs;
-                    nw_avg_flops += ((float64_t) num_flop / (float64_t) nw_completion_time) / total_runs;
+                    nw_avg_flops += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * total_runs);
                 }
             }
         }
@@ -557,9 +557,9 @@ START_TEST(test_rectified_linear_computational_performance)
                     nw_completion_time = nw_end - nw_start;
 
                     torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    torch_avg_flops += ((float64_t) num_flop / (float64_t) torch_completion_time) / total_runs;
+                    torch_avg_flops += ((float64_t) num_flop * 1000000000) / ((float64_t) torch_completion_time * total_runs);
                     nw_avg_perf += (float64_t) nw_completion_time / total_runs;
-                    nw_avg_flops += ((float64_t) num_flop / (float64_t) nw_completion_time) / total_runs;
+                    nw_avg_flops += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * total_runs);
                 }
             }
         }
