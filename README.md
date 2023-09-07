@@ -88,6 +88,16 @@ After CUDA installation you will need to reboot. Verify installation with
 nvcc --version
 ```
 
+Install Doxygen (Optional)
+```bash
+sudo apt-get install doxygen
+```
+
+Install Graphviz (Optional)
+```bash
+sudo apt install graphviz
+```
+
 ## Build
 
 To build neuralwindow run
@@ -136,4 +146,9 @@ To generate a Valgrind suppression file run
 ```bash
 valgrind --leak-check=full --show-reachable=yes --error-limit=no --gen-suppressions=all --log-file=suppressions.log ./test/<test_name>
 cat ./suppressions.log | ./../parse_valgrind_suppressions.sh > suppressions.supp
+```
+
+To generate the documentation pages run
+```
+doxygen Doxyfile
 ```
