@@ -11,7 +11,24 @@
 #include <view.h>
 #include <string.h>
 
-nw_error_t *tensor_create(tensor_t **tensor,
+/**
+ * @brief Creates a tensor instance.
+ * 
+ * @param[out] tensor Pointer to allocated tensor.
+ * @param[in] buffer The underlying data storage of the tensor.
+ * @param[in] context A record of the operation that generated the tensor. Used to 
+ *                    build a directed acyclic graph (DAG) for the automatic
+ *                    differentiation engine.  
+ * @param[in] gradient The gradient associated with the tensor.
+ * @param[in] requires_gradient Flag to indicate whether the tensor requires its 
+ *                              corresponding gradient to be computed.
+ * @param[in] lock Flag to indicate that the tensor persists after computational 
+ *                 graph is incrementally destroyed during back propogation.
+ * @return Error if received NULL argument for tensor.
+ *         Error if no sufficient memory could be dynamically allocate for the tensor.
+ *         NULL if tensor was created successfully.
+ */
+nw_error_t *tensor_create(tensor_t **tensor ,
                           buffer_t *buffer,
                           function_t *context,
                           tensor_t *gradient,
@@ -41,6 +58,12 @@ nw_error_t *tensor_create(tensor_t **tensor,
     return NULL;
 }
 
+/**
+ * @brief Free dynamically allocated tensor instance. This destructor will
+ *        also destroy the underlying buffer, context, and gradient of the
+ *        given tensor.
+ * @param[in] tensor The tensor to free from memory. 
+ */
 void tensor_destroy(tensor_t *tensor)
 {
     if (tensor == NULL)
@@ -54,11 +77,21 @@ void tensor_destroy(tensor_t *tensor)
     free(tensor);
 }
 
-nw_error_t *tensor_create_empty(tensor_t **tensor)
+/**
+ * @brief The default tensor constructor. Dynamically allocates memory for
+ *         the tensor. Sets underlying storage `buffer`, `context`, and `gradient`
+ *         to NULL. Sets the `requires_gradient` and `lock` flags to false.
+ * @param[out] tensor The default tensor to dynamically allocate and initialize.
+ * @return Error if the default tensor failed to be allocated.
+ *         NULL if the default tensor was created sucessfully.
+ */
+nw_error_t *tensor_create_default(tensor_t **tensor)
 {
     CHECK_NULL_ARGUMENT(tensor, "tensor");
 
-    nw_error_t *error = tensor_create(tensor, NULL, NULL, NULL, false, false);
+    nw_error_t *error = NULL;
+
+    error = tensor_create(tensor, NULL, NULL, NULL, false, false);
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE,
@@ -69,6 +102,18 @@ nw_error_t *tensor_create_empty(tensor_t **tensor)
     return NULL;
 }
 
+/**
+ * @brief Copy the contents of a given `source_tensor` to a given
+ *        `destination_tensor`.
+ * @param[in] source_tensor The tensor whose contents is being read.
+ * @param[out] destination_tensor The tensor whose contents is being overwritten with
+ *                                the copied contents of the `source_tensor`. This 
+ *                                tensor should be initalized with `tensor_create_default`.
+ * @return Error if `source_tensor` or `destination_tensor` is NULL.
+ *         Error if the copy operation failed.
+ *         NULL if the contents of the `source_tensor` was successfully copied
+ *         into the `destination_tensor`.
+ */
 nw_error_t *tensor_copy(const tensor_t *source_tensor, tensor_t *destination_tensor)
 {
     CHECK_NULL_ARGUMENT(source_tensor, "source_tensor");
@@ -79,9 +124,9 @@ nw_error_t *tensor_copy(const tensor_t *source_tensor, tensor_t *destination_ten
     PRINTLN_DEBUG_TENSOR("destination_tensor", destination_tensor);
     PRINT_DEBUG_NEWLINE;
 
-    nw_error_t *error = apply_function_unary(COPY_OPERATION,
-                                             source_tensor,
-                                             destination_tensor);
+    nw_error_t *error = NULL;
+
+    error = apply_function_unary(COPY_OPERATION, source_tensor, destination_tensor);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD,
@@ -97,6 +142,15 @@ nw_error_t *tensor_copy(const tensor_t *source_tensor, tensor_t *destination_ten
     return NULL;
 }
 
+/**
+ * @brief 
+ * 
+ * @param[in] x_original 
+ * @param[in] y_original 
+ * @param[out] x_broadcasted 
+ * @param[out] y_broadcasted 
+ * @return nw_error_t* 
+ */
 nw_error_t *tensor_broadcast(const tensor_t *x_original,
                              const tensor_t *y_original,
                              tensor_t *x_broadcasted,
@@ -526,7 +580,7 @@ nw_error_t *tensor_reshape(const tensor_t *x,
     {
         tensor_t *x_contiguous = NULL;
 
-        error = tensor_create_empty(&x_contiguous);
+        error = tensor_create_default(&x_contiguous);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -1241,7 +1295,7 @@ nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
                          NULL);
         }
 
-        error = tensor_create_empty(&x->gradient);
+        error = tensor_create_default(&x->gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -1331,7 +1385,7 @@ nw_error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient)
 
     if (x->gradient == NULL)
     {
-        error = tensor_create_empty(&x->gradient);
+        error = tensor_create_default(&x->gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -1357,7 +1411,7 @@ nw_error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient)
     {
         tensor_t *updated_gradient;
 
-        error = tensor_create_empty(&updated_gradient);
+        error = tensor_create_default(&updated_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,

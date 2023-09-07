@@ -171,7 +171,7 @@ nw_error_t *apply_function_binary(binary_operation_type_t binary_operation_type,
     tensor_t *y_brodcasted = NULL;
     binary_operation_t *binary_operation = NULL;
 
-    error = tensor_create_empty(&x_brodcasted);
+    error = tensor_create_default(&x_brodcasted);
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE,
@@ -179,7 +179,7 @@ nw_error_t *apply_function_binary(binary_operation_type_t binary_operation_type,
                      error);
     }
 
-    error = tensor_create_empty(&y_brodcasted);
+    error = tensor_create_default(&y_brodcasted);
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE,
@@ -811,7 +811,7 @@ static nw_error_t *exponential_operation_backward(tensor_t *x, tensor_t *result,
         tensor_t *x_gradient = NULL;
         tensor_t *x_gradient_i = NULL;
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -819,7 +819,7 @@ static nw_error_t *exponential_operation_backward(tensor_t *x, tensor_t *result,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_i);
+        error = tensor_create_default(&x_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -918,7 +918,7 @@ static nw_error_t *logarithm_operation_backward(tensor_t *x, tensor_t *gradient)
         tensor_t *x_gradient = NULL;
         tensor_t *x_gradient_i = NULL;
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -926,7 +926,7 @@ static nw_error_t *logarithm_operation_backward(tensor_t *x, tensor_t *gradient)
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_i);
+        error = tensor_create_default(&x_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -1023,7 +1023,7 @@ static nw_error_t *sine_operation_backward(tensor_t *x, tensor_t *gradient)
         tensor_t *x_gradient_i = NULL;
         tensor_t *x_gradient_j = NULL;
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -1031,7 +1031,7 @@ static nw_error_t *sine_operation_backward(tensor_t *x, tensor_t *gradient)
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_i);
+        error = tensor_create_default(&x_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -1040,7 +1040,7 @@ static nw_error_t *sine_operation_backward(tensor_t *x, tensor_t *gradient)
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_j);
+        error = tensor_create_default(&x_gradient_j);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -1148,7 +1148,7 @@ static nw_error_t *cosine_operation_backward(tensor_t *x, tensor_t *gradient)
         tensor_t *x_gradient_j = NULL;
         tensor_t *x_gradient_k = NULL;
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -1156,7 +1156,7 @@ static nw_error_t *cosine_operation_backward(tensor_t *x, tensor_t *gradient)
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_i);
+        error = tensor_create_default(&x_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -1165,7 +1165,7 @@ static nw_error_t *cosine_operation_backward(tensor_t *x, tensor_t *gradient)
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_j);
+        error = tensor_create_default(&x_gradient_j);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -1175,7 +1175,7 @@ static nw_error_t *cosine_operation_backward(tensor_t *x, tensor_t *gradient)
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_k);
+        error = tensor_create_default(&x_gradient_k);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -1301,7 +1301,7 @@ static nw_error_t *square_root_operation_backward(tensor_t *x, tensor_t *result,
         tensor_t *x_gradient_j;
         tensor_t *constant;
 
-        nw_error_t *error = tensor_create_empty(&constant);
+        nw_error_t *error = tensor_create_default(&constant);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -1347,7 +1347,7 @@ static nw_error_t *square_root_operation_backward(tensor_t *x, tensor_t *result,
                          NULL);
         }
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             tensor_destroy(constant);
@@ -1356,7 +1356,7 @@ static nw_error_t *square_root_operation_backward(tensor_t *x, tensor_t *result,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_i);
+        error = tensor_create_default(&x_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -1366,7 +1366,7 @@ static nw_error_t *square_root_operation_backward(tensor_t *x, tensor_t *result,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_j);
+        error = tensor_create_default(&x_gradient_j);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -1480,7 +1480,7 @@ static nw_error_t *reciprocal_operation_backward(tensor_t *x, tensor_t *result, 
         tensor_t *x_gradient_j = NULL;
         tensor_t *x_gradient_k = NULL;
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -1488,7 +1488,7 @@ static nw_error_t *reciprocal_operation_backward(tensor_t *x, tensor_t *result, 
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_i);
+        error = tensor_create_default(&x_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -1497,7 +1497,7 @@ static nw_error_t *reciprocal_operation_backward(tensor_t *x, tensor_t *result, 
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_j);
+        error = tensor_create_default(&x_gradient_j);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -1507,7 +1507,7 @@ static nw_error_t *reciprocal_operation_backward(tensor_t *x, tensor_t *result, 
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_k);
+        error = tensor_create_default(&x_gradient_k);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -1707,7 +1707,7 @@ static nw_error_t *negation_operation_backward(tensor_t *x, tensor_t *gradient)
         nw_error_t *error = NULL;
         tensor_t *x_gradient = NULL;
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -1776,7 +1776,7 @@ static nw_error_t *rectified_linear_operation_backward(tensor_t *x, tensor_t *gr
         tensor_t *x_gradient_j = NULL;
         tensor_t *x_gradient_k = NULL;
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -1784,7 +1784,7 @@ static nw_error_t *rectified_linear_operation_backward(tensor_t *x, tensor_t *gr
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_i);
+        error = tensor_create_default(&x_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -1793,7 +1793,7 @@ static nw_error_t *rectified_linear_operation_backward(tensor_t *x, tensor_t *gr
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_j);
+        error = tensor_create_default(&x_gradient_j);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -1803,7 +1803,7 @@ static nw_error_t *rectified_linear_operation_backward(tensor_t *x, tensor_t *gr
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_k);
+        error = tensor_create_default(&x_gradient_k);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -2227,7 +2227,7 @@ static nw_error_t *subtraction_operation_backward(tensor_t *x,
     {
         tensor_t *y_gradient = NULL;
 
-        error = tensor_create_empty(&y_gradient);
+        error = tensor_create_default(&y_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -2303,7 +2303,7 @@ static nw_error_t *multiplication_operation_backward(tensor_t *x,
         tensor_t *x_gradient = NULL;
         tensor_t *x_gradient_i = NULL;
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -2311,7 +2311,7 @@ static nw_error_t *multiplication_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_i);
+        error = tensor_create_default(&x_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -2359,7 +2359,7 @@ static nw_error_t *multiplication_operation_backward(tensor_t *x,
         tensor_t *y_gradient = NULL;
         tensor_t *y_gradient_i = NULL;
 
-        error = tensor_create_empty(&y_gradient);
+        error = tensor_create_default(&y_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -2367,7 +2367,7 @@ static nw_error_t *multiplication_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&y_gradient_i);
+        error = tensor_create_default(&y_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(y_gradient);
@@ -2457,7 +2457,7 @@ static nw_error_t *division_operation_backward(tensor_t *x,
         tensor_t *x_gradient = NULL;
         tensor_t *x_gradient_i = NULL;
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -2465,7 +2465,7 @@ static nw_error_t *division_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_i);
+        error = tensor_create_default(&x_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -2518,7 +2518,7 @@ static nw_error_t *division_operation_backward(tensor_t *x,
         tensor_t *y_gradient_m = NULL;
         tensor_t *y_gradient_n = NULL;
 
-        error = tensor_create_empty(&y_gradient);
+        error = tensor_create_default(&y_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -2526,7 +2526,7 @@ static nw_error_t *division_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&y_gradient_i);
+        error = tensor_create_default(&y_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(y_gradient);
@@ -2535,7 +2535,7 @@ static nw_error_t *division_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&y_gradient_j);
+        error = tensor_create_default(&y_gradient_j);
         if (error != NULL)
         {
             tensor_destroy(y_gradient);
@@ -2545,7 +2545,7 @@ static nw_error_t *division_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&y_gradient_k);
+        error = tensor_create_default(&y_gradient_k);
         if (error != NULL)
         {
             tensor_destroy(y_gradient);
@@ -2556,7 +2556,7 @@ static nw_error_t *division_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&y_gradient_l);
+        error = tensor_create_default(&y_gradient_l);
         if (error != NULL)
         {
             tensor_destroy(y_gradient);
@@ -2568,7 +2568,7 @@ static nw_error_t *division_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&y_gradient_m);
+        error = tensor_create_default(&y_gradient_m);
         if (error != NULL)
         {
             tensor_destroy(y_gradient);
@@ -2581,7 +2581,7 @@ static nw_error_t *division_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&y_gradient_n);
+        error = tensor_create_default(&y_gradient_n);
         if (error != NULL)
         {
             tensor_destroy(y_gradient);
@@ -2777,7 +2777,7 @@ static nw_error_t *power_operation_backward(tensor_t *x,
         tensor_t *x_gradient_l = NULL;
         tensor_t *x_gradient_m = NULL;
 
-        nw_error_t *error = tensor_create_empty(&x_gradient);
+        nw_error_t *error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -2785,7 +2785,7 @@ static nw_error_t *power_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_i);
+        error = tensor_create_default(&x_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -2794,7 +2794,7 @@ static nw_error_t *power_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_j);
+        error = tensor_create_default(&x_gradient_j);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -2804,7 +2804,7 @@ static nw_error_t *power_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_k);
+        error = tensor_create_default(&x_gradient_k);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -2815,7 +2815,7 @@ static nw_error_t *power_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_l);
+        error = tensor_create_default(&x_gradient_l);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -2827,7 +2827,7 @@ static nw_error_t *power_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_m);
+        error = tensor_create_default(&x_gradient_m);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -2954,7 +2954,7 @@ static nw_error_t *power_operation_backward(tensor_t *x,
         tensor_t *y_gradient_k = NULL;
         tensor_t *y_gradient_l = NULL;
 
-        error = tensor_create_empty(&y_gradient);
+        error = tensor_create_default(&y_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -2962,7 +2962,7 @@ static nw_error_t *power_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&y_gradient_i);
+        error = tensor_create_default(&y_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(y_gradient);
@@ -2971,7 +2971,7 @@ static nw_error_t *power_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&y_gradient_j);
+        error = tensor_create_default(&y_gradient_j);
         if (error != NULL)
         {
             tensor_destroy(y_gradient);
@@ -2981,7 +2981,7 @@ static nw_error_t *power_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&y_gradient_k);
+        error = tensor_create_default(&y_gradient_k);
         if (error != NULL)
         {
             tensor_destroy(y_gradient);
@@ -2992,7 +2992,7 @@ static nw_error_t *power_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&y_gradient_l);
+        error = tensor_create_default(&y_gradient_l);
         if (error != NULL)
         {
             tensor_destroy(y_gradient);
@@ -3132,7 +3132,7 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x,
         tensor_t *x_gradient;
         tensor_t *x_gradient_i;
 
-        nw_error_t *error = tensor_create_empty(&x_gradient);
+        nw_error_t *error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -3140,7 +3140,7 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_i);
+        error = tensor_create_default(&x_gradient_i);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -3187,13 +3187,13 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x,
         tensor_t *y_gradient;
         tensor_t *y_gradient_i;
 
-        nw_error_t *error = tensor_create_empty(&y_gradient);
+        nw_error_t *error = tensor_create_default(&y_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE, string_create("failed to create y_gradient tensor."), error);
         }
 
-        error = tensor_create_empty(&y_gradient_i);
+        error = tensor_create_default(&y_gradient_i);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE, string_create("failed to create y_gradient_i tensor."), error);
@@ -3671,7 +3671,7 @@ static nw_error_t *summation_operation_backward(tensor_t *x,
         tensor_t *x_gradient = NULL;
         nw_error_t *error = NULL;
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -3820,7 +3820,7 @@ static nw_error_t *maximum_operation_backward(tensor_t *x,
         tensor_t *returned = NULL;
         tensor_t *recovered_gradient = NULL;
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,
@@ -3828,7 +3828,7 @@ static nw_error_t *maximum_operation_backward(tensor_t *x,
                          error);
         }
         
-        error = tensor_create_empty(&x_gradient_i);
+        error = tensor_create_default(&x_gradient_i);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);    
@@ -3837,7 +3837,7 @@ static nw_error_t *maximum_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_j);
+        error = tensor_create_default(&x_gradient_j);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);    
@@ -3847,7 +3847,7 @@ static nw_error_t *maximum_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_k);
+        error = tensor_create_default(&x_gradient_k);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);    
@@ -3858,7 +3858,7 @@ static nw_error_t *maximum_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_l);
+        error = tensor_create_default(&x_gradient_l);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);    
@@ -3870,7 +3870,7 @@ static nw_error_t *maximum_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&returned);
+        error = tensor_create_default(&returned);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);    
@@ -3883,7 +3883,7 @@ static nw_error_t *maximum_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&recovered_gradient);
+        error = tensor_create_default(&recovered_gradient);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);    
@@ -4455,7 +4455,7 @@ static nw_error_t *expand_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient_i);
+        error = tensor_create_default(&x_gradient_i);
         if (error != NULL)
         {
             free(axis_keep_dimension);
@@ -4465,7 +4465,7 @@ static nw_error_t *expand_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             free(axis_keep_dimension);
@@ -4652,7 +4652,7 @@ static nw_error_t *permute_operation_backward(tensor_t *x, uint64_t *axis, uint6
             return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize permuted axis."), error);
         }
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE, string_create("failed to create x_gradient tensor."), error);
@@ -4718,7 +4718,7 @@ static nw_error_t *reshape_operation_backward(tensor_t *x, tensor_t *gradient)
     {
         tensor_t *x_gradient;
 
-        nw_error_t *error = tensor_create_empty(&x_gradient);
+        nw_error_t *error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE, string_create("failed to create x_gradient tensor."), error);
@@ -4792,7 +4792,7 @@ static nw_error_t *slice_operation_backward(tensor_t *x, uint64_t *arguments, ui
     {
         tensor_t *x_gradient;
 
-        nw_error_t *error = tensor_create_empty(&x_gradient);
+        nw_error_t *error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE, string_create("failed to create x_gradient tensor."), error);
@@ -4918,7 +4918,7 @@ static nw_error_t *padding_operation_backward(tensor_t *x, uint64_t *arguments, 
         tensor_t *x_gradient = NULL;
         uint64_t *new_arguments = NULL;
 
-        error = tensor_create_empty(&x_gradient);
+        error = tensor_create_default(&x_gradient);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE,

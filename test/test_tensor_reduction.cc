@@ -126,7 +126,7 @@ void setup(void)
                 error = tensor_create(&tensors[i][j][k], buffer, NULL, NULL, true, true);
                 ck_assert_ptr_null(error);
 
-                error = tensor_create_empty(&returned_tensors[i][j][k]);
+                error = tensor_create_default(&returned_tensors[i][j][k]);
                 ck_assert_ptr_null(error);
                 returned_tensors[i][j][k]->lock = true;
             }
@@ -272,7 +272,7 @@ void test_reduction(reduction_operation_type_t reduction_operation_type)
 
                 // Back prop
                 tensor_t *cost;
-                error = tensor_create_empty(&cost);
+                error = tensor_create_default(&cost);
                 ck_assert_ptr_null(error);
                 error = tensor_summation(returned_tensors[i][j][k], cost, NULL, returned_tensors[i][j][k]->buffer->view->rank, false);
                 ck_assert_ptr_null(error);
