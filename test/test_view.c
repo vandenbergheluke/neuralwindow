@@ -1136,53 +1136,66 @@ END_TEST
 
 START_TEST(test_reduce_error)
 {
-    uint64_t number_of_cases = 8;
-
-    uint64_t *original_shapes[] = {
-        NULL,
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-    };
-
-    uint64_t original_ranks[] = {
-        1,
-        1,
-        1,
-        1,
-        1,
-        MAX_RANK + 1,
-        2,
-        1,
-    };
-
-    uint64_t *original_strides[] = {
-        (uint64_t[]) {1},
-        NULL,
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-    };
+    uint64_t number_of_cases = 11;
 
     uint64_t *reduced_shapes[] = {
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
         NULL,
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
     };
 
     uint64_t reduced_ranks[] = {
+        1,
+        1,
+        1,
+        1,
+        1,
+        MAX_RANK + 1,
+        1,
+        1,
+        2,
+        1,
+        1,
+    };
+
+    uint64_t *reduced_strides[] = {
+        (uint64_t[]) {1},
+        NULL,
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+    };
+
+    uint64_t *recovered_shapes[] = {
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        NULL,
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+    };
+
+    uint64_t recovered_ranks[] = {
+        2,
         2,
         2,
         2,
@@ -1191,13 +1204,18 @@ START_TEST(test_reduce_error)
         MAX_RANK + 1,
         2,
         2,
+        2,
+        2,
     };
 
-    uint64_t *reduced_strides[] = {
+    uint64_t *recovered_strides[] = {
         (uint64_t[]) {2, 0},
         (uint64_t[]) {2, 0},
         (uint64_t[]) {2, 0},
         NULL,
+        (uint64_t[]) {2, 0},
+        (uint64_t[]) {2, 0},
+        (uint64_t[]) {2, 0},
         (uint64_t[]) {2, 0},
         (uint64_t[]) {2, 0},
         (uint64_t[]) {2, 0},
@@ -1212,7 +1230,10 @@ START_TEST(test_reduce_error)
         NULL,
         (uint64_t[]) {1},
         (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
         (uint64_t[]) {2},
+        (uint64_t[]) {0},
     };
 
     uint64_t lengths[] = {
@@ -1221,7 +1242,10 @@ START_TEST(test_reduce_error)
         1,
         1,
         1,
+        1,
+        1,
         MAX_RANK + 1,
+        1,
         1,
         1,
     };
@@ -1232,6 +1256,9 @@ START_TEST(test_reduce_error)
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
         ERROR_RANK_CONFLICT,
         ERROR_RANK_CONFLICT,
         ERROR_RANK_CONFLICT,
@@ -1246,16 +1273,19 @@ START_TEST(test_reduce_error)
         false,
         false,
         false,
+        false,
+        false,
+        true,
     };
 
     for (uint64_t i = 0; i < number_of_cases; i++)
     {
-        error = reduce(original_shapes[i],
-                       original_ranks[i],
-                       original_strides[i],
-                       reduced_shapes[i],
+        error = reduce(reduced_shapes[i],
                        reduced_ranks[i],
                        reduced_strides[i],
+                       recovered_shapes[i],
+                       recovered_ranks[i],
+                       recovered_strides[i],
                        axis[i],
                        lengths[i],
                        keep_dimensions[i]);
