@@ -773,7 +773,7 @@ END_TEST
 
 START_TEST(test_reduce)
 {
-    uint64_t number_of_cases = 26;
+    uint64_t number_of_cases = 34;
 
     uint64_t *original_shapes[] = {
         (uint64_t[]) {},
@@ -802,6 +802,14 @@ START_TEST(test_reduce)
         (uint64_t[]) {2, 3, 4},
         (uint64_t[]) {2, 3, 4},
         (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {3, 2, 4},
+        (uint64_t[]) {5, 1, 3, 2, 4},
+        (uint64_t[]) {5, 1, 3, 2, 4},
+        (uint64_t[]) {5, 1, 3, 2, 4},
+        (uint64_t[]) {5, 1, 3, 2, 4},
+        (uint64_t[]) {5, 1, 3, 2, 4},
+        (uint64_t[]) {5, 1, 3, 2, 4},
     };
 
     uint64_t original_ranks[] = {
@@ -831,6 +839,14 @@ START_TEST(test_reduce)
         3,
         3,
         3,
+        3,
+        3,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
 };
 
     uint64_t *original_strides[] = {
@@ -849,17 +865,25 @@ START_TEST(test_reduce)
         (uint64_t[]) {12, 4, 1},
         (uint64_t[]) {12, 4, 1},
         (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 4, 0},
         (uint64_t[]) {12, 4, 1},
         (uint64_t[]) {12, 4, 1},
         (uint64_t[]) {12, 4, 1},
         (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 0, 1},
         (uint64_t[]) {12, 4, 1},
         (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {0, 4, 1},
+        (uint64_t[]) {12, 4, 0},
         (uint64_t[]) {12, 4, 1},
-        (uint64_t[]) {12, 4, 1},
-        (uint64_t[]) {12, 4, 1},
-        (uint64_t[]) {12, 4, 1},
-        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 0, 1},
+        (uint64_t[]) {4, 12, 1},
+        (uint64_t[]) {1, 120, 20, 60, 5},
+        (uint64_t[]) {1, 120, 20, 60, 5},
+        (uint64_t[]) {1, 120, 0, 60, 5},
+        (uint64_t[]) {1, 120, 20, 60, 0},
+        (uint64_t[]) {0, 120, 20, 60, 5},
+        (uint64_t[]) {1, 0, 20, 0, 5},
     };
 
     uint64_t *expected_reduced_shapes[] = {
@@ -889,6 +913,14 @@ START_TEST(test_reduce)
         (uint64_t[]) {2, 1, 4},
         (uint64_t[]) {3, 4},
         (uint64_t[]) {1, 3, 4},
+        (uint64_t[]) {3, 4},
+        (uint64_t[]) {2, 4},
+        (uint64_t[]) {5, 3, 4},
+        (uint64_t[]) {5, 1, 3, 1, 4},
+        (uint64_t[]) {5, 3, 4},
+        (uint64_t[]) {5, 3, 4},
+        (uint64_t[]) {5, 3, 4},
+        (uint64_t[]) {5, 1, 2, 4},
     };
 
     uint64_t reduced_ranks[] = {
@@ -918,6 +950,14 @@ START_TEST(test_reduce)
         3,
         2,
         3,
+        2,
+        2,
+        3,
+        5,
+        3,
+        3,
+        3,
+        4,
 };
 
     uint64_t *expected_reduced_strides[] = {
@@ -936,17 +976,25 @@ START_TEST(test_reduce)
         (uint64_t[]) {},
         (uint64_t[]) {0, 0, 0},
         (uint64_t[]) {1},
-        (uint64_t[]) {0, 0, 1},
+        (uint64_t[]) {0, 0, 0},
         (uint64_t[]) {1},
         (uint64_t[]) {0, 1, 0},
         (uint64_t[]) {1},
         (uint64_t[]) {1, 0, 0},
-        (uint64_t[]) {3, 1},
+        (uint64_t[]) {1, 0},
         (uint64_t[]) {3, 1, 0},
         (uint64_t[]) {4, 1},
-        (uint64_t[]) {4, 0, 1},
-        (uint64_t[]) {4, 1},
+        (uint64_t[]) {0, 0, 1},
+        (uint64_t[]) {1, 0},
         (uint64_t[]) {0, 4, 1},
+        (uint64_t[]) {0, 1},
+        (uint64_t[]) {4, 1},
+        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 0, 4, 0, 1},
+        (uint64_t[]) {4, 0, 1},
+        (uint64_t[]) {3, 1, 0},
+        (uint64_t[]) {0, 4, 1},
+        (uint64_t[]) {4, 0, 0, 1},
     };
 
     uint64_t *axis[] = {
@@ -976,6 +1024,14 @@ START_TEST(test_reduce)
         (uint64_t[]) {1},
         (uint64_t[]) {0},
         (uint64_t[]) {0},
+        (uint64_t[]) {0},
+        (uint64_t[]) {0},
+        (uint64_t[]) {1, 3},
+        (uint64_t[]) {1, 3},
+        (uint64_t[]) {1, 3},
+        (uint64_t[]) {1, 3},
+        (uint64_t[]) {1, 3},
+        (uint64_t[]) {2},
     };
 
     uint64_t lengths[] = {
@@ -1004,7 +1060,15 @@ START_TEST(test_reduce)
         1,
         1,
         1,
-        1
+        1,
+        1,
+        1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        1,
     };
 
     bool_t keep_dimensions[] = {
@@ -1034,6 +1098,14 @@ START_TEST(test_reduce)
         true,
         false,
         true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
     };
     
     uint64_t returned_reduced_shapes[number_of_cases][MAX_RANK];
