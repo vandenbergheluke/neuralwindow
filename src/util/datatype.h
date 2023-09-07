@@ -11,12 +11,14 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <limits.h>
 
 typedef float float32_t;
 typedef double float64_t;
 typedef bool bool_t;
 typedef const char * string_t;
 typedef char char_t;
+typedef unsigned char uchar_t;
 
 typedef enum datatype_t
 {
