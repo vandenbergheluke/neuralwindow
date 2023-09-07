@@ -2,12 +2,15 @@
 #include <tuple>
 extern "C"
 {
-#include <check.h>
 #include <buffer.h>
 #include <view.h>
 #include <errors.h>
 #include <datatype.h>
 #include <measure.h>
+
+#include <test_helper.h>
+
+#include <check.h>
 }
 #include <torch/torch.h>
 
@@ -152,10 +155,10 @@ START_TEST(test_exponential_computational_performance)
                     ck_assert_ptr_null(error);
 
                     torch_completion_time = torch_end - torch_start;
-                    nw_completion_time = torch_end - torch_start;
+                    nw_completion_time = nw_end - nw_start;
 
                     torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_avg_perf / total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
                 }
             }
         }
@@ -195,10 +198,10 @@ START_TEST(test_logarithm_computational_performance)
                     ck_assert_ptr_null(error);
 
                     torch_completion_time = torch_end - torch_start;
-                    nw_completion_time = torch_end - torch_start;
+                    nw_completion_time = nw_end - nw_start;
 
                     torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_avg_perf / total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
                 }
             }
         }
@@ -238,10 +241,10 @@ START_TEST(test_sine_computational_performance)
                     ck_assert_ptr_null(error);
 
                     torch_completion_time = torch_end - torch_start;
-                    nw_completion_time = torch_end - torch_start;
+                    nw_completion_time = nw_end - nw_start;
 
                     torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_avg_perf / total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
                 }
             }
         }
@@ -281,10 +284,10 @@ START_TEST(test_cosine_computational_performance)
                     ck_assert_ptr_null(error);
 
                     torch_completion_time = torch_end - torch_start;
-                    nw_completion_time = torch_end - torch_start;
+                    nw_completion_time = nw_end - nw_start;
 
                     torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_avg_perf / total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
                 }
             }
         }
@@ -324,10 +327,10 @@ START_TEST(test_square_root_computational_performance)
                     ck_assert_ptr_null(error);
 
                     torch_completion_time = torch_end - torch_start;
-                    nw_completion_time = torch_end - torch_start;
+                    nw_completion_time = nw_end - nw_start;
 
                     torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_avg_perf / total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
                 }
             }
         }
@@ -418,10 +421,10 @@ START_TEST(test_copy_computational_performance)
                     ck_assert_ptr_null(error);
 
                     torch_completion_time = torch_end - torch_start;
-                    nw_completion_time = torch_end - torch_start;
+                    nw_completion_time = nw_end - nw_start;
 
                     torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_avg_perf / total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
                 }
             }
         }
@@ -461,10 +464,10 @@ START_TEST(test_contiguous_computational_performance)
                     ck_assert_ptr_null(error);
 
                     torch_completion_time = torch_end - torch_start;
-                    nw_completion_time = torch_end - torch_start;
+                    nw_completion_time = nw_end - nw_start;
 
                     torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_avg_perf / total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
                 }
             }
         }
@@ -504,10 +507,10 @@ START_TEST(test_negation_computational_performance)
                     ck_assert_ptr_null(error);
 
                     torch_completion_time = torch_end - torch_start;
-                    nw_completion_time = torch_end - torch_start;
+                    nw_completion_time = nw_end - nw_start;
 
                     torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_avg_perf / total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
                 }
             }
         }

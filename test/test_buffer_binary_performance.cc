@@ -2,12 +2,15 @@
 #include <tuple>
 extern "C"
 {
-#include <check.h>
 #include <buffer.h>
 #include <view.h>
 #include <errors.h>
 #include <datatype.h>
 #include <measure.h>
+
+#include <test_helper.h>
+
+#include <check.h>
 #include <math.h>
 }
 #include <torch/torch.h>
@@ -76,7 +79,7 @@ void setup(void)
                         ck_abort_msg("unknown datatype.");
                     }
 
-                    error = view_create(&views_x[i][j][k], 
+                    error = view_create(&views_x[i][j][k][z], 
                                         (uint64_t) tensors_x[i][j][k][z].storage_offset(),
                                         (uint64_t) tensors_x[i][j][k][z].ndimension(),
                                         (uint64_t *) tensors_x[i][j][k][z].sizes().data(),
@@ -91,7 +94,7 @@ void setup(void)
                                           true);
                     ck_assert_ptr_null(error);
 
-                    error = view_create(&views_y[i][j][k], 
+                    error = view_create(&views_y[i][j][k][z], 
                                         (uint64_t) tensors_y[i][j][k][z].storage_offset(),
                                         (uint64_t) tensors_y[i][j][k][z].ndimension(),
                                         (uint64_t *) tensors_y[i][j][k][z].sizes().data(),
@@ -107,9 +110,9 @@ void setup(void)
                     ck_assert_ptr_null(error);
 
                     error = view_create(&returned_views[i][j][k][z],
-                                        (uint64_t) tensors[i][j][k][z].storage_offset(),
-                                        (uint64_t) tensors[i][j][k][z].ndimension(),
-                                        (uint64_t *) tensors[i][j][k][z].sizes().data(),
+                                        (uint64_t) tensors_x[i][j][k][z].storage_offset(),
+                                        (uint64_t) tensors_x[i][j][k][z].ndimension(),
+                                        (uint64_t *) tensors_x[i][j][k][z].sizes().data(),
                                         NULL);
                     ck_assert_ptr_null(error);
                     error = buffer_create(&returned_buffers[i][j][k][z],
@@ -117,7 +120,7 @@ void setup(void)
                                           (datatype_t) j,
                                           returned_views[i][j][k][z],
                                           NULL,
-                                          (uint64_t) tensors[i][j][k][z].numel(),
+                                          (uint64_t) tensors_x[i][j][k][z].numel(),
                                           true);
                     ck_assert_ptr_null(error);
                 }
@@ -162,7 +165,7 @@ START_TEST(test_addition_computational_performance)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    uint64_t n = ((uint64_t *) tensors[i][j][k][z].sizes().data())[0];
+                    uint64_t n = ((uint64_t *) tensors_x[i][j][k][z].sizes().data())[0];
                     uint64_t num_flop = pow(n, 2);
                     uint64_t torch_start, torch_end;
                     uint64_t torch_completion_time;
@@ -213,7 +216,7 @@ START_TEST(test_subtraction_computational_performance)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    uint64_t n = ((uint64_t *) tensors[i][j][k][z].sizes().data())[0];
+                    uint64_t n = ((uint64_t *) tensors_x[i][j][k][z].sizes().data())[0];
                     uint64_t num_flop = pow(n, 2);
                     uint64_t torch_start, torch_end;
                     uint64_t torch_completion_time;
@@ -264,7 +267,7 @@ START_TEST(test_multiplication_computational_performance)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    uint64_t n = ((uint64_t *) tensors[i][j][k][z].sizes().data())[0];
+                    uint64_t n = ((uint64_t *) tensors_x[i][j][k][z].sizes().data())[0];
                     uint64_t num_flop = pow(n, 2);
                     uint64_t torch_start, torch_end;
                     uint64_t torch_completion_time;
@@ -315,7 +318,7 @@ START_TEST(test_division_computational_performance)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    uint64_t n = ((uint64_t *) tensors[i][j][k][z].sizes().data())[0];
+                    uint64_t n = ((uint64_t *) tensors_x[i][j][k][z].sizes().data())[0];
                     uint64_t num_flop = pow(n, 2);
                     uint64_t torch_start, torch_end;
                     uint64_t torch_completion_time;
@@ -380,10 +383,10 @@ START_TEST(test_power_computational_performance)
                     ck_assert_ptr_null(error);
 
                     torch_completion_time = torch_end - torch_start;
-                    nw_completion_time = torch_end - torch_start;
+                    nw_completion_time = nw_end - nw_start;
 
                     torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_avg_perf / total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
                 }
             }
         }
@@ -409,7 +412,7 @@ START_TEST(test_compare_equal_computational_performance)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    uint64_t n = ((uint64_t *) tensors[i][j][k][z].sizes().data())[0];
+                    uint64_t n = ((uint64_t *) tensors_x[i][j][k][z].sizes().data())[0];
                     uint64_t num_flop = pow(n, 2);
                     uint64_t torch_start, torch_end;
                     uint64_t torch_completion_time;
@@ -460,7 +463,7 @@ START_TEST(test_compare_greater_computational_performance)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    uint64_t n = ((uint64_t *) tensors[i][j][k][z].sizes().data())[0];
+                    uint64_t n = ((uint64_t *) tensors_x[i][j][k][z].sizes().data())[0];
                     uint64_t num_flop = pow(n, 2);
                     uint64_t torch_start, torch_end;
                     uint64_t torch_completion_time;
@@ -511,7 +514,7 @@ START_TEST(test_matrix_multiplication_computational_performance)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    uint64_t n = ((uint64_t *) tensors[i][j][k][z].sizes().data())[0];
+                    uint64_t n = ((uint64_t *) tensors_x[i][j][k][z].sizes().data())[0];
                     // HPLinpack
                     float64_t num_flop = ((2.0 / 3.0) * (float64_t) pow(n, 3))
                                         + (2.0 * (float64_t) pow(n, 2));
@@ -582,7 +585,7 @@ int main(void)
     int number_failed;
     SRunner *sr;
 
-    sr = srunner_create(make_buffer_unary_perf_suite());
+    sr = srunner_create(make_buffer_binary_perf_suite());
     srunner_set_fork_status(sr, CK_NOFORK);
     srunner_run_all(sr, CK_VERBOSE);
 
