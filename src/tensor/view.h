@@ -52,14 +52,14 @@ nw_error_t *reduce(const uint64_t *original_shape,
                 const uint64_t *axis,
                 uint64_t rank,
                 bool_t keep_dimensions);
-nw_error_t *reduce_recover_dimensions(const uint64_t *original_shape,
-                                   uint64_t original_rank,
-                                   const uint64_t *original_strides, 
-                                   uint64_t *reduced_shape,
-                                   uint64_t reduced_rank,
-                                   uint64_t *reduced_strides,
-                                   const uint64_t *axis,
-                                   uint64_t rank);
+nw_error_t *reduce_recover_dimensions(const uint64_t *reduced_shape,
+                                      uint64_t reduced_rank, 
+                                      const uint64_t *reduced_strides,
+                                      uint64_t *recovered_shape, 
+                                      uint64_t recovered_rank,
+                                      uint64_t *recovered_strides,
+                                      const uint64_t *axis,
+                                      uint64_t rank);
 bool_t shapes_equal(const uint64_t *x_shape, uint64_t x_rank, const uint64_t *y_shape, uint64_t y_rank);
 uint64_t shape_size(const uint64_t *shape, uint64_t rank);
 nw_error_t *strides_from_shape(uint64_t *strides, const uint64_t *shape, uint64_t rank);

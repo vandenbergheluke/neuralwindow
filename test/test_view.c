@@ -14,6 +14,7 @@ void setup(void)
 
 void teardown(void)
 {
+    error_print(error);
     error_destroy(error);
     view_destroy(view);
 }
@@ -201,8 +202,6 @@ START_TEST(test_strides_from_shape)
         {
             ck_assert_uint_eq(expected_strides[i][j], returned_strides[i][j]);
         }
-        error_destroy(error);
-        error = NULL;
     }
 }
 END_TEST
@@ -286,8 +285,6 @@ START_TEST(test_reverse_permute)
         {
             ck_assert_uint_eq(expected_axis[i][j], returned_axis[i][j]);
         }
-        error_destroy(error);
-        error = NULL;
     }
 }
 END_TEST
@@ -409,8 +406,6 @@ START_TEST(test_permute)
             ck_assert_uint_eq(expected_shapes[i][j], returned_shapes[i][j]);
             ck_assert_uint_eq(expected_strides[i][j], returned_strides[i][j]);
         }
-        error_destroy(error);
-        error = NULL;
     }
 }
 END_TEST
@@ -517,130 +512,179 @@ END_TEST
 
 START_TEST(test_reduce_recover_dimension)
 {
-    uint64_t number_of_cases = 3;
+    uint64_t number_of_cases = 13;
 
-    uint64_t *original_shapes[] = {
-        (uint64_t[]) {2},
-        (uint64_t[]) {1, 2, 3},
-        (uint64_t[]) {},
-    };
-
-    uint64_t original_ranks[] = {
-        1,
-        3,
-        0,
-    };
-
-    uint64_t *original_strides[] = {
+    uint64_t *reduced_shapes[] = {
         (uint64_t[]) {1},
-        (uint64_t[]) {0, 3, 1},
+        (uint64_t[]) {2},
+        (uint64_t[]) {1, 2},
+        (uint64_t[]) {3, 2},
+        (uint64_t[]) {3, 2, 1},
+        (uint64_t[]) {7, 6, 4, 8},
+        (uint64_t[]) {2, 2, 2, 2},
+        (uint64_t[]) {7, 6, 4, 8, 9},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
         (uint64_t[]) {},
     };
 
-    uint64_t *expected_reduced_shapes[] = {
+    uint64_t reduced_ranks[] = { 1, 1, 2, 2, 3, 4, 4, 5, 0, 0, 0, 0, 0 };
+
+    uint64_t *reduced_strides[] = {
+        (uint64_t[]) {0},
+        (uint64_t[]) {1},
+        (uint64_t[]) {0, 1},
         (uint64_t[]) {2, 1},
-        (uint64_t[]) {1, 2, 1, 1, 3},
+        (uint64_t[]) {2, 1, 0},
+        (uint64_t[]) {0, 24, 8, 1},
+        (uint64_t[]) {0, 0, 0, 0},
+        (uint64_t[]) {0, 0, 72, 9, 1},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+    };
+
+    uint64_t *expected_recovered_shapes[] = {
+        (uint64_t[]) {1},
+        (uint64_t[]) {1, 2, 1},
+        (uint64_t[]) {1, 1, 2, 1, 1},
+        (uint64_t[]) {3, 1, 2},
+        (uint64_t[]) {1, 1, 3, 2, 1},
+        (uint64_t[]) {7, 6, 4, 1, 8},
+        (uint64_t[]) {2, 2, 1, 2, 2},
+        (uint64_t[]) {7, 6, 4, 8, 9},
+        (uint64_t[]) {1},
         (uint64_t[]) {1, 1},
+        (uint64_t[]) {1, 1, 1},
+        (uint64_t[]) {1, 1, 1, 1},
+        (uint64_t[]) {1, 1, 1, 1, 1},
     };
 
-    uint64_t reduced_ranks[] = {
-        2,
-        5,
-        2,
-    };
+    uint64_t recovered_ranks[] = { 1, 3, 5, 3, 5, 5, 5, 5, 1, 2, 3, 4, 5};
 
-    uint64_t *expected_reduced_strides[] = {
-        (uint64_t[]) {1, 0},
-        (uint64_t[]) {0, 3, 0, 0, 1},
+    uint64_t *expected_recovered_strides[] = {
+        (uint64_t[]) {0},
+        (uint64_t[]) {0, 1, 0},
+        (uint64_t[]) {0, 0, 1, 0, 0},
+        (uint64_t[]) {2, 0, 1},
+        (uint64_t[]) {0, 0, 2, 1, 0},
+        (uint64_t[]) {0, 24, 8, 0, 1},
+        (uint64_t[]) {0, 0, 0, 0, 0},
+        (uint64_t[]) {0, 0, 72, 9, 1},
+        (uint64_t[]) {0},
         (uint64_t[]) {0, 0},
+        (uint64_t[]) {0, 0, 0},
+        (uint64_t[]) {0, 0, 0, 0},
+        (uint64_t[]) {0, 0, 0, 0, 0},
     };
 
     uint64_t *axis[] = {
+        (uint64_t[]) {},
+        (uint64_t[]) {0, 2},
+        (uint64_t[]) {0, 3, 4},
         (uint64_t[]) {1},
-        (uint64_t[]) {2, 3},
         (uint64_t[]) {0, 1},
+        (uint64_t[]) {3},
+        (uint64_t[]) {2},
+        (uint64_t[]) {},
+        (uint64_t[]) {0},
+        (uint64_t[]) {0, 1},
+        (uint64_t[]) {2, 0, 1},
+        (uint64_t[]) {0, 3, 1, 2},
+        (uint64_t[]) {0, 1, 4, 3, 2},
     };
 
-    uint64_t lengths[] = {
-        1,
-        2,
-        2,
-    };
+    uint64_t lengths[] = { 0, 2, 3, 1, 2, 1, 1, 0, 1, 2, 3, 4, 5 };
     
-    uint64_t returned_reduced_shapes[number_of_cases][MAX_RANK];
-    uint64_t returned_reduced_strides[number_of_cases][MAX_RANK];
+    uint64_t returned_recovered_shapes[number_of_cases][MAX_RANK];
+    uint64_t returned_recovered_strides[number_of_cases][MAX_RANK];
 
     for (uint64_t i = 0; i < number_of_cases; i++)
     {
-        error = reduce_recover_dimensions(original_shapes[i],
-                                          original_ranks[i],
-                                          original_strides[i],
-                                          returned_reduced_shapes[i],
+        error = reduce_recover_dimensions(reduced_shapes[i],
                                           reduced_ranks[i],
-                                          returned_reduced_strides[i],
+                                          reduced_strides[i],
+                                          returned_recovered_shapes[i],
+                                          recovered_ranks[i],
+                                          returned_recovered_strides[i],
                                           axis[i],
                                           lengths[i]);
         ck_assert_ptr_null(error);
-        for (uint64_t j = 0; j < reduced_ranks[i]; j++)
+        for (uint64_t j = 0; j < recovered_ranks[i]; j++)
         {
-            ck_assert_uint_eq(returned_reduced_shapes[i][j], expected_reduced_shapes[i][j]);
-            ck_assert_uint_eq(returned_reduced_strides[i][j], expected_reduced_strides[i][j]);
+            ck_assert_uint_eq(returned_recovered_shapes[i][j], expected_recovered_shapes[i][j]);
+            ck_assert_uint_eq(returned_recovered_strides[i][j], expected_recovered_strides[i][j]);
         }
-        error_destroy(error);
-        error = NULL;
     }
 }
 END_TEST
 
 START_TEST(test_reduce_recover_dimension_error)
 {
-    uint64_t number_of_cases = 8;
-
-    uint64_t *original_shapes[] = {
-        NULL,
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-    };
-
-    uint64_t original_ranks[] = {
-        1,
-        1,
-        1,
-        1,
-        1,
-        MAX_RANK + 1,
-        2,
-        1,
-    };
-
-    uint64_t *original_strides[] = {
-        (uint64_t[]) {1},
-        NULL,
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-    };
+    uint64_t number_of_cases = 11;
 
     uint64_t *reduced_shapes[] = {
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
         NULL,
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {0},
     };
 
     uint64_t reduced_ranks[] = {
+        1,
+        1,
+        1,
+        1,
+        1,
+        MAX_RANK + 1,
+        1,
+        1,
+        2,
+        1,
+        1,
+    };
+
+    uint64_t *reduced_strides[] = {
+        (uint64_t[]) {1},
+        NULL,
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+    };
+
+    uint64_t *recovered_shapes[] = {
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        NULL,
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+    };
+
+    uint64_t recovered_ranks[] = {
+        2,
         2,
         2,
         2,
@@ -649,13 +693,18 @@ START_TEST(test_reduce_recover_dimension_error)
         MAX_RANK + 1,
         2,
         2,
+        2,
+        2,
     };
 
-    uint64_t *reduced_strides[] = {
+    uint64_t *recovered_strides[] = {
         (uint64_t[]) {2, 0},
         (uint64_t[]) {2, 0},
         (uint64_t[]) {2, 0},
         NULL,
+        (uint64_t[]) {2, 0},
+        (uint64_t[]) {2, 0},
+        (uint64_t[]) {2, 0},
         (uint64_t[]) {2, 0},
         (uint64_t[]) {2, 0},
         (uint64_t[]) {2, 0},
@@ -670,7 +719,10 @@ START_TEST(test_reduce_recover_dimension_error)
         NULL,
         (uint64_t[]) {1},
         (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
         (uint64_t[]) {2},
+        (uint64_t[]) {1},
     };
 
     uint64_t lengths[] = {
@@ -679,7 +731,10 @@ START_TEST(test_reduce_recover_dimension_error)
         1,
         1,
         1,
+        1,
+        1,
         MAX_RANK + 1,
+        1,
         1,
         1,
     };
@@ -693,16 +748,19 @@ START_TEST(test_reduce_recover_dimension_error)
         ERROR_RANK_CONFLICT,
         ERROR_RANK_CONFLICT,
         ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+        ERROR_SHAPE_CONFLICT,
     };
 
     for (uint64_t i = 0; i < number_of_cases; i++)
     {
-        error = reduce_recover_dimensions(original_shapes[i],
-                                          original_ranks[i],
-                                          original_strides[i],
-                                          reduced_shapes[i],
+        error = reduce_recover_dimensions(reduced_shapes[i],
                                           reduced_ranks[i],
                                           reduced_strides[i],
+                                          recovered_shapes[i],
+                                          recovered_ranks[i],
+                                          recovered_strides[i],
                                           axis[i],
                                           lengths[i]);
         ck_assert_ptr_nonnull(error);
@@ -715,102 +773,238 @@ END_TEST
 
 START_TEST(test_reduce)
 {
-    uint64_t number_of_cases = 9;
+    uint64_t number_of_cases = 26;
 
     uint64_t *original_shapes[] = {
-        (uint64_t[]) {2},
-        (uint64_t[]) {2},
-        (uint64_t[]) {2, 3},
-        (uint64_t[]) {2, 3},
-        (uint64_t[]) {2, 3},
-        (uint64_t[]) {2, 3},
-        (uint64_t[]) {2, 4, 3},
-        (uint64_t[]) {2, 4, 3},
         (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {2},
+        (uint64_t[]) {2},
+        (uint64_t[]) {1, 2},
+        (uint64_t[]) {1, 2},
+        (uint64_t[]) {1, 2},
+        (uint64_t[]) {1, 2},
+        (uint64_t[]) {1, 2},
+        (uint64_t[]) {1, 2},
+        (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {2, 3, 4},
+        (uint64_t[]) {2, 3, 4},
     };
 
     uint64_t original_ranks[] = {
-        1,
-        1,
-        2,
-        2,
-        2,
-        2,
-        3,
-        3,
         0,
-    };
+        0,
+        1,
+        1,
+        1,
+        1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+};
 
     uint64_t *original_strides[] = {
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {3, 1},
-        (uint64_t[]) {3, 1},
-        (uint64_t[]) {3, 1},
-        (uint64_t[]) {3, 1},
-        (uint64_t[]) {12, 3, 1},
-        (uint64_t[]) {12, 3, 1},
         (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {0},
+        (uint64_t[]) {0},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {0, 1},
+        (uint64_t[]) {0, 1},
+        (uint64_t[]) {0, 1},
+        (uint64_t[]) {0, 1},
+        (uint64_t[]) {0, 1},
+        (uint64_t[]) {0, 1},
+        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 4, 1},
+        (uint64_t[]) {12, 4, 1},
     };
 
     uint64_t *expected_reduced_shapes[] = {
         (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
         (uint64_t[]) {1},
-        (uint64_t[]) {2},
-        (uint64_t[]) {2, 1},
+        (uint64_t[]) {},
+        (uint64_t[]) {1},
         (uint64_t[]) {},
         (uint64_t[]) {1, 1},
-        (uint64_t[]) {2, 3},
-        (uint64_t[]) {2, 1, 3},
+        (uint64_t[]) {2},
+        (uint64_t[]) {1, 2},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1, 1},
         (uint64_t[]) {},
+        (uint64_t[]) {1, 1, 1},
+        (uint64_t[]) {4},
+        (uint64_t[]) {1, 1, 4},
+        (uint64_t[]) {3},
+        (uint64_t[]) {1, 3, 1},
+        (uint64_t[]) {2},
+        (uint64_t[]) {2, 1, 1},
+        (uint64_t[]) {2, 3},
+        (uint64_t[]) {2, 3, 1},
+        (uint64_t[]) {2, 4},
+        (uint64_t[]) {2, 1, 4},
+        (uint64_t[]) {3, 4},
+        (uint64_t[]) {1, 3, 4},
     };
 
     uint64_t reduced_ranks[] = {
         0,
+        0,
+        0,
         1,
+        0,
+        1,
+        0,
+        2,
+        1,
+        2,
         1,
         2,
         0,
-        2,
+        3,
+        1,
+        3,
+        1,
+        3,
+        1,
+        3,
         2,
         3,
-        0,
-    };
+        2,
+        3,
+        2,
+        3,
+};
 
     uint64_t *expected_reduced_strides[] = {
         (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
         (uint64_t[]) {0},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1, 0},
+        (uint64_t[]) {},
+        (uint64_t[]) {0},
         (uint64_t[]) {},
         (uint64_t[]) {0, 0},
-        (uint64_t[]) {3, 1},
-        (uint64_t[]) {3, 0, 1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {0, 1},
+        (uint64_t[]) {0},
+        (uint64_t[]) {0, 0},
         (uint64_t[]) {},
+        (uint64_t[]) {0, 0, 0},
+        (uint64_t[]) {1},
+        (uint64_t[]) {0, 0, 1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {0, 1, 0},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1, 0, 0},
+        (uint64_t[]) {3, 1},
+        (uint64_t[]) {3, 1, 0},
+        (uint64_t[]) {4, 1},
+        (uint64_t[]) {4, 0, 1},
+        (uint64_t[]) {4, 1},
+        (uint64_t[]) {0, 4, 1},
     };
 
     uint64_t *axis[] = {
-        (uint64_t[]) {0},
-        (uint64_t[]) {0},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {0, 1},
-        (uint64_t[]) {0, 1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
         (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {0},
+        (uint64_t[]) {0},
+        (uint64_t[]) {0},
+        (uint64_t[]) {0},
+        (uint64_t[]) {0, 1},
+        (uint64_t[]) {0, 1},
+        (uint64_t[]) {0},
+        (uint64_t[]) {0},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {0, 1, 2},
+        (uint64_t[]) {0, 1, 2},
+        (uint64_t[]) {0, 1},
+        (uint64_t[]) {0, 1},
+        (uint64_t[]) {0, 2},
+        (uint64_t[]) {0, 2},
+        (uint64_t[]) {1, 2},
+        (uint64_t[]) {1, 2},
+        (uint64_t[]) {2},
+        (uint64_t[]) {2},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {0},
+        (uint64_t[]) {0},
     };
 
     uint64_t lengths[] = {
-        1,
-        1,
-        1,
-        1,
-        2,
-        2,
-        1,
-        1,
         0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        2,
+        2,
+        1,
+        1,
+        1,
+        1,
+        3,
+        3,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
     };
 
     bool_t keep_dimensions[] = {
@@ -822,6 +1016,23 @@ START_TEST(test_reduce)
         true,
         false,
         true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
         true,
     };
     

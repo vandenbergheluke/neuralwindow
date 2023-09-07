@@ -343,56 +343,82 @@ nw_error_t *reverse_permute(const uint64_t *axis, uint64_t rank, uint64_t *rever
     return NULL;
 }
 
-nw_error_t *reduce_recover_dimensions(const uint64_t *original_shape,
-                                      uint64_t original_rank, 
-                                      const uint64_t *original_strides,
-                                      uint64_t *reduced_shape, 
-                                      uint64_t reduced_rank,
-                                      uint64_t *reduced_strides,
+/**
+ * @brief Given a the shape and strides of a tensor that has been reduced without keeping
+ *        the dimension, recover the shape and strides of the reduced tensor such that
+ *        the recovered shape and strides are equal to the shape and strides of the
+ *        tensor if it was reduced with keeping the dimension instead of without keeping dimension.
+ * @param[in] reduced_shape The shape of a tensor reduced along dimensions specified by `axis`
+ *                          without keeping dimension.
+ * @param[in] reduced_rank The rank of the reduced tensor. Number of elements in `reduced_shape`
+ *                         and `reduced_strides`.
+ * @param[in] reduced_strides The strides of the reduced tensor.
+ * @param[out] recovered_shape The shape of the reduced tensor if it was reduced with keeping dimension
+ *                             instead of without keeping dimension.
+ * @param[in] recovered_rank The rank of the original tensor before being reduced. Number of
+ *                           elements in `recovered_shape` and `recovered_strides`.
+ * @param[out] recovered_strides The strides of the recovered tensor.
+ * @param[in] axis The indicies of the dimensions of the tensor that were reduced and removed.
+ * @param[in] rank The number of elements in `axis`.
+ * @return Error if `reduced_shape`, `reduced_strides`, `recovered_shape`, `recovered_strides`, or `axis` is NULL.
+ *         Error if `reduced_rank` + `rank` is not equal to the `recovered_rank`.
+ *         Error if any of the `reduced_rank`, `recovered_rank`, or `rank` are not in [0, MAX_RANK].
+ *         Error if `axis` dimension index is out of range of the `recovered_rank`.
+ *         Error if any dimension in `reduced_shape` is 0.
+ *         NULL if the shape and strides were recovered successfully.
+ */
+nw_error_t *reduce_recover_dimensions(const uint64_t *reduced_shape,
+                                      uint64_t reduced_rank, 
+                                      const uint64_t *reduced_strides,
+                                      uint64_t *recovered_shape, 
+                                      uint64_t recovered_rank,
+                                      uint64_t *recovered_strides,
                                       const uint64_t *axis,
                                       uint64_t rank)
 {
-    CHECK_NULL_ARGUMENT(original_shape, "original_shape");
-    CHECK_NULL_ARGUMENT(original_strides , "original_strides");
     CHECK_NULL_ARGUMENT(reduced_shape, "reduced_shape");
     CHECK_NULL_ARGUMENT(reduced_strides, "reduced_strides");
+    CHECK_NULL_ARGUMENT(recovered_shape, "recovered_shape");
+    CHECK_NULL_ARGUMENT(recovered_strides , "recovered_strides");
     CHECK_NULL_ARGUMENT(axis, "axis");
 
-    if (reduced_rank != original_rank + rank)
+    if (recovered_rank != reduced_rank + rank)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("conflicting ranks with original rank %lu, reduced rank %lu and axis length %lu.",
-                     (unsigned long) original_rank, (unsigned long) reduced_rank, (unsigned long) rank), NULL);
+                     string_create("conflicting ranks with reduced rank %lu, recovered rank %lu and axis length %lu.",
+                     (unsigned long) reduced_rank, (unsigned long) recovered_rank, (unsigned long) rank),
+                     NULL);
     }
 
-    if (original_rank > MAX_RANK || reduced_rank > MAX_RANK || rank > MAX_RANK)
+    if (reduced_rank > MAX_RANK || recovered_rank > MAX_RANK || rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("original rank %lu, reduced rank %lu and axis length %lu must be less than or equal to %d.",
-                     (unsigned long) original_rank, (unsigned long) reduced_rank, (unsigned long) rank, (int) MAX_RANK),
+                     string_create("reduced rank %lu, recovered rank %lu and axis length %lu must be less than or equal to %d.",
+                     (unsigned long) reduced_rank, (unsigned long) recovered_rank, (unsigned long) rank, (int) MAX_RANK),
                      NULL);
     }
 
     for (uint64_t i = 0; i < rank; ++i)
     {
-        if (axis[i] >= reduced_rank)
+        if (axis[i] >= recovered_rank)
         {
             return ERROR(ERROR_RANK_CONFLICT,
-                         string_create("reduced rank %lu must be greater than axis dimension %lu.",
-                         (unsigned long) reduced_rank, (unsigned long) axis[i]), NULL);
+                         string_create("recovered rank %lu must be greater than the axis dimension index %lu.",
+                         (unsigned long) recovered_rank, (unsigned long) axis[i]),
+                         NULL);
         }
     }
 
     uint64_t k = 0;
-    for (uint64_t i = 0; i < reduced_rank; ++i)
+    for (uint64_t i = 0; i < recovered_rank; ++i)
     {
         bool_t reduced = false;
         for (uint64_t j = 0; j < rank; ++j)
         {
             if (axis[j] == i)
             {
-                reduced_shape[i] = 1;
-                reduced_strides[i] = 0;
+                recovered_shape[i] = 1;
+                recovered_strides[i] = 0;
                 reduced = true;
                 break;
             }
@@ -400,8 +426,23 @@ nw_error_t *reduce_recover_dimensions(const uint64_t *original_shape,
     
         if (!reduced)
         {
-            reduced_shape[i] = original_shape[k];
-            reduced_strides[i] = original_strides[k];
+            if (k >= reduced_rank)
+            {
+                return ERROR(ERROR_RANK_CONFLICT,
+                             string_create("error index %lu out of range of reduced rank %lu.",
+                             (unsigned long) k, (unsigned long) reduced_rank),
+                             NULL);
+            }
+
+            if (!reduced_shape[k])
+            {
+                return ERROR(ERROR_SHAPE_CONFLICT,
+                             string_create("all reduced shape dimensions must be greater than 0."),
+                             NULL);
+            }
+
+            recovered_shape[i] = reduced_shape[k];
+            recovered_strides[i] = reduced_strides[k];
             ++k;
         }
     }
@@ -409,6 +450,23 @@ nw_error_t *reduce_recover_dimensions(const uint64_t *original_shape,
     return NULL;
 }
 
+/**
+ * @brief Given the shape, rank, and strides of a tensor, find the resulting
+ *        shape and strides of the tensor after it is reduced.
+ * @param[in] original_shape The original dimensions of the tensor before it is reduced.
+ * @param[in] original_rank The original rank of the tensor before it is reduced. 
+ *                          The number of elements in `original_shape` and `original_strides`.
+ * @param[in] original_strides The original strides of the tensor before it is reduced.
+ * @param[out] reduced_shape The dimensions of the tensor after it is reduced.
+ * @param[in] reduced_rank The rank of the tensor after it is reduced. 
+ *                         The number of elements in `reduced_shape` and `reduced_strides`.
+ * @param[out] reduced_strides The strides of the tensor after it is reduced.
+ * @param[in] axis An array of inidices of tensor dimensions to reduce.
+ * @param[in] rank The number of indices in `axis`.
+ * @param[in] keep_dimensions A flag to indicate whether the dimensions are retained (true)
+ *                            after reduction or removed (false).
+ * @return nw_error_t* 
+ */
 nw_error_t *reduce(const uint64_t *original_shape,
                    uint64_t original_rank,
                    const uint64_t *original_strides, 
@@ -425,45 +483,50 @@ nw_error_t *reduce(const uint64_t *original_shape,
     CHECK_NULL_ARGUMENT(reduced_strides, "reduced_strides");
     CHECK_NULL_ARGUMENT(axis, "axis");
 
-    if (original_rank == 0)
+    if (rank > original_rank || original_rank > MAX_RANK || reduced_rank > MAX_RANK)
     {
-        return NULL;
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("original rank %lu, reduced rank %lu and axis length %lu must be less than or equal to %d and rank <= original rank.",
+                     (unsigned long) original_rank, (unsigned long) reduced_rank, (unsigned long) rank, (int) MAX_RANK),
+                     NULL);
     }
 
     if (keep_dimensions && original_rank != reduced_rank)
     {
         return ERROR(ERROR_RANK_CONFLICT,
                      string_create("conflicting ranks with original rank %lu and reduced rank %lu.",
-                     (unsigned long) original_rank, (unsigned long) reduced_rank), NULL);
-    }
-
-    if (!keep_dimensions && reduced_rank != original_rank - rank && !(reduced_rank == 1 && original_rank - rank == 0))
-    {
-        return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("conflicting ranks with expected rank %lu and reduced rank %lu.", 
-                     (unsigned long) (original_rank - rank), (unsigned long) reduced_rank), NULL);
-    }
-
-    if (rank > original_rank || original_rank > MAX_RANK || reduced_rank > MAX_RANK)
-    {
-        return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("original rank %lu, permuted rank %lu and axis length %lu must be less than or equal to %d and rank <= original rank.",
-                     (unsigned long) original_rank, (unsigned long) reduced_rank, (unsigned long) rank, (int) MAX_RANK),
+                     (unsigned long) original_rank, (unsigned long) reduced_rank),
                      NULL);
     }
+
+    if (!keep_dimensions && reduced_rank != original_rank - rank)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("conflicting ranks with expected reduced rank %lu and reduced rank %lu.", 
+                     (unsigned long) (original_rank - rank), (unsigned long) reduced_rank),
+                     NULL);
+    }
+
 
     for (uint64_t i = 0; i < rank; ++i)
     {
         if (axis[i] >= original_rank)
         {
             return ERROR(ERROR_RANK_CONFLICT,
-                         string_create("original rank %lu must be greater than axis dimension %lu.",
-                         (unsigned long) original_rank, (unsigned long) axis[i]), NULL);
+                         string_create("original rank %lu must be greater than axis dimension index %lu.",
+                         (unsigned long) original_rank, (unsigned long) axis[i]),
+                         NULL);
         }
+    }
+
+    if (!reduced_rank || !original_rank)
+    {
+        return NULL;
     }
 
     uint64_t k = reduced_rank - 1;
     uint64_t stride = 1;
+
     for (uint64_t i = original_rank - 1; ; i--)
     {
         bool_t reduce_dimension = false;
@@ -474,6 +537,13 @@ nw_error_t *reduce(const uint64_t *original_shape,
                 reduce_dimension = true;
                 break;
             }
+        }
+
+        if (original_shape[i] == 0)
+        {
+            return ERROR(ERROR_SHAPE_CONFLICT,
+                         string_create("The dimensions of the original shape must all be greater than 0"),
+                         NULL);
         }
 
         if (reduce_dimension && keep_dimensions)
