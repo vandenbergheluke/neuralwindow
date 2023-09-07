@@ -12,9 +12,9 @@
 #include <string.h>
 
 /**
- * @brief Creates a tensor instance.
+ * @brief Dynamically memory allocate and initialize a tensor.
  * 
- * @param[out] tensor Pointer to allocated tensor.
+ * @param[out] tensor Pointer to allocated tensor memory.
  * @param[in] buffer The underlying data storage of the tensor.
  * @param[in] context A record of the operation that generated the tensor. Used to 
  *                    build a directed acyclic graph (DAG) for the automatic

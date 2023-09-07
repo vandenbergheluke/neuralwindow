@@ -9,14 +9,22 @@
 #include <datatype.h>
 #include <errors.h>
 
+/**
+ * @brief The maximum number of supported tensor dimensions.
+ */
 #define MAX_RANK 5
 
+/** 
+ *  @brief Defines an interpretation of the underlying storage used to
+ *         represent a tensor. 
+ * 
+ */
 typedef struct view_t
 {
-    uint64_t *shape;
-    uint64_t rank; 
-    uint64_t *strides;
-    uint64_t offset;
+    uint64_t *shape; /** The dimensions of the tensor. */
+    uint64_t rank; /** The rank of the tensor. (The length of shape) */ 
+    uint64_t *strides; /** The strides are the jumps necessary to go from one element to the next one in storage along each dimension. (not bytes) */
+    uint64_t offset; /** The offset in the underlying storage in terms of number of storage elements. (not bytes) */
 } view_t;
 
 nw_error_t *view_create(view_t **view,
@@ -27,13 +35,11 @@ nw_error_t *view_create(view_t **view,
 void view_destroy(view_t *view);
 bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strides);
 nw_error_t *permute(const uint64_t *original_shape,
-                 uint64_t original_rank,
-                 const uint64_t *original_strides,
-                 uint64_t *permuted_shape,
-                 uint64_t permuted_rank,
-                 uint64_t *permuted_strides,
-                 const uint64_t *axis,
-                 uint64_t length);
+                    const uint64_t *original_strides,
+                    uint64_t *permuted_shape,
+                    uint64_t *permuted_strides,
+                    const uint64_t *axis,
+                    uint64_t length);
 nw_error_t *reverse_permute(const uint64_t *axis,
                          uint64_t rank,
                          uint64_t *reverse_axis);

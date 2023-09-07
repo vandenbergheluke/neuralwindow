@@ -4599,7 +4599,7 @@ static nw_error_t *permute_operation_forward(tensor_t *x, uint64_t *axis, uint64
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate shape of size %zu bytes.", rank * sizeof(uint64_t)), NULL);
     }
 
-    error = permute(x->buffer->view->shape, x->buffer->view->rank, x->buffer->view->strides, shape, rank, strides, axis, rank);
+    error = permute(x->buffer->view->shape, x->buffer->view->strides, shape, strides, axis, rank);
     if (error != NULL)
     {
         free(shape);

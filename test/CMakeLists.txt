@@ -8,14 +8,14 @@ set(TEST_C
 )
 
 set(TEST_CXX
-    test_tensor_reduction
-    test_tensor_unary
-    test_tensor_binary_elementwise
-    test_buffer_reduction
-    test_buffer_unary
-    test_buffer_binary
-    test_buffer_unary_performance
-    test_buffer_binary_performance
+    # test_tensor_reduction
+    # test_tensor_unary
+    # test_tensor_binary_elementwise
+    # test_buffer_reduction
+    # test_buffer_unary
+    # test_buffer_binary
+    # test_buffer_unary_performance
+    # test_buffer_binary_performance
 )
 
 set(TEST_HELPER

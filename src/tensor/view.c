@@ -1,6 +1,8 @@
-/**@file view.c
- * @brief
- *
+/**
+ * @file view.c
+ * @brief The view defines an interpretation of the underlying storage 
+ *        used to represent a tensor. File contains operations to create, 
+ *        manipulate, and describe the view.
  */
 
 #include <view.h>
@@ -8,17 +10,38 @@
 #include <string.h>
 
 /**
- * @brief Allocate and initialize view. 
- * @param view Address to view pointer to allocate memory for. 
- * @param offset The memory offset to the first element. 
- * @param rank The rank of the tensor.
- * @param shape The dimensions of the tensor. Must not be NULL. Contents is copied to shape member in view.
- * @param strides The memory strides to traverse between elements of a tensor along each dimension. 
- *                Contents is copied to strides member in view if not NULL otherwise strides will be initialized
- *                assuming tensor is contiguous and in row major format.
- * @return Memory allocation error if failed to allocate memory for a member in the view.
+ * @brief Dynamically memory allocate and initialize a view. 
+ *        Refernence: https://pytorch.org/docs/stable/generated/torch.Tensor.view.html       
+ * @param[out] view Pointer to allocated view memory. 
+ * @param[in] offset The offset in the underlying storage in terms of number of 
+ *                   storage elements (not bytes).
+ *                   Reference: https://pytorch.org/docs/stable/generated/torch.Tensor.storage_offset.html
+ * @param[in] rank The rank of the tensor (length of shape). Rank needs to be
+ *                 in the closed interval `[0, MAX_RANK]`.
+ *                 Reference: https://pytorch.org/docs/stable/generated/torch.Tensor.ndimension.html
+ * @param[in] shape The dimensions of the tensor. Must not be NULL. 
+ *                  Contents is copied to dynamically memory allocated 
+ *                  shape member in view.
+ *                  Reference: https://pytorch.org/docs/stable/generated/torch.Tensor.size.html
+ * @param[in] strides The strides are the jumps necessary to go from one element 
+ *                    to the next one in storage along each dimension (not bytes).
+ *                    Contents is copied to dynamically memory allocated strides 
+ *                    member in view if not NULL otherwise the allocated strides will be 
+ *                    initialized under the assumption that the tensor is contiguous 
+ *                    and in row major format.
+ *                    Reference: https://pytorch.org/docs/stable/generated/torch.Tensor.stride.html
+ * @return Error if failed to dynamically allocate memory for view or any of
+ *         its members.
+ *         Error if `rank` does not satisfy `0 <= rank <= MAX_RANK`.
+ *         Error of the contiguous tensor strides failed to be computed.
+ *         Error if a dimension in shape is 0.
+ *         NULL if view was successfully dynamically memory allocated and initialized.
  */
-nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uint64_t *shape, const uint64_t *strides)
+nw_error_t *view_create(view_t **view,
+                        uint64_t offset,
+                        uint64_t rank,
+                        const uint64_t *shape,
+                        const uint64_t *strides)
 {
     CHECK_NULL_ARGUMENT(view, "view");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -28,6 +51,16 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
         return ERROR(ERROR_RANK_CONFLICT,
                      string_create("rank %lu must be less or equal to %d.",
                      (unsigned long) rank, (int) MAX_RANK), NULL);
+    }
+
+    for (uint64_t i = 0; i < rank; ++i)
+    {
+        if (!shape[i])
+        {
+            return ERROR(ERROR_SHAPE_CONFLICT,
+                         string_create("all tensor dimensions must be greater than 0."),
+                         NULL);
+        }
     }
 
     // View
@@ -43,7 +76,9 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
     (*view)->offset = offset;
     (*view)->rank = rank;
 
-    // Shape
+    // Dynamically allocate memory for shape
+
+    // If rank is 0, this should return a reference to a block of memory of size 0.
     (*view)->shape = (uint64_t *) malloc((size_t) (rank * sizeof(uint64_t)));
     if ((*view)->shape == NULL)
     {
@@ -53,7 +88,9 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
                      (unsigned long) (rank * sizeof(uint64_t))), NULL);
     }
 
-    // Strides
+    // Dynamically allocate memory for strides.
+
+    // If rank is 0, this should return a reference to a block of memory of size 0.
     (*view)->strides = (uint64_t *) malloc((size_t) (rank * sizeof(uint64_t)));
     if ((*view)->strides == NULL)
     {
@@ -65,15 +102,23 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
     }
 
     // Copy
+
+    // Don't need to copy for scalar tensors.
     if (rank == 0)
     {
        return NULL; 
     }
 
-    memcpy((void *) ((*view)->shape), (const void *) shape, (size_t) (rank * sizeof(uint64_t)));
+    // Initialize Shape
+    memcpy((void *) ((*view)->shape), 
+           (const void *) shape, (size_t) (rank * sizeof(uint64_t)));
+
+    // Initialize Strides
     if (strides != NULL)
     {
-        memcpy((void *) ((*view)->strides), (const void *) strides, (size_t) (rank * sizeof(uint64_t)));
+        memcpy((void *) ((*view)->strides), 
+               (const void *) strides,
+               (size_t) (rank * sizeof(uint64_t)));
     }
     else
     {
@@ -93,8 +138,8 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
 }
 
 /**
- * @brief Free memory allocated for view.
- * @param view The view instance to be freed.
+ * @brief Free memory dynamically allocated for view and its members.
+ * @param[in] view The view instance to be freed.
  */
 void view_destroy(view_t *view)
 {
@@ -110,11 +155,17 @@ void view_destroy(view_t *view)
 
 
 /**
- * @brief Determine if tensor is contiguous in memory.
- * @param shape The dimensions of the tenors. 
- * @param rank  The rank of the tensor. 
- * @param strides The memory strides of the tensor.
- * @return True if the tensor memory is contiguous and False if it isn't. 
+ * @brief Determine if tensor is contiguous in memory. 
+ *        Reference: https://pytorch.org/docs/stable/generated/torch.Tensor.is_contiguous.html
+ * @param[in] shape The dimensions of the tenors. 
+ * @param[in] rank  Represents rank of the tensor. The number of elements in
+ *                  `shape` and `strides`. Needs to be in closed interval `[0, MAX_RANK]`.
+ * @param[in] strides The strides are the jumps necessary to go from one element 
+ *                    to the next one in storage along each dimension.
+ * @return True if the tensor memory is contiguous and False if it isn't.
+ *         If any argument is NULL, or `rank` does not satisfy `0 <= rank <= MAX_RANK`
+ *         false is returned. If error occured while computing contiguous tensor
+ *         strides false is also returned.
  */
 bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strides)
 {
@@ -149,22 +200,24 @@ bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strid
 
 /**
  * @brief Permute the dimensions of a tensor.
- * @param original_shape The original dimensions. 
- * @param original_rank The size of the original_shape and original_strides array.
- * @param original_strides The original memory strides.
- * @param permuted_shape The reordered dimensions.
- * @param permuted_rank The size of the permuted_shape and permute_strides array.
- * @param permuted_strides The reordered memory strides.
- * @param axis Array containing the order of dimensions.
- * @param length Number of elements in axis.
- * @return Rank conflict error if the permute shape array is not the 
- *         same size as the original shape array or axis length array.
+ *        Refernece: https://pytorch.org/docs/stable/generated/torch.permute.html
+ * @param[in] original_shape The original dimensions of the tensor. 
+ * @param[in] original_strides The original memory strides.
+ * @param[out] permuted_shape The reordered dimensions.
+ * @param[out] permuted_strides The reordered memory strides.
+ * @param[in] axis Index array containing the order of dimensions.
+ * @param[in] length Number of elements `original_shape`, `original_strides`,
+ *                   `permuted_shape`, `permuted_strides`, and `axis`. Should
+ *                   be in closed interval [0, MAX_RANK].
+ * @return Error if length does not satisfy 0 <= length <= MAX_RANK.
+ *         Error if any argument is NULL.
+ *         Error if dimension index in axis is greater than length (out of range).
+ *         NULL if dimensions of the tensor were successfully permuted to the 
+ *         new order specified by axis.
  */
 nw_error_t *permute(const uint64_t *original_shape,
-                    uint64_t original_rank,
                     const uint64_t *original_strides, 
                     uint64_t *permuted_shape,
-                    uint64_t permuted_rank,
                     uint64_t *permuted_strides,
                     const uint64_t *axis,
                     uint64_t length)
@@ -175,34 +228,34 @@ nw_error_t *permute(const uint64_t *original_shape,
     CHECK_NULL_ARGUMENT(permuted_strides, "permuted_strides");
     CHECK_NULL_ARGUMENT(axis, "axis");
 
-    if (original_rank != permuted_rank || original_rank != length || length != permuted_rank)
-    {
-        return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("conflicting ranks with original rank %lu, permuted rank %lu and axis length %lu.",
-                     (unsigned long) original_rank, (unsigned long) permuted_rank, (unsigned long) length), NULL);
-    }
-
-    if (original_rank > MAX_RANK || permuted_rank > MAX_RANK || length > MAX_RANK)
+    if (length > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("original rank %lu, permuted rank %lu and axis length %lu must be less than or equal to %d.",
-                     (unsigned long) original_rank, (unsigned long) permuted_rank, (unsigned long) length, (int) MAX_RANK),
+                     string_create("axis length %lu must be less than or equal to %d.",
+                     (unsigned long) length, (int) MAX_RANK),
                      NULL);
     }
     
     for (uint64_t i = 0; i < length; ++i)
     {
         uint64_t dimension = axis[i];
-        if (dimension < original_rank)
+        if (dimension < length)
         {
+            if (!original_shape[dimension])
+            {
+                return ERROR(ERROR_SHAPE_CONFLICT,
+                             string_create("all shape dimensions must be greater than 0."),
+                             NULL);
+            }
+
             permuted_shape[i] = original_shape[dimension];
             permuted_strides[i] = original_strides[dimension];
         }
         else
         {
             return ERROR(ERROR_PERMUTE,
-                         string_create("axis dimension %lu out of range of rank %lu.", 
-                         (unsigned long) dimension, (unsigned long) original_rank), NULL);
+                         string_create("axis dimension %lu out of range of length %lu.", 
+                         (unsigned long) dimension, (unsigned long) length), NULL);
         }
     }
     
@@ -223,6 +276,26 @@ static int compare(const void *a, const void *b)
     return (pair_a->value - pair_b->value);
 }
 
+/**
+ * @brief Given an `axis` of size `rank` used to reorder the dimensions of a 
+ *        tensor through the `permute` operation, find a new axis `reverse_axis`
+ *        such that when the `permute` operation with `reverse_axis` is applied 
+ *        to a tensor that has been permuted with `axis`, the original dimension
+ *        order of the tensor before being permuted with `axis` is recovered. 
+ *        Equivalently, this is an argsort of axis. 
+ *        Reference: https://pytorch.org/docs/stable/generated/torch.argsort.html 
+ * @param[in] axis An array of indicies specifying the order of dimensions.
+ * @param[in] rank Number of elements in `axis` and `reverse_axis` that is equal to
+ *                 the rank of the permuted tensor.
+ * @param[out] reverse_axis An array of indicies specifying the order of dimensions
+ *                          to reverse the permutation operation that was applied
+ *                          with `axis`.
+ * @return Error if `axis` or `reverse_axis` is NULL.
+ *         Error if memory has failed to be dynamically allocated for axis.
+ *         Error if `rank` does not satisfy 0 <= rank <= 5.
+ *         Error if `axis` dimension index is greater than or equal to rank.
+ *         NULL if `reverse_axis` was successfully acquired.
+ */
 nw_error_t *reverse_permute(const uint64_t *axis, uint64_t rank, uint64_t *reverse_axis)
 {
     CHECK_NULL_ARGUMENT(axis, "axis");
@@ -245,6 +318,15 @@ nw_error_t *reverse_permute(const uint64_t *axis, uint64_t rank, uint64_t *rever
 
     for (uint64_t i = 0; i < rank; ++i)
     {
+        if (axis[i] >= rank)
+        {
+            free(new_axis);
+            return ERROR(ERROR_RANK_CONFLICT,
+                         string_create("dimension index %lu cannot be greater or equal to rank %lu",
+                         (unsigned long) axis[i], (unsigned long) rank),
+                         NULL);
+        }
+
         new_axis[i].index = i;
         new_axis[i].value = axis[i];
     }
@@ -466,12 +548,13 @@ nw_error_t *reduce_compute_buffer_size(const uint64_t *shape,
 
 
 /**
- * @brief Given the shape and rank of two tensors, determine if both tensors have the same dimensions. 
- * @param x_shape An array of size x_rank representing the dimensions of a tensor.
- * @param x_rank The order of the tensor. Gives number of elements in x_shape.
- * @param y_shape An array of size y_rank representing the dimensions of a tensor.
- * @param y_rank The order of the tensor. Gives number of elements in y_shape.
- * @return False if either shapes are NULL, ranks are not equal, or shape dimensions are not equal. True otherwise.
+ * @brief Given the shape and rank of two tensors, determine if both tensors have same rank and dimensions. 
+ * @param[in] x_shape An array of size `x_rank` representing the dimensions of a tensor.
+ * @param[in] x_rank The order of the tensor. Gives number of elements in `x_shape`.
+ * @param[in] y_shape An array of size `y_rank` representing the dimensions of a tensor.
+ * @param[in] y_rank The order of the tensor. Gives number of elements in `y_shape`.
+ * @return False if either shapes are NULL, ranks are not equal, or shape dimensions at a common index are not equal. 
+ *         True if ranks are equal and shape dimensions are equal.
  */
 bool_t shapes_equal(const uint64_t *x_shape, uint64_t x_rank, const uint64_t *y_shape, uint64_t y_rank)
 {
@@ -492,10 +575,15 @@ bool_t shapes_equal(const uint64_t *x_shape, uint64_t x_rank, const uint64_t *y_
 }
 
 /**
- * @brief Given the shape and rank of a tensor, find the total number of elements in the tensor. 
- * @param shape An array of size rank representing the dimensions of a tensor.
- * @param rank The order of the tensor. Gives number of elements in shape.
- * @return The size of the tensor. Returns 0 if shape is NULL.
+ * @brief Given the shape and rank of a tensor, find the total number of elements in the tensor.
+ *        Note that this is just the percieved number of elements in the tensor and 
+ *        may not be equal to the number of elements actually stored in memory.
+ *        The actual number of elements stored in memory is defined by `n` in `buffer`. 
+ *        Reference: https://pytorch.org/docs/stable/generated/torch.numel.html
+ * @param[in] shape An array of size rank representing the dimensions of a tensor.
+ * @param[in] rank The order of the tensor. Gives number of elements in shape.
+ * @return The percieved number of elements in the tensor.
+ *         Returns 0 if shape is NULL.
  */
 uint64_t shape_size(const uint64_t *shape, uint64_t rank)
 {
@@ -505,23 +593,34 @@ uint64_t shape_size(const uint64_t *shape, uint64_t rank)
     }
 
     uint64_t total = 0;
+
     for (uint64_t i = 0; i < rank; ++i)
     {
-        total = (i == 0) ? shape[i] : total * shape[i];
+        if (!shape[i])
+        {
+            continue;
+        }
+
+        total = (!total) ? shape[i] : total * shape[i];
     }
     
     return total;
 }
 
 /**
- * @brief Given the shape and rank of a tensor that is contiguous and stored in
- *        row-major format, find the associated strides.
- * @param strides The number of elements to skip in memory to reach the next 
- *                 element in a specific dimension of the tensor. The strides 
- *                 should be preallocated and same size as shape.
- * @param shape An array of size rank representing the dimensions of the tensor.
- * @param rank The order of the tensor. Gives the number of elements in shape.
- * @return NULL if operation was successful. An error if strides or shape are NULL.
+ * @brief Given the shape and rank of a tensor that is contiguous in memory and stored in
+ *        row-major format, find the associated strides. See unit tests in `test_view.c`
+ *        for examples.
+ *        Reference: https://github.com/tinygrad/tinygrad/blob/master/tinygrad/shape/shapetracker.py
+ * @param[out] strides The number of elements to skip in memory to reach the next 
+ *                     element in a specific dimension of the tensor. The strides 
+ *                     should be preallocated and same size as shape.
+ * @param[in] shape An array of size rank representing the dimensions of the tensor.
+ * @param[in] rank The order of the tensor. Gives the number of elements in shape.
+ * @return Error if `shape` or `strides` is NULL.
+ *         Error if `rank` does not satisfy 0 <= rank <= MAX_DIM.
+ *         Error if any of the dimensions in shape are 0.
+ *         NULL if the strides were successfully acquired.
  */
 nw_error_t *strides_from_shape(uint64_t *strides, const uint64_t *shape, uint64_t rank)
 {
@@ -537,7 +636,14 @@ nw_error_t *strides_from_shape(uint64_t *strides, const uint64_t *shape, uint64_
 
     for (uint64_t i = 0; i < rank; ++i)
     {
-        if (i == 0)
+        if (!shape[i])
+        {
+            return ERROR(ERROR_SHAPE_CONFLICT,
+                         string_create("all shape dimensions must be greater than 0."),
+                         NULL);
+        }
+
+        if (!i)
         {
             strides[rank - (i + 1)] = 1;
         }

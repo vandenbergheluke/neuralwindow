@@ -20,15 +20,20 @@ void teardown(void)
 
 START_TEST(test_view_create_error)
 {
-    uint64_t number_of_cases = 4;
+    uint64_t number_of_cases = 9;
 
-    uint64_t offsets[] = {0, 0, 0, 0};
-    uint64_t ranks[] = {1, 1, 1, MAX_RANK + 1};
+    uint64_t offsets[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    uint64_t ranks[] = {1, 1, 1, MAX_RANK + 1, 5, 5, 5, 5, 5};
     uint64_t *shapes[] = {
         (uint64_t[]) {1},
         NULL,
         NULL,
         (uint64_t[]) {1},
+        (uint64_t[]) {1, 2, 0, 4, 5},
+        (uint64_t[]) {1, 0, 3, 4, 5},
+        (uint64_t[]) {1, 2, 3, 0, 5},
+        (uint64_t[]) {1, 2, 3, 4, 0},
+        (uint64_t[]) {0, 2, 3, 4, 5},
     };
 
     uint64_t *strides[] = {
@@ -36,6 +41,11 @@ START_TEST(test_view_create_error)
         (uint64_t[]) {1},
         NULL,
         (uint64_t[]) {1},
+        (uint64_t[]) {120, 60, 20, 5, 1},
+        (uint64_t[]) {120, 60, 20, 5, 1},
+        (uint64_t[]) {120, 60, 20, 5, 1},
+        (uint64_t[]) {120, 60, 20, 5, 1},
+        (uint64_t[]) {120, 60, 20, 5, 1},
     };
 
     nw_error_type_t error_types[] = {
@@ -43,6 +53,11 @@ START_TEST(test_view_create_error)
         ERROR_NULL,
         ERROR_NULL,
         ERROR_RANK_CONFLICT,
+        ERROR_SHAPE_CONFLICT,
+        ERROR_SHAPE_CONFLICT,
+        ERROR_SHAPE_CONFLICT,
+        ERROR_SHAPE_CONFLICT,
+        ERROR_SHAPE_CONFLICT,
     };
 
     for (uint64_t i = 0; i < number_of_cases; i++)
@@ -57,6 +72,8 @@ START_TEST(test_view_create_error)
         }
         ck_assert_ptr_nonnull(error);
         ck_assert_int_eq(error->error_type, error_types[i]);
+
+        // Teardown
         error_destroy(error);
         view_destroy(view);
         error = NULL;
@@ -67,51 +84,63 @@ END_TEST
 
 START_TEST(test_view_create)
 {
-    uint64_t number_of_cases = 5;
+    uint64_t number_of_cases = 6;
 
-    uint64_t offsets[] = {0, 1, 10, 20, 30};
-    uint64_t ranks[] = {1, 2, 3, 4, 5};
-    uint64_t *expected_shapes[] = {
+    uint64_t offsets[] = {0, 0, 0, 0, 0, 0};
+    uint64_t ranks[] = {0, 1, 2, 3, 4, 5};
+    uint64_t *shapes[] = {
+        (uint64_t[]) {},
         (uint64_t[]) {1},
         (uint64_t[]) {1, 2},
-        (uint64_t[]) {1, 2, 3},
+        (uint64_t[]) {2, 2, 3},
         (uint64_t[]) {1, 2, 3, 4},
-        (uint64_t[]) {1, 2, 3, 4, 5},
+        (uint64_t[]) {1, 2, 3, 1, 5},
+    };
+
+    uint64_t *strides[] = {
+        (uint64_t[]) {},
+        (uint64_t[]) {1},
+        NULL,
+        NULL,
+        (uint64_t[]) {24, 12, 4, 1},
+        NULL,
     };
 
     uint64_t *expected_strides[] = {
-        (uint64_t[]) {0},
-        (uint64_t[]) {2, 1},
+        (uint64_t[]) {},
+        (uint64_t[]) {1},
+        (uint64_t[]) {0, 1},
         (uint64_t[]) {6, 3, 1},
-        (uint64_t[]) {0, 12, 4, 1},
-        (uint64_t[]) {120, 60, 20, 5, 1},
+        (uint64_t[]) {24, 12, 4, 1},
+        (uint64_t[]) {0, 15, 5, 0, 1},
     };
 
     for (uint64_t i = 0; i < number_of_cases; i++)
     {
-        if (i % 3 == 0)
-        {
-            error = view_create(&view, offsets[i], ranks[i], expected_shapes[i], NULL);
-        }
-        else
-        {
-           error = view_create(&view, offsets[i], ranks[i], expected_shapes[i], expected_strides[i]);
-        }
+        error = view_create(&view, offsets[i], ranks[i], shapes[i], strides[i]);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_ne(view->shape, expected_shapes[i]);
-        ck_assert_ptr_ne(view->strides, expected_strides[i]);
-        ck_assert_ptr_nonnull(view->shape);
-        ck_assert_ptr_nonnull(view->strides);
-        for (uint64_t j = 0; j < ranks[i]; j++)
-        {
-            ck_assert_uint_eq(view->shape[j], expected_shapes[i][j]);
-            ck_assert_uint_eq(view->strides[j], expected_strides[i][j]);
-        }
+
+        // Ranks and offsets must be the same as arguments
         ck_assert_uint_eq(view->offset, offsets[i]);
         ck_assert_uint_eq(view->rank, ranks[i]);
-        error_destroy(error);
+
+        // Ensure the shape and strides are not NULL.
+        ck_assert_ptr_nonnull(view->shape);
+        ck_assert_ptr_nonnull(view->strides);
+
+        // Shapes and strides need to be copied and not directly assigned
+        ck_assert_ptr_ne(view->shape, shapes[i]);
+        ck_assert_ptr_ne(view->strides, expected_strides[i]);
+
+        // Compare shape and strides with expected
+        for (uint64_t j = 0; j < ranks[i]; j++)
+        {
+            ck_assert_uint_eq(view->shape[j], shapes[i][j]);
+            ck_assert_uint_eq(view->strides[j], expected_strides[i][j]);
+        }
+
+        // Destroy view
         view_destroy(view);
-        error = NULL;
         view = NULL;
     }
 }
@@ -124,16 +153,21 @@ START_TEST(test_is_contiguous)
     ck_assert(!is_contiguous((uint64_t[]) {1, 2, 3}, 3, NULL));
     ck_assert(!is_contiguous(NULL, 3, NULL));
     ck_assert(is_contiguous((uint64_t[]) {}, 0, (uint64_t[]) {}));
+    ck_assert(!is_contiguous(NULL, 0, NULL));
     ck_assert(is_contiguous((uint64_t[]) {1}, 1, (uint64_t[]) {1}));
     ck_assert(is_contiguous((uint64_t[]) {1}, 1, (uint64_t[]) {0}));
-    ck_assert(is_contiguous((uint64_t[]) {1, 2, 1, 5}, 1, (uint64_t[]) {0, 5, 5, 1}));
-    ck_assert(is_contiguous((uint64_t[]) {1, 2, 1, 5}, 1, (uint64_t[]) {10, 5, 0, 1}));
+    ck_assert(is_contiguous((uint64_t[]) {1, 2, 1, 5}, 4, (uint64_t[]) {0, 5, 5, 1}));
+    ck_assert(is_contiguous((uint64_t[]) {1, 2, 1, 5}, 4, (uint64_t[]) {10, 5, 0, 1}));
+    ck_assert(is_contiguous((uint64_t[]) {1, 2, 1, 5}, 4, (uint64_t[]) {0, 5, 0, 1}));
+    ck_assert(is_contiguous((uint64_t[]) {5, 1, 2, 1, 5}, 5, (uint64_t[]) {10, 0, 5, 0, 1}));
+    ck_assert(is_contiguous((uint64_t[]) {1, 2, 3, 4, 5}, 5, (uint64_t[]) {120, 60, 20, 5, 1}));
+    ck_assert(is_contiguous((uint64_t[]) {1, 2, 3, 4, 5}, 5, (uint64_t[]) {0, 60, 20, 5, 1}));
 }
 END_TEST
 
 START_TEST(test_strides_from_shape)
 {
-    uint64_t number_of_cases = 8;
+    uint64_t number_of_cases = 9;
     uint64_t *shapes[] = {
         (uint64_t[]) {2, 3, 4, 5},
         (uint64_t[]) {1, 10}, 
@@ -143,6 +177,7 @@ START_TEST(test_strides_from_shape)
         (uint64_t[]) {2, 2, 3},
         (uint64_t[]) {},
         (uint64_t[]) {10, 1, 2, 5, 1},
+        (uint64_t[]) {1, 2, 3, 4, 5},
     };
     uint64_t *expected_strides[] = {
         (uint64_t[]) {60, 20, 5, 1},
@@ -153,9 +188,10 @@ START_TEST(test_strides_from_shape)
         (uint64_t[]) {6, 3, 1},
         (uint64_t[]) {},
         (uint64_t[]) {10, 0, 5, 1, 0},
+        (uint64_t[]) {0, 60, 20, 5, 1},
     };
     uint64_t returned_strides[number_of_cases][MAX_RANK];
-    uint64_t ranks[] = { 4, 2, 3, 1, 4, 3, 0, 5 };
+    uint64_t ranks[] = { 4, 2, 3, 1, 4, 3, 0, 5, 5 };
 
     for (uint64_t i = 0; i < number_of_cases; i++)
     {
@@ -173,29 +209,35 @@ END_TEST
 
 START_TEST(test_strides_from_shape_error)
 {
-    uint64_t number_of_cases = 5;
+    uint64_t number_of_cases = 7;
     uint64_t *shapes[] = {
         NULL,
         (uint64_t[]) {1},
         NULL,
         (uint64_t[]) {1},
-        (uint64_t[]) {1},
+        (uint64_t[]) {0},
+        (uint64_t[]) {1, 2, 3, 4, 0},
+        (uint64_t[]) {1, 2, 0, 4, 5},
     };
     nw_error_type_t expected_error_type[] = {
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
         ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
+        ERROR_SHAPE_CONFLICT,
+        ERROR_SHAPE_CONFLICT,
+        ERROR_SHAPE_CONFLICT,
     };
     uint64_t *returned_strides[] = {
         NULL,
         NULL,
         (uint64_t[]) {1},
         (uint64_t[]) {1},
-        (uint64_t[]) {1}
+        (uint64_t[]) {1},
+        (uint64_t[]) {120, 60, 20, 5, 1},
+        (uint64_t[]) {120, 60, 20, 5, 1},
     };
-    uint64_t ranks[] = { 1, 1, 1, MAX_RANK + 2, MAX_RANK + 1 };
+    uint64_t ranks[] = { 1, 1, 1, MAX_RANK + 1, 1, 5, 5};
 
     for (uint64_t i = 0; i < number_of_cases; i++)
     {
@@ -210,7 +252,7 @@ END_TEST
 
 START_TEST(test_reverse_permute)
 {
-    uint64_t number_of_cases = 7;
+    uint64_t number_of_cases = 8;
 
     uint64_t *axis[] = {
         (uint64_t[]) {0},
@@ -220,6 +262,7 @@ START_TEST(test_reverse_permute)
         (uint64_t[]) {2, 0, 1},
         (uint64_t[]) {0, 1, 3, 2},
         (uint64_t[]) {},
+        (uint64_t[]) {4, 2, 3, 0, 1},
     };
 
     uint64_t returned_axis[number_of_cases][MAX_RANK];
@@ -231,8 +274,9 @@ START_TEST(test_reverse_permute)
         (uint64_t[]) {1, 2, 0},
         (uint64_t[]) {0, 1, 3, 2},
         (uint64_t[]) {},
+        (uint64_t[]) {3, 4, 1, 2, 0},
     };
-    uint64_t ranks[] = { 1, 2, 3, 4, 3, 4, 0 };
+    uint64_t ranks[] = { 1, 2, 3, 4, 3, 4, 0, 5 };
 
     for (uint64_t i = 0; i < number_of_cases; i++)
     {
@@ -250,20 +294,34 @@ END_TEST
 
 START_TEST(test_reverse_permute_error)
 {
-    uint64_t number_of_cases = 4;
+    uint64_t number_of_cases = 7;
 
     uint64_t *axis[] = {
         NULL,
+        (uint64_t[]) {1},
+        NULL,
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1, 2, 3, 4, 5},
+        (uint64_t[]) {1, 2, 5, 4, 0},
+    };
+    uint64_t *returned_axis[] = {
+        (uint64_t[]) {1},
         NULL,
         NULL,
         (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1, 2, 3, 4, 5},
+        (uint64_t[]) {1, 2, 5, 4, 0},
     };
-    uint64_t returned_axis[number_of_cases][MAX_RANK];
-    uint64_t ranks[] = { 1, 1, 1, MAX_RANK + 1 };
+    uint64_t ranks[] = { 1, 1, 1, MAX_RANK + 1, 1, 5, 5};
     nw_error_type_t error_types[] = {
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
         ERROR_RANK_CONFLICT,
     };
 
@@ -288,7 +346,7 @@ START_TEST(test_permute)
         (uint64_t[]) {3, 2, 1},
         (uint64_t[]) {2, 4, 3, 1},
         (uint64_t[]) {2, 2, 2},
-        (uint64_t[]) {1, 1, 1, 1},
+        (uint64_t[]) {1, 2, 3, 5, 4},
         (uint64_t[]) {},
     };
 
@@ -298,7 +356,7 @@ START_TEST(test_permute)
         (uint64_t[]) {2, 1, 1},
         (uint64_t[]) {12, 3, 1, 1},
         (uint64_t[]) {4, 2, 1},
-        (uint64_t[]) {0, 0, 0, 0},
+        (uint64_t[]) {0, 60, 20, 4, 1},
         (uint64_t[]) {},
     };
 
@@ -308,7 +366,7 @@ START_TEST(test_permute)
         (uint64_t[]) {2, 1, 0},
         (uint64_t[]) {1, 2, 0, 3},
         (uint64_t[]) {2, 0, 1},
-        (uint64_t[]) {0, 1, 3, 2},
+        (uint64_t[]) {4, 2, 3, 0, 1},
         (uint64_t[]) {},
     };
 
@@ -318,7 +376,7 @@ START_TEST(test_permute)
         (uint64_t[]) {1, 2, 3},
         (uint64_t[]) {4, 3, 2, 1},
         (uint64_t[]) {2, 2, 2},
-        (uint64_t[]) {1, 1, 1, 1},
+        (uint64_t[]) {4, 3, 5, 1, 2},
         (uint64_t[]) {},
     };
 
@@ -328,11 +386,11 @@ START_TEST(test_permute)
         (uint64_t[]) {1, 1, 2},
         (uint64_t[]) {3, 1, 12, 1},
         (uint64_t[]) {1, 4, 2},
-        (uint64_t[]) {0, 0, 0, 0},
+        (uint64_t[]) {1, 20, 4, 0, 60},
         (uint64_t[]) {},
     };
 
-    uint64_t ranks[] = { 1, 2, 3, 4, 3, 4, 0 };
+    uint64_t lengths[] = { 1, 2, 3, 4, 3, 5, 0 };
 
     uint64_t returned_shapes[number_of_cases][MAX_RANK];
     uint64_t returned_strides[number_of_cases][MAX_RANK];
@@ -340,15 +398,13 @@ START_TEST(test_permute)
     for (uint64_t i = 0; i < number_of_cases; i++)
     {
         error = permute(original_shapes[i],
-                        ranks[i],
                         original_strides[i],
                         returned_shapes[i],
-                        ranks[i],
                         returned_strides[i],
                         axis[i],
-                        ranks[i]);
+                        lengths[i]);
         ck_assert_ptr_null(error);
-        for (uint64_t j = 0; j < ranks[i]; j++)
+        for (uint64_t j = 0; j < lengths[i]; j++)
         {
             ck_assert_uint_eq(expected_shapes[i][j], returned_shapes[i][j]);
             ck_assert_uint_eq(expected_strides[i][j], returned_strides[i][j]);
@@ -361,7 +417,7 @@ END_TEST
 
 START_TEST(test_permute_error)
 {
-    uint64_t number_of_cases = 9;
+    uint64_t number_of_cases = 10;
 
     uint64_t *original_shapes[] = {
         NULL,
@@ -369,10 +425,11 @@ START_TEST(test_permute_error)
         (uint64_t[]) {1},
         (uint64_t[]) {1},
         (uint64_t[]) {1},
+        (uint64_t[]) {0},
         (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
+        (uint64_t[]) {1, 2},
+        (uint64_t[]) {1, 2, 3, 4, 5},
+        (uint64_t[]) {1, 2, 3, 4, 5},
     };
 
     uint64_t *original_strides[] = {
@@ -383,8 +440,9 @@ START_TEST(test_permute_error)
         (uint64_t[]) {1},
         (uint64_t[]) {1},
         (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {120, 60, 20, 5, 1},
+        (uint64_t[]) {120, 60, 20, 5, 1},
     };
 
     uint64_t *axis[] = {
@@ -395,8 +453,9 @@ START_TEST(test_permute_error)
         (uint64_t[]) {0},
         (uint64_t[]) {0},
         (uint64_t[]) {0},
-        (uint64_t[]) {0},
-        (uint64_t[]) {0},
+        (uint64_t[]) {0, 2},
+        (uint64_t[]) {5, 4, 0, 1, 2},
+        (uint64_t[]) {2, 4, 3, 1, 6},
     };
 
     uint64_t *permuted_shapes[] = {
@@ -407,8 +466,9 @@ START_TEST(test_permute_error)
         (uint64_t[]) {1},
         (uint64_t[]) {1},
         (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
+        (uint64_t[]) {1, 2},
+        (uint64_t[]) {1, 2, 3, 4, 5},
+        (uint64_t[]) {1, 2, 3, 4, 5},
     };
 
     uint64_t *permuted_strides[] = {
@@ -419,13 +479,12 @@ START_TEST(test_permute_error)
         NULL,
         (uint64_t[]) {1},
         (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
+        (uint64_t[]) {1, 2},
+        (uint64_t[]) {1, 2, 3, 4, 5},
+        (uint64_t[]) {1, 2, 3, 4, 5},
     };
 
-    uint64_t original_ranks[] = { 1, 1, 1, 1, 1, 2, 1, 1, MAX_RANK + 1 };
-    uint64_t permuted_ranks[] = { 1, 1, 1, 1, 1, 1, 2, 1, MAX_RANK + 1 };
-    uint64_t axis_lengths[] = { 1, 1, 1, 1, 1, 1, 1, 2, MAX_RANK + 1 };
+    uint64_t axis_lengths[] = { 1, 1, 1, 1, 1, 1, MAX_RANK + 1, 2, 5, 5};
 
     nw_error_type_t expected_error_type[] = {
         ERROR_NULL,
@@ -433,19 +492,18 @@ START_TEST(test_permute_error)
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
+        ERROR_SHAPE_CONFLICT,
         ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
+        ERROR_PERMUTE, 
+        ERROR_PERMUTE, 
+        ERROR_PERMUTE, 
     };
 
     for (uint64_t i = 0; i < number_of_cases; i++)
     {
         error = permute(original_shapes[i],
-                        original_ranks[i],
                         original_strides[i],
                         permuted_shapes[i],
-                        permuted_ranks[i],
                         permuted_strides[i],
                         axis[i],
                         axis_lengths[i]);
