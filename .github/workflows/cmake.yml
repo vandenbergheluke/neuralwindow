@@ -53,6 +53,8 @@ jobs:
       run: |
         make valgrind_test_buffer_binary
         make valgrind_test_buffer_reduction
+        make valgrind_test_buffer_unary_performance
+        make valgrind_test_buffer_binary_performance
         make valgrind_test_buffer_unary
         make valgrind_test_map
         make valgrind_test_queue
