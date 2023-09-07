@@ -120,13 +120,13 @@ bool_t is_broadcastable(const uint64_t *original_shape,
                         uint64_t original_rank,
                         const uint64_t *broadcasted_shape,
                         uint64_t broadcasted_rank);
-nw_error_t *reduce_compute_buffer_size(const uint64_t *shape,
-                                       const uint64_t *strides,
-                                       uint64_t rank,
-                                       uint64_t n,
-                                       const uint64_t *axis,
-                                       uint64_t length,
-                                       uint64_t *reduced_n);
+nw_error_t *reduce_n(const uint64_t *shape,
+                     const uint64_t *strides,
+                     uint64_t rank,
+                     uint64_t n,
+                     const uint64_t *axis,
+                     uint64_t length,
+                     uint64_t *reduced_n);
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 

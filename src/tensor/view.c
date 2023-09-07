@@ -211,7 +211,8 @@ bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strid
  *                   be in closed interval [0, MAX_RANK].
  * @return Error if length does not satisfy 0 <= length <= MAX_RANK.
  *         Error if any argument is NULL.
- *         Error if dimension index in axis is greater than length (out of range).
+ *         Error if dimension index in `axis` is greater than length (out of range).
+ *         Error if not all indicies in `axis` are unique.
  *         NULL if dimensions of the tensor were successfully permuted to the 
  *         new order specified by axis.
  */
@@ -227,6 +228,7 @@ nw_error_t *permute(const uint64_t *original_shape,
     CHECK_NULL_ARGUMENT(permuted_shape, "permuted_shape");
     CHECK_NULL_ARGUMENT(permuted_strides, "permuted_strides");
     CHECK_NULL_ARGUMENT(axis, "axis");
+    CHECK_UNIQUE(axis, length, "axis");
 
     if (length > MAX_RANK)
     {
@@ -294,12 +296,14 @@ static int compare(const void *a, const void *b)
  *         Error if memory has failed to be dynamically allocated for axis.
  *         Error if `rank` does not satisfy 0 <= rank <= 5.
  *         Error if `axis` dimension index is greater than or equal to rank.
+ *         Error if not all dimension indices in `axis` are unique.
  *         NULL if `reverse_axis` was successfully acquired.
  */
 nw_error_t *reverse_permute(const uint64_t *axis, uint64_t rank, uint64_t *reverse_axis)
 {
     CHECK_NULL_ARGUMENT(axis, "axis");
     CHECK_NULL_ARGUMENT(reverse_axis, "reverse_axis");
+    CHECK_UNIQUE(axis, rank, "axis");
 
     if (rank > MAX_RANK)
     {
@@ -365,6 +369,7 @@ nw_error_t *reverse_permute(const uint64_t *axis, uint64_t rank, uint64_t *rever
  *         Error if any of the `reduced_rank`, `recovered_rank`, or `rank` are not in [0, MAX_RANK].
  *         Error if `axis` dimension index is out of range of the `recovered_rank`.
  *         Error if any dimension in `reduced_shape` is 0.
+ *         Error if not all dimension indices in `axis` are unique.
  *         NULL if the shape and strides were recovered successfully.
  */
 nw_error_t *reduce_recover_dimensions(const uint64_t *reduced_shape,
@@ -381,6 +386,7 @@ nw_error_t *reduce_recover_dimensions(const uint64_t *reduced_shape,
     CHECK_NULL_ARGUMENT(recovered_shape, "recovered_shape");
     CHECK_NULL_ARGUMENT(recovered_strides , "recovered_strides");
     CHECK_NULL_ARGUMENT(axis, "axis");
+    CHECK_UNIQUE(axis, rank, "axis");
 
     if (recovered_rank != reduced_rank + rank)
     {
@@ -465,7 +471,11 @@ nw_error_t *reduce_recover_dimensions(const uint64_t *reduced_shape,
  * @param[in] rank The number of indices in `axis`.
  * @param[in] keep_dimensions A flag to indicate whether the dimensions are retained (true)
  *                            after reduction or removed (false).
- * @return nw_error_t* 
+ * @return Error if `original_shape`, `original_strides`, `reduced_shape`, `reduced_strides`,
+ *         or `axis` are NULL.
+ *         Error if `reduced_shape` or `reduced_strides` failed to be computed.
+ *         Error if not all dimension indices in `axis` are unique.
+ *         NULL if reduced shape and strides were successfully computed.
  */
 nw_error_t *reduce(const uint64_t *original_shape,
                    uint64_t original_rank,
@@ -482,6 +492,7 @@ nw_error_t *reduce(const uint64_t *original_shape,
     CHECK_NULL_ARGUMENT(reduced_shape, "reduced_shape");
     CHECK_NULL_ARGUMENT(reduced_strides, "reduced_strides");
     CHECK_NULL_ARGUMENT(axis, "axis");
+    CHECK_UNIQUE(axis, rank, "axis");
 
     if (rank > original_rank || original_rank > MAX_RANK || reduced_rank > MAX_RANK)
     {
@@ -576,21 +587,37 @@ nw_error_t *reduce(const uint64_t *original_shape,
     return NULL;
 }
 
-nw_error_t *reduce_compute_buffer_size(const uint64_t *shape,
-                                       const uint64_t *strides,
-                                       uint64_t rank,
-                                       uint64_t n,
-                                       const uint64_t *axis,
-                                       uint64_t length,
-                                       uint64_t *reduced_n)
+/**
+ * @brief Compute the number of tensor data elements `n` that need to be allocated
+ *        to store the reduced tensor data in memory. 
+ * @param[in] shape The dimensions of the tensor before reduction.
+ * @param[in] strides The strides of the tensor before reduction.
+ * @param[in] rank The rank of the tensor before reduction. The number of elements
+ *                 in `strides` and `shape`.
+ * @param[in] n The number of tensor data elements that are stored in 
+ *              memory before reduction.
+ * @param[in] axis The indicies of the tensor dimensions being reduced.
+ * @param[in] length The number of indices in `axis`.
+ * @param[out] reduced_n The number of required elements that need to be allocated
+ *                       to store the reduced tensor data in memory. 
+ * @return Error if `shape`, `strides`, `axis`, or `reduced_n` are NULL.
+ */
+nw_error_t *reduce_n(const uint64_t *shape,
+                     const uint64_t *strides,
+                     uint64_t rank,
+                     uint64_t n,
+                     const uint64_t *axis,
+                     uint64_t length,
+                     uint64_t *reduced_n)
 {
     CHECK_NULL_ARGUMENT(shape, "shape");
     CHECK_NULL_ARGUMENT(strides, "strides");
     CHECK_NULL_ARGUMENT(axis, "axis");
     CHECK_NULL_ARGUMENT(reduced_n, "reduced_n");
+    CHECK_UNIQUE(axis, length, "axis");
 
     *reduced_n = n;
-    if (n == 0)
+    if (!n)
     {
         return NULL;
     }
@@ -601,7 +628,16 @@ nw_error_t *reduce_compute_buffer_size(const uint64_t *shape,
         {
             if (strides[axis[i]] > 0)
             {
-                *reduced_n /= shape[axis[i]];
+                if (shape[axis[i]])
+                {
+                    *reduced_n /= shape[axis[i]];
+                }
+                else
+                {
+                    return ERROR(ERROR_SHAPE_CONFLICT,
+                                 string_create("the dimension of a tensor must be greater than 0."),
+                                 NULL);
+                }
             }
         }
         else
@@ -737,12 +773,12 @@ nw_error_t *strides_from_shape(uint64_t *strides, const uint64_t *shape, uint64_
 /**
  * @brief Given the shape, rank, and strides of a tensor, and the target shape and rank to broadcast the tensor to,
  *        get the strides required to broadcast the tensor to the target shape without copying memory.   
- * @param original_shape An array of size original_rank representing the dimensions of the original tensor being broadcasted.
- * @param original_rank The order of the original tensor. Gives the number of elements in original_shape.
- * @param original_strides The memory strides to traverse elements of the original tensor.
- * @param broadcasted_shape An array of size broadcasted_rank representing the dimensions of the target broadcasted tensor.
- * @param broadcasted_rank The order of the broadcasted tensor. Gives the number of elements in broadcasted_shape.
- * @param broadcasted_strides The memory strides to traverse elements of the broadcasted tensor.
+ * @param[in] original_shape An array of size original_rank representing the dimensions of the original tensor being broadcasted.
+ * @param[in] original_rank The order of the original tensor. Gives the number of elements in original_shape.
+ * @param[in] original_strides The memory strides to traverse elements of the original tensor.
+ * @param[in] broadcasted_shape An array of size broadcasted_rank representing the dimensions of the target broadcasted tensor.
+ * @param[in] broadcasted_rank The order of the broadcasted tensor. Gives the number of elements in broadcasted_shape.
+ * @param[out] broadcasted_strides The memory strides to traverse elements of the broadcasted tensor.
  * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
  *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
  */
@@ -770,10 +806,10 @@ nw_error_t *broadcast_strides(const uint64_t *original_shape,
         string_t original_shape_string = uint64_array_to_string(original_shape, original_rank);
         string_t broadcasted_shape_string = uint64_array_to_string(broadcasted_shape, broadcasted_rank);
         nw_error_t *error = ERROR(ERROR_BROADCAST,
-                               string_create("cannot broadcast shape %s to shape %s.",
-                               original_shape_string,
-                               broadcasted_shape_string),
-                               NULL);
+                                  string_create("cannot broadcast shape %s to shape %s.",
+                                  original_shape_string,
+                                  broadcasted_shape_string),
+                                  NULL);
         string_destroy(original_shape_string);
         string_destroy(broadcasted_shape_string);
         return error;
@@ -810,12 +846,12 @@ nw_error_t *broadcast_strides(const uint64_t *original_shape,
 /**
  * @brief Given the shape, rank, and strides of two tensors being combined via an elementwise binary operation, find
  *        the associated shape and rank to broadcast both tensors to perform the operation.   
- * @param x_original_shape An array of size x_original_rank representing the dimensions of the original tensor being broadcasted.
- * @param x_original_rank The order of the original tensor. Gives the number of elements in x_original_shape.
- * @param y_original_shape An array of size y_original_rank representing the dimensions of the original tensor being broadcasted.
- * @param y_original_rank The order of the original tensor. Gives the number of elements in y_original_shape.
- * @param broadcasted_shape An array of size broadcasted_rank representing the dimensions of the target broadcasted tensor.
- * @param broadcasted_rank The order of the broadcasted tensor. Gives the number of elements in broadcasted_shape.
+ * @param[in] x_original_shape An array of size x_original_rank representing the dimensions of the original tensor being broadcasted.
+ * @param[in] x_original_rank The order of the original tensor. Gives the number of elements in x_original_shape.
+ * @param[in] y_original_shape An array of size y_original_rank representing the dimensions of the original tensor being broadcasted.
+ * @param[in] y_original_rank The order of the original tensor. Gives the number of elements in y_original_shape.
+ * @param[out] broadcasted_shape An array of size broadcasted_rank representing the dimensions of the target broadcasted tensor.
+ * @param[in] broadcasted_rank The order of the broadcasted tensor. Gives the number of elements in broadcasted_shape.
  * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
  *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
  */

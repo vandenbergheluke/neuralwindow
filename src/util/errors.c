@@ -125,6 +125,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_POP";
     case ERROR_MAXIMUM:
         return "ERROR_MAXIMUM";
+    case ERROR_UNIQUE:
+        return "ERROR_UNIQUE";
     default:
         return "ERROR";
     }

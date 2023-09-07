@@ -1306,7 +1306,10 @@ START_TEST(test_shapes_equal)
     ck_assert(!shapes_equal((uint64_t[]) {1}, 1, (uint64_t[]) {1}, 2));
     ck_assert(shapes_equal((uint64_t[]) {1}, 1, (uint64_t[]) {1}, 1));
     ck_assert(shapes_equal((uint64_t[]) {1, 2, 3}, 3, (uint64_t[]) {1, 2, 3}, 3));
+    ck_assert(shapes_equal((uint64_t[]) {1, 2, 3, 4, 5}, 5, (uint64_t[]) {1, 2, 3, 4, 5}, 5));
     ck_assert(!shapes_equal((uint64_t[]) {1, 2, 4}, 3, (uint64_t[]) {1, 2, 3}, 3));
+    ck_assert(!shapes_equal((uint64_t[]) {2, 2, 4}, 3, (uint64_t[]) {1, 2, 3}, 3));
+    ck_assert(!shapes_equal((uint64_t[]) {2, 2, 4}, 3, (uint64_t[]) {2, 3, 3}, 3));
     ck_assert(shapes_equal((uint64_t[]) {}, 0, (uint64_t[]) {}, 0));
 }
 END_TEST
@@ -1320,53 +1323,114 @@ START_TEST(test_shapes_size)
     ck_assert_uint_eq(shape_size((uint64_t[]) {1, 2, 1}, 3), 2);
     ck_assert_uint_eq(shape_size((uint64_t[]) {1, 2, 3}, 3), 6);
     ck_assert_uint_eq(shape_size((uint64_t[]) {4, 2, 3}, 3), 24);
+    ck_assert_uint_eq(shape_size((uint64_t[]) {5, 4, 3, 2, 1}, 5), 120);
 }
 END_TEST
 
 START_TEST(test_broadcast_strides)
 {
-    uint64_t number_of_cases = 4;
+    uint64_t number_of_cases = 14;
 
     uint64_t *original_shapes[] = {
-        (uint64_t[]) {1},
-        (uint64_t[]) {1},
-        (uint64_t[]) {2, 1},
         (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {1},
+        (uint64_t[]) {2},
+        (uint64_t[]) {5, 1, 3, 2},
+        (uint64_t[]) {5, 1, 3, 2},
+        (uint64_t[]) {1, 1, 1, 1, 1},
+        (uint64_t[]) {1, 1, 1, 1, 1},
+        (uint64_t[]) {6, 5, 4, 3, 2},
+        (uint64_t[]) {1, 5, 1, 3, 1},
+        (uint64_t[]) {6, 1, 4, 1, 2},
+        (uint64_t[]) {1, 5, 1, 3, 1},
+        (uint64_t[]) {6, 1, 4, 1, 2},
+        (uint64_t[]) {4, 1, 2},
     };
 
     uint64_t original_ranks[] = {
-        1,
-        1,
-        2,
         0,
+        0,
+        1,
+        1,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        3,
     };
 
     uint64_t *original_strides[] = {
-        (uint64_t[]) {0},
-        (uint64_t[]) {0},
-        (uint64_t[]) {1, 0},
         (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {0},
+        (uint64_t[]) {1},
+        (uint64_t[]) {6, 0, 2, 1},
+        (uint64_t[]) {6, 0, 2, 0},
+        (uint64_t[]) {0, 0, 0, 0, 0},
+        (uint64_t[]) {1, 1, 1, 1, 1},
+        (uint64_t[]) {120, 24, 6, 2, 1},
+        (uint64_t[]) {1, 3, 1, 1, 1},
+        (uint64_t[]) {8, 1, 2, 1, 1},
+        (uint64_t[]) {0, 3, 0, 1, 0},
+        (uint64_t[]) {8, 0, 2, 0, 1},
+        (uint64_t[]) {2, 0, 1},
     };
 
     uint64_t *broadcasted_shapes[] = {
-        (uint64_t[]) {2},
-        (uint64_t[]) {2, 2},
-        (uint64_t[]) {3, 2, 2},
-        (uint64_t[]) {3, 2, 2},
+        (uint64_t[]) {1},
+        (uint64_t[]) {10, 9, 8, 7, 6},
+        (uint64_t[]) {10, 9, 8, 7, 6},
+        (uint64_t[]) {5, 4, 3, 2},
+        (uint64_t[]) {5, 4, 3, 2},
+        (uint64_t[]) {5, 4, 3, 2},
+        (uint64_t[]) {5, 4, 3, 2, 1},
+        (uint64_t[]) {5, 4, 3, 2, 1},
+        (uint64_t[]) {6, 5, 4, 3, 2},
+        (uint64_t[]) {6, 5, 4, 3, 2},
+        (uint64_t[]) {6, 5, 4, 3, 2},
+        (uint64_t[]) {6, 5, 4, 3, 2},
+        (uint64_t[]) {6, 5, 4, 3, 2},
+        (uint64_t[]) {6, 5, 4, 3, 2},
     };
 
     uint64_t broadcasted_ranks[] = {
         1,
-        2,
-        3,
-        3,
+        5,
+        5,
+        4,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
     };
 
     uint64_t *expected_broadcasted_strides[] = {
         (uint64_t[]) {0},
-        (uint64_t[]) {0, 0},
-        (uint64_t[]) {0, 1, 0},
-        (uint64_t[]) {0, 0, 0},
+        (uint64_t[]) {0, 0, 0, 0, 0},
+        (uint64_t[]) {0, 0, 0, 0, 0},
+        (uint64_t[]) {0, 0, 0, 1},
+        (uint64_t[]) {6, 0, 2, 1},
+        (uint64_t[]) {6, 0, 2, 0},
+        (uint64_t[]) {0, 0, 0, 0, 0},
+        (uint64_t[]) {0, 0, 0, 0, 0},
+        (uint64_t[]) {120, 24, 6, 2, 1},
+        (uint64_t[]) {0, 3, 0, 1, 0},
+        (uint64_t[]) {8, 0, 2, 0, 1},
+        (uint64_t[]) {0, 3, 0, 1, 0},
+        (uint64_t[]) {8, 0, 2, 0, 1},
+        (uint64_t[]) {0, 0, 2, 0, 1},
     };
 
     uint64_t returned_broadcasted_strides[number_of_cases][MAX_RANK];
@@ -1382,11 +1446,9 @@ START_TEST(test_broadcast_strides)
         ck_assert_ptr_null(error);
         for (uint64_t j = 0; j < broadcasted_ranks[i]; j++)
         {
-            ck_assert_uint_eq(returned_broadcasted_strides[i][broadcasted_ranks[i] - (j + 1)],
-                              expected_broadcasted_strides[i][broadcasted_ranks[i] - (j + 1)]);
+            ck_assert_uint_eq(returned_broadcasted_strides[i][j],
+                              expected_broadcasted_strides[i][j]);
         }
-        error_destroy(error);
-        error = NULL;
     }
 }
 END_TEST

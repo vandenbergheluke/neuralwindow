@@ -380,6 +380,7 @@ typedef enum nw_error_type_t
     ERROR_SORT,
     ERROR_POP,
     ERROR_MAXIMUM,
+    ERROR_UNIQUE,
 } nw_error_type_t;
 
 typedef struct nw_error_t
@@ -404,7 +405,23 @@ string_t error_type_string(nw_error_type_t error_type);
             {\
                 return ERROR(ERROR_NULL, string_create("received null argument for %s.", string), NULL);\
             }\
-        } while (0)
+        } while(0)
+
+#define CHECK_UNIQUE(array, length, string) do {\
+    if (!length)\
+    {\
+        for (uint64_t i = 0; i < length - 1; ++i)\
+        {\
+            for (uint64_t j = i + 1; j < length; j++)\
+            {\
+                if (array[i] == array[j])\
+                {\
+                    return ERROR(ERROR_UNIQUE, string_create("received non-unique array %s.", string), NULL);\
+                }\
+            }\
+        }\
+    }\
+} while(0)
 
 #define UNUSED(x) (void)(x)
 
