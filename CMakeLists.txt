@@ -8,6 +8,7 @@ endif()
 
 set(TEST_DIR test)
 set(SRC_DIR src)
+set(REPORT_DIR lcov)
 
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_C_STANDARD 17)
@@ -31,3 +32,28 @@ list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")
 add_subdirectory(${SRC_DIR})
 enable_testing()
 add_subdirectory(${TEST_DIR})
+
+find_program(LCOV lcov)
+if (NOT LCOV)
+    message(FATAL_ERROR "Could not find lcov.")
+endif()
+
+find_program(GENHTML genhtml)
+if (NOT GENHTML)
+    message(FATAL_ERROR "Could not find genhtml.")
+endif()
+
+add_custom_target(report
+    COMMAND mkdir -p ${REPORT_DIR}
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${TEST_DIR}
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+
+add_custom_command(TARGET report POST_BUILD
+    COMMAND ${LCOV} --directory .. --capture --output-file lcov.info
+    COMMAND ${GENHTML} -o . lcov.info
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${REPORT_DIR}
+)
+
+# Add REPORT_DIR into clean target
+set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES ${REPORT_DIR})

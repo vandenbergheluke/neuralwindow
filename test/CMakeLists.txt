@@ -23,6 +23,10 @@ set(TEST_HELPER
 )
 
 set(TESTS ${TEST_C} ${TEST_CXX})
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
+
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --nvlink-options=--disable-warnings")
 foreach(TEST ${TESTS})
     if (NOT DEFINED ENV{CPU_ONLY})
