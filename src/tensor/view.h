@@ -33,7 +33,10 @@ nw_error_t *view_create(view_t **view,
                         const uint64_t *shape,
                         const uint64_t *strides);
 void view_destroy(view_t *view);
-bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strides);
+bool_t is_contiguous(const uint64_t *shape,
+                     uint64_t rank,
+                     const uint64_t *strides,
+                     uint64_t offset);
 nw_error_t *permute(const uint64_t *original_shape,
                     const uint64_t *original_strides,
                     uint64_t *permuted_shape,
@@ -120,13 +123,10 @@ bool_t is_broadcastable(const uint64_t *original_shape,
                         uint64_t original_rank,
                         const uint64_t *broadcasted_shape,
                         uint64_t broadcasted_rank);
-nw_error_t *reduce_n(const uint64_t *shape,
-                     const uint64_t *strides,
-                     uint64_t rank,
-                     uint64_t n,
-                     const uint64_t *axis,
-                     uint64_t length,
-                     uint64_t *reduced_n);
+nw_error_t *n_from_shape_and_strides(const uint64_t *shape, 
+                                     const uint64_t *strides,
+                                     uint64_t rank,
+                                     uint64_t *n);
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 

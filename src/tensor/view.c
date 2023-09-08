@@ -157,17 +157,20 @@ void view_destroy(view_t *view)
 /**
  * @brief Determine if tensor is contiguous in memory. 
  *        Reference: https://pytorch.org/docs/stable/generated/torch.Tensor.is_contiguous.html
+ *        Reference: https://github.com/tinygrad/tinygrad/blob/master/tinygrad/shape/shapetracker.py 
  * @param[in] shape The dimensions of the tenors. 
  * @param[in] rank  Represents rank of the tensor. The number of elements in
  *                  `shape` and `strides`. Needs to be in closed interval `[0, MAX_RANK]`.
  * @param[in] strides The strides are the jumps necessary to go from one element 
  *                    to the next one in storage along each dimension.
+ * @param[in] offset The offset is the number of elements to skip in the memory block
+ *                   to arrive at the first element of the tensor.
  * @return True if the tensor memory is contiguous and False if it isn't.
  *         If any argument is NULL, or `rank` does not satisfy `0 <= rank <= MAX_RANK`
  *         false is returned. If error occured while computing contiguous tensor
  *         strides false is also returned.
  */
-bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strides)
+bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset)
 {
     if (shape == NULL || strides == NULL)
     {
@@ -175,6 +178,11 @@ bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strid
     }
 
     if (rank > MAX_RANK)
+    {
+        return false;
+    }
+
+    if (offset)
     {
         return false;
     }
@@ -588,64 +596,55 @@ nw_error_t *reduce(const uint64_t *original_shape,
 }
 
 /**
- * @brief Compute the number of tensor data elements `n` that need to be allocated
- *        to store the reduced tensor data in memory. 
- * @param[in] shape The dimensions of the tensor before reduction.
- * @param[in] strides The strides of the tensor before reduction.
- * @param[in] rank The rank of the tensor before reduction. The number of elements
- *                 in `strides` and `shape`.
- * @param[in] n The number of tensor data elements that are stored in 
- *              memory before reduction.
- * @param[in] axis The indicies of the tensor dimensions being reduced.
- * @param[in] length The number of indices in `axis`.
- * @param[out] reduced_n The number of required elements that need to be allocated
- *                       to store the reduced tensor data in memory. 
- * @return Error if `shape`, `strides`, `axis`, or `reduced_n` are NULL.
+ * @brief Given the shape and strides of a tensor, compute the required
+ *        number of tensor data elements that need to be stored in memory.
+ * @param[in] shape The dimensions of the tensor.
+ * @param[in] strides The strides of the tensor.
+ * @param[in] rank The number of dimensions in `shape`.
+ * @param[out] n The number of elements that are required to be stored in 
+ *               memory to represent the tensor.
+ * @return Error if `shape`, `strides`, or `n` is NULL.
+ *         Error if any of the dimensions is zero.
+ *         Error if `rank` greater than max rank.
+ *         NULL if `n` is computed successfully.
  */
-nw_error_t *reduce_n(const uint64_t *shape,
-                     const uint64_t *strides,
-                     uint64_t rank,
-                     uint64_t n,
-                     const uint64_t *axis,
-                     uint64_t length,
-                     uint64_t *reduced_n)
+nw_error_t *n_from_shape_and_strides(const uint64_t *shape, 
+                                     const uint64_t *strides,
+                                     uint64_t rank,
+                                     uint64_t *n)
 {
     CHECK_NULL_ARGUMENT(shape, "shape");
     CHECK_NULL_ARGUMENT(strides, "strides");
-    CHECK_NULL_ARGUMENT(axis, "axis");
-    CHECK_NULL_ARGUMENT(reduced_n, "reduced_n");
-    CHECK_UNIQUE(axis, length, "axis");
+    CHECK_NULL_ARGUMENT(n, "n");
 
-    *reduced_n = n;
-    if (!n)
+    if (rank > MAX_RANK)
     {
-        return NULL;
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("rank %lu must be less than or equal to %d.",
+                     (unsigned long) rank, (int) MAX_RANK),
+                     NULL);
     }
 
-    for (uint64_t i = 0; i < length; ++i)
+    *n = shape_size(shape, rank);
+    if (!(*n))
     {
-        if (axis[i] < rank)
+        ++(*n);
+    }
+
+    for (uint64_t i = 0; i < rank; ++i)
+    {
+        if (!strides[i])
         {
-            if (strides[axis[i]] > 0)
+            if (shape[i])
             {
-                if (shape[axis[i]])
-                {
-                    *reduced_n /= shape[axis[i]];
-                }
-                else
-                {
-                    return ERROR(ERROR_SHAPE_CONFLICT,
-                                 string_create("the dimension of a tensor must be greater than 0."),
-                                 NULL);
-                }
+                *n /= shape[i];
             }
-        }
-        else
-        {
-            return ERROR(ERROR_AXIS,
-                         string_create("axis %lu is out of range of rank %lu.",
-                         (unsigned long) axis[i], (unsigned long) rank),
-                         NULL);
+            else
+            {
+                return ERROR(ERROR_SHAPE_CONFLICT,
+                             string_create("all dimensions of the tensor must be greater than 0."),
+                             NULL);
+            }
         }
     }
 

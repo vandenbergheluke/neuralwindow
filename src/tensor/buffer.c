@@ -23,6 +23,8 @@ nw_error_t *buffer_create(buffer_t **buffer,
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(view, "view");
 
+    nw_error_t *error = NULL;
+
     *buffer = (buffer_t *) malloc(sizeof(buffer_t));
     if (buffer == NULL)
     {
@@ -35,12 +37,25 @@ nw_error_t *buffer_create(buffer_t **buffer,
     (*buffer)->datatype = datatype;
     (*buffer)->view = view;
     (*buffer)->copy = copy;
-    (*buffer)->n = n;
+    if (!n)
+    {
+        error = n_from_shape_and_strides(view->shape, view->strides, view->rank, &(*buffer)->n);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_N,
+                         string_create("failed to find number of elements from shape and strides."),
+                         error);
+        }
+    }
+    else
+    {
+        (*buffer)->n = n;
+    }
     (*buffer)->size = (*buffer)->n * datatype_size((*buffer)->datatype);
 
     if (copy)
     {
-        nw_error_t *error = runtime_malloc(*buffer);
+        error = runtime_malloc(*buffer);
         if (error != NULL)
         {
             free(*buffer);

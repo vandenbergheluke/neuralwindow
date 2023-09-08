@@ -3478,13 +3478,7 @@ static nw_error_t *reduction_forward(reduction_operation_type_t reduction_operat
                          error);
         }
 
-        error = reduce_n(x->buffer->view->shape,
-                         x_buffer->view->strides,
-                         x_buffer->view->rank,
-                         x_buffer->n,
-                         &axis[i],
-                         (uint64_t) 1,
-                         &reduced_n);
+        error = n_from_shape_and_strides(reduced_shape, reduced_strides, x->buffer->view->rank, &reduced_n);
         if (error != NULL)
         {
             free(reduced_shape);

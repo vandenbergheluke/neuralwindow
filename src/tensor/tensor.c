@@ -556,7 +556,8 @@ bool_t tensor_is_contiguous(const tensor_t *x)
     }
     return is_contiguous(x->buffer->view->shape,
                          x->buffer->view->rank,
-                         x->buffer->view->strides);
+                         x->buffer->view->strides,
+                         x->buffer->view->offset);
 }
 
 nw_error_t *tensor_reshape(const tensor_t *x,
@@ -1255,7 +1256,7 @@ nw_error_t *tensor_as_empty_contiguous(const tensor_t *x, tensor_t *y)
                           x->buffer->datatype,
                           view,
                           NULL,
-                          x->buffer->view->rank ? shape_size(x->buffer->view->shape, x->buffer->view->rank) : 1,
+                          0,
                           true);
     if (error != NULL)
     {

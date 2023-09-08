@@ -149,20 +149,21 @@ END_TEST
 
 START_TEST(test_is_contiguous)
 {
-    ck_assert(is_contiguous((uint64_t[]) {2, 2, 3}, 3, (uint64_t[]) {6, 3, 1}));
-    ck_assert(!is_contiguous(NULL, 3, (uint64_t[]) {1, 2, 3}));
-    ck_assert(!is_contiguous((uint64_t[]) {1, 2, 3}, 3, NULL));
-    ck_assert(!is_contiguous(NULL, 3, NULL));
-    ck_assert(is_contiguous((uint64_t[]) {}, 0, (uint64_t[]) {}));
-    ck_assert(!is_contiguous(NULL, 0, NULL));
-    ck_assert(is_contiguous((uint64_t[]) {1}, 1, (uint64_t[]) {1}));
-    ck_assert(is_contiguous((uint64_t[]) {1}, 1, (uint64_t[]) {0}));
-    ck_assert(is_contiguous((uint64_t[]) {1, 2, 1, 5}, 4, (uint64_t[]) {0, 5, 5, 1}));
-    ck_assert(is_contiguous((uint64_t[]) {1, 2, 1, 5}, 4, (uint64_t[]) {10, 5, 0, 1}));
-    ck_assert(is_contiguous((uint64_t[]) {1, 2, 1, 5}, 4, (uint64_t[]) {0, 5, 0, 1}));
-    ck_assert(is_contiguous((uint64_t[]) {5, 1, 2, 1, 5}, 5, (uint64_t[]) {10, 0, 5, 0, 1}));
-    ck_assert(is_contiguous((uint64_t[]) {1, 2, 3, 4, 5}, 5, (uint64_t[]) {120, 60, 20, 5, 1}));
-    ck_assert(is_contiguous((uint64_t[]) {1, 2, 3, 4, 5}, 5, (uint64_t[]) {0, 60, 20, 5, 1}));
+    ck_assert(is_contiguous((uint64_t[]) {2, 2, 3}, 3, (uint64_t[]) {6, 3, 1}, 0));
+    ck_assert(!is_contiguous(NULL, 3, (uint64_t[]) {1, 2, 3}, 0));
+    ck_assert(!is_contiguous((uint64_t[]) {1, 2, 3}, 3, NULL, 0));
+    ck_assert(!is_contiguous(NULL, 3, NULL, 0));
+    ck_assert(is_contiguous((uint64_t[]) {}, 0, (uint64_t[]) {}, 0));
+    ck_assert(!is_contiguous(NULL, 0, NULL, 0));
+    ck_assert(is_contiguous((uint64_t[]) {1}, 1, (uint64_t[]) {1}, 0));
+    ck_assert(is_contiguous((uint64_t[]) {1}, 1, (uint64_t[]) {0}, 0));
+    ck_assert(is_contiguous((uint64_t[]) {1, 2, 1, 5}, 4, (uint64_t[]) {0, 5, 5, 1}, 0));
+    ck_assert(is_contiguous((uint64_t[]) {1, 2, 1, 5}, 4, (uint64_t[]) {10, 5, 0, 1}, 0));
+    ck_assert(is_contiguous((uint64_t[]) {1, 2, 1, 5}, 4, (uint64_t[]) {0, 5, 0, 1}, 0));
+    ck_assert(is_contiguous((uint64_t[]) {5, 1, 2, 1, 5}, 5, (uint64_t[]) {10, 0, 5, 0, 1}, 0));
+    ck_assert(is_contiguous((uint64_t[]) {1, 2, 3, 4, 5}, 5, (uint64_t[]) {120, 60, 20, 5, 1}, 0));
+    ck_assert(is_contiguous((uint64_t[]) {1, 2, 3, 4, 5}, 5, (uint64_t[]) {0, 60, 20, 5, 1}, 0));
+    ck_assert(!is_contiguous((uint64_t[]) {1, 2, 3, 4, 5}, 5, (uint64_t[]) {0, 60, 20, 5, 1}, 10));
 }
 END_TEST
 
@@ -2367,6 +2368,156 @@ START_TEST(test_reduce_axis_error)
 }
 END_TEST
 
+START_TEST(test_n_from_shape_and_strides)
+{
+    uint64_t number_of_cases = 15;
+
+    uint64_t *shapes[] = {
+        (uint64_t[]) {},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {2},
+        (uint64_t[]) {2},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {5, 4, 3, 2},
+        (uint64_t[]) {5, 4, 3, 2},
+        (uint64_t[]) {5, 4, 3, 2},
+        (uint64_t[]) {5, 4, 3, 2},
+        (uint64_t[]) {5, 4, 3, 2},
+        (uint64_t[]) {5, 4, 3, 2},
+        (uint64_t[]) {5, 4, 3, 2},
+        (uint64_t[]) {5, 4, 3, 2},
+    };
+
+    uint64_t ranks[] = {
+        0,
+        1,
+        1,
+        1,
+        1,
+        2,
+        2,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+    };
+
+    uint64_t *strides[] = {
+        (uint64_t[]) {},
+        (uint64_t[]) {0},
+        (uint64_t[]) {0},
+        (uint64_t[]) {1},
+        (uint64_t[]) {0},
+        (uint64_t[]) {0, 0},
+        (uint64_t[]) {1, 0},
+        (uint64_t[]) {6, 0, 2, 1},
+        (uint64_t[]) {24, 6, 2, 1},
+        (uint64_t[]) {12, 3, 1, 0},
+        (uint64_t[]) {0, 6, 2, 1},
+        (uint64_t[]) {0, 3, 1, 0},
+        (uint64_t[]) {0, 0, 1, 0},
+        (uint64_t[]) {0, 0, 0, 0},
+        (uint64_t[]) {1, 0, 0, 0},
+    };
+
+    uint64_t expected_n[] = {
+        1,
+        1,
+        1,
+        2,
+        1,
+        1,
+        2,
+        30,
+        120,
+        60,
+        24,
+        12,
+        3,
+        1,
+        5,
+    };
+    
+    uint64_t returned_n[number_of_cases];
+
+    for (uint64_t i = 0; i < number_of_cases; i++)
+    {
+        printf("%lu\n", i);
+        error = n_from_shape_and_strides(shapes[i],
+                                         strides[i],
+                                         ranks[i],
+                                         &returned_n[i]);
+        ck_assert_ptr_null(error);
+        ck_assert_uint_eq(returned_n[i], expected_n[i]);
+    }
+}
+END_TEST
+
+START_TEST(test_n_from_shape_and_strides_error)
+{
+    uint64_t number_of_cases = 5;
+
+    uint64_t *shapes[] = {
+        NULL,
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {0},
+        (uint64_t[]) {1},
+    };
+
+    uint64_t ranks[] = {
+        0,
+        0,
+        0,
+        1,
+        MAX_RANK + 1,
+    };
+
+    uint64_t *strides[] = {
+        (uint64_t[]) {},
+        NULL,
+        (uint64_t[]) {},
+        (uint64_t[]) {0},
+        (uint64_t[]) {0},
+    };
+
+    uint64_t *n[] = {
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        NULL,
+        (uint64_t[]) {0},
+        (uint64_t[]) {0},
+    };
+    
+    nw_error_type_t error_types[] = {
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_SHAPE_CONFLICT,
+        ERROR_RANK_CONFLICT,
+    };
+
+
+    for (uint64_t i = 0; i < number_of_cases; i++)
+    {
+        error = n_from_shape_and_strides(shapes[i],
+                                         strides[i],
+                                         ranks[i],
+                                         n[i]);
+        ck_assert_ptr_nonnull(error);
+        ck_assert_int_eq(error->error_type, error_types[i]);
+        error_destroy(error);
+        error = NULL;
+    }
+}
+END_TEST
+
 START_TEST(test_slice_shape)
 {
     uint64_t number_of_cases = 3;
@@ -2678,8 +2829,8 @@ Suite *make_view_suite(void)
     tcase_add_test(tc, test_reduce_axis_length_error);
     tcase_add_test(tc, test_reduce_axis);
     tcase_add_test(tc, test_reduce_axis_error);
-    // tcase_add_test(tc, test_reduce_n);
-    // tcase_add_test(tc, test_reduce_n_error);
+    tcase_add_test(tc, test_n_from_shape_and_strides);
+    tcase_add_test(tc, test_n_from_shape_and_strides_error);
     tcase_add_test(tc, test_slice_shape);
     tcase_add_test(tc, test_slice_offset);
     tcase_add_test(tc, test_reverse_slice);
