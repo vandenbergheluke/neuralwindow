@@ -16,6 +16,8 @@ extern "C"
 
 #define CASES 4
 
+#define NUM_DEVICES 2
+
 #define MEASUREMENT_ITERS 15
 
 nw_error_t *error;
@@ -27,6 +29,8 @@ view_t *views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 view_t *returned_views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 
 torch::Tensor tensors[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
+// TODO: fix
+torch::Device devices[NUM_DEVICES] {torch::kCPU, torch::kCUDA};
 
 std::vector<int64_t> shapes[CASES] = {
     {1, 1},
@@ -143,7 +147,7 @@ START_TEST(test_exponential_computational_performance)
                     uint64_t torch_completion_time;
                     uint64_t nw_start, nw_end;
                     uint64_t nw_completion_time;
-                    uint32_t total_runs = RUNTIMES * DATATYPES * CASES * MEASUREMENT_ITERS;
+                    uint32_t runtime_total_runs = DATATYPES * CASES * MEASUREMENT_ITERS;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch::exp(tensors[i][j][k][z]);
@@ -157,14 +161,30 @@ START_TEST(test_exponential_computational_performance)
                     torch_completion_time = torch_end - torch_start;
                     nw_completion_time = nw_end - nw_start;
 
-                    torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
+                    switch ((runtime_t) i)
+                    {
+                        case OPENBLAS_RUNTIME:
+                            break;
+                        case MKL_RUNTIME:
+                            break;
+                        case CU_RUNTIME:
+                            break;
+                        default:
+                        ck_abort_msg("unknown runtime.");
+                    }
+
+                    torch_avg_perf += (float64_t) torch_completion_time / runtime_total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / runtime_total_runs;
+                    }
                 }
             }
         }
     }
 
-    printf("PyTorch exponential performance (nsec): %0.2lf\n", torch_avg_perf);
+    printf("---------------------------------------------------------------\n");
+    printf("-----------------------   Exponential   -----------------------\n");
+    printf("---------------------------------------------------------------\n");
+    printf("PyTorch performance (nsec): %0.2lf\n", torch_avg_perf);
     printf("NW exponential performance (nsec): %0.2lf\n", nw_avg_perf);
     printf("Fraction (NW nsec/Pytorch nsec): %0.3lf\n\n", nw_avg_perf / torch_avg_perf);
 }
@@ -186,7 +206,7 @@ START_TEST(test_logarithm_computational_performance)
                     uint64_t torch_completion_time;
                     uint64_t nw_start, nw_end;
                     uint64_t nw_completion_time;
-                    uint32_t total_runs = RUNTIMES * DATATYPES * CASES * MEASUREMENT_ITERS;
+                    uint32_t runtime_total_runs = DATATYPES * CASES * MEASUREMENT_ITERS;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch::log(tensors[i][j][k][z]);
@@ -200,8 +220,8 @@ START_TEST(test_logarithm_computational_performance)
                     torch_completion_time = torch_end - torch_start;
                     nw_completion_time = nw_end - nw_start;
 
-                    torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
+                    torch_avg_perf += (float64_t) torch_completion_time / runtime_total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / runtime_total_runs;
                 }
             }
         }
@@ -229,7 +249,7 @@ START_TEST(test_sine_computational_performance)
                     uint64_t torch_completion_time;
                     uint64_t nw_start, nw_end;
                     uint64_t nw_completion_time;
-                    uint32_t total_runs = RUNTIMES * DATATYPES * CASES * MEASUREMENT_ITERS;
+                    uint32_t runtime_total_runs = DATATYPES * CASES * MEASUREMENT_ITERS;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch::sin(tensors[i][j][k][z]);
@@ -243,8 +263,8 @@ START_TEST(test_sine_computational_performance)
                     torch_completion_time = torch_end - torch_start;
                     nw_completion_time = nw_end - nw_start;
 
-                    torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
+                    torch_avg_perf += (float64_t) torch_completion_time / runtime_total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / runtime_total_runs;
                 }
             }
         }
@@ -272,7 +292,7 @@ START_TEST(test_cosine_computational_performance)
                     uint64_t torch_completion_time;
                     uint64_t nw_start, nw_end;
                     uint64_t nw_completion_time;
-                    uint32_t total_runs = RUNTIMES * DATATYPES * CASES * MEASUREMENT_ITERS;
+                    uint32_t runtime_total_runs = DATATYPES * CASES * MEASUREMENT_ITERS;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch::cos(tensors[i][j][k][z]);
@@ -286,8 +306,8 @@ START_TEST(test_cosine_computational_performance)
                     torch_completion_time = torch_end - torch_start;
                     nw_completion_time = nw_end - nw_start;
 
-                    torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
+                    torch_avg_perf += (float64_t) torch_completion_time / runtime_total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / runtime_total_runs;
                 }
             }
         }
@@ -315,7 +335,7 @@ START_TEST(test_square_root_computational_performance)
                     uint64_t torch_completion_time;
                     uint64_t nw_start, nw_end;
                     uint64_t nw_completion_time;
-                    uint32_t total_runs = RUNTIMES * DATATYPES * CASES * MEASUREMENT_ITERS;
+                    uint32_t runtime_total_runs = DATATYPES * CASES * MEASUREMENT_ITERS;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch::sqrt(tensors[i][j][k][z]);
@@ -329,8 +349,8 @@ START_TEST(test_square_root_computational_performance)
                     torch_completion_time = torch_end - torch_start;
                     nw_completion_time = nw_end - nw_start;
 
-                    torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
+                    torch_avg_perf += (float64_t) torch_completion_time / runtime_total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / runtime_total_runs;
                 }
             }
         }
@@ -362,7 +382,7 @@ START_TEST(test_reciprocal_computational_performance)
                     uint64_t torch_completion_time;
                     uint64_t nw_start, nw_end;
                     uint64_t nw_completion_time;
-                    uint32_t total_runs = RUNTIMES * DATATYPES * CASES * MEASUREMENT_ITERS;
+                    uint32_t runtime_total_runs = DATATYPES * CASES * MEASUREMENT_ITERS;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch::reciprocal(tensors[i][j][k][z]);
@@ -376,10 +396,10 @@ START_TEST(test_reciprocal_computational_performance)
                     torch_completion_time = torch_end - torch_start;
                     nw_completion_time = nw_end - nw_start;
 
-                    torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    torch_avg_flops += ((float64_t) num_flop * 1000000000) / ((float64_t) torch_completion_time * total_runs);
-                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
-                    nw_avg_flops += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * total_runs);
+                    torch_avg_perf += (float64_t) torch_completion_time / runtime_total_runs;
+                    torch_avg_flops += ((float64_t) num_flop * 1000000000) / ((float64_t) torch_completion_time * runtime_total_runs);
+                    nw_avg_perf += (float64_t) nw_completion_time / runtime_total_runs;
+                    nw_avg_flops += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * runtime_total_runs);
                 }
             }
         }
@@ -409,7 +429,7 @@ START_TEST(test_copy_computational_performance)
                     uint64_t torch_completion_time;
                     uint64_t nw_start, nw_end;
                     uint64_t nw_completion_time;
-                    uint32_t total_runs = RUNTIMES * DATATYPES * CASES * MEASUREMENT_ITERS;
+                    uint32_t runtime_total_runs = DATATYPES * CASES * MEASUREMENT_ITERS;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch::clone(tensors[i][j][k][z]);
@@ -423,8 +443,8 @@ START_TEST(test_copy_computational_performance)
                     torch_completion_time = torch_end - torch_start;
                     nw_completion_time = nw_end - nw_start;
 
-                    torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
+                    torch_avg_perf += (float64_t) torch_completion_time / runtime_total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / runtime_total_runs;
                 }
             }
         }
@@ -452,7 +472,7 @@ START_TEST(test_contiguous_computational_performance)
                     uint64_t torch_completion_time;
                     uint64_t nw_start, nw_end;
                     uint64_t nw_completion_time;
-                    uint32_t total_runs = RUNTIMES * DATATYPES * CASES * MEASUREMENT_ITERS;
+                    uint32_t runtime_total_runs = DATATYPES * CASES * MEASUREMENT_ITERS;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = tensors[i][j][k][z].contiguous();
@@ -466,8 +486,8 @@ START_TEST(test_contiguous_computational_performance)
                     torch_completion_time = torch_end - torch_start;
                     nw_completion_time = nw_end - nw_start;
 
-                    torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
+                    torch_avg_perf += (float64_t) torch_completion_time / runtime_total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / runtime_total_runs;
                 }
             }
         }
@@ -495,7 +515,7 @@ START_TEST(test_negation_computational_performance)
                     uint64_t torch_completion_time;
                     uint64_t nw_start, nw_end;
                     uint64_t nw_completion_time;
-                    uint32_t total_runs = RUNTIMES * DATATYPES * CASES * MEASUREMENT_ITERS;
+                    uint32_t runtime_total_runs = DATATYPES * CASES * MEASUREMENT_ITERS;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch::neg(tensors[i][j][k][z]);
@@ -509,8 +529,8 @@ START_TEST(test_negation_computational_performance)
                     torch_completion_time = torch_end - torch_start;
                     nw_completion_time = nw_end - nw_start;
 
-                    torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
+                    torch_avg_perf += (float64_t) torch_completion_time / runtime_total_runs;
+                    nw_avg_perf += (float64_t) nw_completion_time / runtime_total_runs;
                 }
             }
         }
@@ -542,7 +562,7 @@ START_TEST(test_rectified_linear_computational_performance)
                     uint64_t torch_completion_time;
                     uint64_t nw_start, nw_end;
                     uint64_t nw_completion_time;
-                    uint32_t total_runs = RUNTIMES * DATATYPES * CASES * MEASUREMENT_ITERS;
+                    uint32_t runtime_total_runs = DATATYPES * CASES * MEASUREMENT_ITERS;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch::relu(tensors[i][j][k][z]);
@@ -556,10 +576,10 @@ START_TEST(test_rectified_linear_computational_performance)
                     torch_completion_time = torch_end - torch_start;
                     nw_completion_time = nw_end - nw_start;
 
-                    torch_avg_perf += (float64_t) torch_completion_time / total_runs;
-                    torch_avg_flops += ((float64_t) num_flop * 1000000000) / ((float64_t) torch_completion_time * total_runs);
-                    nw_avg_perf += (float64_t) nw_completion_time / total_runs;
-                    nw_avg_flops += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * total_runs);
+                    torch_avg_perf += (float64_t) torch_completion_time / runtime_total_runs;
+                    torch_avg_flops += ((float64_t) num_flop * 1000000000) / ((float64_t) torch_completion_time * runtime_total_runs);
+                    nw_avg_perf += (float64_t) nw_completion_time / runtime_total_runs;
+                    nw_avg_flops += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * runtime_total_runs);
                 }
             }
         }
