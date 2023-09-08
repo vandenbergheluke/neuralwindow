@@ -4039,6 +4039,32 @@ static nw_error_t *maximum_operation_backward(tensor_t *x,
                              error);
             }
 
+            error = reduce_recover_dimensions(gradient->buffer->view->shape,
+                                              gradient->buffer->view->rank,
+                                              gradient->buffer->view->strides,
+                                              recovered_gradient_shape,
+                                              x->buffer->view->rank,
+                                              recovered_gradient_strides,
+                                              axis,
+                                              length);
+            if (error != NULL)
+            {
+                tensor_destroy(x_gradient);    
+                tensor_destroy(x_gradient_i);    
+                tensor_destroy(x_gradient_j);    
+                tensor_destroy(x_gradient_k);    
+                tensor_destroy(x_gradient_l);    
+                tensor_destroy(returned);    
+                tensor_destroy(recovered_gradient);    
+                free(recovered_gradient_shape);
+                free(recovered_gradient_strides);
+                free(recovered_returned_shape);
+                free(recovered_returned_strides);
+                return ERROR(ERROR_REDUCTION,
+                             string_create("failed to recover from reduce dimensions."),
+                             error);
+            }
+
             free(returned->buffer->view->shape);
             free(returned->buffer->view->strides);
             returned->buffer->view->shape = recovered_returned_shape;
@@ -4050,8 +4076,6 @@ static nw_error_t *maximum_operation_backward(tensor_t *x,
             recovered_gradient->buffer->view->shape = recovered_gradient_shape;
             recovered_gradient->buffer->view->strides = recovered_gradient_strides;
             recovered_gradient->buffer->view->rank = x->buffer->view->rank;
-            memcpy(recovered_gradient->buffer->view->shape, returned->buffer->view->shape, x->buffer->view->rank * sizeof(uint64_t));
-            memcpy(recovered_gradient->buffer->view->strides, returned->buffer->view->strides, x->buffer->view->rank * sizeof(uint64_t));
         }
 
         error = tensor_expand(returned,

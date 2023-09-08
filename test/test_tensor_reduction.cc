@@ -268,7 +268,6 @@ void test_reduction(reduction_operation_type_t reduction_operation_type)
                                       false,
                                       false);
                 ck_assert_ptr_null(error);
-                error = tensor_backward(returned_tensors[i][j][k], NULL);
 
                 // Back prop
                 tensor_t *cost;

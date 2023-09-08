@@ -17594,4 +17594,23 @@
    fun:_ZN2atL11manual_seedEm
    fun:main
 }
-
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:malloc
+   fun:allocate_dtv_entry
+   fun:allocate_and_init
+   fun:tls_get_addr_tail
+   fun:__tls_get_addr
+   fun:mkl_vml_kernel_SetMode
+   fun:vmsLn
+   fun:_ZZZZN2at6native4AVX210log_kernelERNS_18TensorIteratorBaseEENKUlvE_clEvENKUlvE0_clEvENKUlPPcPKllE_clES7_S9_l.isra.0
+   fun:_ZN3c1012function_refIFvPPcPKlllEE11callback_fnIZN2at18TensorIteratorBase15loop_2d_from_1dIZZZNS8_6native4AVX210log_kernelERS9_ENKUlvE_clEvENKUlvE0_clEvEUlS2_S4_lE_EEDaRKT_EUlS2_S4_llE_EEvlS2_S4_ll
+   fun:_ZNK2at18TensorIteratorBase15serial_for_eachEN3c1012function_refIFvPPcPKlllEEENS_5RangeE
+   fun:_ZN2at18TensorIteratorBase8for_eachEN3c1012function_refIFvPPcPKlllEEEl
+   fun:_ZN2at6native4AVX210log_kernelERNS_18TensorIteratorBaseE
+   fun:_ZN2at12_GLOBAL__N_115wrapper_CPU_logERKNS_6TensorE
+   fun:_ZN3c104impl28wrap_kernel_functor_unboxed_INS0_6detail24WrapFunctionIntoFunctor_INS_26CompileTimeFunctionPointerIFN2at6TensorERKS6_EXadL_ZNS5_12_GLOBAL__N_115wrapper_CPU_logES8_EEEES6_NS_4guts8typelist8typelistIJS8_EEEEES9_E4callEPNS_14OperatorKernelENS_14DispatchKeySetES8_
+}

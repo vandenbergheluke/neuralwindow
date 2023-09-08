@@ -1062,28 +1062,25 @@ nw_error_t *slice_shape(const uint64_t *original_shape,
     {
         return ERROR(ERROR_RANK_CONFLICT, 
                      string_create("conflicting ranks with original rank %lu and sliced rank %lu.", 
-                     (unsigned long) original_rank, (unsigned long) slice_rank), NULL);
+                     (unsigned long) original_rank, (unsigned long) slice_rank),
+                     NULL);
     }
 
     if (original_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
                      string_create("rank %lu must be less than or equal to %d.", 
-                     (unsigned long) original_rank, (int) MAX_RANK), NULL);
+                     (unsigned long) original_rank, (int) MAX_RANK),
+                     NULL);
     }
 
-    if (length % 2 != 0)
+    if (length % 2 != 0 || original_rank != length / 2)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("conflicting ranks with original rank %lu and axis length %lu which should be a multiple of 2.",
-                     (unsigned long) original_rank, (unsigned long) length), NULL);
-    }
-
-    if (original_rank != length / 2)
-    {
-        return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("conflict between rank %lu and length of arguments %lu.",
-                     (unsigned long) original_rank, (unsigned long) length), NULL);
+                     string_create("conflicting ranks with original rank %lu "
+                     "and axis length %lu which should be a multiple of 2.",
+                     (unsigned long) original_rank, (unsigned long) length),
+                     NULL);
     }
 
     for (uint64_t i = 0; i < original_rank; ++i)
@@ -1093,8 +1090,12 @@ nw_error_t *slice_shape(const uint64_t *original_shape,
             arguments[2 * i + 1] > original_shape[i])
         {
             return ERROR(ERROR_SHAPE_CONFLICT, 
-                         string_create("upperbound of slice %lu must be greater than lower bound %lu and bounds must be less than dimension %lu.", 
-                         (unsigned long) arguments[2 * i + 1], (unsigned long) arguments[2 * i], (unsigned long) original_shape[i]), NULL);
+                         string_create("upperbound of slice %lu must be greater"
+                         "than lower bound %lu and bounds must be less than dimension %lu.", 
+                         (unsigned long) arguments[2 * i + 1], 
+                         (unsigned long) arguments[2 * i],
+                         (unsigned long) original_shape[i]),
+                         NULL);
         }
         slice_shape[i] = (arguments[2 * i + 1] - arguments[2 * i]); 
     }
