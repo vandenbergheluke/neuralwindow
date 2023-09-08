@@ -291,27 +291,29 @@ END_TEST
 
 START_TEST(test_reverse_permute_error)
 {
-    uint64_t number_of_cases = 7;
+    uint64_t number_of_cases = 8;
 
     uint64_t *axis[] = {
         NULL,
         (uint64_t[]) {1},
         NULL,
-        (uint64_t[]) {1},
+        (uint64_t[]) {0, 1, 2, 3, 4, 5},
         (uint64_t[]) {1},
         (uint64_t[]) {1, 2, 3, 4, 5},
         (uint64_t[]) {1, 2, 5, 4, 0},
+        (uint64_t[]) {1, 2, 5, 0, 0},
     };
     uint64_t *returned_axis[] = {
         (uint64_t[]) {1},
         NULL,
         NULL,
-        (uint64_t[]) {1},
+        (uint64_t[]) {0, 1},
         (uint64_t[]) {1},
         (uint64_t[]) {1, 2, 3, 4, 5},
         (uint64_t[]) {1, 2, 5, 4, 0},
+        (uint64_t[]) {1, 2, 5, 4, 0},
     };
-    uint64_t ranks[] = { 1, 1, 1, MAX_RANK + 1, 1, 5, 5};
+    uint64_t ranks[] = { 1, 1, 1, MAX_RANK + 1, 1, 5, 5, 5};
     nw_error_type_t error_types[] = {
         ERROR_NULL,
         ERROR_NULL,
@@ -320,6 +322,7 @@ START_TEST(test_reverse_permute_error)
         ERROR_RANK_CONFLICT,
         ERROR_RANK_CONFLICT,
         ERROR_RANK_CONFLICT,
+        ERROR_UNIQUE,
     };
 
     for (uint64_t i = 0; i < number_of_cases; i++)
@@ -412,7 +415,7 @@ END_TEST
 
 START_TEST(test_permute_error)
 {
-    uint64_t number_of_cases = 10;
+    uint64_t number_of_cases = 11;
 
     uint64_t *original_shapes[] = {
         NULL,
@@ -423,6 +426,7 @@ START_TEST(test_permute_error)
         (uint64_t[]) {0},
         (uint64_t[]) {1},
         (uint64_t[]) {1, 2},
+        (uint64_t[]) {1, 2, 3, 4, 5},
         (uint64_t[]) {1, 2, 3, 4, 5},
         (uint64_t[]) {1, 2, 3, 4, 5},
     };
@@ -438,6 +442,7 @@ START_TEST(test_permute_error)
         (uint64_t[]) {2, 1},
         (uint64_t[]) {120, 60, 20, 5, 1},
         (uint64_t[]) {120, 60, 20, 5, 1},
+        (uint64_t[]) {120, 60, 20, 5, 1},
     };
 
     uint64_t *axis[] = {
@@ -447,10 +452,11 @@ START_TEST(test_permute_error)
         (uint64_t[]) {0},
         (uint64_t[]) {0},
         (uint64_t[]) {0},
-        (uint64_t[]) {0},
+        (uint64_t[]) {0, 1, 2, 3, 4, 5},
         (uint64_t[]) {0, 2},
         (uint64_t[]) {5, 4, 0, 1, 2},
         (uint64_t[]) {2, 4, 3, 1, 6},
+        (uint64_t[]) {2, 4, 3, 1, 1},
     };
 
     uint64_t *permuted_shapes[] = {
@@ -462,6 +468,7 @@ START_TEST(test_permute_error)
         (uint64_t[]) {1},
         (uint64_t[]) {1},
         (uint64_t[]) {1, 2},
+        (uint64_t[]) {1, 2, 3, 4, 5},
         (uint64_t[]) {1, 2, 3, 4, 5},
         (uint64_t[]) {1, 2, 3, 4, 5},
     };
@@ -477,9 +484,10 @@ START_TEST(test_permute_error)
         (uint64_t[]) {1, 2},
         (uint64_t[]) {1, 2, 3, 4, 5},
         (uint64_t[]) {1, 2, 3, 4, 5},
+        (uint64_t[]) {1, 2, 3, 4, 5},
     };
 
-    uint64_t axis_lengths[] = { 1, 1, 1, 1, 1, 1, MAX_RANK + 1, 2, 5, 5};
+    uint64_t axis_lengths[] = { 1, 1, 1, 1, 1, 1, MAX_RANK + 1, 2, 5, 5, 5};
 
     nw_error_type_t expected_error_type[] = {
         ERROR_NULL,
@@ -492,6 +500,7 @@ START_TEST(test_permute_error)
         ERROR_PERMUTE, 
         ERROR_PERMUTE, 
         ERROR_PERMUTE, 
+        ERROR_UNIQUE,
     };
 
     for (uint64_t i = 0; i < number_of_cases; i++)
@@ -719,7 +728,7 @@ START_TEST(test_reduce_recover_dimension_error)
         NULL,
         (uint64_t[]) {1},
         (uint64_t[]) {1},
-        (uint64_t[]) {1},
+        (uint64_t[]) {0, 1, 2, 3, 4, 5, 6},
         (uint64_t[]) {1},
         (uint64_t[]) {2},
         (uint64_t[]) {1},
@@ -1136,10 +1145,56 @@ END_TEST
 
 START_TEST(test_reduce_error)
 {
-    uint64_t number_of_cases = 11;
+    uint64_t number_of_cases = 12;
+
+    uint64_t *original_shapes[] = {
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        NULL,
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {2, 1, 2},
+    };
+
+    uint64_t original_ranks[] = {
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        MAX_RANK + 1,
+        2,
+        2,
+        2,
+        2,
+        3,
+    };
+
+    uint64_t *original_strides[] = {
+        (uint64_t[]) {1, 0},
+        (uint64_t[]) {1, 0},
+        (uint64_t[]) {1, 0},
+        NULL,
+        (uint64_t[]) {1, 0},
+        (uint64_t[]) {1, 0},
+        (uint64_t[]) {1, 0},
+        (uint64_t[]) {1, 0},
+        (uint64_t[]) {1, 0},
+        (uint64_t[]) {1, 0},
+        (uint64_t[]) {1, 0},
+        (uint64_t[]) {1, 0, 0},
+    };
 
     uint64_t *reduced_shapes[] = {
         NULL,
+        (uint64_t[]) {1},
         (uint64_t[]) {1},
         (uint64_t[]) {1},
         (uint64_t[]) {1},
@@ -1164,6 +1219,7 @@ START_TEST(test_reduce_error)
         2,
         1,
         1,
+        1,
     };
 
     uint64_t *reduced_strides[] = {
@@ -1178,48 +1234,7 @@ START_TEST(test_reduce_error)
         (uint64_t[]) {1},
         (uint64_t[]) {1},
         (uint64_t[]) {1},
-    };
-
-    uint64_t *recovered_shapes[] = {
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
-        NULL,
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
-        (uint64_t[]) {2, 1},
-    };
-
-    uint64_t recovered_ranks[] = {
-        2,
-        2,
-        2,
-        2,
-        2,
-        2,
-        MAX_RANK + 1,
-        2,
-        2,
-        2,
-        2,
-    };
-
-    uint64_t *recovered_strides[] = {
-        (uint64_t[]) {2, 0},
-        (uint64_t[]) {2, 0},
-        (uint64_t[]) {2, 0},
-        NULL,
-        (uint64_t[]) {2, 0},
-        (uint64_t[]) {2, 0},
-        (uint64_t[]) {2, 0},
-        (uint64_t[]) {2, 0},
-        (uint64_t[]) {2, 0},
-        (uint64_t[]) {2, 0},
-        (uint64_t[]) {2, 0},
+        (uint64_t[]) {1},
     };
 
     uint64_t *axis[] = {
@@ -1230,10 +1245,11 @@ START_TEST(test_reduce_error)
         NULL,
         (uint64_t[]) {1},
         (uint64_t[]) {1},
-        (uint64_t[]) {1},
+        (uint64_t[]) {0, 1, 2, 3, 4, 5, 6},
         (uint64_t[]) {1},
         (uint64_t[]) {2},
         (uint64_t[]) {0},
+        (uint64_t[]) {0, 0},
     };
 
     uint64_t lengths[] = {
@@ -1248,6 +1264,7 @@ START_TEST(test_reduce_error)
         1,
         1,
         1,
+        2,
     };
 
     nw_error_type_t error_types[] = {
@@ -1262,6 +1279,7 @@ START_TEST(test_reduce_error)
         ERROR_RANK_CONFLICT,
         ERROR_RANK_CONFLICT,
         ERROR_RANK_CONFLICT,
+        ERROR_UNIQUE,
     };
 
     bool_t keep_dimensions[] = {
@@ -1276,16 +1294,17 @@ START_TEST(test_reduce_error)
         false,
         false,
         true,
+        false,
     };
 
     for (uint64_t i = 0; i < number_of_cases; i++)
     {
-        error = reduce(reduced_shapes[i],
+        error = reduce(original_shapes[i],
+                       original_ranks[i],
+                       original_strides[i],
+                       reduced_shapes[i],
                        reduced_ranks[i],
                        reduced_strides[i],
-                       recovered_shapes[i],
-                       recovered_ranks[i],
-                       recovered_strides[i],
                        axis[i],
                        lengths[i],
                        keep_dimensions[i]);
@@ -1453,60 +1472,240 @@ START_TEST(test_broadcast_strides)
 }
 END_TEST
 
-START_TEST(test_broadcast_shapes)
+START_TEST(test_broadcast_strides_error)
 {
-    uint64_t number_of_cases = 6;
+    uint64_t number_of_cases = 7;
 
-    uint64_t *x_original_shapes[] = {
-        (uint64_t[]) {1},
-        (uint64_t[]) {1, 2},
-        (uint64_t[]) {5, 9, 4, 1, 8},
-        (uint64_t[]) {1, 1, 1, 1},
-        (uint64_t[]) {9, 8, 7, 6, 5},
+    uint64_t *original_shapes[] = {
+        NULL,
         (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {1, 2, 3, 4, 5},
     };
 
-    uint64_t x_original_ranks[] = {
-        1,
-        2,
-        5,
-        4,
-        5,
+    uint64_t original_ranks[] = {
         0,
+        0,
+        0,
+        0,
+        MAX_RANK + 1,
+        0,
+        5,
     };
 
-    uint64_t *y_original_shapes[] = {
-        (uint64_t[]) {2},
-        (uint64_t[]) {4, 3, 1},
-        (uint64_t[]) {4, 3, 1},
-        (uint64_t[]) {5, 4, 3, 2, 1},
+    uint64_t *original_strides[] = {
+        (uint64_t[]) {},
+        NULL,
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {120, 60, 20, 5, 1},
+    };
+
+    uint64_t *broadcasted_shapes[] = {
         (uint64_t[]) {1},
-        (uint64_t[]) {5, 4, 3, 2, 1},
-    };
-
-    uint64_t y_original_ranks[] = {
-        1,
-        3,
-        3,
-        5,
-        1,
-        5,
-    };
-
-    uint64_t *expected_broadcasted_shapes[] = {
-        (uint64_t[]) {2},
-        (uint64_t[]) {4, 3, 2},
-        (uint64_t[]) {5, 9, 4, 3, 8},
-        (uint64_t[]) {5, 4, 3, 2, 1},
-        (uint64_t[]) {9, 8, 7, 6, 5},
+        (uint64_t[]) {1},
+        NULL,
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
         (uint64_t[]) {5, 4, 3, 2, 1},
     };
 
     uint64_t broadcasted_ranks[] = {
         1,
+        1,
+        1,
+        1,
+        1,
+        MAX_RANK + 1,
+        5,
+    };
+
+    uint64_t *broadcasted_strides[] = {
+        (uint64_t[]) {0},
+        (uint64_t[]) {0},
+        (uint64_t[]) {0},
+        NULL,
+        (uint64_t[]) {0},
+        (uint64_t[]) {0},
+        (uint64_t[]) {24, 6, 2, 1, 1},
+    };
+
+    nw_error_type_t error_types[] = {
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+        ERROR_BROADCAST,
+    };
+
+    for (uint64_t i = 0; i < number_of_cases; i++)
+    {
+        error = broadcast_strides(original_shapes[i],
+                                  original_ranks[i],
+                                  original_strides[i],
+                                  broadcasted_shapes[i],
+                                  broadcasted_ranks[i],
+                                  broadcasted_strides[i]);
+        ck_assert_ptr_nonnull(error);
+        ck_assert_int_eq(error->error_type, error_types[i]);
+        error_destroy(error);
+        error = NULL;
+    }
+}
+END_TEST
+
+START_TEST(test_broadcast_shapes)
+{
+    uint64_t number_of_cases = 21;
+
+    uint64_t *x_original_shapes[] = {
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {1},
+        (uint64_t[]) {},
+        (uint64_t[]) {1, 2, 3, 4, 5},
+        (uint64_t[]) {256, 256, 3},
+        (uint64_t[]) {3},
+        (uint64_t[]) {8, 1, 6, 1},
+        (uint64_t[]) {7, 1, 5},
+        (uint64_t[]) {5, 4},
+        (uint64_t[]) {1},
+        (uint64_t[]) {5, 4},
+        (uint64_t[]) {4},
+        (uint64_t[]) {15, 3, 5},
+        (uint64_t[]) {15, 1, 5},
+        (uint64_t[]) {15, 3, 5},
+        (uint64_t[]) {3, 5},
+        (uint64_t[]) {15, 3, 5},
+        (uint64_t[]) {3, 1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {4, 4, 4, 4, 4},
+    };
+
+    uint64_t x_original_ranks[] = {
+        0,
+        0,
+        1,
+        0,
+        5,
+        3,
+        1,
+        4,
+        3,
+        2,
+        1,
+        2,
+        1,
+        3,
+        3,
+        3,
+        2,
+        3,
+        2,
+        1,
+        5,
+    };
+
+    uint64_t *y_original_shapes[] = {
+        (uint64_t[]) {},
+        (uint64_t[]) {1},
+        (uint64_t[]) {},
+        (uint64_t[]) {1, 2, 3, 4, 5},
+        (uint64_t[]) {},
+        (uint64_t[]) {3},
+        (uint64_t[]) {256, 256, 3},
+        (uint64_t[]) {7, 1, 5},
+        (uint64_t[]) {8, 1, 6, 1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {5, 4},
+        (uint64_t[]) {4},
+        (uint64_t[]) {5, 4},
+        (uint64_t[]) {15, 1, 5},
+        (uint64_t[]) {15, 3, 5},
+        (uint64_t[]) {3, 5},
+        (uint64_t[]) {15, 3, 5},
+        (uint64_t[]) {3, 1},
+        (uint64_t[]) {15, 3, 5},
+        (uint64_t[]) {4, 4, 4, 4, 4},
+        (uint64_t[]) {1},
+    };
+
+    uint64_t y_original_ranks[] = {
+        0,
+        1,
+        0,
+        5,
+        0,
+        1,
+        3,
+        3,
+        4,
+        1,
+        2,
+        1,
+        2,
+        3,
+        3,
+        2,
+        3,
+        2,
         3,
         5,
+        1,
+    };
+
+    uint64_t *expected_broadcasted_shapes[] = {
+        (uint64_t[]) {},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1, 2, 3, 4, 5},
+        (uint64_t[]) {1, 2, 3, 4, 5},
+        (uint64_t[]) {256, 256, 3},
+        (uint64_t[]) {256, 256, 3},
+        (uint64_t[]) {8, 7, 6, 5},
+        (uint64_t[]) {8, 7, 6, 5},
+        (uint64_t[]) {5, 4},
+        (uint64_t[]) {5, 4},
+        (uint64_t[]) {5, 4},
+        (uint64_t[]) {5, 4},
+        (uint64_t[]) {15, 3, 5},
+        (uint64_t[]) {15, 3, 5},
+        (uint64_t[]) {15, 3, 5},
+        (uint64_t[]) {15, 3, 5},
+        (uint64_t[]) {15, 3, 5},
+        (uint64_t[]) {15, 3, 5},
+        (uint64_t[]) {4, 4, 4, 4, 4},
+        (uint64_t[]) {4, 4, 4, 4, 4},
+    };
+
+    uint64_t broadcasted_ranks[] = {
+        0,
+        1,
+        1,
         5,
+        5,
+        3,
+        3,
+        4,
+        4,
+        2,
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
         5,
         5,
     };
@@ -1524,8 +1723,125 @@ START_TEST(test_broadcast_shapes)
         ck_assert_ptr_null(error);
         for (uint64_t j = 0; j < broadcasted_ranks[i]; j++)
         {
-            ck_assert_uint_eq(returned_broadcasted_shapes[i][broadcasted_ranks[i] - (j + 1)], expected_broadcasted_shapes[i][broadcasted_ranks[i] - (j + 1)]);
+            ck_assert_uint_eq(returned_broadcasted_shapes[i][j],
+                              expected_broadcasted_shapes[i][j]);
         }
+    }
+}
+END_TEST
+
+START_TEST(test_broadcast_shapes_error)
+{
+    uint64_t number_of_cases = 11;
+
+    uint64_t *x_original_shapes[] = {
+        NULL,
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {1, 2, 3, 4, 5},
+        (uint64_t[]) {3},
+        (uint64_t[]) {4},
+        (uint64_t[]) {2, 1},
+        (uint64_t[]) {8, 4, 3},
+    };
+
+    uint64_t x_original_ranks[] = {
+        0,
+        0,
+        0,
+        MAX_RANK + 1,
+        0,
+        0,
+        5,
+        1,
+        1,
+        2,
+        3,
+    };
+
+    uint64_t *y_original_shapes[] = {
+        (uint64_t[]) {},
+        NULL,
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {5, 4, 3, 2, 1},
+        (uint64_t[]) {4},
+        (uint64_t[]) {3},
+        (uint64_t[]) {8, 4, 3},
+        (uint64_t[]) {2, 1},
+    };
+
+    uint64_t y_original_ranks[] = {
+        0,
+        0,
+        0,
+        0,
+        MAX_RANK + 1,
+        0,
+        5,
+        1,
+        1,
+        3,
+        2,
+    };
+
+    uint64_t *broadcasted_shapes[] = {
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        NULL,
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {},
+        (uint64_t[]) {1, 2, 3, 4, 5},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1},
+        (uint64_t[]) {1, 2, 3},
+        (uint64_t[]) {1, 2, 3},
+    };
+
+    uint64_t broadcasted_ranks[] = {
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        5,
+        1,
+        1,
+        3,
+        3,
+    };
+
+    nw_error_type_t error_types[] = {
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_NULL,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+        ERROR_RANK_CONFLICT,
+        ERROR_BROADCAST,
+        ERROR_BROADCAST,
+        ERROR_BROADCAST,
+        ERROR_BROADCAST,
+        ERROR_BROADCAST,
+    };
+
+    for (uint64_t i = 0; i < number_of_cases; i++)
+    {
+        error = broadcast_shapes(x_original_shapes[i],
+                                 x_original_ranks[i],
+                                 y_original_shapes[i],
+                                 y_original_ranks[i],
+                                 broadcasted_shapes[i],
+                                 broadcasted_ranks[i]);
+        ck_assert_ptr_nonnull(error);
+        ck_assert_int_eq(error->error_type, error_types[i]);
         error_destroy(error);
         error = NULL;
     }
@@ -1544,10 +1860,13 @@ START_TEST(test_is_broadcastable)
     ck_assert(is_broadcastable((uint64_t[]) {5, 1, 3}, 3, (uint64_t[]) {7, 6, 5, 4, 3}, 5));
     ck_assert(!is_broadcastable((uint64_t[]) {5, 2, 3}, 3, (uint64_t[]) {7, 6, 5, 4, 3}, 5));
     ck_assert(is_broadcastable((uint64_t[]) {}, 0, (uint64_t[]) {7, 6, 5, 4, 3}, 5));
+    ck_assert(is_broadcastable((uint64_t[]) {}, 0, (uint64_t[]) {}, 0));
+    ck_assert(!is_broadcastable((uint64_t[]) {3}, 1, (uint64_t[]) {4}, 1));
+    ck_assert(!is_broadcastable((uint64_t[]) {2, 1}, 2, (uint64_t[]) {8, 4, 3}, 3));
 }
 END_TEST
 
-START_TEST(test_reverse_broadcast_length)
+START_TEST(test_reduce_axis_length)
 {
     uint64_t number_of_cases = 4;
 
@@ -1598,7 +1917,7 @@ START_TEST(test_reverse_broadcast_length)
 
     for (uint64_t i = 0; i < number_of_cases; i++)
     {
-        error = reverse_broadcast_length(original_shapes[i],
+        error = reduce_axis_length(original_shapes[i],
                                          original_ranks[i],
                                          broadcasted_shapes[i],
                                          broadcasted_ranks[i],
@@ -1613,7 +1932,7 @@ START_TEST(test_reverse_broadcast_length)
 }
 END_TEST
 
-START_TEST(test_reverse_broadcast_axis)
+START_TEST(test_reduce_axis)
 {
     uint64_t number_of_cases = 4;
 
@@ -1665,7 +1984,7 @@ START_TEST(test_reverse_broadcast_axis)
     for (uint64_t i = 0; i < number_of_cases; i++)
     {
         uint64_t length_keep_dimension, length_remove_dimension;
-        error = reverse_broadcast_length(original_shapes[i],
+        error = reduce_axis_length(original_shapes[i],
                                          original_ranks[i],
                                          broadcasted_shapes[i],
                                          broadcasted_ranks[i],
@@ -1674,7 +1993,7 @@ START_TEST(test_reverse_broadcast_axis)
         ck_assert_ptr_null(error);
         error_destroy(error);
         error = NULL;
-        error = reverse_broadcast_axis(original_shapes[i],
+        error = reduce_axis(original_shapes[i],
                                        original_ranks[i],
                                        broadcasted_shapes[i],
                                        broadcasted_ranks[i],
@@ -2000,10 +2319,16 @@ Suite *make_view_suite(void)
     tcase_add_test(tc, test_shapes_equal);
     tcase_add_test(tc, test_shapes_size);
     tcase_add_test(tc, test_broadcast_strides);
+    tcase_add_test(tc, test_broadcast_strides_error);
     tcase_add_test(tc, test_broadcast_shapes);
+    tcase_add_test(tc, test_broadcast_shapes_error);
     tcase_add_test(tc, test_is_broadcastable);
-    tcase_add_test(tc, test_reverse_broadcast_length);
-    tcase_add_test(tc, test_reverse_broadcast_axis);
+    tcase_add_test(tc, test_reduce_axis_length);
+    // tcase_add_test(tc, test_reduce_axis_length_error);
+    tcase_add_test(tc, test_reduce_axis);
+    // tcase_add_test(tc, test_reduce_axis_error);
+    // tcase_add_test(tc, test_reduce_n);
+    // tcase_add_test(tc, test_reduce_n_error);
     tcase_add_test(tc, test_slice_shape);
     tcase_add_test(tc, test_slice_offset);
     tcase_add_test(tc, test_reverse_slice);

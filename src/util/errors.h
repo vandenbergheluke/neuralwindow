@@ -408,11 +408,11 @@ string_t error_type_string(nw_error_type_t error_type);
         } while(0)
 
 #define CHECK_UNIQUE(array, length, string) do {\
-    if (!length)\
+    if (length)\
     {\
         for (uint64_t i = 0; i < length - 1; ++i)\
         {\
-            for (uint64_t j = i + 1; j < length; j++)\
+            for (uint64_t j = i + 1; j < length; ++j)\
             {\
                 if (array[i] == array[j])\
                 {\

@@ -4408,7 +4408,7 @@ static nw_error_t *expand_operation_backward(tensor_t *x,
         tensor_t *x_gradient_i = NULL;
         tensor_t *x_gradient = NULL;
         
-        error = reverse_broadcast_length(x->buffer->view->shape,
+        error = reduce_axis_length(x->buffer->view->shape,
                                          x->buffer->view->rank,
                                          shape,
                                          length,
@@ -4440,7 +4440,7 @@ static nw_error_t *expand_operation_backward(tensor_t *x,
                          NULL);
         }
 
-        error = reverse_broadcast_axis(x->buffer->view->shape,
+        error = reduce_axis(x->buffer->view->shape,
                                        x->buffer->view->rank,
                                        shape,
                                        length,

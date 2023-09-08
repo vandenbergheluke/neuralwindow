@@ -737,7 +737,8 @@ nw_error_t *strides_from_shape(uint64_t *strides, const uint64_t *shape, uint64_
     {
         return ERROR(ERROR_RANK_CONFLICT, 
                      string_create("rank %lu must be less than or equal to %d.", 
-                     (unsigned long) rank, (int) MAX_RANK), NULL);
+                     (unsigned long) rank, (int) MAX_RANK),
+                     NULL);
     }
 
     for (uint64_t i = 0; i < rank; ++i)
@@ -798,7 +799,8 @@ nw_error_t *broadcast_strides(const uint64_t *original_shape,
     {
         return ERROR(ERROR_RANK_CONFLICT, 
                      string_create("original rank %lu and broadcasted rank %lu must be less than or equal to %d.", 
-                     (unsigned long) original_rank, (unsigned long) broadcasted_rank, (int) MAX_RANK), NULL);
+                     (unsigned long) original_rank, (unsigned long) broadcasted_rank, (int) MAX_RANK),
+                     NULL);
     }
 
     if (!is_broadcastable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
@@ -815,25 +817,27 @@ nw_error_t *broadcast_strides(const uint64_t *original_shape,
         return error;
     }
 
-    for (uint64_t i = 0; i < broadcasted_rank; ++i)
+    for (uint64_t i = 1; i < broadcasted_rank + 1; ++i)
     {   
-        if ((i + 1) > original_rank || (original_shape[original_rank - (i + 1)] == 1))
+        uint64_t original_index = original_rank - i;
+        uint64_t broadcast_index = broadcasted_rank - i;
+        if (i > original_rank || (original_shape[original_index] == 1))
         {
-            broadcasted_strides[broadcasted_rank -  (i + 1)] = 0; 
+            broadcasted_strides[broadcast_index] = 0; 
         }
-        else if (original_shape[original_rank - (i + 1)] == broadcasted_shape[broadcasted_rank - (i + 1)])
+        else if (original_shape[original_index] == broadcasted_shape[broadcast_index])
         {
-            broadcasted_strides[broadcasted_rank - (i + 1)] = original_strides[original_rank - (i + 1)];
+            broadcasted_strides[broadcast_index] = original_strides[original_index];
         }
         else
         {
             string_t original_shape_string = uint64_array_to_string(original_shape, original_rank);
             string_t broadcasted_shape_string = uint64_array_to_string(broadcasted_shape, broadcasted_rank);
             nw_error_t *error = ERROR(ERROR_BROADCAST,
-                                   string_create("cannot broadcast shape %s to shape %s.",
-                                   original_shape_string,
-                                   broadcasted_shape_string),
-                                   NULL);
+                                      string_create("cannot broadcast shape %s to shape %s.",
+                                      original_shape_string,
+                                      broadcasted_shape_string),
+                                      NULL);
             string_destroy(original_shape_string);
             string_destroy(broadcasted_shape_string);
             return error;
@@ -846,12 +850,12 @@ nw_error_t *broadcast_strides(const uint64_t *original_shape,
 /**
  * @brief Given the shape, rank, and strides of two tensors being combined via an elementwise binary operation, find
  *        the associated shape and rank to broadcast both tensors to perform the operation.   
- * @param[in] x_original_shape An array of size x_original_rank representing the dimensions of the original tensor being broadcasted.
- * @param[in] x_original_rank The order of the original tensor. Gives the number of elements in x_original_shape.
- * @param[in] y_original_shape An array of size y_original_rank representing the dimensions of the original tensor being broadcasted.
- * @param[in] y_original_rank The order of the original tensor. Gives the number of elements in y_original_shape.
- * @param[out] broadcasted_shape An array of size broadcasted_rank representing the dimensions of the target broadcasted tensor.
- * @param[in] broadcasted_rank The order of the broadcasted tensor. Gives the number of elements in broadcasted_shape.
+ * @param[in] x_original_shape An array of size `x_original_rank` representing the dimensions of the original tensor being broadcasted.
+ * @param[in] x_original_rank The order of the original tensor. Gives the number of elements in `x_original_shape`.
+ * @param[in] y_original_shape An array of size `y_original_rank` representing the dimensions of the original tensor being broadcasted.
+ * @param[in] y_original_rank The order of the original tensor. Gives the number of elements in `y_original_shape`.
+ * @param[out] broadcasted_shape An array of size `broadcasted_rank` representing the dimensions of the target broadcasted tensor.
+ * @param[in] broadcasted_rank The order of the broadcasted tensor. Gives the number of elements in `broadcasted_shape`.
  * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
  *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
  */
@@ -870,25 +874,39 @@ nw_error_t *broadcast_shapes(const uint64_t *x_original_shape,
     {
         return ERROR(ERROR_RANK_CONFLICT, 
                      string_create("x original rank %lu and y original rank %lu must be less than or equal to %d.", 
-                     (unsigned long) x_original_rank, (unsigned long) y_original_rank, (int) MAX_RANK), NULL);
+                     (unsigned long) x_original_rank, (unsigned long) y_original_rank, (int) MAX_RANK),
+                     NULL);
     }
 
-    for (uint64_t i = 0; i < broadcasted_rank; ++i)
+    if (broadcasted_rank != MAX(x_original_rank, y_original_rank))
     {
-        if ((i + 1) > x_original_rank || ((i + 1) <= y_original_rank && x_original_shape[x_original_rank - (i + 1)] == 1))
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("broadcast rank %lu must be the max rank of {%lu, %lu}.",
+                     (unsigned long) broadcasted_rank, (unsigned long) x_original_rank, (unsigned long) y_original_rank),
+                     NULL);
+    }
+
+    for (uint64_t i = 1; i < broadcasted_rank + 1; ++i)
+    {
+        uint64_t x_index = x_original_rank - i;
+        uint64_t y_index = y_original_rank - i;
+        uint64_t broadcast_index = broadcasted_rank - i;
+        if (i > x_original_rank || (i <= y_original_rank && x_original_shape[x_index] == 1))
         {
-            broadcasted_shape[broadcasted_rank - (i + 1)] = y_original_shape[y_original_rank - (i + 1)];
+            broadcasted_shape[broadcast_index] = y_original_shape[y_index];
         } 
-        else if ((i + 1) > y_original_rank || 
-                 x_original_shape[x_original_rank - (i + 1)] == y_original_shape[y_original_rank - (i + 1)] || 
-                 y_original_shape[y_original_rank - (i + 1)] == 1)
+        else if (i > y_original_rank || 
+                 x_original_shape[x_index] == y_original_shape[y_index] || 
+                 y_original_shape[y_index] == 1)
         {
-            broadcasted_shape[broadcasted_rank - (i + 1)] = x_original_shape[x_original_rank - (i + 1)];
+            broadcasted_shape[broadcast_index] = x_original_shape[x_index];
         }
         else
         {
-            string_t x_original_shape_string = uint64_array_to_string(x_original_shape, x_original_rank);
-            string_t y_original_shape_string = uint64_array_to_string(y_original_shape, y_original_rank);
+            string_t x_original_shape_string = uint64_array_to_string(x_original_shape,
+                                                                      x_original_rank);
+            string_t y_original_shape_string = uint64_array_to_string(y_original_shape,
+                                                                      y_original_rank);
             nw_error_t *error = ERROR(ERROR_BROADCAST,
                                    string_create("cannot broadcast shape %s to shape %s.",
                                    x_original_shape_string,
@@ -903,22 +921,33 @@ nw_error_t *broadcast_shapes(const uint64_t *x_original_shape,
     return NULL;
 }
 
+/**
+ * @brief 
+ * 
+ * @param original_shape 
+ * @param original_rank 
+ * @param broadcasted_shape 
+ * @param broadcasted_rank 
+ * @return bool_t 
+ */
 bool_t is_broadcastable(const uint64_t *original_shape,
                         uint64_t original_rank,
                         const uint64_t *broadcasted_shape,
                         uint64_t broadcasted_rank)
 {
-    if (original_shape == NULL || broadcasted_shape == NULL || broadcasted_rank < original_rank)
+    if (original_shape == NULL ||
+        broadcasted_shape == NULL ||
+        broadcasted_rank < original_rank)
     {
         return false;
     }
 
 
-    for (uint64_t i = 0; i < broadcasted_rank; ++i)
+    for (uint64_t i = 1; i < broadcasted_rank + 1; ++i)
     {
-        if (original_rank >= (i + 1) && 
-            original_shape[original_rank - (i + 1)] != broadcasted_shape[broadcasted_rank - (i + 1)] && 
-            original_shape[original_rank - (i + 1)] != 1)
+        if (original_rank >= i && 
+            original_shape[original_rank - i] != broadcasted_shape[broadcasted_rank - i] && 
+            original_shape[original_rank - i] != 1)
         {
             return false;
         }
@@ -927,12 +956,23 @@ bool_t is_broadcastable(const uint64_t *original_shape,
     return true;
 }
 
-nw_error_t *reverse_broadcast_length(const uint64_t *original_shape,
-                                     uint64_t original_rank,
-                                     const uint64_t *broadcasted_shape,
-                                     uint64_t broadcasted_rank, 
-                                     uint64_t *length_keep_dimension,
-                                     uint64_t *length_remove_dimension)
+/**
+ * @brief 
+ * 
+ * @param original_shape 
+ * @param original_rank 
+ * @param broadcasted_shape 
+ * @param broadcasted_rank 
+ * @param length_keep_dimension 
+ * @param length_remove_dimension 
+ * @return 
+ */
+nw_error_t *reduce_axis_length(const uint64_t *original_shape,
+                               uint64_t original_rank,
+                               const uint64_t *broadcasted_shape,
+                               uint64_t broadcasted_rank, 
+                               uint64_t *length_keep_dimension,
+                               uint64_t *length_remove_dimension)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
@@ -980,12 +1020,12 @@ nw_error_t *reverse_broadcast_length(const uint64_t *original_shape,
     return NULL;
 }
 
-nw_error_t *reverse_broadcast_axis(const uint64_t *original_shape,
-                                   uint64_t original_rank,
-                                   const uint64_t *broadcasted_shape,
-                                   uint64_t broadcasted_rank, 
-                                   uint64_t *axis_keep_dimension,
-                                   uint64_t *axis_remove_dimension)
+nw_error_t *reduce_axis(const uint64_t *original_shape,
+                        uint64_t original_rank,
+                        const uint64_t *broadcasted_shape,
+                        uint64_t broadcasted_rank, 
+                        uint64_t *axis_keep_dimension,
+                        uint64_t *axis_remove_dimension)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
