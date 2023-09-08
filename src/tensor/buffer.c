@@ -228,14 +228,9 @@ nw_error_t *runtime_exponential(buffer_t *x, buffer_t *result)
 
     if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, result->view->rank))
     {
-        string_t x_shape_string = uint64_array_to_string(x->view->shape, x->view->rank);
-        string_t result_shape_string = uint64_array_to_string(result->view->shape, result->view->rank);
-        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
-                               string_create("conflicting shapes x %s and result %s.",
-                               x_shape_string, result_shape_string), NULL);
-        string_destroy(x_shape_string);
-        string_destroy(result_shape_string);
-        return error;
+        return ERROR(ERROR_SHAPE_CONFLICT,
+                     string_create("conflicting shapes x and result."),
+                     NULL);
     }
 
     switch (x->runtime)
@@ -287,14 +282,9 @@ nw_error_t *runtime_logarithm(buffer_t *x, buffer_t *result)
 
     if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, result->view->rank))
     {
-        string_t x_shape_string = uint64_array_to_string(x->view->shape, x->view->rank);
-        string_t result_shape_string = uint64_array_to_string(result->view->shape, result->view->rank);
-        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
-                               string_create("conflicting shapes x %s and result %s.",
-                               x_shape_string, result_shape_string), NULL);
-        string_destroy(x_shape_string);
-        string_destroy(result_shape_string);
-        return error;
+        return ERROR(ERROR_SHAPE_CONFLICT,
+                     string_create("conflicting shapes x and result."),
+                     NULL);
     }
 
     switch (x->runtime)
@@ -346,14 +336,9 @@ nw_error_t *runtime_sine(buffer_t *x, buffer_t *result)
 
     if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, result->view->rank))
     {
-        string_t x_shape_string = uint64_array_to_string(x->view->shape, x->view->rank);
-        string_t result_shape_string = uint64_array_to_string(result->view->shape, result->view->rank);
-        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
-                               string_create("conflicting shapes x %s and result %s.",
-                               x_shape_string, result_shape_string), NULL);
-        string_destroy(x_shape_string);
-        string_destroy(result_shape_string);
-        return error;
+        return ERROR(ERROR_SHAPE_CONFLICT,
+                     string_create("conflicting shapes x and result."),
+                     NULL);
     }
 
     switch (x->runtime)
@@ -405,14 +390,9 @@ nw_error_t *runtime_cosine(buffer_t *x, buffer_t *result)
 
     if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, result->view->rank))
     {
-        string_t x_shape_string = uint64_array_to_string(x->view->shape, x->view->rank);
-        string_t result_shape_string = uint64_array_to_string(result->view->shape, result->view->rank);
-        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
-                               string_create("conflicting shapes x %s and result %s.",
-                               x_shape_string, result_shape_string), NULL);
-        string_destroy(x_shape_string);
-        string_destroy(result_shape_string);
-        return error;
+        return ERROR(ERROR_SHAPE_CONFLICT,
+                     string_create("conflicting shapes x and result."),
+                     NULL);
     }
 
     switch (x->runtime)
@@ -464,14 +444,9 @@ nw_error_t *runtime_square_root(buffer_t *x, buffer_t *result)
 
     if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, result->view->rank))
     {
-        string_t x_shape_string = uint64_array_to_string(x->view->shape, x->view->rank);
-        string_t result_shape_string = uint64_array_to_string(result->view->shape, result->view->rank);
-        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
-                               string_create("conflicting shapes x %s and result %s.",
-                               x_shape_string, result_shape_string), NULL);
-        string_destroy(x_shape_string);
-        string_destroy(result_shape_string);
-        return error;
+        return ERROR(ERROR_SHAPE_CONFLICT,
+                     string_create("conflicting shapes x and result."),
+                     NULL);
     }
 
     switch (x->runtime)
@@ -523,14 +498,9 @@ nw_error_t *runtime_reciprocal(buffer_t *x, buffer_t *result)
 
     if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, result->view->rank))
     {
-        string_t x_shape_string = uint64_array_to_string(x->view->shape, x->view->rank);
-        string_t result_shape_string = uint64_array_to_string(result->view->shape, result->view->rank);
-        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
-                               string_create("conflicting shapes x %s and result %s.",
-                               x_shape_string, result_shape_string), NULL);
-        string_destroy(x_shape_string);
-        string_destroy(result_shape_string);
-        return error;
+        return ERROR(ERROR_SHAPE_CONFLICT,
+                     string_create("conflicting shapes x and result."),
+                     NULL);
     }
 
     switch (x->runtime)
@@ -582,14 +552,9 @@ nw_error_t *runtime_copy(buffer_t *x, buffer_t *result)
 
     if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, result->view->rank))
     {
-        string_t x_shape_string = uint64_array_to_string(x->view->shape, x->view->rank);
-        string_t result_shape_string = uint64_array_to_string(result->view->shape, result->view->rank);
-        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
-                               string_create("conflicting shapes x %s and result %s.",
-                               x_shape_string, result_shape_string), NULL);
-        string_destroy(x_shape_string);
-        string_destroy(result_shape_string);
-        return error;
+        return ERROR(ERROR_SHAPE_CONFLICT,
+                     string_create("conflicting shapes x and result."),
+                     NULL);
     }
 
     switch (x->runtime)

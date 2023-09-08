@@ -805,42 +805,37 @@ nw_error_t *broadcast_strides(const uint64_t *original_shape,
 
     if (!is_broadcastable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
     {
-        string_t original_shape_string = uint64_array_to_string(original_shape, original_rank);
-        string_t broadcasted_shape_string = uint64_array_to_string(broadcasted_shape, broadcasted_rank);
-        nw_error_t *error = ERROR(ERROR_BROADCAST,
-                                  string_create("cannot broadcast shape %s to shape %s.",
-                                  original_shape_string,
-                                  broadcasted_shape_string),
-                                  NULL);
-        string_destroy(original_shape_string);
-        string_destroy(broadcasted_shape_string);
-        return error;
+        return ERROR(ERROR_BROADCAST,
+                     string_create("cannot broadcast shapes."),
+                     NULL);
     }
 
     for (uint64_t i = 1; i < broadcasted_rank + 1; ++i)
     {   
         uint64_t original_index = original_rank - i;
         uint64_t broadcast_index = broadcasted_rank - i;
+
+
         if (i > original_rank || (original_shape[original_index] == 1))
         {
             broadcasted_strides[broadcast_index] = 0; 
         }
         else if (original_shape[original_index] == broadcasted_shape[broadcast_index])
         {
+            if (!original_shape[original_index] || !broadcasted_shape[broadcast_index])
+            {
+                return ERROR(ERROR_SHAPE_CONFLICT,
+                            string_create("all shape dimensions must be greater than 0."),
+                            NULL);
+            }
+
             broadcasted_strides[broadcast_index] = original_strides[original_index];
         }
         else
         {
-            string_t original_shape_string = uint64_array_to_string(original_shape, original_rank);
-            string_t broadcasted_shape_string = uint64_array_to_string(broadcasted_shape, broadcasted_rank);
-            nw_error_t *error = ERROR(ERROR_BROADCAST,
-                                      string_create("cannot broadcast shape %s to shape %s.",
-                                      original_shape_string,
-                                      broadcasted_shape_string),
-                                      NULL);
-            string_destroy(original_shape_string);
-            string_destroy(broadcasted_shape_string);
-            return error;
+            return ERROR(ERROR_BROADCAST,
+                         string_create("cannot broadcast shape."),
+                         NULL);
         }
     }
 
@@ -903,18 +898,9 @@ nw_error_t *broadcast_shapes(const uint64_t *x_original_shape,
         }
         else
         {
-            string_t x_original_shape_string = uint64_array_to_string(x_original_shape,
-                                                                      x_original_rank);
-            string_t y_original_shape_string = uint64_array_to_string(y_original_shape,
-                                                                      y_original_rank);
-            nw_error_t *error = ERROR(ERROR_BROADCAST,
-                                   string_create("cannot broadcast shape %s to shape %s.",
-                                   x_original_shape_string,
-                                   y_original_shape_string),
-                                   NULL);
-            string_destroy(x_original_shape_string);
-            string_destroy(y_original_shape_string);
-            return error;
+            return ERROR(ERROR_BROADCAST,
+                        string_create("cannot broadcast shapes."),
+                        NULL);
         }
     }
 
@@ -983,21 +969,15 @@ nw_error_t *reduce_axis_length(const uint64_t *original_shape,
     {
         return ERROR(ERROR_RANK_CONFLICT, 
                      string_create("original rank %lu and broadcasted rank %lu must be less than or equal to %d.", 
-                     (unsigned long) original_rank, (unsigned long) broadcasted_rank, (int) MAX_RANK), NULL);
+                     (unsigned long) original_rank, (unsigned long) broadcasted_rank, (int) MAX_RANK),
+                     NULL);
     }
 
     if (!is_broadcastable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
     {
-        string_t original_shape_string = uint64_array_to_string(original_shape, original_rank);
-        string_t broadcasted_shape_string = uint64_array_to_string(broadcasted_shape, broadcasted_rank);
-        nw_error_t *error = ERROR(ERROR_BROADCAST,
-                               string_create("cannot broadcast shape %s to shape %s.",
-                               original_shape_string,
-                               broadcasted_shape_string),
-                               NULL);
-        string_destroy(original_shape_string);
-        string_destroy(broadcasted_shape_string);
-        return error;
+        return ERROR(ERROR_BROADCAST,
+                     string_create("cannot broadcast shapes."),
+                     NULL);
     }
 
     *length_keep_dimension = 0;
@@ -1041,16 +1021,9 @@ nw_error_t *reduce_axis(const uint64_t *original_shape,
 
     if (!is_broadcastable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
     {
-        string_t original_shape_string = uint64_array_to_string(original_shape, original_rank);
-        string_t broadcasted_shape_string = uint64_array_to_string(broadcasted_shape, broadcasted_rank);
-        nw_error_t *error = ERROR(ERROR_BROADCAST,
-                               string_create("cannot broadcast shape %s to shape %s.",
-                               original_shape_string,
-                               broadcasted_shape_string),
-                               NULL);
-        string_destroy(original_shape_string);
-        string_destroy(broadcasted_shape_string);
-        return error;
+        return ERROR(ERROR_BROADCAST,
+                     string_create("cannot broadcast shapes."),
+                     NULL);
     }
 
     uint64_t j = 0;

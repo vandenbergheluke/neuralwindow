@@ -4941,34 +4941,20 @@ static nw_error_t *padding_operation_backward(tensor_t *x, uint64_t *arguments, 
                                 new_arguments, length);
         if (error != NULL)
         {
-            string_t shape_string = uint64_array_to_string(x->buffer->view->shape,
-                                                           x->buffer->view->rank);
-            string_t arguments_string = uint64_array_to_string(arguments, length);
-            nw_error_t *new_error = ERROR(ERROR_PADDING,
-                                          string_create("cannot compute slice arguments from shape %s and padding arguments %s.",
-                                          shape_string, arguments_string),
-                                          error);
-            string_destroy(shape_string);
-            string_destroy(arguments_string);
             free(new_arguments);
-            return new_error;
+            return ERROR(ERROR_PADDING,
+                         string_create("cannot compute slice arguments from shape and padding arguments."),
+                         error);
         }
 
         error = tensor_slice(gradient, x_gradient, new_arguments, length);
         if (error != NULL)
         {
-            string_t shape_string = uint64_array_to_string(gradient->buffer->view->shape,
-                                                           gradient->buffer->view->rank);
-            string_t new_arguments_string = uint64_array_to_string(new_arguments, length);
-            nw_error_t *new_error = ERROR(ERROR_SLICE,
-                                          string_create("cannot slice tensor shape %s with arguments %s.",
-                                          shape_string, new_arguments_string),
-                                          error);
-            string_destroy(shape_string);
-            string_destroy(new_arguments_string);
             tensor_destroy(x_gradient);
             free(new_arguments);
-            return new_error;
+            return ERROR(ERROR_SLICE,
+                         string_create("cannot slice tensor shape with arguments."),
+                         error);
         }
 
         error = tensor_accumulate_gradient(x, x_gradient);
