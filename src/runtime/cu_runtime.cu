@@ -524,12 +524,12 @@ extern "C" void cu_matrix_multiplication(datatype_t datatype, uint64_t m, uint64
     switch (datatype)
     {
     case FLOAT32:
-        cublasSgemm_v2(handle, (y_transpose) ? CUBLAS_OP_N : CUBLAS_OP_T, (x_transpose) ? CUBLAS_OP_N : CUBLAS_OP_T, n, m, k, &alpha_32,
+        cublasSgemm_v2(handle, (y_transpose) ? CUBLAS_OP_T : CUBLAS_OP_N, (x_transpose) ? CUBLAS_OP_T : CUBLAS_OP_N, n, m, k, &alpha_32,
                        &((float32_t *) y_data)[y_offset], n, &((float32_t *) x_data)[x_offset], k, &beta_32, &((float32_t *) z_data)[z_offset], n);
         cudaDeviceSynchronize();
         break;
     case FLOAT64:
-        cublasDgemm_v2(handle, (y_transpose) ? CUBLAS_OP_N : CUBLAS_OP_T, (x_transpose) ? CUBLAS_OP_N : CUBLAS_OP_T, n, m, k, &alpha_64,
+        cublasDgemm_v2(handle, (y_transpose) ? CUBLAS_OP_T : CUBLAS_OP_N, (x_transpose) ? CUBLAS_OP_T : CUBLAS_OP_N, n, m, k, &alpha_64,
                        &((float64_t *) y_data)[y_offset], n, &((float64_t *) x_data)[x_offset], k, &beta_64, &((float64_t *) z_data)[z_offset], n);
         cudaDeviceSynchronize();
         break;

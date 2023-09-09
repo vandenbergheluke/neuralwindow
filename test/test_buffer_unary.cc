@@ -135,9 +135,6 @@ void test_unary(runtime_unary_type_t runtime_unary_type)
                 case RUNTIME_RECIPROCAL:
                     expected_tensor = torch::reciprocal(tensors[i][j][k]);
                     break;
-                case RUNTIME_COPY:
-                    expected_tensor = torch::clone(tensors[i][j][k]);
-                    break;
                 case RUNTIME_NEGATION:
                     expected_tensor = torch::neg(tensors[i][j][k]);
                     break;
@@ -208,9 +205,6 @@ void test_unary(runtime_unary_type_t runtime_unary_type)
                 case RUNTIME_RECIPROCAL:
                     error = runtime_reciprocal(buffers[i][j][k], returned_buffers[i][j][k]);
                     break;
-                case RUNTIME_COPY:
-                    error = runtime_copy(buffers[i][j][k], returned_buffers[i][j][k]);
-                    break;
                 case RUNTIME_NEGATION:
                     error = runtime_negation(buffers[i][j][k], returned_buffers[i][j][k]);
                     break;
@@ -267,11 +261,6 @@ START_TEST(test_reciprocal)
 }
 END_TEST
 
-START_TEST(test_copy)
-{
-    test_unary(RUNTIME_COPY);
-}
-END_TEST
 
 START_TEST(test_contiguous)
 {
@@ -307,7 +296,6 @@ Suite *make_buffer_unary_suite(void)
     tcase_add_test(tc_unary, test_cosine);
     tcase_add_test(tc_unary, test_square_root);
     tcase_add_test(tc_unary, test_reciprocal);
-    tcase_add_test(tc_unary, test_copy);
     tcase_add_test(tc_unary, test_contiguous);
     tcase_add_test(tc_unary, test_negation);
     tcase_add_test(tc_unary, test_rectified_linear);

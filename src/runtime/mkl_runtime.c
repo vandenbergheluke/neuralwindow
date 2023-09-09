@@ -322,12 +322,12 @@ void mkl_matrix_multiplication(datatype_t datatype, uint64_t m, uint64_t k, uint
     switch (datatype)
     {
     case FLOAT32:
-        cblas_sgemm(CblasRowMajor, (x_transpose) ? CblasNoTrans: CblasTrans, (y_transpose) ? CblasNoTrans : CblasTrans, (int) m, (int) n, (int) k, 1.0,
-                    &((float32_t *) x_data)[x_offset], (int) m, &((float32_t *) y_data)[y_offset], (int) k, 0.0, &((float32_t *) z_data)[z_offset], (int) m);
+        cblas_sgemm(CblasRowMajor, (x_transpose) ? CblasTrans: CblasNoTrans, (y_transpose) ? CblasTrans : CblasNoTrans, (int) m, (int) n, (int) k, 1.0,
+                    &((float32_t *) x_data)[x_offset], (int) k, &((float32_t *) y_data)[y_offset], (int) n, 0.0, &((float32_t *) z_data)[z_offset], (int) n);
         break;
     case FLOAT64:
-        cblas_dgemm(CblasRowMajor, (x_transpose) ? CblasNoTrans: CblasTrans, (y_transpose) ? CblasNoTrans : CblasTrans, (int) m, (int) n, (int) k, 1.0, 
-                    &((float64_t *) x_data)[x_offset], (int) m, &((float64_t *) y_data)[y_offset], (int) k, 0.0, &((float64_t *) z_data)[z_offset], (int) m);
+        cblas_dgemm(CblasRowMajor, (x_transpose) ? CblasTrans : CblasNoTrans, (y_transpose) ? CblasTrans : CblasNoTrans, (int) m, (int) n, (int) k, 1.0, 
+                    &((float64_t *) x_data)[x_offset], (int) k, &((float64_t *) y_data)[y_offset], (int) n, 0.0, &((float64_t *) z_data)[z_offset], (int) n);
         break;
     default:
         break;

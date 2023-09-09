@@ -28,8 +28,8 @@ typedef struct tensor_t
 nw_error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *context, tensor_t *gradient, bool_t requires_gradient, bool_t lock);
 void tensor_destroy(tensor_t *tensor);
 nw_error_t *tensor_create_default(tensor_t **tensor);
-nw_error_t *tensor_copy(const tensor_t *source_tensor, tensor_t *destination_tensor);
 nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_original, tensor_t *x_broadcasted, tensor_t *y_broadcasted);
+nw_error_t *tensor_broadcast_matrix_multiplication(const tensor_t *x_original, const tensor_t *y_original, tensor_t *x_broadcasted, tensor_t *y_broadcasted);
 nw_error_t *tensor_expand(const tensor_t *x, const uint64_t *shape, uint64_t length, tensor_t *y);
 nw_error_t *tensor_addition(const tensor_t *x, const tensor_t *y, tensor_t *z);
 nw_error_t *tensor_subtraction(const tensor_t *x, const tensor_t *y, tensor_t *z);

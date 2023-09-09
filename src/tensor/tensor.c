@@ -102,55 +102,6 @@ nw_error_t *tensor_create_default(tensor_t **tensor)
     return NULL;
 }
 
-/**
- * @brief Copy the contents of a given `source_tensor` to a given
- *        `destination_tensor`.
- * @param[in] source_tensor The tensor whose contents is being read.
- * @param[out] destination_tensor The tensor whose contents is being overwritten with
- *                                the copied contents of the `source_tensor`. This 
- *                                tensor should be initalized with `tensor_create_default`.
- * @return Error if `source_tensor` or `destination_tensor` is NULL.
- *         Error if the copy operation failed.
- *         NULL if the contents of the `source_tensor` was successfully copied
- *         into the `destination_tensor`.
- */
-nw_error_t *tensor_copy(const tensor_t *source_tensor, tensor_t *destination_tensor)
-{
-    CHECK_NULL_ARGUMENT(source_tensor, "source_tensor");
-    CHECK_NULL_ARGUMENT(destination_tensor, "destination_tensor");
-
-    PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_TENSOR("source_tensore", source_tensor);
-    PRINTLN_DEBUG_TENSOR("destination_tensor", destination_tensor);
-    PRINT_DEBUG_NEWLINE;
-
-    nw_error_t *error = NULL;
-
-    error = apply_function_unary(COPY_OPERATION, source_tensor, destination_tensor);
-    if (error != NULL)
-    {
-        return ERROR(ERROR_FORWARD,
-                     string_create("failed to copy tensors."),
-                     error);
-    }
-
-    PRINTLN_DEBUG_LOCATION("output");
-    PRINTLN_DEBUG_TENSOR("source_tensore", source_tensor);
-    PRINTLN_DEBUG_TENSOR("destination_tensor", destination_tensor);
-    PRINT_DEBUG_NEWLINE;
-    
-    return NULL;
-}
-
-/**
- * @brief 
- * 
- * @param[in] x_original 
- * @param[in] y_original 
- * @param[out] x_broadcasted 
- * @param[out] y_broadcasted 
- * @return nw_error_t* 
- */
 nw_error_t *tensor_broadcast(const tensor_t *x_original,
                              const tensor_t *y_original,
                              tensor_t *x_broadcasted,
@@ -223,6 +174,103 @@ nw_error_t *tensor_broadcast(const tensor_t *x_original,
     }
 
     free(broadcasted_shape);
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x_original", x_original);
+    PRINTLN_DEBUG_TENSOR("y_original", y_original);
+    PRINTLN_DEBUG_TENSOR("x_broadcasted", x_broadcasted);
+    PRINTLN_DEBUG_TENSOR("y_broadcasted", y_broadcasted);
+    PRINT_DEBUG_NEWLINE;
+
+    return NULL;
+}
+
+nw_error_t *tensor_broadcast_matrix_multiplication(const tensor_t *x_original,
+                                                   const tensor_t *y_original,
+                                                   tensor_t *x_broadcasted,
+                                                   tensor_t *y_broadcasted)
+{
+    CHECK_NULL_ARGUMENT(x_original, "x_original");
+    CHECK_NULL_ARGUMENT(y_original, "y_original");
+    CHECK_NULL_ARGUMENT(x_broadcasted, "x_broadcasted");
+    CHECK_NULL_ARGUMENT(y_broadcasted, "y_broadcasted");
+
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x_original", x_original);
+    PRINTLN_DEBUG_TENSOR("y_original", y_original);
+    PRINTLN_DEBUG_TENSOR("x_broadcasted", x_broadcasted);
+    PRINTLN_DEBUG_TENSOR("y_broadcasted", y_broadcasted);
+    PRINT_DEBUG_NEWLINE;
+
+    nw_error_t *error = NULL;
+    uint64_t *x_shape = x_original->buffer->view->shape; 
+    uint64_t x_rank = x_original->buffer->view->rank; 
+    uint64_t *y_shape = y_original->buffer->view->shape; 
+    uint64_t y_rank = y_original->buffer->view->rank; 
+    uint64_t broadcasted_rank = MAX(x_rank, y_rank);
+
+    uint64_t *x_broadcasted_shape = (uint64_t *) malloc((size_t) (broadcasted_rank * sizeof(uint64_t)));
+    if (x_broadcasted_shape == NULL)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate broadcast shape of %lu bytes.",
+                     (unsigned long) (broadcasted_rank * sizeof(uint64_t))),
+                     NULL);
+    }
+
+    uint64_t *y_broadcasted_shape = (uint64_t *) malloc((size_t) (broadcasted_rank * sizeof(uint64_t)));
+    if (y_broadcasted_shape == NULL)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate broadcast shape of %lu bytes.",
+                     (unsigned long) (broadcasted_rank * sizeof(uint64_t))),
+                     NULL);
+    }
+
+    error = matrix_multiplication_broadcast_shapes(x_shape,
+                                                   x_rank,
+                                                   y_shape,
+                                                   y_rank,
+                                                   x_broadcasted_shape,
+                                                   y_broadcasted_shape,
+                                                   broadcasted_rank);
+    if (error != NULL)
+    {
+        free(x_broadcasted_shape);
+        free(y_broadcasted_shape);
+        return ERROR(ERROR_BROADCAST,
+                     string_create("failed to broadcast tensor shapes."),
+                     error);
+    }
+
+    error = tensor_expand(x_original,
+                          x_broadcasted_shape,
+                          broadcasted_rank,
+                          x_broadcasted);
+    if (error != NULL)
+    {
+        free(x_broadcasted_shape);
+        free(y_broadcasted_shape);
+        return ERROR(ERROR_EXPAND,
+                     string_create("failed to expand tensor x."),
+                     error);
+    }
+
+    error = tensor_expand(y_original,
+                          y_broadcasted_shape,
+                          broadcasted_rank,
+                          y_broadcasted);
+    if (error != NULL)
+    {
+        free(x_broadcasted_shape);
+        free(y_broadcasted_shape);
+        return ERROR(ERROR_EXPAND,
+                     string_create("failed to expand tensor y."),
+                     error);
+    }
+
+    free(x_broadcasted_shape);
+    free(y_broadcasted_shape);
 
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("x_original", x_original);

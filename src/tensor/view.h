@@ -78,6 +78,14 @@ nw_error_t *broadcast_shapes(const uint64_t *x_original_shape,
                           uint64_t y_original_rank, 
                           uint64_t *broadcasted_shape,
                           uint64_t broadcasted_rank);
+nw_error_t *matrix_multiplication_broadcast_shapes(const uint64_t *x_original_shape,
+                                                   uint64_t x_original_rank,
+                                                   const uint64_t *y_original_shape,
+                                                   uint64_t y_original_rank, 
+                                                   uint64_t *x_broadcasted_shape,
+                                                   uint64_t *y_broadcasted_shape,
+                                                   uint64_t broadcasted_rank);
+nw_error_t *matrix_multiplication_shape(uint64_t *x_shape, uint64_t *y_shape, uint64_t *z_shape, uint64_t rank);
 nw_error_t *slice_shape(const uint64_t *original_shape,
                      uint64_t original_rank,
                      uint64_t *slice_shape,
