@@ -12,7 +12,7 @@ extern "C"
 #include <torch/torch.h>
 
 #define BINARY_ELEMENTWISE_CASES 5
-#define BINARY_MATRIX_MULTIPLICATION_CASES 4
+#define BINARY_MATRIX_MULTIPLICATION_CASES 5
 #define CASES BINARY_ELEMENTWISE_CASES + BINARY_MATRIX_MULTIPLICATION_CASES
 
 nw_error_t *error;
@@ -39,6 +39,7 @@ std::vector<int64_t> shapes_x[CASES] = {
     {4, 5},
     {2, 4, 5},
     {1, 2, 2, 3, 5},
+    {1, 2, 2, 9, 2},
 };
 
 std::vector<int64_t> shapes_y[CASES] = {
@@ -53,6 +54,7 @@ std::vector<int64_t> shapes_y[CASES] = {
     {5, 4},
     {5, 4},
     {5, 7},
+    {1, 2, 2, 2},
 };
 
 void setup(void)
