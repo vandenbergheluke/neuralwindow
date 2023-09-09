@@ -28,6 +28,7 @@ view_t *views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 view_t *returned_views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 
 torch::Tensor tensors[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
+
 torch::Device device_cuda(torch::kCUDA);
 torch::Device device_cpu(torch::kCPU);
 
