@@ -98,6 +98,11 @@ Install Graphviz (Optional)
 sudo apt install graphviz
 ```
 
+Install LCOV
+```bash
+sudo apt-get install lcov
+```
+
 ## Build
 
 To build neuralwindow run
@@ -148,7 +153,12 @@ valgrind --leak-check=full --show-reachable=yes --error-limit=no --gen-suppressi
 cat ./suppressions.log | ./../parse_valgrind_suppressions.sh > suppressions.supp
 ```
 
-To generate the documentation pages run
+To generate the coverage pages run
+```bash
+make report
 ```
+
+To generate the documentation pages run the following command from the project root
+```bash
 doxygen Doxyfile
 ```
