@@ -17,6 +17,14 @@ set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -O3 -g3 -gdwarf-2")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g3 -gdwarf-2")
 
+# Generate coverage files
+set(GCC_COVERAGE_COMPILE_FLAGS "-fprofile-arcs -ftest-coverage")
+set(GCC_COVERAGE_LINK_FLAGS "-lgcov --coverage")
+
+set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
+set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+
 if (DEFINED ENV{CPU_ONLY})
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCPU_ONLY")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCPU_ONLY")
@@ -51,6 +59,7 @@ add_custom_target(report
 
 add_custom_command(TARGET report POST_BUILD
     COMMAND ${LCOV} --directory .. --capture --output-file lcov.info
+    COMMAND ${LCOV} --remove lcov.info -o lcov.info "${PROJECT_SOURCE_DIR}/${TEST_DIR}/*"
     COMMAND ${GENHTML} -o . lcov.info
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${REPORT_DIR}
 )
