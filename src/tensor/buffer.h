@@ -28,22 +28,29 @@ typedef enum runtime_t
 #define RUNTIMES 3
 #endif
 
+typedef struct storage_t
+{
+    uint64_t reference_count;
+    runtime_t runtime;
+    datatype_t datatype;
+    uint64_t n;
+    void *data;
+} storage_t;
+
 typedef struct buffer_t
 {
     view_t *view;
-    runtime_t runtime;
-    datatype_t datatype;
-    void *data;
-    size_t size;
-    uint64_t n;
-    bool_t copy;
+    storage_t *storage;
 } buffer_t;
 
-nw_error_t *buffer_create(buffer_t **buffer, runtime_t runtime, datatype_t datatype, view_t *view, void *data, uint64_t n, bool_t copy);
+nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, uint64_t n, void *data);
+void storage_destroy(storage_t *storage);
+nw_error_t *runtime_malloc(storage_t *storage);
+void runtime_free(storage_t *storage);
+
+nw_error_t *buffer_create(buffer_t **buffer, view_t *view, storage_t *storage, bool_t copy);
 void buffer_destroy(buffer_t *buffer);
 
-nw_error_t *runtime_malloc(buffer_t *buffer);
-void runtime_free(buffer_t *buffer);
 string_t runtime_string(runtime_t runtime);
 nw_error_t *runtime_create_context(runtime_t runtime);
 void runtime_destroy_context(runtime_t runtime);

@@ -17614,3 +17614,21 @@
    fun:_ZN2at12_GLOBAL__N_115wrapper_CPU_logERKNS_6TensorE
    fun:_ZN3c104impl28wrap_kernel_functor_unboxed_INS0_6detail24WrapFunctionIntoFunctor_INS_26CompileTimeFunctionPointerIFN2at6TensorERKS6_EXadL_ZNS5_12_GLOBAL__N_115wrapper_CPU_logES8_EEEES6_NS_4guts8typelist8typelistIJS8_EEEEES9_E4callEPNS_14OperatorKernelENS_14DispatchKeySetES8_
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr8
+   fun:mkl_vml_kernel_dError
+   fun:mkl_vml_kernel_dPowI_L9HAynn
+   fun:mkl_vml_serv_threader_d_2iI_1oI
+   fun:vdPowI
+   fun:runtime_binary_elementwise
+   fun:runtime_power
+   fun:power_operation_forward
+   fun:binary_operation_forward
+   fun:operation_forward
+   fun:function_forward
+   fun:apply_function
+   fun:apply_function_binary
+   fun:tensor_power
+   fun:_Z23test_binary_elementwise23binary_operation_type_t
+}

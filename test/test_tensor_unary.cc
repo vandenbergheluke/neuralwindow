@@ -78,6 +78,7 @@ void setup(void)
                 torch_tensors[i][j][k].retain_grad();
 
                 view_t *view;
+                storage_t *storage;
                 buffer_t *buffer;
 
                 error = view_create(&view, 
@@ -87,13 +88,17 @@ void setup(void)
                                     (uint64_t *) torch_tensors[i][j][k].strides().data());
                 ck_assert_ptr_null(error);
 
+                error = storage_create(&storage,
+                                       (runtime_t) i,
+                                       (datatype_t) j,
+                                       (uint64_t) torch_tensors[i][j][k].storage().nbytes() / (uint64_t) datatype_size((datatype_t) j),
+                                       (void *) torch_tensors[i][j][k].data_ptr());
+                ck_assert_ptr_null(error);
+
                 error = buffer_create(&buffer,
-                                      (runtime_t) i,
-                                      (datatype_t) j,
                                       view,
-                                      (void *) torch_tensors[i][j][k].data_ptr(),
-                                      (uint64_t) torch_tensors[i][j][k].storage().nbytes() / (uint64_t) datatype_size((datatype_t) j),
-                                      true);
+                                      storage,
+                                      false);
                 ck_assert_ptr_null(error);
 
                 error = tensor_create(&tensors[i][j][k], buffer, NULL, NULL, true, true);
@@ -179,6 +184,7 @@ void test_unary(unary_operation_type_t unary_operation_type)
 
                 view_t *view;
                 buffer_t *buffer;
+                storage_t *storage;
 
                 error = view_create(&view,
                                     (uint64_t) expected_tensor.storage_offset(),
@@ -187,14 +193,17 @@ void test_unary(unary_operation_type_t unary_operation_type)
                                     (uint64_t *) expected_tensor.strides().data());
                 ck_assert_ptr_null(error);
 
+                error = storage_create(&storage,
+                                       (runtime_t) i,
+                                       (datatype_t) j,
+                                       (uint64_t) expected_tensor.storage().nbytes() / (uint64_t) datatype_size((datatype_t) j),
+                                       (void *) expected_tensor.data_ptr());
+                ck_assert_ptr_null(error);
+
                 error = buffer_create(&buffer,
-                                      (runtime_t) i,
-                                      (datatype_t) j,
                                       view,
-                                      (void *) expected_tensor.data_ptr(),
-                                      (uint64_t) expected_tensor.storage().nbytes() / 
-                                      (uint64_t) datatype_size((datatype_t) j),
-                                      true);
+                                      storage,
+                                      false);
                 ck_assert_ptr_null(error);
 
                 error = tensor_create(&expected_tensors[i][j][k],
@@ -261,14 +270,19 @@ void test_unary(unary_operation_type_t unary_operation_type)
                                     (uint64_t *) torch_tensors[i][j][k].grad().sizes().data(),
                                     (uint64_t *) torch_tensors[i][j][k].grad().strides().data());
                 ck_assert_ptr_null(error);
+
+                error = storage_create(&storage,
+                                       (runtime_t) i,
+                                       (datatype_t) j,
+                                       (uint64_t) torch_tensors[i][j][k].grad().storage().nbytes() / 
+                                       (uint64_t) datatype_size((datatype_t) j),
+                                       (void *) torch_tensors[i][j][k].grad().data_ptr());
+                ck_assert_ptr_null(error);
+
                 error = buffer_create(&buffer,
-                                      (runtime_t) i,
-                                      (datatype_t) j,
                                       view,
-                                      (void *) torch_tensors[i][j][k].grad().data_ptr(),
-                                      (uint64_t) torch_tensors[i][j][k].grad().storage().nbytes() / 
-                                      (uint64_t) datatype_size((datatype_t) j),
-                                      true);
+                                      storage,
+                                      false);
                 ck_assert_ptr_null(error);
 
                 error = tensor_create(&expected_gradients[i][j][k],

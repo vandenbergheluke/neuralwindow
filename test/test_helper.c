@@ -9,6 +9,9 @@ void ck_assert_element_eq(const void *returned_data, uint64_t returned_index,
                           const void *expected_data, uint64_t expected_index,
                           datatype_t datatype)
 {
+    ck_assert_ptr_nonnull(returned_data);
+    ck_assert_ptr_nonnull(expected_data);
+
     switch (datatype)
     {
     case FLOAT32:
@@ -42,6 +45,9 @@ void ck_assert_element_eq(const void *returned_data, uint64_t returned_index,
 
 void ck_assert_view_eq(const view_t *returned_view, const view_t *expected_view)
 {
+    ck_assert_ptr_nonnull(returned_view);
+    ck_assert_ptr_nonnull(expected_view);
+
     ck_assert_uint_eq(expected_view->rank, returned_view->rank);
     ck_assert_uint_eq(expected_view->offset, returned_view->offset);
     for (uint64_t i = 0; i < expected_view->rank; ++i)
@@ -59,20 +65,29 @@ void ck_assert_view_eq(const view_t *returned_view, const view_t *expected_view)
     }
 }
 
+void ck_assert_storage_eq(const storage_t *returned_storage, const storage_t *expected_storage)
+{
+    ck_assert_ptr_nonnull(returned_storage);
+    ck_assert_ptr_nonnull(expected_storage);
+    
+    ck_assert_uint_eq(expected_storage->n, returned_storage->n);
+    ck_assert_int_eq(expected_storage->datatype, returned_storage->datatype);
+    ck_assert_int_eq(expected_storage->runtime, returned_storage->runtime);
+    for (uint64_t i = 0; i < expected_storage->n; ++i)
+    {
+        ck_assert_element_eq(returned_storage->data, i, 
+                             expected_storage->data, i,
+                             expected_storage->datatype);
+    }
+}
+
 void ck_assert_buffer_eq(const buffer_t *returned_buffer, const buffer_t *expected_buffer)
 {
-    ck_assert_uint_eq(expected_buffer->n, returned_buffer->n);
-    ck_assert_uint_eq(expected_buffer->size, returned_buffer->size);
-    ck_assert_int_eq(expected_buffer->datatype, returned_buffer->datatype);
-    ck_assert_int_eq(expected_buffer->runtime, returned_buffer->runtime);
-    ck_assert_view_eq(returned_buffer->view, expected_buffer->view);
+    ck_assert_ptr_nonnull(returned_buffer);
+    ck_assert_ptr_nonnull(expected_buffer);
 
-    for (uint64_t i = 0; i < expected_buffer->n; ++i)
-    {
-        ck_assert_element_eq(returned_buffer->data, i, 
-                             expected_buffer->data, i,
-                             expected_buffer->datatype);
-    }
+    ck_assert_view_eq(returned_buffer->view, expected_buffer->view);
+    ck_assert_storage_eq(returned_buffer->storage, expected_buffer->storage);
 }
 
 void ck_assert_function_eq(const tensor_t *returned_tensor, 
@@ -80,8 +95,13 @@ void ck_assert_function_eq(const tensor_t *returned_tensor,
                            const tensor_t *expected_tensor,
                            const function_t *expected_function)
 {
+    ck_assert_ptr_nonnull(returned_tensor);
+    ck_assert_ptr_nonnull(expected_tensor);
+    ck_assert_ptr_nonnull(returned_function);
+    ck_assert_ptr_nonnull(expected_function);
+
     ck_assert_int_eq(expected_function->operation_type,
-                        returned_function->operation_type);
+                     returned_function->operation_type);
     switch (expected_function->operation_type)
     {
     case UNARY_OPERATION:
@@ -277,8 +297,10 @@ void ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tensor_t *exp
 
     ck_assert_ptr_nonnull(expected_tensor->buffer);
     ck_assert_ptr_nonnull(expected_tensor->buffer->view);
+    ck_assert_ptr_nonnull(expected_tensor->buffer->storage);
     ck_assert_ptr_nonnull(returned_tensor->buffer);
     ck_assert_ptr_nonnull(returned_tensor->buffer->view);
+    ck_assert_ptr_nonnull(returned_tensor->buffer->storage);
 
     ck_assert_uint_eq(returned_tensor->buffer->view->rank, expected_tensor->buffer->view->rank);
     for (uint64_t i = 0; i < expected_tensor->buffer->view->rank; ++i)
@@ -286,10 +308,10 @@ void ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tensor_t *exp
         ck_assert_uint_eq(returned_tensor->buffer->view->shape[i], 
                           expected_tensor->buffer->view->shape[i]);
     }
-    ck_assert_int_eq(returned_tensor->buffer->datatype, expected_tensor->buffer->datatype);
+    ck_assert_int_eq(returned_tensor->buffer->storage->datatype, expected_tensor->buffer->storage->datatype);
 
-    ck_assert_data_equiv(returned_tensor->buffer->data, returned_tensor->buffer->view->strides, returned_tensor->buffer->view->offset,
-                         expected_tensor->buffer->data, expected_tensor->buffer->view->strides, expected_tensor->buffer->view->offset,
-                         expected_tensor->buffer->view->shape, expected_tensor->buffer->view->rank, expected_tensor->buffer->datatype);
+    ck_assert_data_equiv(returned_tensor->buffer->storage->data, returned_tensor->buffer->view->strides, returned_tensor->buffer->view->offset,
+                         expected_tensor->buffer->storage->data, expected_tensor->buffer->view->strides, expected_tensor->buffer->view->offset,
+                         expected_tensor->buffer->view->shape, expected_tensor->buffer->view->rank, expected_tensor->buffer->storage->datatype);
 
 }

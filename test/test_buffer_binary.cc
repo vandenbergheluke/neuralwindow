@@ -20,11 +20,6 @@ buffer_t *buffers_y[RUNTIMES][DATATYPES][CASES];
 buffer_t *returned_buffers[RUNTIMES][DATATYPES][CASES];
 buffer_t *expected_buffers[RUNTIMES][DATATYPES][CASES];
 
-view_t *views_x[RUNTIMES][DATATYPES][CASES];
-view_t *views_y[RUNTIMES][DATATYPES][CASES];
-view_t *returned_views[RUNTIMES][DATATYPES][CASES];
-view_t *expected_views[RUNTIMES][DATATYPES][CASES];
-
 torch::Tensor tensors_x[RUNTIMES][DATATYPES][CASES];
 torch::Tensor tensors_y[RUNTIMES][DATATYPES][CASES];
 

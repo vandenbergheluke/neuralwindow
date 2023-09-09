@@ -460,25 +460,12 @@ nw_error_t *tensor_summation(const tensor_t *x,
 
     nw_error_t *error = NULL;
     
-    if (!x->buffer->view->rank)
-    {
-        error = tensor_copy(x, y);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_COPY,
-                         string_create("failed to copy tensor."),
-                         error);
-        }
-        
-        return NULL;
-    }
-
     error = apply_function_reduction(SUMMATION_OPERATION,
-                                                x,
-                                                axis,
-                                                length,
-                                                keep_dimension,
-                                                y);
+                                     x,
+                                     axis,
+                                     length,
+                                     keep_dimension,
+                                     y);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD,
@@ -964,6 +951,7 @@ nw_error_t *tensor_constant(void *constant,
     CHECK_NULL_ARGUMENT(x, "x");
 
     view_t *view = NULL;
+    storage_t *storage = NULL;
     buffer_t *buffer = NULL;
     nw_error_t *error = NULL;
 
@@ -982,7 +970,15 @@ nw_error_t *tensor_constant(void *constant,
                      error);
     }
 
-    error = buffer_create(&buffer, runtime, datatype, view, constant, 1, true);
+    error = storage_create(&storage, runtime, datatype, 1, constant);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create storage."),
+                     error);
+    }
+
+    error = buffer_create(&buffer, view, storage, false);
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE,
@@ -1124,11 +1120,8 @@ nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t *y)
     }
 
     error = buffer_create(&buffer,
-                          x->buffer->runtime,
-                          x->buffer->datatype,
                           view,
-                          x->buffer->data,
-                          x->buffer->n,
+                          x->buffer->storage,
                           false);
     if (error != NULL)
     {
@@ -1179,6 +1172,9 @@ bool_t tensor_is_empty(const tensor_t *x)
 nw_error_t *tensor_as_empty(const tensor_t *x, tensor_t *y)
 {
     CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(x->buffer->storage, "x->buffer->storage");
     CHECK_NULL_ARGUMENT(y, "y");
 
     if (!tensor_is_empty(y))
@@ -1189,6 +1185,7 @@ nw_error_t *tensor_as_empty(const tensor_t *x, tensor_t *y)
     }
 
     view_t *view = NULL;
+    storage_t *storage = NULL;
     buffer_t *buffer = NULL;
     nw_error_t *error = NULL;
 
@@ -1204,13 +1201,16 @@ nw_error_t *tensor_as_empty(const tensor_t *x, tensor_t *y)
                      error);
     }
 
+    error = storage_create(&storage, 
+                           x->buffer->storage->runtime,
+                           x->buffer->storage->datatype,
+                           x->buffer->storage->n,
+                           NULL);
+
     error = buffer_create(&buffer,
-                          x->buffer->runtime,
-                          x->buffer->datatype,
                           view,
-                          NULL,
-                          x->buffer->n,
-                          true);
+                          storage,
+                          false);
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE,
@@ -1237,7 +1237,9 @@ nw_error_t *tensor_as_empty_contiguous(const tensor_t *x, tensor_t *y)
 
     view_t *view = NULL;
     buffer_t *buffer = NULL;
+    storage_t *storage = NULL;
     nw_error_t *error = NULL;
+    uint64_t n = 0;
 
     error = view_create(&view, 
                         0,
@@ -1251,15 +1253,36 @@ nw_error_t *tensor_as_empty_contiguous(const tensor_t *x, tensor_t *y)
                      error);
     }
 
-    error = buffer_create(&buffer,
-                          x->buffer->runtime,
-                          x->buffer->datatype,
-                          view,
-                          NULL,
-                          0,
-                          true);
+    error = n_from_shape_and_strides(view->shape, view->strides, view->rank, &n);
     if (error != NULL)
     {
+        view_destroy(view);
+        ERROR(ERROR_N,
+              string_create("failed to compute storage size."),
+              error);
+    }
+
+    error = storage_create(&storage, 
+                           x->buffer->storage->runtime,
+                           x->buffer->storage->datatype,
+                           n,
+                           NULL);
+    if (error != NULL)
+    {
+        view_destroy(view);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create storage."),
+                     error);
+    }
+
+    error = buffer_create(&buffer,
+                          view,
+                          storage,
+                          false);
+    if (error != NULL)
+    {
+        view_destroy(view);
+        storage_destroy(storage);
         return ERROR(ERROR_CREATE,
                      string_create("failed to create buffer."),
                      error);
@@ -1401,12 +1424,6 @@ nw_error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient)
                          string_create("failed to create add gradient."),
                          error);
         }
-
-        if (gradient->buffer->copy)
-        {
-            x->gradient->buffer->copy = true;
-            gradient->buffer->copy = false;
-        }
     }
     else
     {
@@ -1443,22 +1460,23 @@ nw_error_t *init_zeroes(tensor_t *x)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
-    CHECK_NULL_ARGUMENT(x->buffer->data, "x->buffer->data");
+    CHECK_NULL_ARGUMENT(x->buffer->storage, "x->buffer->storage");
+    CHECK_NULL_ARGUMENT(x->buffer->storage->data, "x->buffer->storage->data");
 
-    for (uint64_t i = 0; i < x->buffer->n; ++i)
+    for (uint64_t i = 0; i < x->buffer->storage->n; ++i)
     {
-        switch (x->buffer->datatype)
+        switch (x->buffer->storage->datatype)
         {
         case FLOAT32:
-            ((float32_t *) x->buffer->data)[i] = (float32_t) 0.0;
+            ((float32_t *) x->buffer->storage->data)[i] = (float32_t) 0.0;
             break;
         case FLOAT64:
-            ((float64_t *) x->buffer->data)[i] = (float64_t) 0.0;
+            ((float64_t *) x->buffer->storage->data)[i] = (float64_t) 0.0;
             break;
         default:
             return ERROR(ERROR_DATATYPE,
                          string_create("unknown datatype %d.",
-                         (int) x->buffer->datatype),
+                         (int) x->buffer->storage->datatype),
                          NULL);
         }
     }
@@ -1471,22 +1489,23 @@ nw_error_t *init_ones(tensor_t *x)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
-    CHECK_NULL_ARGUMENT(x->buffer->data, "x->buffer->data");
+    CHECK_NULL_ARGUMENT(x->buffer->storage, "x->buffer->storage");
+    CHECK_NULL_ARGUMENT(x->buffer->storage->data, "x->buffer->storage->data");
 
-    for (uint64_t i = 0; i < x->buffer->n; ++i)
+    for (uint64_t i = 0; i < x->buffer->storage->n; ++i)
     {
-        switch (x->buffer->datatype)
+        switch (x->buffer->storage->datatype)
         {
         case FLOAT32:
-            ((float32_t *) x->buffer->data)[i] = (float32_t) 1.0;
+            ((float32_t *) x->buffer->storage->data)[i] = (float32_t) 1.0;
             break;
         case FLOAT64:
-            ((float64_t *) x->buffer->data)[i] = (float64_t) 1.0;
+            ((float64_t *) x->buffer->storage->data)[i] = (float64_t) 1.0;
             break;
         default:
             return ERROR(ERROR_DATATYPE,
                          string_create("unknown datatype %d.",
-                         (int) x->buffer->datatype),
+                         (int) x->buffer->storage->datatype),
                          NULL);
         }
     }
