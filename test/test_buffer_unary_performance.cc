@@ -27,6 +27,9 @@ buffer_t *returned_buffers[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 view_t *views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 view_t *returned_views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 
+storage_t *storages[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
+storage_t *returned_storages[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
+
 torch::Tensor tensors[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 
 torch::Device device_cuda(torch::kCUDA);
@@ -91,13 +94,16 @@ void setup(void)
                                         (uint64_t *) tensors[i][j][k][z].sizes().data(),
                                         NULL);
                     ck_assert_ptr_null(error);
+                    error = storage_create(&storages[i][j][k][z],
+                                           (runtime_t) i,
+                                           (datatype_t) j,
+                                           (uint64_t) tensors[i][j][k][z].numel(),
+                                           (void *) tensors[i][j][k][z].data_ptr());
+                    ck_assert_ptr_null(error);
                     error = buffer_create(&buffers[i][j][k][z],
-                                          (runtime_t) i,
-                                          (datatype_t) j,
                                           views[i][j][k][z],
-                                          (void *) tensors[i][j][k][z].data_ptr(),
-                                          (uint64_t) tensors[i][j][k][z].numel(),
-                                          true);
+                                          storages[i][j][k][z],
+                                          false);
                     ck_assert_ptr_null(error);
 
                     error = view_create(&returned_views[i][j][k][z],
@@ -106,13 +112,16 @@ void setup(void)
                                         (uint64_t *) tensors[i][j][k][z].sizes().data(),
                                         NULL);
                     ck_assert_ptr_null(error);
+                    error = storage_create(&returned_storages[i][j][k][z],
+                                           (runtime_t) i,
+                                           (datatype_t) j,
+                                           (uint64_t) tensors[i][j][k][z].numel(),
+                                           (void *) tensors[i][j][k][z].data_ptr());
+                    ck_assert_ptr_null(error);
                     error = buffer_create(&returned_buffers[i][j][k][z],
-                                          (runtime_t) i,
-                                          (datatype_t) j,
                                           returned_views[i][j][k][z],
-                                          NULL,
-                                          (uint64_t) tensors[i][j][k][z].numel(),
-                                          true);
+                                          returned_storages[i][j][k][z],
+                                          false);
                     ck_assert_ptr_null(error);
                 }
             }
