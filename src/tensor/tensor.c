@@ -501,25 +501,12 @@ nw_error_t *tensor_maximum(const tensor_t *x,
 
     nw_error_t *error = NULL;
 
-    if (!x->buffer->view->rank)
-    {
-        error = tensor_copy(x, y);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_COPY,
-                         string_create("failed to copy tensor."),
-                         error);
-        }
-        
-        return NULL;
-    }
-
     error = apply_function_reduction(MAXIMUM_OPERATION,
-                                                 x,
-                                                 axis,
-                                                 length,
-                                                 keep_dimension,
-                                                 y);
+                                     x,
+                                     axis,
+                                     length,
+                                     keep_dimension,
+                                     y);
     if (error != NULL)
     {
         return ERROR(ERROR_FORWARD,
