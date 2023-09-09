@@ -169,89 +169,139 @@ nw_error_t *apply_function_binary(binary_operation_type_t binary_operation_type,
     nw_error_t *error = NULL;
     binary_operation_t *binary_operation = NULL;
 
-    if (shapes_equal(x->buffer->view->shape, x->buffer->view->rank,
-                     y->buffer->view->shape, y->buffer->view->rank))
+    tensor_t *x_brodcasted = NULL;
+    tensor_t *y_brodcasted = NULL;
+
+    error = tensor_create_default(&x_brodcasted);
+    if (error != NULL)
     {
-        error = binary_operation_create(&binary_operation,
-                                        binary_operation_type,
-                                        x,
-                                        y,
-                                        result);
-        if (error != NULL)
+        return ERROR(ERROR_CREATE,
+                    string_create("failed to create empty tensor x_broadcasted."),
+                    error);
+    }
+
+    error = tensor_create_default(&y_brodcasted);
+    if (error != NULL)
+    {
+        tensor_destroy(x_brodcasted);    
+        return ERROR(ERROR_CREATE,
+                    string_create("failed to create empty tensor y_broadcasted."),
+                    error);
+    }
+    
+    if (binary_operation_type == MATRIX_MULTIPLICATION_OPERATION)
+    {
+        tensor_t *x_contiguous;
+        tensor_t *y_contiguous;
+        bool_t x_is_contiguous = tensor_is_contiguous(x);
+        bool_t y_is_contiguous = tensor_is_contiguous(y);
+
+        if (!x_is_contiguous)
         {
-            return ERROR(ERROR_CREATE,
-                        string_create("failed to create binary operation of type %s.",
-                        binary_operation_type_string(binary_operation_type)), 
-                        error);
+            error = tensor_create_default(&x_contiguous);
+            if (error != NULL)
+            {
+                return ERROR(ERROR_CONTIGUOUS,
+                            string_create("failed create tensor x_contiguous."),
+                            error);
+            }
+
+            error = tensor_contiguous(x, x_contiguous);
+            if (error != NULL)
+            {
+                return ERROR(ERROR_CONTIGUOUS,
+                            string_create("failed make tensor contiguous."),
+                            error);
+            }
+        }
+        else
+        {
+            x_contiguous = (tensor_t *) x;
         }
 
-        error = apply_function(BINARY_OPERATION, (void *) binary_operation);
-        if (error != NULL)
+        if (!y_is_contiguous)
         {
-            binary_operation_destroy(binary_operation);
-            return ERROR(ERROR_FORWARD,
-                        string_create("failed to apply binary function of type %s.",
-                        binary_operation_type_string(binary_operation_type)),
-                        error);
+            error = tensor_create_default(&y_contiguous);
+            if (error != NULL)
+            {
+                return ERROR(ERROR_CONTIGUOUS,
+                            string_create("failed create tensor y_contiguous."),
+                            error);
+            }
+
+            error = tensor_contiguous(y, y_contiguous);
+            if (error != NULL)
+            {
+                return ERROR(ERROR_CONTIGUOUS,
+                            string_create("failed make tensor contiguous."),
+                            error);
+            }
+        }
+        else
+        {
+            y_contiguous = (tensor_t *) y;
+        }
+
+        error = tensor_broadcast_matrix_multiplication(x_contiguous, y_contiguous, x_brodcasted, y_brodcasted);
+
+        if (!x_contiguous->requires_gradient && !y_contiguous->requires_gradient)
+        {
+            if (!x_is_contiguous)
+            {
+                tensor_destroy(x_contiguous);
+            }
+
+            if (!y_is_contiguous)
+            {
+                tensor_destroy(y_contiguous);
+            }
         }
     }
     else
     {
-        tensor_t *x_brodcasted = NULL;
-        tensor_t *y_brodcasted = NULL;
-
-        error = tensor_create_default(&x_brodcasted);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_CREATE,
-                        string_create("failed to create empty tensor x_broadcasted."),
-                        error);
-        }
-
-        error = tensor_create_default(&y_brodcasted);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_CREATE,
-                        string_create("failed to create empty tensor y_broadcasted."),
-                        error);
-        }
-        
         error = tensor_broadcast(x, y, x_brodcasted, y_brodcasted);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_BROADCAST,
-                        string_create("failed to broadcast tensors x and y."),
-                        error);
-        }
+    }
 
-        error = binary_operation_create(&binary_operation,
-                                        binary_operation_type,
-                                        x_brodcasted,
-                                        y_brodcasted,
-                                        result);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_CREATE,
-                        string_create("failed to create binary operation of type %s.",
-                        binary_operation_type_string(binary_operation_type)), 
-                        error);
-        }
+    if (error != NULL)
+    {
+        tensor_destroy(x_brodcasted);    
+        tensor_destroy(y_brodcasted);    
+        return ERROR(ERROR_BROADCAST,
+                    string_create("failed to broadcast tensors x and y."),
+                    error);
+    }
 
-        error = apply_function(BINARY_OPERATION, (void *) binary_operation);
-        if (error != NULL)
-        {
-            binary_operation_destroy(binary_operation);
-            return ERROR(ERROR_FORWARD,
-                        string_create("failed to apply binary function of type %s.",
-                        binary_operation_type_string(binary_operation_type)),
-                        error);
-        }
+    error = binary_operation_create(&binary_operation,
+                                    binary_operation_type,
+                                    x_brodcasted,
+                                    y_brodcasted,
+                                    result);
+    if (error != NULL)
+    {
+        tensor_destroy(x_brodcasted);    
+        tensor_destroy(y_brodcasted);    
+        return ERROR(ERROR_CREATE,
+                    string_create("failed to create binary operation of type %s.",
+                    binary_operation_type_string(binary_operation_type)), 
+                    error);
+    }
 
-        if (!(x_brodcasted->requires_gradient || y_brodcasted->requires_gradient))
-        {
-            tensor_destroy(x_brodcasted);    
-            tensor_destroy(y_brodcasted);    
-        }
+    error = apply_function(BINARY_OPERATION, (void *) binary_operation);
+    if (error != NULL)
+    {
+        tensor_destroy(x_brodcasted);    
+        tensor_destroy(y_brodcasted);    
+        binary_operation_destroy(binary_operation);
+        return ERROR(ERROR_FORWARD,
+                    string_create("failed to apply binary function of type %s.",
+                    binary_operation_type_string(binary_operation_type)),
+                    error);
+    }
+
+    if (!(x_brodcasted->requires_gradient || y_brodcasted->requires_gradient))
+    {
+        tensor_destroy(x_brodcasted);    
+        tensor_destroy(y_brodcasted);    
     }
 
     return NULL;
@@ -800,7 +850,7 @@ static nw_error_t *exponential_operation_forward(tensor_t *x, tensor_t *result)
 
     nw_error_t *error = NULL;
 
-    error = tensor_as_empty(x, result);    
+    error = tensor_as_empty_contiguous(x, result);    
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE,
@@ -909,7 +959,7 @@ static nw_error_t *logarithm_operation_forward(tensor_t *x, tensor_t *result)
 
     nw_error_t *error = error;
 
-    error = tensor_as_empty(x, result);    
+    error = tensor_as_empty_contiguous(x, result);    
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE,
@@ -1013,7 +1063,7 @@ static nw_error_t *sine_operation_forward(tensor_t *x, tensor_t *result)
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(result, "result");
 
-    nw_error_t *error = tensor_as_empty(x, result);    
+    nw_error_t *error = tensor_as_empty_contiguous(x, result);    
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE,
@@ -1137,7 +1187,7 @@ static nw_error_t *cosine_operation_forward(tensor_t *x, tensor_t *result)
 
     nw_error_t *error = NULL;
 
-    error = tensor_as_empty(x, result);    
+    error = tensor_as_empty_contiguous(x, result);    
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE,
@@ -1290,7 +1340,7 @@ static nw_error_t *square_root_operation_forward(tensor_t *x, tensor_t *result)
 
     nw_error_t *error = NULL;
 
-    error = tensor_as_empty(x, result);    
+    error = tensor_as_empty_contiguous(x, result);    
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE,
@@ -1467,7 +1517,7 @@ static nw_error_t *reciprocal_operation_forward(tensor_t *x, tensor_t *result)
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(result, "result");
 
-    nw_error_t *error = tensor_as_empty(x, result);    
+    nw_error_t *error = tensor_as_empty_contiguous(x, result);    
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE,
@@ -1620,7 +1670,7 @@ static nw_error_t *contiguous_operation_forward(tensor_t *x, tensor_t *result)
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(result, "result");
 
-    nw_error_t *error = tensor_as_empty(x, result);    
+    nw_error_t *error = tensor_as_empty_contiguous(x, result);    
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE,
@@ -1729,7 +1779,7 @@ static nw_error_t *rectified_linear_operation_forward(tensor_t *x, tensor_t *res
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(result, "result");
 
-    nw_error_t *error = tensor_as_empty(x, result);    
+    nw_error_t *error = tensor_as_empty_contiguous(x, result);    
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE,
@@ -3078,14 +3128,74 @@ static nw_error_t *matrix_multiplication_operation_forward(tensor_t *x,
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(result, "result");
+    uint64_t rank = MAX(x->buffer->view->rank, y->buffer->view->rank);
+    uint64_t *shape = (uint64_t *) malloc((size_t) (rank * sizeof(uint64_t)));
+    if (shape == NULL)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate %lu bytes for shape.",
+                     (unsigned long) (rank * sizeof(uint64_t))),
+                     NULL);
+    }
+    view_t *view = NULL;
+    storage_t *storage = NULL;
+    uint64_t n;
+    buffer_t *buffer = NULL;
+    nw_error_t *error = NULL;
+    runtime_t runtime = x->buffer->storage->runtime;
+    datatype_t datatype = x->buffer->storage->datatype;
 
-    nw_error_t *error = tensor_as_empty_contiguous(x, result);    
+    error = matrix_multiplication_shape(x->buffer->view->shape, y->buffer->view->shape, shape, rank);
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE,
-                     string_create("failed to create empty tensor."),
+        free(shape);
+        return ERROR(ERROR_SHAPE_CONFLICT,
+                     string_create("shapes of x and y are incompatible for matrix multiplication."),
                      error);
     }
+
+
+    error = view_create(&view, 0, rank, shape, NULL);
+    if (error != NULL)
+    {
+        free(shape);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create view."),
+                     error);
+    }
+
+    free(shape);
+
+    error = n_from_shape_and_strides(view->shape, view->strides, view->rank, &n);
+    if (error != NULL)
+    {
+        view_destroy(view);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to compute number of elements to store."),
+                     error);
+    }
+
+    error = storage_create(&storage, runtime, datatype, n, NULL);
+    if (error != NULL)
+    {
+        view_destroy(view);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create storage."),
+                     error);
+    }
+
+    error = buffer_create(&buffer, view, storage, false);
+    if (error != NULL)
+    {
+        storage_destroy(storage);
+        view_destroy(view);
+        return ERROR(ERROR_CREATE,
+                     string_create("failed to create storage."),
+                     error);
+    }
+
+    result->buffer = buffer;
+    result->requires_gradient = x->requires_gradient || y->requires_gradient;
 
     error = runtime_matrix_multiplication(x->buffer, y->buffer, result->buffer);
     if (error != NULL)
@@ -3094,6 +3204,7 @@ static nw_error_t *matrix_multiplication_operation_forward(tensor_t *x,
                      string_create("failed to successfully run matmul operation."),
                      error);
     }
+
 
     return NULL;
 }
@@ -3185,7 +3296,7 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_matrix_multiplication(x_gradient_i, gradient, x_gradient);
+        error = tensor_matrix_multiplication(gradient, x_gradient_i, x_gradient);
         if (error != NULL)
         {
             tensor_destroy(x_gradient);
@@ -3292,7 +3403,7 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x,
                          error);
         }
 
-        error = tensor_matrix_multiplication(gradient, y_gradient_i, y_gradient);
+        error = tensor_matrix_multiplication(y_gradient_i, gradient, y_gradient);
         if (error != NULL)
         {
             tensor_destroy(y_gradient);

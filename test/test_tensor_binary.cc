@@ -12,7 +12,7 @@ extern "C"
 #include <torch/torch.h>
 
 #define BINARY_ELEMENTWISE_CASES 5
-#define BINARY_MATRIX_MULTIPLICATION_CASES 1
+#define BINARY_MATRIX_MULTIPLICATION_CASES 4
 #define CASES BINARY_ELEMENTWISE_CASES + BINARY_MATRIX_MULTIPLICATION_CASES
 
 nw_error_t *error;
@@ -35,7 +35,10 @@ std::vector<int64_t> shapes_x[CASES] = {
     {4, 2},
     {3, 2, 1},
     // Binary Matrix Multiplication
-    {4, 4},
+    {4, 1},
+    {4, 5},
+    {2, 4, 5},
+    {1, 2, 2, 3, 5},
 };
 
 std::vector<int64_t> shapes_y[CASES] = {
@@ -46,7 +49,10 @@ std::vector<int64_t> shapes_y[CASES] = {
     {4, 2},
     {1, 2, 3},
     // Binary Matrix Multiplication
-    {4, 4},
+    {1, 4},
+    {5, 4},
+    {5, 4},
+    {5, 7},
 };
 
 void setup(void)
@@ -444,7 +450,7 @@ Suite *make_binary_suite(void)
     tcase_add_test(tc_binary, test_multiplication);
     tcase_add_test(tc_binary, test_division);
     tcase_add_test(tc_binary, test_power);
-    // tcase_add_test(tc_binary, test_matrix_multiplication);
+    tcase_add_test(tc_binary, test_matrix_multiplication);
 
     suite_add_tcase(s, tc_binary);
 

@@ -1095,13 +1095,13 @@ nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer,
     void *z_data = z_buffer->storage->data;
     uint64_t m = x_buffer->view->shape[x_buffer->view->rank - 2];
     uint64_t k = x_buffer->view->shape[x_buffer->view->rank - 1];
-    uint64_t n = y_buffer->view->shape[x_buffer->view->rank - 1];
-    bool_t x_transpose = x_buffer->view->shape[x_buffer->view->rank - 1] == 
-                         x_buffer->view->strides[x_buffer->view->rank - 2] && 
-                         x_buffer->view->strides[x_buffer->view->rank - 1] == 1; 
-    bool_t y_transpose = y_buffer->view->shape[y_buffer->view->rank - 1] == 
-                         y_buffer->view->strides[y_buffer->view->rank - 2] && 
-                         y_buffer->view->strides[y_buffer->view->rank - 1] == 1;  
+    uint64_t n = y_buffer->view->shape[y_buffer->view->rank - 1];
+    bool_t x_transpose = x_buffer->view->shape[x_buffer->view->rank - 2] == 
+                         x_buffer->view->strides[x_buffer->view->rank - 1] && 
+                         x_buffer->view->strides[x_buffer->view->rank - 2] == 1; 
+    bool_t y_transpose = y_buffer->view->shape[y_buffer->view->rank - 2] == 
+                         y_buffer->view->strides[y_buffer->view->rank - 1] && 
+                         y_buffer->view->strides[y_buffer->view->rank - 2] == 1;  
     uint64_t x_offset;
     uint64_t y_offset;
     uint64_t z_offset;
@@ -1164,20 +1164,20 @@ nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer,
         {
             for (uint64_t j = 0; j < z_buffer->view->shape[1]; ++j)
             {
-                for (uint64_t k = 0; k < z_buffer->view->shape[2]; ++k)
+                for (uint64_t l = 0; l < z_buffer->view->shape[2]; ++l)
                 {
                     x_offset = x_buffer->view->offset
                                + i * x_buffer->view->strides[0]
                                + j * x_buffer->view->strides[1]
-                               + k * x_buffer->view->strides[2];
+                               + l * x_buffer->view->strides[2];
                     y_offset = y_buffer->view->offset
                                + i * y_buffer->view->strides[0]
                                + j * y_buffer->view->strides[1]
-                               + k * y_buffer->view->strides[2];
+                               + l * y_buffer->view->strides[2];
                     z_offset = z_buffer->view->offset
                                + i * z_buffer->view->strides[0]
                                + j * z_buffer->view->strides[1]
-                               + k * z_buffer->view->strides[2];
+                               + l * z_buffer->view->strides[2];
 
                     runtime_matrix_multiplication_execute(runtime, datatype, m, k, n,
                                                           x_transpose, y_transpose, 

@@ -11,7 +11,7 @@ extern "C"
 }
 #include <torch/torch.h>
 
-#define CASES 6
+#define CASES 5
 
 nw_error_t *error;
 
@@ -25,16 +25,14 @@ torch::Tensor torch_tensors[RUNTIMES][DATATYPES][CASES];
 std::vector<int64_t> shapes[CASES] = {
     {1},
     {10},
-    {10, 1},
-    {10, 10},
-    {3, 4, 5},
+    {1},
+    {3, 1, 5},
     {2, 3, 4, 5},
 };
 
 std::vector<int64_t> expanded_shapes[CASES] = {
     {2},
-    {10},
-    {10, 1},
+    {2, 10},
     {10, 10},
     {3, 4, 5},
     {2, 3, 4, 5},

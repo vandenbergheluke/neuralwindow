@@ -907,6 +907,138 @@ nw_error_t *broadcast_shapes(const uint64_t *x_original_shape,
 }
 
 /**
+ * @brief Given the shape, rank, and strides of two tensors being combined via an matrix multiplication operation, find
+ *        the associated shape and rank to broadcast both tensors to perform the operation.   
+ * @param[in] x_original_shape An array of size `x_original_rank` representing the dimensions of the original tensor being broadcasted.
+ * @param[in] x_original_rank The order of the original tensor. Gives the number of elements in `x_original_shape`.
+ * @param[in] y_original_shape An array of size `y_original_rank` representing the dimensions of the original tensor being broadcasted.
+ * @param[in] y_original_rank The order of the original tensor. Gives the number of elements in `y_original_shape`.
+ * @param[out] x_broadcasted_shape An array of size `broadcasted_rank` representing the dimensions of the target broadcasted tensor of `x`.
+ * @param[out] y_broadcasted_shape An array of size `broadcasted_rank` representing the dimensions of the target broadcasted tensor of `y`.
+ * @param[in] broadcasted_rank The order of the broadcasted tensor. Gives the number of elements in `broadcasted_shape`.
+ * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
+ *         See broadcasting rules at https://pytorch.org/docs/stable/generated/torch.matmul.html.
+ */
+nw_error_t *matrix_multiplication_broadcast_shapes(const uint64_t *x_original_shape,
+                                                   uint64_t x_original_rank,
+                                                   const uint64_t *y_original_shape,
+                                                   uint64_t y_original_rank, 
+                                                   uint64_t *x_broadcasted_shape,
+                                                   uint64_t *y_broadcasted_shape,
+                                                   uint64_t broadcasted_rank)
+{
+    CHECK_NULL_ARGUMENT(x_original_shape, "x_original_shape"); 
+    CHECK_NULL_ARGUMENT(y_original_shape, "y_original_shape"); 
+    CHECK_NULL_ARGUMENT(x_broadcasted_shape, "x_broadcasted_shape"); 
+    CHECK_NULL_ARGUMENT(y_broadcasted_shape, "y_broadcasted_shape"); 
+
+    if (x_original_rank > MAX_RANK ||
+        y_original_rank > MAX_RANK ||
+        x_original_rank < 2 ||
+        y_original_rank < 2)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, 
+                     string_create("x original rank %lu and y original rank %lu must be in the interval [2, %d].", 
+                     (unsigned long) x_original_rank, (unsigned long) y_original_rank, (int) MAX_RANK),
+                     NULL);
+    }
+
+    if (broadcasted_rank != MAX(x_original_rank, y_original_rank))
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("broadcast rank %lu must be the max rank of {%lu, %lu}.",
+                     (unsigned long) broadcasted_rank, (unsigned long) x_original_rank, (unsigned long) y_original_rank),
+                     NULL);
+    }
+
+    for (uint64_t i = 1; i < broadcasted_rank + 1; ++i)
+    {
+        uint64_t x_index = x_original_rank - i;
+        uint64_t y_index = y_original_rank - i;
+        uint64_t broadcast_index = broadcasted_rank - i;
+        if (i < 3)
+        {
+            x_broadcasted_shape[broadcast_index] = x_original_shape[x_index];
+            y_broadcasted_shape[broadcast_index] = y_original_shape[y_index];
+            continue;
+        }
+
+        if (i > x_original_rank || (i <= y_original_rank && x_original_shape[x_index] == 1))
+        {
+            x_broadcasted_shape[broadcast_index] = y_original_shape[y_index];
+            y_broadcasted_shape[broadcast_index] = y_original_shape[y_index];
+        } 
+        else if (i > y_original_rank || 
+                 x_original_shape[x_index] == y_original_shape[y_index] || 
+                 y_original_shape[y_index] == 1)
+        {
+            x_broadcasted_shape[broadcast_index] = x_original_shape[x_index];
+            y_broadcasted_shape[broadcast_index] = x_original_shape[x_index];
+        }
+        else
+        {
+            return ERROR(ERROR_BROADCAST,
+                        string_create("cannot broadcast shapes."),
+                        NULL);
+        }
+    }
+
+    return NULL;
+}
+
+nw_error_t *matrix_multiplication_shape(uint64_t *x_shape, uint64_t *y_shape, uint64_t *z_shape, uint64_t rank)
+{
+    CHECK_NULL_ARGUMENT(x_shape, "x_shape");
+    CHECK_NULL_ARGUMENT(y_shape, "y_shape");
+    CHECK_NULL_ARGUMENT(z_shape, "z_shape");
+
+    if (rank < 2)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("rank %lu must be 2 or greater.",
+                     (unsigned long) rank),
+                     NULL);
+    }
+
+    if (x_shape[rank - 1] != y_shape[rank - 2])
+    {
+        return ERROR(ERROR_SHAPE_CONFLICT,
+                     string_create("number of columns in x %lu not equal to number of rows in y %lu.",
+                     (unsigned long) x_shape[rank - 1], (unsigned long) y_shape[rank - 1]),
+                     NULL);
+    }
+
+    for (uint64_t i = 1; i < rank + 1; ++i)
+    {
+        uint64_t j = rank - i;
+        if (i == 1)
+        {
+            z_shape[j] = y_shape[j];
+        }
+        else if (i == 2)
+        {
+            z_shape[j] = x_shape[j];
+        }
+        else
+        {
+            if (x_shape[j] != y_shape[j])
+            {
+                return ERROR(ERROR_SHAPE_CONFLICT,
+                             string_create("dimension in x %lu not equal to dimension in y $lu.",
+                             (unsigned long) x_shape[j], (unsigned long) y_shape[j]),
+                             NULL);
+            }
+            else
+            {
+                z_shape[j] = x_shape[j];
+            }
+        }
+    }
+
+    return NULL;
+}
+
+/**
  * @brief 
  * 
  * @param original_shape 
