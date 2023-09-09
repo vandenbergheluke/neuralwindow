@@ -58,7 +58,7 @@ jobs:
         make valgrind_test_buffer_unary
         make valgrind_test_map
         make valgrind_test_queue
-        make valgrind_test_tensor_binary_elementwise
+        make valgrind_test_tensor_binary
         make valgrind_test_tensor_reduction
         make valgrind_test_tensor_unary
         make valgrind_test_view

@@ -103,46 +103,6 @@ nw_error_t *tensor_create_default(tensor_t **tensor)
 }
 
 /**
- * @brief Copy the contents of a given `source_tensor` to a given
- *        `destination_tensor`.
- * @param[in] source_tensor The tensor whose contents is being read.
- * @param[out] destination_tensor The tensor whose contents is being overwritten with
- *                                the copied contents of the `source_tensor`. This 
- *                                tensor should be initalized with `tensor_create_default`.
- * @return Error if `source_tensor` or `destination_tensor` is NULL.
- *         Error if the copy operation failed.
- *         NULL if the contents of the `source_tensor` was successfully copied
- *         into the `destination_tensor`.
- */
-nw_error_t *tensor_copy(const tensor_t *source_tensor, tensor_t *destination_tensor)
-{
-    CHECK_NULL_ARGUMENT(source_tensor, "source_tensor");
-    CHECK_NULL_ARGUMENT(destination_tensor, "destination_tensor");
-
-    PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_TENSOR("source_tensore", source_tensor);
-    PRINTLN_DEBUG_TENSOR("destination_tensor", destination_tensor);
-    PRINT_DEBUG_NEWLINE;
-
-    nw_error_t *error = NULL;
-
-    error = apply_function_unary(COPY_OPERATION, source_tensor, destination_tensor);
-    if (error != NULL)
-    {
-        return ERROR(ERROR_FORWARD,
-                     string_create("failed to copy tensors."),
-                     error);
-    }
-
-    PRINTLN_DEBUG_LOCATION("output");
-    PRINTLN_DEBUG_TENSOR("source_tensore", source_tensor);
-    PRINTLN_DEBUG_TENSOR("destination_tensor", destination_tensor);
-    PRINT_DEBUG_NEWLINE;
-    
-    return NULL;
-}
-
-/**
  * @brief 
  * 
  * @param[in] x_original 

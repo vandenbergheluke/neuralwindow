@@ -11,7 +11,7 @@ extern "C"
 }
 #include <torch/torch.h>
 
-#define CASES 7
+#define CASES 6
 
 nw_error_t *error;
 
@@ -28,7 +28,6 @@ std::vector<int64_t> shapes[CASES] = {
     {10, 1},
     {10, 10},
     {3, 4, 5},
-    {3, 4, 5},
     {2, 3, 4, 5},
 };
 
@@ -37,7 +36,6 @@ std::vector<int64_t> expanded_shapes[CASES] = {
     {10},
     {10, 1},
     {10, 10},
-    {3, 4, 5},
     {3, 4, 5},
     {2, 3, 4, 5},
 };
@@ -165,9 +163,6 @@ void test_unary(unary_operation_type_t unary_operation_type)
                 case RECIPROCAL_OPERATION:
                     expected_tensor = torch::reciprocal(torch_tensors[i][j][k]);
                     break;
-                case COPY_OPERATION:
-                    expected_tensor = torch::clone(torch_tensors[i][j][k]);
-                    break;
                 case CONTIGUOUS_OPERATION:
                     expected_tensor = torch_tensors[i][j][k].contiguous();
                     break;
@@ -243,9 +238,6 @@ void test_unary(unary_operation_type_t unary_operation_type)
                     break;
                 case RECIPROCAL_OPERATION:
                     error = tensor_reciprocal(tensors[i][j][k], returned_tensors[i][j][k]);
-                    break;
-                case COPY_OPERATION:
-                    error = tensor_copy(tensors[i][j][k], returned_tensors[i][j][k]);
                     break;
                 case CONTIGUOUS_OPERATION:
                     error = tensor_contiguous(tensors[i][j][k], returned_tensors[i][j][k]);
@@ -343,12 +335,6 @@ START_TEST(test_reciprocal)
 }
 END_TEST
 
-START_TEST(test_copy)
-{
-    test_unary(COPY_OPERATION);
-}
-END_TEST
-
 START_TEST(test_contiguous)
 {
     test_unary(CONTIGUOUS_OPERATION);
@@ -382,7 +368,6 @@ Suite *make_unary_suite(void)
     tcase_add_test(tc_unary, test_cosine);
     tcase_add_test(tc_unary, test_square_root);
     tcase_add_test(tc_unary, test_reciprocal);
-    tcase_add_test(tc_unary, test_copy);
     tcase_add_test(tc_unary, test_contiguous);
     tcase_add_test(tc_unary, test_negation);
     tcase_add_test(tc_unary, test_rectified_linear);
