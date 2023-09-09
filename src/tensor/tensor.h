@@ -22,12 +22,12 @@ typedef struct tensor_t
     function_t *context;
     struct tensor_t *gradient;
     bool_t requires_gradient;
-    bool_t lock; // Tensor persists after computational graph is destroyed.
+    bool_t lock;
 } tensor_t;
 
 nw_error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *context, tensor_t *gradient, bool_t requires_gradient, bool_t lock);
 void tensor_destroy(tensor_t *tensor);
-nw_error_t *tensor_create_empty(tensor_t **tensor);
+nw_error_t *tensor_create_default(tensor_t **tensor);
 nw_error_t *tensor_copy(const tensor_t *source_tensor, tensor_t *destination_tensor);
 nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_original, tensor_t *x_broadcasted, tensor_t *y_broadcasted);
 nw_error_t *tensor_expand(const tensor_t *x, const uint64_t *shape, uint64_t length, tensor_t *y);
@@ -58,6 +58,7 @@ nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t *y);
 nw_error_t *tensor_as_ones(const tensor_t *x, tensor_t *y);
 bool_t tensor_is_empty(const tensor_t *x);
 nw_error_t *tensor_as_empty(const tensor_t *x, tensor_t *y);
+nw_error_t *tensor_as_empty_contiguous(const tensor_t *x, tensor_t *y);
 nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient);
 nw_error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient);
 bool_t tensor_is_contiguous(const tensor_t *x);

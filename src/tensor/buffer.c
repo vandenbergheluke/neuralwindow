@@ -12,52 +12,109 @@
 #include <openblas_runtime.h>
 #include <string.h>
 
+nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, uint64_t n, void *data)
+{
+    CHECK_NULL_ARGUMENT(storage, "storage");
+
+    *storage = (storage_t *) malloc(sizeof(storage_t));
+    if (storage == NULL)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate storage of size %lu bytes.", 
+                     (unsigned long) sizeof(buffer_t)),
+                     NULL);
+    }
+
+    if (!n)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     "storage must store more than 0 bytes of data.",
+                     NULL);
+    }
+
+    (*storage)->runtime = runtime;
+    (*storage)->datatype = datatype;
+    (*storage)->n = n;
+    (*storage)->reference_count = 0;
+
+    nw_error_t *error = runtime_malloc(*storage);
+    if (error != NULL)
+    {
+        free(*storage);
+        return ERROR(ERROR_MEMORY_ALLOCATION,
+                     string_create("failed to allocate buffer data for runtime %s and datatype %s.",
+                     runtime_string(runtime), datatype_string(datatype)),
+                     error);
+    }
+
+    if (data != NULL)
+    {
+        memcpy((*storage)->data, data, (*storage)->n * datatype_size(datatype));
+    }
+
+    return NULL;
+}
+
+void storage_destroy(storage_t *storage)
+{
+    if (storage == NULL)
+    {
+        return;
+    }
+
+    if (storage->reference_count < 2)
+    {
+        runtime_free(storage);
+        free(storage);
+    }
+    else
+    {
+        --(storage->reference_count);
+    }
+}
+
+
 nw_error_t *buffer_create(buffer_t **buffer,
-                          runtime_t runtime,
-                          datatype_t datatype,
                           view_t *view,
-                          void *data,
-                          uint64_t n,
+                          storage_t *storage,
                           bool_t copy)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(view, "view");
+    CHECK_NULL_ARGUMENT(storage, "storage");
+
+    nw_error_t *error = NULL;
 
     *buffer = (buffer_t *) malloc(sizeof(buffer_t));
     if (buffer == NULL)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION,
                      string_create("failed to allocate buffer of size %lu bytes.", 
-                     (unsigned long) sizeof(buffer_t)), NULL);
+                     (unsigned long) sizeof(buffer_t)),
+                     NULL);
     }
 
-    (*buffer)->runtime = runtime;
-    (*buffer)->datatype = datatype;
     (*buffer)->view = view;
-    (*buffer)->copy = copy;
-    (*buffer)->n = n;
-    (*buffer)->size = (*buffer)->n * datatype_size((*buffer)->datatype);
 
     if (copy)
     {
-        nw_error_t *error = runtime_malloc(*buffer);
+        error = storage_create(&(*buffer)->storage,
+                               storage->runtime,
+                               storage->datatype,
+                               storage->n,
+                               storage->data);
         if (error != NULL)
         {
-            free(*buffer);
-            return ERROR(ERROR_MEMORY_ALLOCATION,
-                         string_create("failed to allocate buffer data for runtime %s and datatype %s.",
-                         runtime_string(runtime), datatype_string(datatype)), error);
-        }
-
-        if (data != NULL)
-        {
-            memcpy((*buffer)->data, data, (*buffer)->size);
+            return ERROR(ERROR_CREATE,
+                         string_create("failed to create storage copy."),
+                         error);
         }
     }
     else
     {
-        (*buffer)->data = data;
+        (*buffer)->storage = storage;
     }
+    ++((*buffer)->storage->reference_count);
 
     return NULL;
 }
@@ -69,10 +126,7 @@ void buffer_destroy(buffer_t *buffer)
         return;
     }
 
-    if (buffer->copy)
-    {
-        runtime_free(buffer);
-    }
+    storage_destroy(buffer->storage);
     view_destroy(buffer->view);
     free(buffer);
 }
@@ -125,36 +179,40 @@ void runtime_destroy_context(runtime_t runtime)
     }
 }
 
-nw_error_t *runtime_malloc(buffer_t *buffer)
+nw_error_t *runtime_malloc(storage_t *storage)
 {
-    CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(buffer->view, "buffer->view");
+    CHECK_NULL_ARGUMENT(storage, "storage");
 
-    if (buffer->size == 0)
+    if (storage->n == 0)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION,
                      string_create("cannot allocate 0 bytes."),
                      NULL);
     }
 
-    nw_error_t *error;
-    switch (buffer->runtime)
+    nw_error_t *error = NULL;
+
+    switch (storage->runtime)
     {
     case OPENBLAS_RUNTIME:
-        error = openblas_memory_allocate(&buffer->data, buffer->size);
+        error = openblas_memory_allocate(&storage->data,
+                                         storage->n * datatype_size(storage->datatype));
         break;
     case MKL_RUNTIME:
-        error = mkl_memory_allocate(&buffer->data, buffer->size);
+        error = mkl_memory_allocate(&storage->data,
+                                    storage->n * datatype_size(storage->datatype));
         break;
 #ifndef CPU_ONLY
     case CU_RUNTIME:
-        error = cu_memory_allocate(&buffer->data, buffer->size);
+        error = cu_memory_allocate(&storage->data,
+                                   storage->n * datatype_size(storage->datatype));
         break;
 #endif
     default:
         error = ERROR(ERROR_UNKNOWN_RUNTIME,
                       string_create("unknown runtime %d.",
-                      (int) buffer->runtime), NULL);
+                      (int) storage->runtime),
+                      NULL);
         break;
     }
 
@@ -162,31 +220,32 @@ nw_error_t *runtime_malloc(buffer_t *buffer)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION,
                      string_create("failed to allocate %lu bytes for runtime %s.", 
-                     (unsigned long) buffer->size, runtime_string(buffer->runtime)),
+                     (unsigned long) (storage->n *datatype_size(storage->datatype)),
+                     runtime_string(storage->runtime)),
                      error);
     }
     
     return NULL;
 }
 
-void runtime_free(buffer_t *buffer)
+void runtime_free(storage_t *storage)
 {
-    if (buffer == NULL)
+    if (storage == NULL)
     {
         return;
     }
 
-    switch (buffer->runtime)
+    switch (storage->runtime)
     {
     case OPENBLAS_RUNTIME:
-        openblas_memory_free(buffer->data);
+        openblas_memory_free(storage->data);
         break;
     case MKL_RUNTIME:
-        mkl_memory_free(buffer->data);
+        mkl_memory_free(storage->data);
         break;
 #ifndef CPU_ONLY
     case CU_RUNTIME:
-        cu_memory_free(buffer->data);
+        cu_memory_free(storage->data);
         break;
 #endif
     default:
@@ -194,67 +253,385 @@ void runtime_free(buffer_t *buffer)
     }
 }
 
-nw_error_t *runtime_exponential(buffer_t *x, buffer_t *result)
+static nw_error_t *runtime_unary(runtime_unary_type_t runtime_unary_type, buffer_t *x, buffer_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->view, "x->view");
-    CHECK_NULL_ARGUMENT(x->data, "x->data");
+    CHECK_NULL_ARGUMENT(x->storage->data, "x->storage->data");
     CHECK_NULL_ARGUMENT(result, "result");
     CHECK_NULL_ARGUMENT(result->view, "result->view");
-    CHECK_NULL_ARGUMENT(result->data, "result->data");
+    CHECK_NULL_ARGUMENT(result->storage->data, "result->storage->data");
+    CHECK_NULL_ARGUMENT(x->view->shape, "x->view->shape");
+    CHECK_NULL_ARGUMENT(x->view->strides, "x->view->strides");
+    CHECK_NULL_ARGUMENT(result->view->shape, "result->view->shape");
+    CHECK_NULL_ARGUMENT(result->view->strides, "result->view->strides");
 
-    if (x->datatype != result->datatype)
+    if (x->storage->datatype != result->storage->datatype)
     {
         return ERROR(ERROR_DATATYPE_CONFLICT,
                      string_create("conflicting datatypes x (%s) and result (%s).",
-                     datatype_string(x->datatype), datatype_string(result->datatype)),
+                     datatype_string(x->storage->datatype), datatype_string(result->storage->datatype)),
                      NULL);
     }
 
-    if (x->runtime != result->runtime)
+    if (x->storage->runtime != result->storage->runtime)
     {
         return ERROR(ERROR_RUNTIME_CONFLICT,
                      string_create("conflicting runtimes x (%s) and result (%s).",
-                     runtime_string(x->runtime), runtime_string(result->runtime)),
+                     runtime_string(x->storage->runtime), runtime_string(result->storage->runtime)),
                      NULL);
     }
 
-    if (x->n != result->n)
+    if (x->storage->n != result->storage->n)
     {
         return ERROR(ERROR_SHAPE_CONFLICT,
                      string_create("conflicting number of elements in x buffer (%lu) and result buffer (%lu).",
-                     (unsigned long) x->n, (unsigned long) result->n), NULL);
+                     (unsigned long) x->storage->n, (unsigned long) result->storage->n), NULL);
     }
 
     if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, result->view->rank))
     {
-        string_t x_shape_string = uint64_array_to_string(x->view->shape, x->view->rank);
-        string_t result_shape_string = uint64_array_to_string(result->view->shape, result->view->rank);
-        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
-                               string_create("conflicting shapes x %s and result %s.",
-                               x_shape_string, result_shape_string), NULL);
-        string_destroy(x_shape_string);
-        string_destroy(result_shape_string);
-        return error;
+        return ERROR(ERROR_SHAPE_CONFLICT,
+                     string_create("conflicting shapes x and result."),
+                     NULL);
     }
 
-    switch (x->runtime)
+    switch (runtime_unary_type)
     {
-    case OPENBLAS_RUNTIME:
-        openblas_exponential(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-    case MKL_RUNTIME:
-        mkl_exponential(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
+    case RUNTIME_EXPONENTIAL:
+        switch (x->storage->runtime)
+        {
+        case OPENBLAS_RUNTIME:
+            openblas_exponential(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+        case MKL_RUNTIME:
+            mkl_exponential(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
 #ifndef CPU_ONLY
-    case CU_RUNTIME:
-        cu_exponential(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
+        case CU_RUNTIME:
+            cu_exponential(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
 #endif
+        default:
+            return ERROR(ERROR_UNKNOWN_RUNTIME,
+                        string_create("unknown runtime %d.",
+                        (int) x->storage->runtime), NULL);
+        }
+        break;
+    case RUNTIME_LOGARITHM:
+        switch (x->storage->runtime)
+        {
+        case OPENBLAS_RUNTIME:
+            openblas_logarithm(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+        case MKL_RUNTIME:
+            mkl_logarithm(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#ifndef CPU_ONLY
+        case CU_RUNTIME:
+            cu_logarithm(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#endif
+        default:
+            return ERROR(ERROR_UNKNOWN_RUNTIME,
+                        string_create("unknown runtime %d.",
+                        (int) x->storage->runtime), NULL);
+        }
+        break;
+    case RUNTIME_SINE:
+        switch (x->storage->runtime)
+        {
+        case OPENBLAS_RUNTIME:
+            openblas_sine(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+        case MKL_RUNTIME:
+            mkl_sine(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#ifndef CPU_ONLY
+        case CU_RUNTIME:
+            cu_sine(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#endif
+        default:
+            return ERROR(ERROR_UNKNOWN_RUNTIME,
+                        string_create("unknown runtime %d.",
+                        (int) x->storage->runtime), NULL);
+        }
+        break;
+    case RUNTIME_COSINE:
+        switch (x->storage->runtime)
+        {
+        case OPENBLAS_RUNTIME:
+            openblas_cosine(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+        case MKL_RUNTIME:
+            mkl_cosine(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#ifndef CPU_ONLY
+        case CU_RUNTIME:
+            cu_cosine(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#endif
+        default:
+            return ERROR(ERROR_UNKNOWN_RUNTIME,
+                        string_create("unknown runtime %d.",
+                        (int) x->storage->runtime), NULL);
+        }
+        break;
+    case RUNTIME_SQUARE_ROOT:
+        switch (x->storage->runtime)
+        {
+        case OPENBLAS_RUNTIME:
+            openblas_square_root(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+        case MKL_RUNTIME:
+            mkl_square_root(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#ifndef CPU_ONLY
+        case CU_RUNTIME:
+            cu_square_root(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#endif
+        default:
+            return ERROR(ERROR_UNKNOWN_RUNTIME,
+                        string_create("unknown runtime %d.",
+                        (int) x->storage->runtime), NULL);
+        }
+        break;
+    case RUNTIME_RECIPROCAL:
+        switch (x->storage->runtime)
+        {
+        case OPENBLAS_RUNTIME:
+            openblas_reciprocal(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+        case MKL_RUNTIME:
+            mkl_reciprocal(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#ifndef CPU_ONLY
+        case CU_RUNTIME:
+            cu_reciprocal(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#endif
+        default:
+            return ERROR(ERROR_UNKNOWN_RUNTIME,
+                        string_create("unknown runtime %d.",
+                        (int) x->storage->runtime), NULL);
+        }
+        break;
+    case RUNTIME_COPY:
+        switch (x->storage->runtime)
+        {
+        case OPENBLAS_RUNTIME:
+            openblas_copy(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+        case MKL_RUNTIME:
+            mkl_copy(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#ifndef CPU_ONLY
+        case CU_RUNTIME:
+            cu_copy(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#endif
+        default:
+            return ERROR(ERROR_UNKNOWN_RUNTIME,
+                        string_create("unknown runtime %d.",
+                        (int) x->storage->runtime), NULL);
+        }
+        break;
+    case RUNTIME_NEGATION:
+        switch (x->storage->runtime)
+        {
+        case OPENBLAS_RUNTIME:
+            openblas_negation(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+        case MKL_RUNTIME:
+            mkl_negation(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#ifndef CPU_ONLY
+        case CU_RUNTIME:
+            cu_negation(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#endif
+        default:
+            return ERROR(ERROR_UNKNOWN_RUNTIME,
+                        string_create("unknown runtime %d.",
+                        (int) x->storage->runtime), NULL);
+        }
+        break;
+    case RUNTIME_RECTIFIED_LINEAR:
+        switch (x->storage->runtime)
+        {
+        case OPENBLAS_RUNTIME:
+            openblas_rectified_linear(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+        case MKL_RUNTIME:
+            mkl_rectified_linear(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#ifndef CPU_ONLY
+        case CU_RUNTIME:
+            cu_rectified_linear(x->storage->datatype, x->storage->n, x->storage->data, (uint64_t) 1, x->view->offset, result->storage->data, (uint64_t) 1, result->view->offset);
+            break;
+#endif
+        default:
+            return ERROR(ERROR_UNKNOWN_RUNTIME,
+                        string_create("unknown runtime %d.",
+                        (int) x->storage->runtime), NULL);
+        }
+        break;
+    case RUNTIME_CONTIGUOUS:
+        switch (x->view->rank)
+        {
+        case 1:
+            switch (x->storage->runtime)
+            {
+            case OPENBLAS_RUNTIME:
+                openblas_copy(x->storage->datatype, x->view->shape[0], x->storage->data, x->view->strides[0], x->view->offset, result->storage->data, result->view->strides[0], result->view->offset);
+                break;
+            case MKL_RUNTIME:
+                mkl_copy(x->storage->datatype, x->view->shape[0], x->storage->data, x->view->strides[0], x->view->offset, result->storage->data, result->view->strides[0], result->view->offset);
+                break;
+#ifndef CPU_ONLY
+            case CU_RUNTIME:
+                cu_copy(x->storage->datatype, x->view->shape[0], x->storage->data, x->view->strides[0], x->view->offset, result->storage->data, result->view->strides[0], result->view->offset);
+                break;
+#endif
+            default:
+                return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->storage->datatype), NULL);
+            }
+            break;
+        case 2:
+            for (uint64_t i = 0; i < x->view->shape[0]; ++i)
+            {
+                switch (x->storage->runtime)
+                {
+                case OPENBLAS_RUNTIME:
+                    openblas_copy(x->storage->datatype, x->view->shape[1], x->storage->data, x->view->strides[1], x->view->offset + i * x->view->strides[0], 
+                                result->storage->data, result->view->strides[1], result->view->offset + i * result->view->strides[0]);
+                    break;
+                case MKL_RUNTIME:
+                    mkl_copy(x->storage->datatype, x->view->shape[1], x->storage->data, x->view->strides[1], x->view->offset + i * x->view->strides[0], 
+                            result->storage->data, result->view->strides[1], result->view->offset + i * result->view->strides[0]);
+                    break;
+#ifndef CPU_ONLY
+                case CU_RUNTIME:
+                    cu_copy(x->storage->datatype, x->view->shape[1], x->storage->data, x->view->strides[1], x->view->offset + i * x->view->strides[0], 
+                            result->storage->data, result->view->strides[1], result->view->offset + i * result->view->strides[0]);
+                    break;
+#endif
+                default:
+                    return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->storage->datatype), NULL);
+                }
+            }
+            break;
+        case 3:
+            for (uint64_t i = 0; i < x->view->shape[0]; ++i)
+            {
+                for (uint64_t j = 0; j < x->view->shape[1]; ++j)
+                {
+                    switch (x->storage->runtime)
+                    {
+                    case OPENBLAS_RUNTIME:
+                        openblas_copy(x->storage->datatype, x->view->shape[2], x->storage->data, x->view->strides[2], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1], 
+                                    result->storage->data, result->view->strides[2], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1]);
+                        break;
+                    case MKL_RUNTIME:
+                        mkl_copy(x->storage->datatype, x->view->shape[2], x->storage->data, x->view->strides[2], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1], 
+                                result->storage->data, result->view->strides[2], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1]);
+                        break;
+#ifndef CPU_ONLY
+                    case CU_RUNTIME:
+                        cu_copy(x->storage->datatype, x->view->shape[2], x->storage->data, x->view->strides[2], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1], 
+                                result->storage->data, result->view->strides[2], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1]);
+                        break;
+#endif
+                    default:
+                        return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->storage->datatype), NULL);
+                    }
+                }
+            }
+            break;
+        case 4:
+            for (uint64_t i = 0; i < x->view->shape[0]; ++i)
+            {
+                for (uint64_t j = 0; j < x->view->shape[1]; ++j)
+                {
+                    for (uint64_t k = 0; k < x->view->shape[2]; ++k)
+                    {
+                        switch (x->storage->runtime)
+                        {
+                        case OPENBLAS_RUNTIME:
+                            openblas_copy(x->storage->datatype, x->view->shape[3], x->storage->data, x->view->strides[3], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1] + k * x->view->strides[2], 
+                                        result->storage->data, result->view->strides[3], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1] + k * result->view->strides[2]);
+                            break;
+                        case MKL_RUNTIME:
+                            mkl_copy(x->storage->datatype, x->view->shape[3], x->storage->data, x->view->strides[3], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1] + k * x->view->strides[2], 
+                                    result->storage->data, result->view->strides[3], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1] + k * result->view->strides[2]);
+                            break;
+#ifndef CPU_ONLY
+                        case CU_RUNTIME:
+                            cu_copy(x->storage->datatype, x->view->shape[3], x->storage->data, x->view->strides[3], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1] + k * x->view->strides[2], 
+                                    result->storage->data, result->view->strides[3], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1] + k * result->view->strides[2]);
+                            break;
+#endif
+                        default:
+                            return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->storage->datatype), NULL);
+                        }
+                    }
+                }
+            }
+            break;
+        case 5:
+            for (uint64_t i = 0; i < x->view->shape[0]; ++i)
+            {
+                for (uint64_t j = 0; j < x->view->shape[1]; ++j)
+                {
+                    for (uint64_t k = 0; k < x->view->shape[2]; ++k)
+                    {
+                        for (uint64_t l = 0; l < x->view->shape[3]; ++l)
+                        {
+                            switch (x->storage->runtime)
+                            {
+                            case OPENBLAS_RUNTIME:
+                                openblas_copy(x->storage->datatype, x->view->shape[4], x->storage->data, x->view->strides[4], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1] + k * x->view->strides[2] + l * x->view->strides[3], 
+                                            result->storage->data, result->view->strides[4], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1] + k * result->view->strides[2] + l * result->view->strides[3]);
+                                break;
+                            case MKL_RUNTIME:
+                                mkl_copy(x->storage->datatype, x->view->shape[4], x->storage->data, x->view->strides[4], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1] + k * x->view->strides[2] + l * x->view->strides[3], 
+                                        result->storage->data, result->view->strides[4], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1] + k * result->view->strides[2] + l * result->view->strides[3]);
+                                break;
+#ifndef CPU_ONLY
+                            case CU_RUNTIME:
+                                cu_copy(x->storage->datatype, x->view->shape[4], x->storage->data, x->view->strides[4], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1] + k * x->view->strides[2] + l * x->view->strides[3], 
+                                        result->storage->data, result->view->strides[4], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1] + k * result->view->strides[2] + l * result->view->strides[3]);
+                                break;
+#endif
+                            default:
+                                return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->storage->datatype), NULL);
+                            }
+                        }
+                    }
+                }
+            }
+            break;
+        default:
+            return ERROR(ERROR_RANK_CONFLICT, string_create("only support tensors rank between 1-4."), NULL);
+        }
+        break;
     default:
-        return ERROR(ERROR_UNKNOWN_RUNTIME,
-                     string_create("unknown runtime %d.",
-                     (int) x->runtime), NULL);
+        break;
+    }
+
+    return NULL;
+}
+
+nw_error_t *runtime_exponential(buffer_t *x, buffer_t *result)
+{
+    nw_error_t *error = runtime_unary(RUNTIME_EXPONENTIAL, x, result);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_UNARY, 
+                     string_create("failed to apply unary operation."),
+                     error);
     }
 
     return NULL;
@@ -262,58 +639,12 @@ nw_error_t *runtime_exponential(buffer_t *x, buffer_t *result)
 
 nw_error_t *runtime_logarithm(buffer_t *x, buffer_t *result)
 {
-    if (x->datatype != result->datatype)
+    nw_error_t *error = runtime_unary(RUNTIME_LOGARITHM, x, result);
+    if (error != NULL)
     {
-        return ERROR(ERROR_DATATYPE_CONFLICT,
-                     string_create("conflicting datatypes x (%s) and result (%s).",
-                     datatype_string(x->datatype), datatype_string(result->datatype)),
-                     NULL);
-    }
-
-    if (x->runtime != result->runtime)
-    {
-        return ERROR(ERROR_RUNTIME_CONFLICT,
-                     string_create("conflicting runtimes x (%s) and result (%s).",
-                     runtime_string(x->runtime), runtime_string(result->runtime)),
-                     NULL);
-    }
-
-    if (x->n != result->n)
-    {
-        return ERROR(ERROR_SHAPE_CONFLICT,
-                     string_create("conflicting number of elements in x buffer (%lu) and result buffer (%lu).",
-                     (unsigned long) x->n, (unsigned long) result->n), NULL);
-    }
-
-    if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, result->view->rank))
-    {
-        string_t x_shape_string = uint64_array_to_string(x->view->shape, x->view->rank);
-        string_t result_shape_string = uint64_array_to_string(result->view->shape, result->view->rank);
-        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
-                               string_create("conflicting shapes x %s and result %s.",
-                               x_shape_string, result_shape_string), NULL);
-        string_destroy(x_shape_string);
-        string_destroy(result_shape_string);
-        return error;
-    }
-
-    switch (x->runtime)
-    {
-    case OPENBLAS_RUNTIME:
-        openblas_logarithm(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-    case MKL_RUNTIME:
-        mkl_logarithm(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        cu_logarithm(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-#endif
-    default:
-        return ERROR(ERROR_UNKNOWN_RUNTIME,
-                     string_create("unknown runtime %d.",
-                     (int) x->runtime), NULL);
+        return ERROR(ERROR_UNARY, 
+                     string_create("failed to apply unary operation."),
+                     error);
     }
 
     return NULL;
@@ -321,58 +652,12 @@ nw_error_t *runtime_logarithm(buffer_t *x, buffer_t *result)
 
 nw_error_t *runtime_sine(buffer_t *x, buffer_t *result)
 {
-    if (x->datatype != result->datatype)
+    nw_error_t *error = runtime_unary(RUNTIME_SINE, x, result);
+    if (error != NULL)
     {
-        return ERROR(ERROR_DATATYPE_CONFLICT,
-                     string_create("conflicting datatypes x (%s) and result (%s).",
-                     datatype_string(x->datatype), datatype_string(result->datatype)),
-                     NULL);
-    }
-
-    if (x->runtime != result->runtime)
-    {
-        return ERROR(ERROR_RUNTIME_CONFLICT,
-                     string_create("conflicting runtimes x (%s) and result (%s).",
-                     runtime_string(x->runtime), runtime_string(result->runtime)),
-                     NULL);
-    }
-
-    if (x->n != result->n)
-    {
-        return ERROR(ERROR_SHAPE_CONFLICT,
-                     string_create("conflicting number of elements in x buffer (%lu) and result buffer (%lu).",
-                     (unsigned long) x->n, (unsigned long) result->n), NULL);
-    }
-
-    if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, result->view->rank))
-    {
-        string_t x_shape_string = uint64_array_to_string(x->view->shape, x->view->rank);
-        string_t result_shape_string = uint64_array_to_string(result->view->shape, result->view->rank);
-        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
-                               string_create("conflicting shapes x %s and result %s.",
-                               x_shape_string, result_shape_string), NULL);
-        string_destroy(x_shape_string);
-        string_destroy(result_shape_string);
-        return error;
-    }
-
-    switch (x->runtime)
-    {
-    case OPENBLAS_RUNTIME:
-        openblas_sine(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-    case MKL_RUNTIME:
-        mkl_sine(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        cu_sine(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-#endif
-    default:
-        return ERROR(ERROR_UNKNOWN_RUNTIME,
-                     string_create("unknown runtime %d.",
-                     (int) x->runtime), NULL);
+        return ERROR(ERROR_UNARY, 
+                     string_create("failed to apply unary operation."),
+                     error);
     }
 
     return NULL;
@@ -380,58 +665,12 @@ nw_error_t *runtime_sine(buffer_t *x, buffer_t *result)
 
 nw_error_t *runtime_cosine(buffer_t *x, buffer_t *result)
 {
-    if (x->datatype != result->datatype)
+    nw_error_t *error = runtime_unary(RUNTIME_COSINE, x, result);
+    if (error != NULL)
     {
-        return ERROR(ERROR_DATATYPE_CONFLICT,
-                     string_create("conflicting datatypes x (%s) and result (%s).",
-                     datatype_string(x->datatype), datatype_string(result->datatype)),
-                     NULL);
-    }
-
-    if (x->runtime != result->runtime)
-    {
-        return ERROR(ERROR_RUNTIME_CONFLICT,
-                     string_create("conflicting runtimes x (%s) and result (%s).",
-                     runtime_string(x->runtime), runtime_string(result->runtime)),
-                     NULL);
-    }
-
-    if (x->n != result->n)
-    {
-        return ERROR(ERROR_SHAPE_CONFLICT,
-                     string_create("conflicting number of elements in x buffer (%lu) and result buffer (%lu).",
-                     (unsigned long) x->n, (unsigned long) result->n), NULL);
-    }
-
-    if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, result->view->rank))
-    {
-        string_t x_shape_string = uint64_array_to_string(x->view->shape, x->view->rank);
-        string_t result_shape_string = uint64_array_to_string(result->view->shape, result->view->rank);
-        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
-                               string_create("conflicting shapes x %s and result %s.",
-                               x_shape_string, result_shape_string), NULL);
-        string_destroy(x_shape_string);
-        string_destroy(result_shape_string);
-        return error;
-    }
-
-    switch (x->runtime)
-    {
-    case OPENBLAS_RUNTIME:
-        openblas_cosine(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-    case MKL_RUNTIME:
-        mkl_cosine(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        cu_cosine(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-#endif
-    default:
-        return ERROR(ERROR_UNKNOWN_RUNTIME,
-                     string_create("unknown runtime %d.",
-                     (int) x->runtime), NULL);
+        return ERROR(ERROR_UNARY, 
+                     string_create("failed to apply unary operation."),
+                     error);
     }
 
     return NULL;
@@ -439,58 +678,12 @@ nw_error_t *runtime_cosine(buffer_t *x, buffer_t *result)
 
 nw_error_t *runtime_square_root(buffer_t *x, buffer_t *result)
 {
-    if (x->datatype != result->datatype)
+    nw_error_t *error = runtime_unary(RUNTIME_SQUARE_ROOT, x, result);
+    if (error != NULL)
     {
-        return ERROR(ERROR_DATATYPE_CONFLICT,
-                     string_create("conflicting datatypes x (%s) and result (%s).",
-                     datatype_string(x->datatype), datatype_string(result->datatype)),
-                     NULL);
-    }
-
-    if (x->runtime != result->runtime)
-    {
-        return ERROR(ERROR_RUNTIME_CONFLICT,
-                     string_create("conflicting runtimes x (%s) and result (%s).",
-                     runtime_string(x->runtime), runtime_string(result->runtime)),
-                     NULL);
-    }
-
-    if (x->n != result->n)
-    {
-        return ERROR(ERROR_SHAPE_CONFLICT,
-                     string_create("conflicting number of elements in x buffer (%lu) and result buffer (%lu).",
-                     (unsigned long) x->n, (unsigned long) result->n), NULL);
-    }
-
-    if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, result->view->rank))
-    {
-        string_t x_shape_string = uint64_array_to_string(x->view->shape, x->view->rank);
-        string_t result_shape_string = uint64_array_to_string(result->view->shape, result->view->rank);
-        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
-                               string_create("conflicting shapes x %s and result %s.",
-                               x_shape_string, result_shape_string), NULL);
-        string_destroy(x_shape_string);
-        string_destroy(result_shape_string);
-        return error;
-    }
-
-    switch (x->runtime)
-    {
-    case OPENBLAS_RUNTIME:
-        openblas_square_root(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-    case MKL_RUNTIME:
-        mkl_square_root(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        cu_square_root(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-#endif
-    default:
-        return ERROR(ERROR_UNKNOWN_RUNTIME,
-                     string_create("unknown runtime %d.",
-                     (int) x->runtime), NULL);
+        return ERROR(ERROR_UNARY, 
+                     string_create("failed to apply unary operation."),
+                     error);
     }
 
     return NULL;
@@ -498,58 +691,12 @@ nw_error_t *runtime_square_root(buffer_t *x, buffer_t *result)
 
 nw_error_t *runtime_reciprocal(buffer_t *x, buffer_t *result)
 {
-    if (x->datatype != result->datatype)
+    nw_error_t *error = runtime_unary(RUNTIME_RECIPROCAL, x, result);
+    if (error != NULL)
     {
-        return ERROR(ERROR_DATATYPE_CONFLICT,
-                     string_create("conflicting datatypes x (%s) and result (%s).",
-                     datatype_string(x->datatype), datatype_string(result->datatype)),
-                     NULL);
-    }
-
-    if (x->runtime != result->runtime)
-    {
-        return ERROR(ERROR_RUNTIME_CONFLICT,
-                     string_create("conflicting runtimes x (%s) and result (%s).",
-                     runtime_string(x->runtime), runtime_string(result->runtime)),
-                     NULL);
-    }
-
-    if (x->n != result->n)
-    {
-        return ERROR(ERROR_SHAPE_CONFLICT,
-                     string_create("conflicting number of elements in x buffer (%lu) and result buffer (%lu).",
-                     (unsigned long) x->n, (unsigned long) result->n), NULL);
-    }
-
-    if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, result->view->rank))
-    {
-        string_t x_shape_string = uint64_array_to_string(x->view->shape, x->view->rank);
-        string_t result_shape_string = uint64_array_to_string(result->view->shape, result->view->rank);
-        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
-                               string_create("conflicting shapes x %s and result %s.",
-                               x_shape_string, result_shape_string), NULL);
-        string_destroy(x_shape_string);
-        string_destroy(result_shape_string);
-        return error;
-    }
-
-    switch (x->runtime)
-    {
-    case OPENBLAS_RUNTIME:
-        openblas_reciprocal(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-    case MKL_RUNTIME:
-        mkl_reciprocal(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        cu_reciprocal(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-#endif
-    default:
-        return ERROR(ERROR_UNKNOWN_RUNTIME,
-                     string_create("unknown runtime %d.",
-                     (int) x->runtime), NULL);
+        return ERROR(ERROR_UNARY, 
+                     string_create("failed to apply unary operation."),
+                     error);
     }
 
     return NULL;
@@ -557,58 +704,12 @@ nw_error_t *runtime_reciprocal(buffer_t *x, buffer_t *result)
 
 nw_error_t *runtime_copy(buffer_t *x, buffer_t *result)
 {
-    if (x->datatype != result->datatype)
+    nw_error_t *error = runtime_unary(RUNTIME_COPY, x, result);
+    if (error != NULL)
     {
-        return ERROR(ERROR_DATATYPE_CONFLICT,
-                     string_create("conflicting datatypes x (%s) and result (%s).",
-                     datatype_string(x->datatype), datatype_string(result->datatype)),
-                     NULL);
-    }
-
-    if (x->runtime != result->runtime)
-    {
-        return ERROR(ERROR_RUNTIME_CONFLICT,
-                     string_create("conflicting runtimes x (%s) and result (%s).",
-                     runtime_string(x->runtime), runtime_string(result->runtime)),
-                     NULL);
-    }
-
-    if (x->n != result->n)
-    {
-        return ERROR(ERROR_SHAPE_CONFLICT,
-                     string_create("conflicting number of elements in x buffer (%lu) and result buffer (%lu).",
-                     (unsigned long) x->n, (unsigned long) result->n), NULL);
-    }
-
-    if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, result->view->rank))
-    {
-        string_t x_shape_string = uint64_array_to_string(x->view->shape, x->view->rank);
-        string_t result_shape_string = uint64_array_to_string(result->view->shape, result->view->rank);
-        nw_error_t *error = ERROR(ERROR_SHAPE_CONFLICT,
-                               string_create("conflicting shapes x %s and result %s.",
-                               x_shape_string, result_shape_string), NULL);
-        string_destroy(x_shape_string);
-        string_destroy(result_shape_string);
-        return error;
-    }
-
-    switch (x->runtime)
-    {
-    case OPENBLAS_RUNTIME:
-        openblas_copy(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-    case MKL_RUNTIME:
-        mkl_copy(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        cu_copy(x->datatype, x->n, x->data, (uint64_t) 1, x->view->offset, result->data, (uint64_t) 1, result->view->offset);
-        break;
-#endif
-    default:
-        return ERROR(ERROR_UNKNOWN_RUNTIME,
-                     string_create("unknown runtime %d.",
-                     (int) x->runtime), NULL);
+        return ERROR(ERROR_UNARY, 
+                     string_create("failed to apply unary operation."),
+                     error);
     }
 
     return NULL;
@@ -616,120 +717,12 @@ nw_error_t *runtime_copy(buffer_t *x, buffer_t *result)
 
 nw_error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
 {
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(x->view, "x->view");
-    CHECK_NULL_ARGUMENT(x->view->shape, "x->view->shape");
-    CHECK_NULL_ARGUMENT(x->view->strides, "x->view->strides");
-    CHECK_NULL_ARGUMENT(x->data, "x->data");
-    CHECK_NULL_ARGUMENT(result, "result");
-    CHECK_NULL_ARGUMENT(result->view, "result->view");
-    CHECK_NULL_ARGUMENT(result->view->shape, "result->view->shape");
-    CHECK_NULL_ARGUMENT(result->view->strides, "result->view->strides");
-    CHECK_NULL_ARGUMENT(result->data, "result->data");
-
-    switch (x->view->rank)
+    nw_error_t *error = runtime_unary(RUNTIME_CONTIGUOUS, x, result);
+    if (error != NULL)
     {
-    case 1:
-        switch (x->runtime)
-        {
-        case OPENBLAS_RUNTIME:
-            openblas_copy(x->datatype, x->view->shape[0], x->data, x->view->strides[0], x->view->offset, result->data, result->view->strides[0], result->view->offset);
-            break;
-        case MKL_RUNTIME:
-            mkl_copy(x->datatype, x->view->shape[0], x->data, x->view->strides[0], x->view->offset, result->data, result->view->strides[0], result->view->offset);
-            break;
-#ifndef CPU_ONLY
-        case CU_RUNTIME:
-            cu_copy(x->datatype, x->view->shape[0], x->data, x->view->strides[0], x->view->offset, result->data, result->view->strides[0], result->view->offset);
-            break;
-#endif
-        default:
-            return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->datatype), NULL);
-        }
-        break;
-    case 2:
-        for (uint64_t i = 0; i < x->view->shape[0]; ++i)
-        {
-            switch (x->runtime)
-            {
-            case OPENBLAS_RUNTIME:
-                openblas_copy(x->datatype, x->view->shape[1], x->data, x->view->strides[1], x->view->offset + i * x->view->strides[0], 
-                              result->data, result->view->strides[1], result->view->offset + i * result->view->strides[0]);
-                break;
-            case MKL_RUNTIME:
-                mkl_copy(x->datatype, x->view->shape[1], x->data, x->view->strides[1], x->view->offset + i * x->view->strides[0], 
-                         result->data, result->view->strides[1], result->view->offset + i * result->view->strides[0]);
-                break;
-#ifndef CPU_ONLY
-            case CU_RUNTIME:
-                cu_copy(x->datatype, x->view->shape[1], x->data, x->view->strides[1], x->view->offset + i * x->view->strides[0], 
-                        result->data, result->view->strides[1], result->view->offset + i * result->view->strides[0]);
-                break;
-#endif
-            default:
-                return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->datatype), NULL);
-            }
-        }
-        break;
-    case 3:
-        for (uint64_t i = 0; i < x->view->shape[0]; ++i)
-        {
-            for (uint64_t j = 0; j < x->view->shape[1]; ++j)
-            {
-                switch (x->runtime)
-                {
-                case OPENBLAS_RUNTIME:
-                    openblas_copy(x->datatype, x->view->shape[2], x->data, x->view->strides[2], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1], 
-                                  result->data, result->view->strides[2], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1]);
-                    break;
-                case MKL_RUNTIME:
-                    mkl_copy(x->datatype, x->view->shape[2], x->data, x->view->strides[2], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1], 
-                             result->data, result->view->strides[2], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1]);
-                    break;
-#ifndef CPU_ONLY
-                case CU_RUNTIME:
-                    cu_copy(x->datatype, x->view->shape[2], x->data, x->view->strides[2], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1], 
-                            result->data, result->view->strides[2], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1]);
-                    break;
-#endif
-                default:
-                    return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->datatype), NULL);
-                }
-            }
-        }
-        break;
-    case 4:
-        for (uint64_t i = 0; i < x->view->shape[0]; ++i)
-        {
-            for (uint64_t j = 0; j < x->view->shape[1]; ++j)
-            {
-                for (uint64_t k = 0; k < x->view->shape[2]; ++k)
-                {
-                    switch (x->runtime)
-                    {
-                    case OPENBLAS_RUNTIME:
-                        openblas_copy(x->datatype, x->view->shape[3], x->data, x->view->strides[3], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1] + k * x->view->strides[2], 
-                                      result->data, result->view->strides[3], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1] + k * result->view->strides[2]);
-                        break;
-                    case MKL_RUNTIME:
-                        mkl_copy(x->datatype, x->view->shape[3], x->data, x->view->strides[3], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1] + k * x->view->strides[2], 
-                                 result->data, result->view->strides[3], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1] + k * result->view->strides[2]);
-                        break;
-#ifndef CPU_ONLY
-                    case CU_RUNTIME:
-                        cu_copy(x->datatype, x->view->shape[3], x->data, x->view->strides[3], x->view->offset + i * x->view->strides[0] + j * x->view->strides[1] + k * x->view->strides[2], 
-                                result->data, result->view->strides[3], result->view->offset + i * result->view->strides[0] + j * result->view->strides[1] + k * result->view->strides[2]);
-                        break;
-#endif
-                    default:
-                        return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->datatype), NULL);
-                    }
-                }
-            }
-        }
-        break;
-    default:
-        return ERROR(ERROR_RANK_CONFLICT, string_create("only support tensors rank between 1-4."), NULL);
+        return ERROR(ERROR_UNARY, 
+                     string_create("failed to apply unary operation."),
+                     error);
     }
 
     return NULL;
@@ -737,48 +730,12 @@ nw_error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
 
 nw_error_t *runtime_negation(buffer_t *x, buffer_t *result)
 {
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(x->view, "x->view");
-    CHECK_NULL_ARGUMENT(x->data, "x->data");
-    CHECK_NULL_ARGUMENT(result, "result");
-    CHECK_NULL_ARGUMENT(result->view, "result->view");
-    CHECK_NULL_ARGUMENT(result->data, "result->data");
-
-    if (x->datatype != result->datatype)
+    nw_error_t *error = runtime_unary(RUNTIME_NEGATION, x, result);
+    if (error != NULL)
     {
-        return ERROR(ERROR_DATATYPE_CONFLICT, string_create("conflicting datatypes %s and %s.", datatype_string(x->datatype), datatype_string(result->datatype)), NULL);
-    }
-
-    if (x->runtime != result->runtime)
-    {
-        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->runtime)), NULL);
-    }
-
-    if (x->n != result->n)
-    {
-        return ERROR(ERROR_SHAPE_CONFLICT, string_create("conflicting number of elements in buffer %lu and %lu.", x->n, result->n), NULL);
-    }
-
-    if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, x->view->rank))
-    {
-        return ERROR(ERROR_SHAPE_CONFLICT, string_create("conflicting shapes in buffer."), NULL);
-    }
-
-    switch (x->runtime)
-    {
-    case OPENBLAS_RUNTIME:
-        openblas_negation(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
-        break;
-    case MKL_RUNTIME:
-        mkl_negation(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        cu_negation(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
-        break;
-#endif
-    default:
-        return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->datatype), NULL);
+        return ERROR(ERROR_UNARY, 
+                     string_create("failed to apply unary operation."),
+                     error);
     }
 
     return NULL;
@@ -786,92 +743,47 @@ nw_error_t *runtime_negation(buffer_t *x, buffer_t *result)
 
 nw_error_t *runtime_rectified_linear(buffer_t *x, buffer_t *result)
 {
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(x->view, "x->view");
-    CHECK_NULL_ARGUMENT(x->data, "x->data");
-    CHECK_NULL_ARGUMENT(result, "result");
-    CHECK_NULL_ARGUMENT(result->view, "result->view");
-    CHECK_NULL_ARGUMENT(result->data, "result->data");
-
-    if (x->datatype != result->datatype)
+    nw_error_t *error = runtime_unary(RUNTIME_RECTIFIED_LINEAR, x, result);
+    if (error != NULL)
     {
-        return ERROR(ERROR_DATATYPE_CONFLICT, string_create("conflicting datatypes %s and %s.", datatype_string(x->datatype), datatype_string(result->datatype)), NULL);
-    }
-
-    if (x->runtime != result->runtime)
-    {
-        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s and %s.", runtime_string(x->runtime), runtime_string(result->runtime)), NULL);
-    }
-
-    if (x->n != result->n)
-    {
-        return ERROR(ERROR_SHAPE_CONFLICT, string_create("conflicting number of elements in buffer %lu and %lu.", x->n, result->n), NULL);
-    }
-
-    if (!shapes_equal(x->view->shape, x->view->rank, result->view->shape, x->view->rank))
-    {
-        return ERROR(ERROR_SHAPE_CONFLICT, string_create("conflicting shapes in buffer."), NULL);
-    }
-
-    switch (x->runtime)
-    {
-    case OPENBLAS_RUNTIME:
-        openblas_rectified_linear(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
-        break;
-    case MKL_RUNTIME:
-        mkl_rectified_linear(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        cu_rectified_linear(x->datatype, x->n, x->data, 1, x->view->offset, result->data, 1, result->view->offset);
-        break;
-#endif
-    default:
-        return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) x->datatype), NULL);
+        return ERROR(ERROR_UNARY, 
+                     string_create("failed to apply unary operation."),
+                     error);
     }
 
     return NULL;
 }
 
-typedef enum binary_elementwise_t
-{
-    RUNTIME_ADDITION,
-    RUNTIME_SUBTRACTION,
-    RUNTIME_MULTIPLICATION,
-    RUNTIME_DIVISION,
-    RUNTIME_POWER,
-    RUNTIME_COMPARE_EQUAL,
-    RUNTIME_COMPARE_GREATER
-} binary_elementwise_t;
 
-static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elementwise, buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
+static nw_error_t *runtime_binary_elementwise(runtime_binary_elementwise_type_t runtime_binary_elementwise_type, 
+                                              buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
 {
     switch (z_buffer->view->rank)
     {
     case 1:
-        switch (binary_elementwise)
+        switch (runtime_binary_elementwise_type)
         {
         case RUNTIME_ADDITION:
-            switch (z_buffer->runtime)
+            switch (z_buffer->storage->runtime)
             {
             case OPENBLAS_RUNTIME:
-                openblas_addition(z_buffer->datatype, z_buffer->view->shape[0],
-                                  x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                                  y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                                  z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                openblas_addition(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                                  x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                                  y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                                  z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
             case MKL_RUNTIME:
-                mkl_addition(z_buffer->datatype, z_buffer->view->shape[0],
-                             x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                             y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                             z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                mkl_addition(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                             x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                             y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                             z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
 #ifndef CPU_ONLY
             case CU_RUNTIME:
-                cu_addition(z_buffer->datatype, z_buffer->view->shape[0],
-                            x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                            y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                            z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                cu_addition(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                            x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                            y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                            z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
 #endif
             default:
@@ -879,26 +791,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
             }
             break;
         case RUNTIME_SUBTRACTION:
-            switch (z_buffer->runtime)
+            switch (z_buffer->storage->runtime)
             {
             case OPENBLAS_RUNTIME:
-                openblas_subtraction(z_buffer->datatype, z_buffer->view->shape[0],
-                                     x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                                     y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                                     z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                openblas_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                                     x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                                     y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                                     z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
             case MKL_RUNTIME:
-                mkl_subtraction(z_buffer->datatype, z_buffer->view->shape[0],
-                                x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                                y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                                z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                mkl_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                                x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                                y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                                z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
 #ifndef CPU_ONLY
             case CU_RUNTIME:
-                cu_subtraction(z_buffer->datatype, z_buffer->view->shape[0],
-                               x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                               y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                               z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                cu_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                               x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                               y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                               z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
 #endif
             default:
@@ -906,26 +818,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
             }
             break;
         case RUNTIME_MULTIPLICATION:
-            switch (z_buffer->runtime)
+            switch (z_buffer->storage->runtime)
             {
             case OPENBLAS_RUNTIME:
-                openblas_multiplication(z_buffer->datatype, z_buffer->view->shape[0],
-                                        x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                                        y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                                        z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                openblas_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                                        x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                                        y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                                        z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
             case MKL_RUNTIME:
-                mkl_multiplication(z_buffer->datatype, z_buffer->view->shape[0],
-                                   x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                                   y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                                   z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                mkl_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                                   x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                                   y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                                   z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
 #ifndef CPU_ONLY
             case CU_RUNTIME:
-                cu_multiplication(z_buffer->datatype, z_buffer->view->shape[0],
-                                  x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                                  y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                                  z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                cu_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                                  x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                                  y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                                  z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
 #endif
             default:
@@ -933,26 +845,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
             }
             break;
         case RUNTIME_DIVISION:
-            switch (z_buffer->runtime)
+            switch (z_buffer->storage->runtime)
             {
             case OPENBLAS_RUNTIME:
-                openblas_division(z_buffer->datatype, z_buffer->view->shape[0],
-                                  x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                                  y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                                  z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                openblas_division(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                                  x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                                  y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                                  z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
             case MKL_RUNTIME:
-                mkl_division(z_buffer->datatype, z_buffer->view->shape[0],
-                             x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                             y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                             z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                mkl_division(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                             x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                             y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                             z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
 #ifndef CPU_ONLY
             case CU_RUNTIME:
-                cu_division(z_buffer->datatype, z_buffer->view->shape[0],
-                            x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                            y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                            z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                cu_division(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                            x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                            y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                            z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
 #endif
             default:
@@ -960,26 +872,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
             }
             break;
         case RUNTIME_POWER:
-            switch (z_buffer->runtime)
+            switch (z_buffer->storage->runtime)
             {
             case OPENBLAS_RUNTIME:
-                openblas_power(z_buffer->datatype, z_buffer->view->shape[0],
-                               x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                               y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                               z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                openblas_power(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                               x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                               y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                               z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
             case MKL_RUNTIME:
-                mkl_power(z_buffer->datatype, z_buffer->view->shape[0],
-                          x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                          y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                          z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                mkl_power(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                          x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                          y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                          z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
 #ifndef CPU_ONLY
             case CU_RUNTIME:
-                cu_power(z_buffer->datatype, z_buffer->view->shape[0],
-                         x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                         y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                         z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                cu_power(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                         x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                         y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                         z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
 #endif
             default:
@@ -987,26 +899,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
             }
             break;
         case RUNTIME_COMPARE_EQUAL:
-            switch (z_buffer->runtime)
+            switch (z_buffer->storage->runtime)
             {
             case OPENBLAS_RUNTIME:
-                openblas_compare_equal(z_buffer->datatype, z_buffer->view->shape[0],
-                                       x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                                       y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                                       z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                openblas_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                                       x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                                       y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                                       z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
             case MKL_RUNTIME:
-                mkl_compare_equal(z_buffer->datatype, z_buffer->view->shape[0],
-                                  x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                                  y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                                  z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                mkl_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                                  x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                                  y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                                  z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
 #ifndef CPU_ONLY
             case CU_RUNTIME:
-                cu_compare_equal(z_buffer->datatype, z_buffer->view->shape[0],
-                                 x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                                 y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                                 z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                cu_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                                 x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                                 y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                                 z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
 #endif
             default:
@@ -1014,26 +926,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
             }
             break;
         case RUNTIME_COMPARE_GREATER:
-            switch (z_buffer->runtime)
+            switch (z_buffer->storage->runtime)
             {
             case OPENBLAS_RUNTIME:
-                openblas_compare_greater(z_buffer->datatype, z_buffer->view->shape[0],
-                                       x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                                       y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                                       z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                openblas_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                                       x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                                       y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                                       z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
             case MKL_RUNTIME:
-                mkl_compare_greater(z_buffer->datatype, z_buffer->view->shape[0],
-                                  x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                                  y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                                  z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                mkl_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                                  x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                                  y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                                  z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
 #ifndef CPU_ONLY
             case CU_RUNTIME:
-                cu_compare_greater(z_buffer->datatype, z_buffer->view->shape[0],
-                                 x_buffer->data, x_buffer->view->strides[0], x_buffer->view->offset,
-                                 y_buffer->data, y_buffer->view->strides[0], y_buffer->view->offset,
-                                 z_buffer->data, z_buffer->view->strides[0], z_buffer->view->offset);
+                cu_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[0],
+                                 x_buffer->storage->data, x_buffer->view->strides[0], x_buffer->view->offset,
+                                 y_buffer->storage->data, y_buffer->view->strides[0], y_buffer->view->offset,
+                                 z_buffer->storage->data, z_buffer->view->strides[0], z_buffer->view->offset);
                 break;
 #endif
             default:
@@ -1047,29 +959,29 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
     case 2:
         for (uint64_t i = 0; i < z_buffer->view->shape[0]; ++i)
         {
-            switch (binary_elementwise)
+            switch (runtime_binary_elementwise_type)
             {
             case RUNTIME_ADDITION:
-                switch (z_buffer->runtime)
+                switch (z_buffer->storage->runtime)
                 {
                 case OPENBLAS_RUNTIME:
-                    openblas_addition(z_buffer->datatype, z_buffer->view->shape[1],
-                                      x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                      y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                      z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    openblas_addition(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                      x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                      y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                      z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
                 case MKL_RUNTIME:
-                    mkl_addition(z_buffer->datatype, z_buffer->view->shape[1],
-                                 x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                 y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                 z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    mkl_addition(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                 x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                 y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                 z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
 #ifndef CPU_ONLY
                 case CU_RUNTIME:
-                    cu_addition(z_buffer->datatype, z_buffer->view->shape[1],
-                                x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    cu_addition(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
 #endif
                 default:
@@ -1077,26 +989,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                 }
                 break;
             case RUNTIME_SUBTRACTION:
-                switch (z_buffer->runtime)
+                switch (z_buffer->storage->runtime)
                 {
                 case OPENBLAS_RUNTIME:
-                    openblas_subtraction(z_buffer->datatype, z_buffer->view->shape[1],
-                                         x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                         y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                         z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    openblas_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                         x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                         y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                         z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
                 case MKL_RUNTIME:
-                    mkl_subtraction(z_buffer->datatype, z_buffer->view->shape[1],
-                                    x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                    y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                    z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    mkl_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                    x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                    y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                    z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
 #ifndef CPU_ONLY
                 case CU_RUNTIME:
-                    cu_subtraction(z_buffer->datatype, z_buffer->view->shape[1],
-                                   x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                   y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                   z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    cu_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                   x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                   y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                   z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
 #endif
                 default:
@@ -1104,26 +1016,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                 }
                 break;
             case RUNTIME_MULTIPLICATION:
-                switch (z_buffer->runtime)
+                switch (z_buffer->storage->runtime)
                 {
                 case OPENBLAS_RUNTIME:
-                    openblas_multiplication(z_buffer->datatype, z_buffer->view->shape[1],
-                                            x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                            y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                            z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    openblas_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                            x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                            y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                            z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
                 case MKL_RUNTIME:
-                    mkl_multiplication(z_buffer->datatype, z_buffer->view->shape[1],
-                                       x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                       y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                       z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    mkl_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                       x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                       y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                       z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
 #ifndef CPU_ONLY
                 case CU_RUNTIME:
-                    cu_multiplication(z_buffer->datatype, z_buffer->view->shape[1],
-                                      x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                      y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                      z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    cu_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                      x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                      y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                      z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
 #endif
                 default:
@@ -1131,26 +1043,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                 }
                 break;
             case RUNTIME_DIVISION:
-                switch (z_buffer->runtime)
+                switch (z_buffer->storage->runtime)
                 {
                 case OPENBLAS_RUNTIME:
-                    openblas_division(z_buffer->datatype, z_buffer->view->shape[1],
-                                      x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                      y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                      z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    openblas_division(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                      x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                      y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                      z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
                 case MKL_RUNTIME:
-                    mkl_division(z_buffer->datatype, z_buffer->view->shape[1],
-                                 x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                 y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                 z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    mkl_division(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                 x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                 y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                 z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
 #ifndef CPU_ONLY
                 case CU_RUNTIME:
-                    cu_division(z_buffer->datatype, z_buffer->view->shape[1],
-                                x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    cu_division(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
 #endif
                 default:
@@ -1158,26 +1070,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                 }
                 break;
             case RUNTIME_POWER:
-                switch (z_buffer->runtime)
+                switch (z_buffer->storage->runtime)
                 {
                 case OPENBLAS_RUNTIME:
-                    openblas_power(z_buffer->datatype, z_buffer->view->shape[1],
-                                   x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                   y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                   z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    openblas_power(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                   x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                   y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                   z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
                 case MKL_RUNTIME:
-                    mkl_power(z_buffer->datatype, z_buffer->view->shape[1],
-                              x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                              y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                              z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    mkl_power(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                              x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                              y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                              z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
 #ifndef CPU_ONLY
                 case CU_RUNTIME:
-                    cu_power(z_buffer->datatype, z_buffer->view->shape[1],
-                             x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                             y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                             z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    cu_power(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                             x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                             y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                             z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
 #endif
                 default:
@@ -1185,26 +1097,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                 }
                 break;
             case RUNTIME_COMPARE_EQUAL:
-                switch (z_buffer->runtime)
+                switch (z_buffer->storage->runtime)
                 {
                 case OPENBLAS_RUNTIME:
-                    openblas_compare_equal(z_buffer->datatype, z_buffer->view->shape[1],
-                                           x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                           y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                           z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    openblas_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                           x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                           y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                           z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
                 case MKL_RUNTIME:
-                    mkl_compare_equal(z_buffer->datatype, z_buffer->view->shape[1],
-                                      x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                      y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                      z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    mkl_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                      x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                      y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                      z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
 #ifndef CPU_ONLY
                 case CU_RUNTIME:
-                    cu_compare_equal(z_buffer->datatype, z_buffer->view->shape[1],
-                                     x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                     y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                     z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    cu_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                     x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                     y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                     z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
 #endif
                 default:
@@ -1212,26 +1124,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                 }
                 break;
             case RUNTIME_COMPARE_GREATER:
-                switch (z_buffer->runtime)
+                switch (z_buffer->storage->runtime)
                 {
                 case OPENBLAS_RUNTIME:
-                    openblas_compare_greater(z_buffer->datatype, z_buffer->view->shape[1],
-                                           x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                           y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                           z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    openblas_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                           x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                           y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                           z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
                 case MKL_RUNTIME:
-                    mkl_compare_greater(z_buffer->datatype, z_buffer->view->shape[1],
-                                      x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                      y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                      z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    mkl_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                      x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                      y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                      z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
 #ifndef CPU_ONLY
                 case CU_RUNTIME:
-                    cu_compare_greater(z_buffer->datatype, z_buffer->view->shape[1],
-                                     x_buffer->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                     y_buffer->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                     z_buffer->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                    cu_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[1],
+                                     x_buffer->storage->data, x_buffer->view->strides[1], x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                     y_buffer->storage->data, y_buffer->view->strides[1], y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                     z_buffer->storage->data, z_buffer->view->strides[1], z_buffer->view->offset + i * z_buffer->view->strides[0]);
                     break;
 #endif
                 default:
@@ -1248,29 +1160,29 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
         {
             for (uint64_t j = 0; j < z_buffer->view->shape[1]; ++j)
             {
-                switch (binary_elementwise)
+                switch (runtime_binary_elementwise_type)
                 {
                 case RUNTIME_ADDITION:
-                    switch (z_buffer->runtime)
+                    switch (z_buffer->storage->runtime)
                     {
                     case OPENBLAS_RUNTIME:
-                        openblas_addition(z_buffer->datatype, z_buffer->view->shape[2],
-                                          x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                          y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                          z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        openblas_addition(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                          x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                          y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                          z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
                     case MKL_RUNTIME:
-                        mkl_addition(z_buffer->datatype, z_buffer->view->shape[2],
-                                     x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                     y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                     z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        mkl_addition(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                     x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                     y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                     z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
 #ifndef CPU_ONLY
                     case CU_RUNTIME:
-                        cu_addition(z_buffer->datatype, z_buffer->view->shape[2],
-                                    x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                    y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                    z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        cu_addition(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                    x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                    y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                    z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
 #endif
                     default:
@@ -1278,26 +1190,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                     }
                     break;
                 case RUNTIME_SUBTRACTION:
-                    switch (z_buffer->runtime)
+                    switch (z_buffer->storage->runtime)
                     {
                     case OPENBLAS_RUNTIME:
-                        openblas_subtraction(z_buffer->datatype, z_buffer->view->shape[2],
-                                             x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                             y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                             z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        openblas_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                             x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                             y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                             z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
                     case MKL_RUNTIME:
-                        mkl_subtraction(z_buffer->datatype, z_buffer->view->shape[2],
-                                        x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                        y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                        z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        mkl_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                        x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                        y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                        z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
 #ifndef CPU_ONLY
                     case CU_RUNTIME:
-                        cu_subtraction(z_buffer->datatype, z_buffer->view->shape[2],
-                                       x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                       y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                       z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        cu_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                       x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                       y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                       z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
 #endif
                     default:
@@ -1305,26 +1217,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                     }
                     break;
                 case RUNTIME_MULTIPLICATION:
-                    switch (z_buffer->runtime)
+                    switch (z_buffer->storage->runtime)
                     {
                     case OPENBLAS_RUNTIME:
-                        openblas_multiplication(z_buffer->datatype, z_buffer->view->shape[2],
-                                                x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                                y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                                z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        openblas_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                                x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                                y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                                z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
                     case MKL_RUNTIME:
-                        mkl_multiplication(z_buffer->datatype, z_buffer->view->shape[2],
-                                           x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                           y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                           z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        mkl_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                           x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                           y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                           z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
 #ifndef CPU_ONLY
                     case CU_RUNTIME:
-                        cu_multiplication(z_buffer->datatype, z_buffer->view->shape[2],
-                                          x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                          y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                          z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        cu_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                          x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                          y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                          z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
 #endif
                     default:
@@ -1332,26 +1244,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                     }
                     break;
                 case RUNTIME_DIVISION:
-                    switch (z_buffer->runtime)
+                    switch (z_buffer->storage->runtime)
                     {
                     case OPENBLAS_RUNTIME:
-                        openblas_division(z_buffer->datatype, z_buffer->view->shape[2],
-                                          x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                          y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                          z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        openblas_division(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                          x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                          y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                          z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
                     case MKL_RUNTIME:
-                        mkl_division(z_buffer->datatype, z_buffer->view->shape[2],
-                                     x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                     y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                     z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        mkl_division(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                     x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                     y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                     z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
 #ifndef CPU_ONLY
                     case CU_RUNTIME:
-                        cu_division(z_buffer->datatype, z_buffer->view->shape[2],
-                                    x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                    y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                    z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        cu_division(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                    x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                    y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                    z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
 #endif
                     default:
@@ -1359,26 +1271,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                     }
                     break;
                 case RUNTIME_POWER:
-                    switch (z_buffer->runtime)
+                    switch (z_buffer->storage->runtime)
                     {
                     case OPENBLAS_RUNTIME:
-                        openblas_power(z_buffer->datatype, z_buffer->view->shape[2],
-                                       x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                       y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                       z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        openblas_power(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                       x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                       y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                       z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
                     case MKL_RUNTIME:
-                        mkl_power(z_buffer->datatype, z_buffer->view->shape[2],
-                                  x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                  y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                  z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        mkl_power(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                  x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                  y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                  z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
 #ifndef CPU_ONLY
                     case CU_RUNTIME:
-                        cu_power(z_buffer->datatype, z_buffer->view->shape[2],
-                                 x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                 y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                 z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        cu_power(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                 x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                 y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                 z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
 #endif
                     default:
@@ -1386,26 +1298,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                     }
                     break;
                 case RUNTIME_COMPARE_EQUAL:
-                    switch (z_buffer->runtime)
+                    switch (z_buffer->storage->runtime)
                     {
                     case OPENBLAS_RUNTIME:
-                        openblas_compare_equal(z_buffer->datatype, z_buffer->view->shape[2],
-                                               x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                               y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                               z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        openblas_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                               x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                               y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                               z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
                     case MKL_RUNTIME:
-                        mkl_compare_equal(z_buffer->datatype, z_buffer->view->shape[2],
-                                          x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                          y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                          z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        mkl_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                          x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                          y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                          z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
 #ifndef CPU_ONLY
                     case CU_RUNTIME:
-                        cu_compare_equal(z_buffer->datatype, z_buffer->view->shape[2],
-                                         x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                         y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                         z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        cu_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                         x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                         y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                         z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
 #endif
                     default:
@@ -1413,26 +1325,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                     }
                     break;
                 case RUNTIME_COMPARE_GREATER:
-                    switch (z_buffer->runtime)
+                    switch (z_buffer->storage->runtime)
                     {
                     case OPENBLAS_RUNTIME:
-                        openblas_compare_greater(z_buffer->datatype, z_buffer->view->shape[2],
-                                               x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                               y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                               z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        openblas_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                               x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                               y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                               z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
                     case MKL_RUNTIME:
-                        mkl_compare_greater(z_buffer->datatype, z_buffer->view->shape[2],
-                                          x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                          y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                          z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        mkl_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                          x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                          y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                          z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
 #ifndef CPU_ONLY
                     case CU_RUNTIME:
-                        cu_compare_greater(z_buffer->datatype, z_buffer->view->shape[2],
-                                         x_buffer->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                         y_buffer->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                         z_buffer->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                        cu_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[2],
+                                         x_buffer->storage->data, x_buffer->view->strides[2], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                         y_buffer->storage->data, y_buffer->view->strides[2], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                         z_buffer->storage->data, z_buffer->view->strides[2], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                         break;
 #endif
                     default:
@@ -1452,29 +1364,29 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
             {
                 for (uint64_t k = 0; k < z_buffer->view->shape[2]; ++k)
                 {
-                    switch (binary_elementwise)
+                    switch (runtime_binary_elementwise_type)
                     {
                     case RUNTIME_ADDITION:
-                        switch (z_buffer->runtime)
+                        switch (z_buffer->storage->runtime)
                         {
                         case OPENBLAS_RUNTIME:
-                            openblas_addition(z_buffer->datatype, z_buffer->view->shape[3],
-                                              x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                              y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                              z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            openblas_addition(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                              x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                              y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                              z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
                         case MKL_RUNTIME:
-                            mkl_addition(z_buffer->datatype, z_buffer->view->shape[3],
-                                         x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                         y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                         z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            mkl_addition(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                         x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                         y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                         z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
 #ifndef CPU_ONLY
                         case CU_RUNTIME:
-                            cu_addition(z_buffer->datatype, z_buffer->view->shape[3],
-                                        x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                        y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                        z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            cu_addition(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                        x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                        y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                        z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
 #endif
                         default:
@@ -1482,26 +1394,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                         }
                         break;
                     case RUNTIME_SUBTRACTION:
-                        switch (z_buffer->runtime)
+                        switch (z_buffer->storage->runtime)
                         {
                         case OPENBLAS_RUNTIME:
-                            openblas_subtraction(z_buffer->datatype, z_buffer->view->shape[3],
-                                                 x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                                 y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                                 z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            openblas_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                                 x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                                 y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                                 z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
                         case MKL_RUNTIME:
-                            mkl_subtraction(z_buffer->datatype, z_buffer->view->shape[3],
-                                            x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                            y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                            z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            mkl_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                            x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                            y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                            z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
 #ifndef CPU_ONLY
                         case CU_RUNTIME:
-                            cu_subtraction(z_buffer->datatype, z_buffer->view->shape[3],
-                                           x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                           y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                           z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            cu_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                           x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                           y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                           z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
 #endif
                         default:
@@ -1509,26 +1421,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                         }
                         break;
                     case RUNTIME_MULTIPLICATION:
-                        switch (z_buffer->runtime)
+                        switch (z_buffer->storage->runtime)
                         {
                         case OPENBLAS_RUNTIME:
-                            openblas_multiplication(z_buffer->datatype, z_buffer->view->shape[3],
-                                                    x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                                    y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                                    z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            openblas_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                                    x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                                    y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                                    z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
                         case MKL_RUNTIME:
-                            mkl_multiplication(z_buffer->datatype, z_buffer->view->shape[3],
-                                               x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                               y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                               z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            mkl_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                               x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                               y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                               z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
 #ifndef CPU_ONLY
                         case CU_RUNTIME:
-                            cu_multiplication(z_buffer->datatype, z_buffer->view->shape[3],
-                                              x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                              y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                              z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            cu_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                              x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                              y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                              z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
 #endif
                         default:
@@ -1536,26 +1448,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                         }
                         break;
                     case RUNTIME_DIVISION:
-                        switch (z_buffer->runtime)
+                        switch (z_buffer->storage->runtime)
                         {
                         case OPENBLAS_RUNTIME:
-                            openblas_division(z_buffer->datatype, z_buffer->view->shape[3],
-                                              x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                              y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                              z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            openblas_division(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                              x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                              y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                              z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
                         case MKL_RUNTIME:
-                            mkl_division(z_buffer->datatype, z_buffer->view->shape[3],
-                                         x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                         y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                         z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            mkl_division(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                         x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                         y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                         z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
 #ifndef CPU_ONLY
                         case CU_RUNTIME:
-                            cu_division(z_buffer->datatype, z_buffer->view->shape[3],
-                                        x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                        y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                        z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            cu_division(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                        x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                        y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                        z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
 #endif
                         default:
@@ -1563,26 +1475,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                         }
                         break;
                     case RUNTIME_POWER:
-                        switch (z_buffer->runtime)
+                        switch (z_buffer->storage->runtime)
                         {
                         case OPENBLAS_RUNTIME:
-                            openblas_power(z_buffer->datatype, z_buffer->view->shape[3],
-                                           x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                           y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                           z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            openblas_power(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                           x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                           y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                           z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
                         case MKL_RUNTIME:
-                            mkl_power(z_buffer->datatype, z_buffer->view->shape[3],
-                                      x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                      y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                      z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            mkl_power(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                      x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                      y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                      z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
 #ifndef CPU_ONLY
                         case CU_RUNTIME:
-                            cu_power(z_buffer->datatype, z_buffer->view->shape[3],
-                                     x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                     y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                     z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            cu_power(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                     x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                     y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                     z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
 #endif
                         default:
@@ -1590,26 +1502,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                         }
                         break;
                     case RUNTIME_COMPARE_EQUAL:
-                        switch (z_buffer->runtime)
+                        switch (z_buffer->storage->runtime)
                         {
                         case OPENBLAS_RUNTIME:
-                            openblas_compare_equal(z_buffer->datatype, z_buffer->view->shape[3],
-                                                   x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                                   y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                                   z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            openblas_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                                   x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                                   y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                                   z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
                         case MKL_RUNTIME:
-                            mkl_compare_equal(z_buffer->datatype, z_buffer->view->shape[3],
-                                              x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                              y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                              z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            mkl_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                              x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                              y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                              z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
 #ifndef CPU_ONLY
                         case CU_RUNTIME:
-                            cu_compare_equal(z_buffer->datatype, z_buffer->view->shape[3],
-                                             x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                             y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                             z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            cu_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                             x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                             y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                             z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
 #endif
                         default:
@@ -1617,26 +1529,26 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                         }
                         break;
                     case RUNTIME_COMPARE_GREATER:
-                        switch (z_buffer->runtime)
+                        switch (z_buffer->storage->runtime)
                         {
                         case OPENBLAS_RUNTIME:
-                            openblas_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
-                                                   x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                                   y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                                   z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            openblas_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                                   x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                                   y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                                   z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
                         case MKL_RUNTIME:
-                            mkl_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
-                                              x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                              y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                              z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            mkl_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                              x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                              y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                              z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
 #ifndef CPU_ONLY
                         case CU_RUNTIME:
-                            cu_compare_greater(z_buffer->datatype, z_buffer->view->shape[3],
-                                             x_buffer->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
-                                             y_buffer->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
-                                             z_buffer->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                            cu_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[3],
+                                             x_buffer->storage->data, x_buffer->view->strides[3], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                             y_buffer->storage->data, y_buffer->view->strides[3], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                             z_buffer->storage->data, z_buffer->view->strides[3], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
                             break;
 #endif
                         default:
@@ -1645,6 +1557,214 @@ static nw_error_t *runtime_binary_elementwise(binary_elementwise_t binary_elemen
                         break;
                     default:
                         break;
+                    }
+                }
+            }
+        }
+        break;
+    case 5:
+        for (uint64_t i = 0; i < z_buffer->view->shape[0]; ++i)
+        {
+            for (uint64_t j = 0; j < z_buffer->view->shape[1]; ++j)
+            {
+                for (uint64_t k = 0; k < z_buffer->view->shape[2]; ++k)
+                {
+                    for (uint64_t l = 0; l < z_buffer->view->shape[3]; ++l)
+                    {
+                        switch (runtime_binary_elementwise_type)
+                        {
+                        case RUNTIME_ADDITION:
+                            switch (z_buffer->storage->runtime)
+                            {
+                            case OPENBLAS_RUNTIME:
+                                openblas_addition(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                                x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                                y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                                z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+                            case MKL_RUNTIME:
+                                mkl_addition(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                            x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                            y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                            z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+#ifndef CPU_ONLY
+                            case CU_RUNTIME:
+                                cu_addition(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                            x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                            y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                            z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+#endif
+                            default:
+                                break;
+                            }
+                            break;
+                        case RUNTIME_SUBTRACTION:
+                            switch (z_buffer->storage->runtime)
+                            {
+                            case OPENBLAS_RUNTIME:
+                                openblas_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                                    x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                                    y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                                    z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+                            case MKL_RUNTIME:
+                                mkl_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                                x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                                y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                                z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+#ifndef CPU_ONLY
+                            case CU_RUNTIME:
+                                cu_subtraction(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                            x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                            y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                            z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+#endif
+                            default:
+                                break;
+                            }
+                            break;
+                        case RUNTIME_MULTIPLICATION:
+                            switch (z_buffer->storage->runtime)
+                            {
+                            case OPENBLAS_RUNTIME:
+                                openblas_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                                        x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                                        y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                                        z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+                            case MKL_RUNTIME:
+                                mkl_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                                x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                                y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                                z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+#ifndef CPU_ONLY
+                            case CU_RUNTIME:
+                                cu_multiplication(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                                x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                                y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                                z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+#endif
+                            default:
+                                break;
+                            }
+                            break;
+                        case RUNTIME_DIVISION:
+                            switch (z_buffer->storage->runtime)
+                            {
+                            case OPENBLAS_RUNTIME:
+                                openblas_division(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                                x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                                y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                                z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+                            case MKL_RUNTIME:
+                                mkl_division(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                            x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                            y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                            z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+#ifndef CPU_ONLY
+                            case CU_RUNTIME:
+                                cu_division(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                            x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                            y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                            z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+#endif
+                            default:
+                                break;
+                            }
+                            break;
+                        case RUNTIME_POWER:
+                            switch (z_buffer->storage->runtime)
+                            {
+                            case OPENBLAS_RUNTIME:
+                                openblas_power(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                            x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                            y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                            z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+                            case MKL_RUNTIME:
+                                mkl_power(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                        x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                        y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                        z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+#ifndef CPU_ONLY
+                            case CU_RUNTIME:
+                                cu_power(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                        x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                        y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                        z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+#endif
+                            default:
+                                break;
+                            }
+                            break;
+                        case RUNTIME_COMPARE_EQUAL:
+                            switch (z_buffer->storage->runtime)
+                            {
+                            case OPENBLAS_RUNTIME:
+                                openblas_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                                    x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                                    y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                                    z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+                            case MKL_RUNTIME:
+                                mkl_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                                x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                                y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                                z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+#ifndef CPU_ONLY
+                            case CU_RUNTIME:
+                                cu_compare_equal(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                                x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                                y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                                z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+#endif
+                            default:
+                                break;
+                            }
+                            break;
+                        case RUNTIME_COMPARE_GREATER:
+                            switch (z_buffer->storage->runtime)
+                            {
+                            case OPENBLAS_RUNTIME:
+                                openblas_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                                    x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                                    y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                                    z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+                            case MKL_RUNTIME:
+                                mkl_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                                x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                                y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                                z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+#ifndef CPU_ONLY
+                            case CU_RUNTIME:
+                                cu_compare_greater(z_buffer->storage->datatype, z_buffer->view->shape[4],
+                                                x_buffer->storage->data, x_buffer->view->strides[4], x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2] + l * x_buffer->view->strides[3],
+                                                y_buffer->storage->data, y_buffer->view->strides[4], y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2] + l * y_buffer->view->strides[3],
+                                                z_buffer->storage->data, z_buffer->view->strides[4], z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2] + l * z_buffer->view->strides[3]);
+                                break;
+#endif
+                            default:
+                                break;
+                            }
+                            break;
+                        default:
+                            break;
+                        }
                     }
                 }
             }
@@ -1737,10 +1857,10 @@ nw_error_t *runtime_compare_greater(buffer_t *x_buffer, buffer_t *y_buffer, buff
 nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
 {
 
-    if (x_buffer->datatype != y_buffer->datatype || x_buffer->datatype != z_buffer->datatype)
+    if (x_buffer->storage->datatype != y_buffer->storage->datatype || x_buffer->storage->datatype != z_buffer->storage->datatype)
     {
         return ERROR(ERROR_DATATYPE_CONFLICT, string_create("conflicting datatypes %s + %s = %s.",
-                     datatype_string(x_buffer->datatype), datatype_string(y_buffer->datatype), datatype_string(z_buffer->datatype)), NULL);
+                     datatype_string(x_buffer->storage->datatype), datatype_string(y_buffer->storage->datatype), datatype_string(z_buffer->storage->datatype)), NULL);
     }
 
     if (x_buffer->view->rank < 2 || y_buffer->view->rank < 2 || z_buffer->view->rank < 2 || 
@@ -1756,10 +1876,10 @@ nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer
         return ERROR(ERROR_SHAPE_CONFLICT, string_create("conflicting tensor shapes."), NULL);
     }
 
-    if (x_buffer->runtime != y_buffer->runtime || x_buffer->runtime != z_buffer->runtime)
+    if (x_buffer->storage->runtime != y_buffer->storage->runtime || x_buffer->storage->runtime != z_buffer->storage->runtime)
     {
         return ERROR(ERROR_RUNTIME_CONFLICT, string_create("conflicting runtimes %s + %s = %s.", 
-                     runtime_string(x_buffer->runtime), runtime_string(y_buffer->runtime), runtime_string(z_buffer->runtime)), NULL);
+                     runtime_string(x_buffer->storage->runtime), runtime_string(y_buffer->storage->runtime), runtime_string(z_buffer->storage->runtime)), NULL);
     }
     
     uint64_t m = x_buffer->view->shape[x_buffer->view->rank - 2];
@@ -1771,91 +1891,127 @@ nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer
     switch (z_buffer->view->rank)
     {
     case 2:
-        switch (z_buffer->runtime)
+        switch (z_buffer->storage->runtime)
         {
         case OPENBLAS_RUNTIME:
-            openblas_matrix_multiplication(z_buffer->datatype, m, k, n, x_transpose, y_transpose,
-                                           x_buffer->data, x_buffer->view->offset,
-                                           y_buffer->data, y_buffer->view->offset,
-                                           z_buffer->data, z_buffer->view->offset);
+            openblas_matrix_multiplication(z_buffer->storage->datatype, m, k, n, x_transpose, y_transpose,
+                                           x_buffer->storage->data, x_buffer->view->offset,
+                                           y_buffer->storage->data, y_buffer->view->offset,
+                                           z_buffer->storage->data, z_buffer->view->offset);
             break;
         case MKL_RUNTIME:
-            mkl_matrix_multiplication(z_buffer->datatype, m, k, n, x_transpose, y_transpose,
-                                      x_buffer->data, x_buffer->view->offset,
-                                      y_buffer->data, y_buffer->view->offset,
-                                      z_buffer->data, z_buffer->view->offset);
+            mkl_matrix_multiplication(z_buffer->storage->datatype, m, k, n, x_transpose, y_transpose,
+                                      x_buffer->storage->data, x_buffer->view->offset,
+                                      y_buffer->storage->data, y_buffer->view->offset,
+                                      z_buffer->storage->data, z_buffer->view->offset);
             break;
 #ifndef CPU_ONLY
         case CU_RUNTIME:
-            cu_matrix_multiplication(z_buffer->datatype, m, k, n, x_transpose, y_transpose,
-                                     x_buffer->data, x_buffer->view->offset,
-                                     y_buffer->data, y_buffer->view->offset,
-                                     z_buffer->data, z_buffer->view->offset);
+            cu_matrix_multiplication(z_buffer->storage->datatype, m, k, n, x_transpose, y_transpose,
+                                     x_buffer->storage->data, x_buffer->view->offset,
+                                     y_buffer->storage->data, y_buffer->view->offset,
+                                     z_buffer->storage->data, z_buffer->view->offset);
             break;
 #endif
         default:
-            return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->runtime), NULL);
+            return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->storage->runtime), NULL);
         }
         break;
     case 3:
         for (uint64_t i = 0; i < z_buffer->view->shape[0]; ++i)
         {
-            switch (z_buffer->runtime)
+            switch (z_buffer->storage->runtime)
             {
             case OPENBLAS_RUNTIME:
-                openblas_matrix_multiplication(z_buffer->datatype, m, k, n, x_transpose, y_transpose,
-                                               x_buffer->data, x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                               y_buffer->data, y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                               z_buffer->data, z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                openblas_matrix_multiplication(z_buffer->storage->datatype, m, k, n, x_transpose, y_transpose,
+                                               x_buffer->storage->data, x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                               y_buffer->storage->data, y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                               z_buffer->storage->data, z_buffer->view->offset + i * z_buffer->view->strides[0]);
                 break;
             case MKL_RUNTIME:
-                mkl_matrix_multiplication(z_buffer->datatype, m, k, n, x_transpose, y_transpose,
-                                          x_buffer->data, x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                          y_buffer->data, y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                          z_buffer->data, z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                mkl_matrix_multiplication(z_buffer->storage->datatype, m, k, n, x_transpose, y_transpose,
+                                          x_buffer->storage->data, x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                          y_buffer->storage->data, y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                          z_buffer->storage->data, z_buffer->view->offset + i * z_buffer->view->strides[0]);
                 break;
 #ifndef CPU_ONLY
             case CU_RUNTIME:
-                cu_matrix_multiplication(z_buffer->datatype, m, k, n, x_transpose, y_transpose,
-                                         x_buffer->data, x_buffer->view->offset + i * x_buffer->view->strides[0],
-                                         y_buffer->data, y_buffer->view->offset + i * y_buffer->view->strides[0],
-                                         z_buffer->data, z_buffer->view->offset + i * z_buffer->view->strides[0]);
+                cu_matrix_multiplication(z_buffer->storage->datatype, m, k, n, x_transpose, y_transpose,
+                                         x_buffer->storage->data, x_buffer->view->offset + i * x_buffer->view->strides[0],
+                                         y_buffer->storage->data, y_buffer->view->offset + i * y_buffer->view->strides[0],
+                                         z_buffer->storage->data, z_buffer->view->offset + i * z_buffer->view->strides[0]);
                 break;
 #endif
             default:
-                return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->runtime), NULL);
+                return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->storage->runtime), NULL);
             }
         }
         break;
     case 4:
         for (uint64_t i = 0; i < z_buffer->view->shape[0]; ++i)
         {
-            for (uint64_t j = 0; j < z_buffer->view->shape[0]; ++j)
+            for (uint64_t j = 0; j < z_buffer->view->shape[1]; ++j)
             {
-                switch (z_buffer->runtime)
+                switch (z_buffer->storage->runtime)
                 {
                 case OPENBLAS_RUNTIME:
-                    openblas_matrix_multiplication(z_buffer->datatype, m, k, n, x_transpose, y_transpose,
-                                                   x_buffer->data, x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                                   y_buffer->data, y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                                   z_buffer->data, z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                    openblas_matrix_multiplication(z_buffer->storage->datatype, m, k, n, x_transpose, y_transpose,
+                                                   x_buffer->storage->data, x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                                   y_buffer->storage->data, y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                                   z_buffer->storage->data, z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                     break;
                 case MKL_RUNTIME:
-                    mkl_matrix_multiplication(z_buffer->datatype, m, k, n, x_transpose, y_transpose,
-                                              x_buffer->data, x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                              y_buffer->data, y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                              z_buffer->data, z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                    mkl_matrix_multiplication(z_buffer->storage->datatype, m, k, n, x_transpose, y_transpose,
+                                              x_buffer->storage->data, x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                              y_buffer->storage->data, y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                              z_buffer->storage->data, z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                     break;
 #ifndef CPU_ONLY
                 case CU_RUNTIME:
-                    cu_matrix_multiplication(z_buffer->datatype, m, k, n, x_transpose, y_transpose,
-                                             x_buffer->data, x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
-                                             y_buffer->data, y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
-                                             z_buffer->data, z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
+                    cu_matrix_multiplication(z_buffer->storage->datatype, m, k, n, x_transpose, y_transpose,
+                                             x_buffer->storage->data, x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1],
+                                             y_buffer->storage->data, y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1],
+                                             z_buffer->storage->data, z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1]);
                     break;
 #endif
                 default:
-                    return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->runtime), NULL);
+                    return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->storage->runtime), NULL);
+                }
+            }
+        }
+        break;
+    case 5:
+        for (uint64_t i = 0; i < z_buffer->view->shape[0]; ++i)
+        {
+            for (uint64_t j = 0; j < z_buffer->view->shape[1]; ++j)
+            {
+                for (uint64_t k = 0; k < z_buffer->view->shape[2]; ++k)
+                {
+                    switch (z_buffer->storage->runtime)
+                    {
+                    case OPENBLAS_RUNTIME:
+                        openblas_matrix_multiplication(z_buffer->storage->datatype, m, k, n, x_transpose, y_transpose,
+                                                    x_buffer->storage->data, x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                                    y_buffer->storage->data, y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1 + k * y_buffer->view->strides[2]],
+                                                    z_buffer->storage->data, z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                        break;
+                    case MKL_RUNTIME:
+                        mkl_matrix_multiplication(z_buffer->storage->datatype, m, k, n, x_transpose, y_transpose,
+                                                x_buffer->storage->data, x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                                y_buffer->storage->data, y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                                z_buffer->storage->data, z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                        break;
+#ifndef CPU_ONLY
+                    case CU_RUNTIME:
+                        cu_matrix_multiplication(z_buffer->storage->datatype, m, k, n, x_transpose, y_transpose,
+                                                x_buffer->storage->data, x_buffer->view->offset + i * x_buffer->view->strides[0] + j * x_buffer->view->strides[1] + k * x_buffer->view->strides[2],
+                                                y_buffer->storage->data, y_buffer->view->offset + i * y_buffer->view->strides[0] + j * y_buffer->view->strides[1] + k * y_buffer->view->strides[2],
+                                                z_buffer->storage->data, z_buffer->view->offset + i * z_buffer->view->strides[0] + j * z_buffer->view->strides[1] + k * z_buffer->view->strides[2]);
+                        break;
+#endif
+                    default:
+                        return ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) z_buffer->storage->runtime), NULL);
+                    }
                 }
             }
         }
@@ -1867,35 +2023,31 @@ nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer
     return NULL;
 }
 
-typedef enum reduction_t
-{
-    RUNTIME_SUMMATION,
-    RUNTIME_MAXIMUM
-} reduction_t;
 
-static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_t *result, uint64_t axis)
+static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_type, buffer_t *x, buffer_t *result, uint64_t axis)
 {
     uint64_t idim;
     uint64_t jdim;
     uint64_t kdim;
+    uint64_t ldim;
 
     switch (x->view->rank)
     {
     case 1:
-        switch (reduction)
+        switch (runtime_reduction_type)
         {
         case RUNTIME_SUMMATION:
-            switch (x->runtime)
+            switch (x->storage->runtime)
             {
             case OPENBLAS_RUNTIME:
-                openblas_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
+                openblas_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset, result->storage->data, result->view->offset);
                 break;
             case MKL_RUNTIME:
-                mkl_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
+                mkl_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset, result->storage->data, result->view->offset);
                 break;
 #ifndef CPU_ONLY
             case CU_RUNTIME:
-                cu_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
+                cu_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset, result->storage->data, result->view->offset);
                 break;
 #endif
             default:
@@ -1903,17 +2055,17 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
             }
             break;
         case RUNTIME_MAXIMUM:
-            switch (x->runtime)
+            switch (x->storage->runtime)
             {
             case OPENBLAS_RUNTIME:
-                openblas_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
+                openblas_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset, result->storage->data, result->view->offset);
                 break;
             case MKL_RUNTIME:
-                mkl_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
+                mkl_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset, result->storage->data, result->view->offset);
                 break;
 #ifndef CPU_ONLY
             case CU_RUNTIME:
-                cu_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset, result->data, result->view->offset);
+                cu_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset, result->storage->data, result->view->offset);
                 break;
 #endif
             default:
@@ -1939,23 +2091,23 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
         
         for (uint64_t i = 0; i < x->view->shape[idim]; ++i)
         {
-            switch (reduction)
+            switch (runtime_reduction_type)
             {
             case RUNTIME_SUMMATION:
-                switch (x->runtime)
+                switch (x->storage->runtime)
                 {
                 case OPENBLAS_RUNTIME:
-                    openblas_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
-                                       result->data, result->view->offset + i * result->view->strides[idim]);
+                    openblas_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
+                                       result->storage->data, result->view->offset + i * result->view->strides[idim]);
                     break;
                 case MKL_RUNTIME:
-                    mkl_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
-                                  result->data, result->view->offset + i * result->view->strides[idim]);
+                    mkl_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
+                                  result->storage->data, result->view->offset + i * result->view->strides[idim]);
                     break;
 #ifndef CPU_ONLY
                 case CU_RUNTIME:
-                    cu_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
-                                 result->data, result->view->offset + i * result->view->strides[idim]);
+                    cu_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
+                                 result->storage->data, result->view->offset + i * result->view->strides[idim]);
                     break;
 #endif
                 default:
@@ -1963,20 +2115,20 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
                 }
                 break;
             case RUNTIME_MAXIMUM:
-                switch (x->runtime)
+                switch (x->storage->runtime)
                 {
                 case OPENBLAS_RUNTIME:
-                    openblas_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
-                                     result->data, result->view->offset + i * result->view->strides[idim]);
+                    openblas_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
+                                     result->storage->data, result->view->offset + i * result->view->strides[idim]);
                     break;
                 case MKL_RUNTIME:
-                    mkl_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
-                                result->data, result->view->offset + i * result->view->strides[idim]);
+                    mkl_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
+                                result->storage->data, result->view->offset + i * result->view->strides[idim]);
                     break;
 #ifndef CPU_ONLY
                 case CU_RUNTIME:
-                    cu_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
-                               result->data, result->view->offset + i * result->view->strides[idim]);
+                    cu_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim],
+                               result->storage->data, result->view->offset + i * result->view->strides[idim]);
                     break;
 #endif
                 default:
@@ -2011,23 +2163,23 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
         {
             for (uint64_t j = 0; j < x->view->shape[jdim]; ++j)
             {
-                switch (reduction)
+                switch (runtime_reduction_type)
                 {
                 case RUNTIME_SUMMATION:
-                    switch (x->runtime)
+                    switch (x->storage->runtime)
                     {
                     case OPENBLAS_RUNTIME:
-                        openblas_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
-                                           result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
+                        openblas_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
+                                           result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
                         break;
                     case MKL_RUNTIME:
-                        mkl_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
-                                      result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
+                        mkl_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
+                                      result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
                         break;
 #ifndef CPU_ONLY
                     case CU_RUNTIME:
-                        cu_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
-                                     result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
+                        cu_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
+                                     result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
                         break;
 #endif
                     default:
@@ -2035,20 +2187,20 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
                     }
                     break;
                 case RUNTIME_MAXIMUM:
-                    switch (x->runtime)
+                    switch (x->storage->runtime)
                     {
                     case OPENBLAS_RUNTIME:
-                        openblas_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
-                                         result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
+                        openblas_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
+                                         result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
                         break;
                     case MKL_RUNTIME:
-                        mkl_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
-                                    result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
+                        mkl_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
+                                    result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
                         break;
 #ifndef CPU_ONLY
                     case CU_RUNTIME:
-                        cu_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
-                                   result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
+                        cu_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim],
+                                   result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim]);
                         break;
 #endif
                     default:
@@ -2095,23 +2247,23 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
             {
                 for (uint64_t k = 0; k < x->view->shape[kdim]; ++k)
                 {
-                    switch (reduction)
+                    switch (runtime_reduction_type)
                     {
                     case RUNTIME_SUMMATION:
-                        switch (x->runtime)
+                        switch (x->storage->runtime)
                         {
                         case OPENBLAS_RUNTIME:
-                            openblas_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
-                                               result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
+                            openblas_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
+                                               result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
                             break;
                         case MKL_RUNTIME:
-                            mkl_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
-                                          result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
+                            mkl_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
+                                          result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
                             break;
 #ifndef CPU_ONLY
                         case CU_RUNTIME:
-                            cu_summation(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
-                                         result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
+                            cu_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
+                                         result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
                             break;
 #endif
                         default:
@@ -2119,20 +2271,20 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
                         }
                         break;
                     case RUNTIME_MAXIMUM:
-                        switch (x->runtime)
+                        switch (x->storage->runtime)
                         {
                         case OPENBLAS_RUNTIME:
-                            openblas_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
-                                             result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
+                            openblas_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
+                                             result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
                             break;
                         case MKL_RUNTIME:
-                            mkl_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
-                                        result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
+                            mkl_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
+                                        result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
                             break;
 #ifndef CPU_ONLY
                         case CU_RUNTIME:
-                            cu_maximum(x->datatype, x->view->shape[axis], x->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
-                                       result->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
+                            cu_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim],
+                                       result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim]);
                             break;
 #endif
                         default:
@@ -2145,7 +2297,103 @@ static nw_error_t *runtime_reduction(reduction_t reduction, buffer_t *x, buffer_
                 }
             }
         }
-
+        break;
+    case 5:
+        switch (axis)
+        {
+        case 0:
+            idim = 1;
+            jdim = 2;
+            kdim = 3;
+            ldim = 4;
+            break;
+        case 1:
+            idim = 0;
+            jdim = 2;
+            kdim = 3;
+            ldim = 4;
+            break;
+        case 2:
+            idim = 0;
+            jdim = 1;
+            kdim = 3;
+            ldim = 4;
+            break;
+        case 3:
+            idim = 0;
+            jdim = 1;
+            kdim = 2;
+            ldim = 4;
+            break;
+        case 4:
+            idim = 0;
+            jdim = 1;
+            kdim = 2;
+            ldim = 3;
+            break;
+        default:
+            return ERROR(ERROR_AXIS, string_create("invalid axis dimension."), NULL);
+        }
+        
+        for (uint64_t i = 0; i < x->view->shape[idim]; ++i)
+        {
+            for (uint64_t j = 0; j < x->view->shape[jdim]; ++j)
+            {
+                for (uint64_t k = 0; k < x->view->shape[kdim]; ++k)
+                {
+                    for (uint64_t l = 0; l < x->view->shape[ldim]; ++l)
+                    {
+                        switch (runtime_reduction_type)
+                        {
+                        case RUNTIME_SUMMATION:
+                            switch (x->storage->runtime)
+                            {
+                            case OPENBLAS_RUNTIME:
+                                openblas_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim] + l * x->view->strides[ldim],
+                                                result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim] + l * result->view->strides[ldim]);
+                                break;
+                            case MKL_RUNTIME:
+                                mkl_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim] + l * x->view->strides[ldim],
+                                            result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim] + l * result->view->strides[ldim]);
+                                break;
+#ifndef CPU_ONLY
+                            case CU_RUNTIME:
+                                cu_summation(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim] + l * x->view->strides[ldim],
+                                            result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim] + l * result->view->strides[ldim]);
+                                break;
+#endif
+                            default:
+                                break;
+                            }
+                            break;
+                        case RUNTIME_MAXIMUM:
+                            switch (x->storage->runtime)
+                            {
+                            case OPENBLAS_RUNTIME:
+                                openblas_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim] + l * x->view->strides[ldim],
+                                                result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim] + l * result->view->strides[ldim]);
+                                break;
+                            case MKL_RUNTIME:
+                                mkl_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim] + l * x->view->strides[ldim],
+                                            result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim] + l * result->view->strides[ldim]);
+                                break;
+#ifndef CPU_ONLY
+                            case CU_RUNTIME:
+                                cu_maximum(x->storage->datatype, x->view->shape[axis], x->storage->data, x->view->strides[axis], x->view->offset + i * x->view->strides[idim] + j * x->view->strides[jdim] + k * x->view->strides[kdim] + l * x->view->strides[ldim],
+                                        result->storage->data, result->view->offset + i * result->view->strides[idim] + j * result->view->strides[jdim] + k * result->view->strides[kdim] + l * result->view->strides[ldim]);
+                                break;
+#endif
+                            default:
+                                break;
+                            }
+                            break;
+                        default:
+                            break;
+                        }
+                    }
+                }
+            }
+        }
         break;
     default:
         break;

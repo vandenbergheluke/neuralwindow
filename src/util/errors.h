@@ -98,51 +98,47 @@
     PRINT_DEBUG_NEWLINE;\
 } while(0)
 
-#define PRINT_DEBUG_BUFFER(buffer) do {\
-    if (buffer == NULL)\
+#define PRINT_DEBUG_STORAGE(storage) do {\
+    if (storage == NULL)\
     {\
         fprintf(stderr, "NULL");\
     }\
     else\
     {\
-        fprintf(stderr, "(runtime: %s", runtime_string(buffer->runtime));\
-        fprintf(stderr, ", datatype: %s", datatype_string(buffer->datatype));\
-        fprintf(stderr, ", view: ");\
-        PRINT_DEBUG_VIEW(buffer->view);\
-        fprintf(stderr, ", size: %zu", buffer->size);\
-        fprintf(stderr, ", n: %lu", buffer->n);\
-        fprintf(stderr, ", copy: ");\
-        PRINT_DEBUG_BOOLEAN(buffer->copy);\
+        fprintf(stderr, "(runtime: %s", runtime_string(storage->runtime));\
+        fprintf(stderr, ", datatype: %s", datatype_string(storage->datatype));\
+        fprintf(stderr, ", n: %lu", storage->n);\
+        fprintf(stderr, ", reference_count: %lu", storage->reference_count);\
         fprintf(stderr, ", data: ");\
-        if (buffer->data == NULL)\
+        if (storage->data == NULL)\
         {\
             fprintf(stderr, "NULL");\
         }\
         else\
         {\
             fprintf(stderr, "(");\
-            for (uint64_t i = 0; i < buffer->n; ++i)\
+            for (uint64_t i = 0; i < storage->n; ++i)\
             {\
-                switch(buffer->datatype)\
+                switch(storage->datatype)\
                 {\
                 case FLOAT32:\
                     if (!i)\
                     {\
-                        fprintf(stderr, "%f", ((float *) buffer->data)[i]);\
+                        fprintf(stderr, "%f", ((float *) storage->data)[i]);\
                     }\
                     else\
                     {\
-                        fprintf(stderr, ", %f", ((float *) buffer->data)[i]);\
+                        fprintf(stderr, ", %f", ((float *) storage->data)[i]);\
                     }\
                     break;\
                 case FLOAT64:\
                     if (!i)\
                     {\
-                        fprintf(stderr, "%lf", ((double *) buffer->data)[i]);\
+                        fprintf(stderr, "%lf", ((double *) storage->data)[i]);\
                     }\
                     else\
                     {\
-                        fprintf(stderr, ", %lf", ((double *) buffer->data)[i]);\
+                        fprintf(stderr, ", %lf", ((double *) storage->data)[i]);\
                     }\
                     break;\
                 default:\
@@ -151,6 +147,27 @@
             }\
             fprintf(stderr, ")");\
         }\
+        fprintf(stderr, ")");\
+    }\
+} while(0)
+ 
+#define PRINTLN_DEBUG_STORAGE(msg, storage) do {\
+    fprintf(stderr, "%s ", msg);\
+    PRINT_DEBUG_STORAGE(storage);\
+    PRINT_DEBUG_NEWLINE;\
+} while(0)
+
+#define PRINT_DEBUG_BUFFER(buffer) do {\
+    if (buffer == NULL)\
+    {\
+        fprintf(stderr, "NULL");\
+    }\
+    else\
+    {\
+        fprintf(stderr, "(view: ");\
+        PRINT_DEBUG_VIEW(buffer->view);\
+        fprintf(stderr, ", storage: ");\
+        PRINT_DEBUG_STORAGE(buffer->storage);\
         fprintf(stderr, ")");\
     }\
 } while(0)
@@ -317,6 +334,8 @@
 #define PRINTLN_DEBUG_UINT64_ARRAY(msg, array, length)
 #define PRINT_DEBUG_VIEW(view)
 #define PRINTLN_DEBUG_VIEW(msg, view)
+#define PRINT_DEBUG_STORAGE(storage)
+#define PRINTLN_DEBUG_STORAGE(msg, storage)
 #define PRINT_DEBUG_BUFFER(buffer)
 #define PRINTLN_DEBUG_BUFFER(msg, buffer)
 #define PRINT_DEBUG_FUNCTION(function)
@@ -380,6 +399,9 @@ typedef enum nw_error_type_t
     ERROR_SORT,
     ERROR_POP,
     ERROR_MAXIMUM,
+    ERROR_UNIQUE,
+    ERROR_N,
+    ERROR_UNARY,
 } nw_error_type_t;
 
 typedef struct nw_error_t
@@ -404,7 +426,23 @@ string_t error_type_string(nw_error_type_t error_type);
             {\
                 return ERROR(ERROR_NULL, string_create("received null argument for %s.", string), NULL);\
             }\
-        } while (0)
+        } while(0)
+
+#define CHECK_UNIQUE(array, length, string) do {\
+    if (length)\
+    {\
+        for (uint64_t i = 0; i < length - 1; ++i)\
+        {\
+            for (uint64_t j = i + 1; j < length; ++j)\
+            {\
+                if (array[i] == array[j])\
+                {\
+                    return ERROR(ERROR_UNIQUE, string_create("received non-unique array %s.", string), NULL);\
+                }\
+            }\
+        }\
+    }\
+} while(0)
 
 #define UNUSED(x) (void)(x)
 

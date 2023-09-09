@@ -10,6 +10,7 @@ set(TEST_C
 set(TEST_CXX
     test_tensor_reduction
     test_tensor_unary
+    test_tensor_binary_elementwise
     test_buffer_reduction
     test_buffer_unary
     test_buffer_binary
@@ -36,5 +37,6 @@ foreach(TEST ${TESTS})
     set_target_properties(${TEST} PROPERTIES PUBLIC_HEADER "${TEST_HELPER}.h")
     target_link_libraries(${TEST} ${PROJECT_NAME} check subunit m "${TORCH_LIBRARIES}")
     add_test(NAME ${TEST} COMMAND ${TEST} WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${TEST_DIR})
+    # add_custom_target("valgrind_${TEST}" COMMAND valgrind --leak-check=full  --show-reachable=yes --error-limit=no --gen-suppressions=all --log-file=../suppressions.log --suppressions=../../suppressions.supp $<TARGET_FILE:${TEST}> DEPENDS ${TEST})
     add_custom_target("valgrind_${TEST}" COMMAND valgrind --leak-check=full  --show-reachable=yes --error-limit=no --suppressions=../../suppressions.supp $<TARGET_FILE:${TEST}> DEPENDS ${TEST})
 endforeach()
