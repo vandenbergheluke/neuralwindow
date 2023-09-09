@@ -301,16 +301,16 @@ Suite *make_buffer_unary_suite(void)
     // Unary Operations
     tc_unary = tcase_create("Buffer Unary Case");
     tcase_add_checked_fixture(tc_unary, setup, teardown);
-    // tcase_add_test(tc_unary, test_exponential);
-    // tcase_add_test(tc_unary, test_logarithm);
-    // tcase_add_test(tc_unary, test_sine);
-    // tcase_add_test(tc_unary, test_cosine);
-    // tcase_add_test(tc_unary, test_square_root);
-    // tcase_add_test(tc_unary, test_reciprocal);
-    // tcase_add_test(tc_unary, test_copy);
+    tcase_add_test(tc_unary, test_exponential);
+    tcase_add_test(tc_unary, test_logarithm);
+    tcase_add_test(tc_unary, test_sine);
+    tcase_add_test(tc_unary, test_cosine);
+    tcase_add_test(tc_unary, test_square_root);
+    tcase_add_test(tc_unary, test_reciprocal);
+    tcase_add_test(tc_unary, test_copy);
     tcase_add_test(tc_unary, test_contiguous);
-    // tcase_add_test(tc_unary, test_negation);
-    // tcase_add_test(tc_unary, test_rectified_linear);
+    tcase_add_test(tc_unary, test_negation);
+    tcase_add_test(tc_unary, test_rectified_linear);
 
     suite_add_tcase(s, tc_unary);
 
