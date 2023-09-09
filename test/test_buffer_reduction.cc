@@ -19,10 +19,6 @@ buffer_t *buffers[RUNTIMES][DATATYPES][CASES];
 buffer_t *returned_buffers[RUNTIMES][DATATYPES][CASES];
 buffer_t *expected_buffers[RUNTIMES][DATATYPES][CASES];
 
-view_t *views[RUNTIMES][DATATYPES][CASES];
-view_t *returned_views[RUNTIMES][DATATYPES][CASES];
-view_t *expected_views[RUNTIMES][DATATYPES][CASES];
-
 torch::Tensor tensors[RUNTIMES][DATATYPES][CASES];
 
 std::vector<int64_t> shapes[CASES] = {
@@ -58,10 +54,6 @@ void setup(void)
                 buffers[i][j][k] = NULL;
                 returned_buffers[i][j][k] = NULL;
                 expected_buffers[i][j][k] = NULL;
-
-                views[i][j][k] = NULL;
-                returned_views[i][j][k] = NULL;
-                expected_views[i][j][k] = NULL;
             }
             
             for (int k = 0; k < CASES; ++k)
@@ -78,24 +70,31 @@ void setup(void)
                     ck_abort_msg("unknown datatype.");
                 }
 
-                error = view_create(&views[i][j][k], 
+                view_t *view;
+                storage_t *storage;
+
+                error = view_create(&view, 
                                     (uint64_t) tensors[i][j][k].storage_offset(),
                                     (uint64_t) tensors[i][j][k].ndimension(),
                                     (uint64_t *) tensors[i][j][k].sizes().data(),
-                                    NULL);
+                                    (uint64_t *) tensors[i][j][k].strides().data());
                 ck_assert_ptr_null(error);
-                error = buffer_create(&buffers[i][j][k],
+                error = storage_create(&storage,
                                       (runtime_t) i,
                                       (datatype_t) j,
-                                      views[i][j][k],
-                                      (void *) tensors[i][j][k].data_ptr(),
-                                      (uint64_t) tensors[i][j][k].numel(),
-                                      true);
+                                      tensors[i][j][k].nbytes() / 
+                                      datatype_size((datatype_t) j),
+                                      (void *) tensors[i][j][k].data_ptr());
+                error = buffer_create(&buffers[i][j][k],
+                                      view,
+                                      storage,
+                                      false);
                 ck_assert_ptr_null(error);
             }
         }
     }
 }
+
 
 void teardown(void)
 {
@@ -116,101 +115,98 @@ void teardown(void)
     error_destroy(error);
 }
 
-START_TEST(test_summation)
-{
+void test_reduction(runtime_reduction_type_t runtime_reduction_type)
+{  
     for (int i = 0; i < RUNTIMES; ++i)
     {
         for (int j = 0; j < DATATYPES; ++j)
         {
             for (int k = 0; k < CASES; ++k)
             {
-                torch::Tensor expected_tensor = torch::sum(tensors[i][j][k], std::vector<int64_t>({(int64_t) axis[k]}), keep_dimension[k]);
+                torch::Tensor expected_tensor;
 
-                error = view_create(&returned_views[i][j][k],
+                switch (runtime_reduction_type)
+                {
+                case RUNTIME_SUMMATION:
+                    expected_tensor = torch::sum(tensors[i][j][k], 
+                                                 std::vector<int64_t>({(int64_t) axis[k]}),
+                                                 keep_dimension[k]);
+                    break;
+                case RUNTIME_MAXIMUM:
+                    expected_tensor = std::get<0>(torch::max(tensors[i][j][k], 
+                                                  {(int64_t) axis[k]}, keep_dimension[k]));
+                    break;
+                default:
+                    ck_abort_msg("unknown reduction type.");
+                }
+
+                view_t *view;
+                storage_t *storage;
+
+                error = view_create(&view,
                                     (uint64_t) expected_tensor.storage_offset(),
                                     (uint64_t) expected_tensor.ndimension(),
                                     (uint64_t *) expected_tensor.sizes().data(),
-                                    NULL);
+                                    (uint64_t *) expected_tensor.strides().data());
                 ck_assert_ptr_null(error);
+                error = storage_create(&storage,
+                                       (runtime_t) i,
+                                       (datatype_t) j,
+                                       expected_tensor.nbytes() / 
+                                       datatype_size((datatype_t) j),
+                                       NULL);
                 error = buffer_create(&returned_buffers[i][j][k],
+                                      view,
+                                      storage,
+                                      false);
+                ck_assert_ptr_null(error);
+
+                error = view_create(&view,
+                                    (uint64_t) expected_tensor.storage_offset(),
+                                    (uint64_t) expected_tensor.ndimension(),
+                                    (uint64_t *) expected_tensor.sizes().data(),
+                                    (uint64_t *) expected_tensor.strides().data());
+                ck_assert_ptr_null(error);
+                error = storage_create(&storage,
                                       (runtime_t) i,
                                       (datatype_t) j,
-                                      returned_views[i][j][k],
-                                      NULL,
-                                      (uint64_t) expected_tensor.numel(),
-                                      true);
-                ck_assert_ptr_null(error);
-                error = view_create(&expected_views[i][j][k],
-                                    (uint64_t) expected_tensor.storage_offset(),
-                                    (uint64_t) expected_tensor.ndimension(),
-                                    (uint64_t *) expected_tensor.sizes().data(),
-                                    NULL);
+                                      expected_tensor.nbytes() / 
+                                      datatype_size((datatype_t) j),
+                                      (void *) expected_tensor.data_ptr());
                 ck_assert_ptr_null(error);
                 error = buffer_create(&expected_buffers[i][j][k],
-                                      (runtime_t) i,
-                                      (datatype_t) j,
-                                      expected_views[i][j][k],
-                                      (void *) expected_tensor.data_ptr(),
-                                      (uint64_t) expected_tensor.numel(),
-                                      true);
+                                      view,
+                                      storage,
+                                      false);
                 ck_assert_ptr_null(error);
 
-                error = runtime_summation(buffers[i][j][k], returned_buffers[i][j][k], axis[k]);
+                switch (runtime_reduction_type)
+                {
+                case RUNTIME_SUMMATION:
+                    error = runtime_summation(buffers[i][j][k], returned_buffers[i][j][k], axis[k]);
+                    break;
+                case RUNTIME_MAXIMUM:
+                    error = runtime_maximum(buffers[i][j][k], returned_buffers[i][j][k], axis[k]);
+                    break;
+                default:
+                    ck_abort_msg("unknown reduction type.");
+                }
                 ck_assert_ptr_null(error);
-
                 ck_assert_buffer_eq(returned_buffers[i][j][k], expected_buffers[i][j][k]);
             }
         }
     }
 }
+
+START_TEST(test_summation)
+{
+    test_reduction(RUNTIME_SUMMATION);
+}
 END_TEST
 
 START_TEST(test_maximum)
 {
-    for (int i = 0; i < RUNTIMES; ++i)
-    {
-        for (int j = 0; j < DATATYPES; ++j)
-        {
-            for (int k = 0; k < CASES; ++k)
-            {
-                torch::Tensor expected_tensor = std::get<0>(torch::max(tensors[i][j][k], {(int64_t) axis[k]}, keep_dimension[k]));
-
-                error = view_create(&returned_views[i][j][k],
-                                    (uint64_t) expected_tensor.storage_offset(),
-                                    (uint64_t) expected_tensor.ndimension(),
-                                    (uint64_t *) expected_tensor.sizes().data(),
-                                    NULL);
-                ck_assert_ptr_null(error);
-                error = buffer_create(&returned_buffers[i][j][k],
-                                      (runtime_t) i,
-                                      (datatype_t) j,
-                                      returned_views[i][j][k],
-                                      NULL,
-                                      (uint64_t) expected_tensor.numel(),
-                                      true);
-                ck_assert_ptr_null(error);
-                error = view_create(&expected_views[i][j][k],
-                                    (uint64_t) expected_tensor.storage_offset(),
-                                    (uint64_t) expected_tensor.ndimension(),
-                                    (uint64_t *) expected_tensor.sizes().data(),
-                                    NULL);
-                ck_assert_ptr_null(error);
-                error = buffer_create(&expected_buffers[i][j][k],
-                                      (runtime_t) i,
-                                      (datatype_t) j,
-                                      expected_views[i][j][k],
-                                      (void *) expected_tensor.data_ptr(),
-                                      (uint64_t) expected_tensor.numel(),
-                                      true);
-                ck_assert_ptr_null(error);
-
-                error = runtime_maximum(buffers[i][j][k], returned_buffers[i][j][k], axis[k]);
-                ck_assert_ptr_null(error);
-
-                ck_assert_buffer_eq(returned_buffers[i][j][k], expected_buffers[i][j][k]);
-            }
-        }
-    }
+    test_reduction(RUNTIME_MAXIMUM);
 }
 END_TEST
 

@@ -56,7 +56,9 @@ void ck_assert_view_eq(const view_t *returned_view, const view_t *expected_view)
         
         if (expected_view->shape[i] == 1)
         {
-            ck_assert(returned_view->strides[i] == (uint64_t) 1 || returned_view->strides[i] == (uint64_t) 0);
+            ck_assert(returned_view->strides[i] == (uint64_t) 1 ||
+                      returned_view->strides[i] == (uint64_t) 0 ||
+                      expected_view->strides[i] == returned_view->strides[i]);
         }
         else
         {

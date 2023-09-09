@@ -43,6 +43,37 @@ typedef struct buffer_t
     storage_t *storage;
 } buffer_t;
 
+typedef enum runtime_unary_type_t
+{
+    RUNTIME_EXPONENTIAL,
+    RUNTIME_LOGARITHM,
+    RUNTIME_SINE,
+    RUNTIME_COSINE,
+    RUNTIME_SQUARE_ROOT,
+    RUNTIME_RECIPROCAL,
+    RUNTIME_COPY,
+    RUNTIME_CONTIGUOUS,
+    RUNTIME_NEGATION,
+    RUNTIME_RECTIFIED_LINEAR
+} runtime_unary_type_t;
+
+typedef enum runtime_binary_elementwise_type_t
+{
+    RUNTIME_ADDITION,
+    RUNTIME_SUBTRACTION,
+    RUNTIME_MULTIPLICATION,
+    RUNTIME_DIVISION,
+    RUNTIME_POWER,
+    RUNTIME_COMPARE_EQUAL,
+    RUNTIME_COMPARE_GREATER
+} runtime_binary_elementwise_type_t;
+
+typedef enum runtime_reduction_type_t
+{
+    RUNTIME_SUMMATION,
+    RUNTIME_MAXIMUM
+} runtime_reduction_type_t;
+
 nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, uint64_t n, void *data);
 void storage_destroy(storage_t *storage);
 nw_error_t *runtime_malloc(storage_t *storage);
