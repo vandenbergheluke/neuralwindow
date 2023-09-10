@@ -85,6 +85,7 @@ void setup(void)
                                       tensors[i][j][k].nbytes() / 
                                       datatype_size((datatype_t) j),
                                       (void *) tensors[i][j][k].data_ptr());
+                ck_assert_ptr_null(error);
                 error = buffer_create(&buffers[i][j][k],
                                       view,
                                       storage,

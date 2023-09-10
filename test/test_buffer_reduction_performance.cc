@@ -25,9 +25,6 @@ nw_error_t *error;
 buffer_t *buffers[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
 buffer_t *returned_buffers[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
 
-view_t *views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
-view_t *returned_views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
-
 torch::Tensor tensors[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 
 torch::Device device_cuda(torch::kCUDA);
@@ -95,19 +92,26 @@ void setup(void)
                         ck_abort_msg("unknown datatype.");
                     }
 
-                    error = view_create(&views[i][j][k][z], 
+                    view_t *view;
+                    storage_t *storage;
+
+                    error = view_create(&view, 
                                         (uint64_t) tensors[i][j][k][z].storage_offset(),
                                         (uint64_t) tensors[i][j][k][z].ndimension(),
                                         (uint64_t *) tensors[i][j][k][z].sizes().data(),
                                         NULL);
                     ck_assert_ptr_null(error);
-                    error = buffer_create(&buffers[i][j][k][z],
+                    error = storage_create(&storage,
                                           (runtime_t) i,
                                           (datatype_t) j,
-                                          views[i][j][k][z],
-                                          (void *) tensors[i][j][k][z].data_ptr(),
-                                          (uint64_t) tensors[i][j][k][z].numel(),
-                                          true);
+                                          tensors[i][j][k][z].nbytes() / 
+                                          datatype_size((datatype_t) j),
+                                          (void *) tensors[i][j][k][z].data_ptr());
+                    ck_assert_ptr_null(error);
+                    error = buffer_create(&buffers[i][j][k][z],
+                                          view,
+                                          storage,
+                                          false);
                     ck_assert_ptr_null(error);
                 }
             }

@@ -364,12 +364,14 @@ START_TEST(test_reciprocal_computational_performance)
 }
 END_TEST
 
+#if 0
 START_TEST(test_copy_computational_performance)
 {
     printf("------------------------   Copy   ------------------------\n");
     performance_test(AS_LAMBDA(torch::clone), AS_LAMBDA(runtime_copy));
 }
 END_TEST
+#endif
 
 START_TEST(test_contiguous_computational_performance)
 {

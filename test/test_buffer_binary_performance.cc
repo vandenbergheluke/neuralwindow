@@ -29,9 +29,9 @@ view_t *views_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
 view_t *views_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
 view_t *returned_views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
 
-storage_t *storages_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
-storage_t *storages_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
-storage_t *returned_storages[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
+storage_t *storages_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
+storage_t *storages_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
+storage_t *returned_storages[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
 
 torch::Tensor tensors_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 torch::Tensor tensors_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
@@ -54,21 +54,6 @@ void setup(void)
         runtime_create_context((runtime_t) i);
         for (int j = 0; j < DATATYPES; ++j)
         {
-            for (int k = 0; k < CASES; ++k)
-            {
-                for (int z = 0; z < MEASUREMENT_ITERS; ++z)
-                {
-                    buffers_x[i][j][k][z] = NULL;
-                    buffers_y[i][j][k][z] = NULL;
-                    returned_buffers[i][j][k][z] = NULL;
-
-                    views_x[i][j][k][z] = NULL;
-                    views_y[i][j][k][z] = NULL;
-                    returned_views[i][j][k][z] = NULL;
-                }
-            }
-
-            
             for (int k = 0; k < CASES; ++k)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
