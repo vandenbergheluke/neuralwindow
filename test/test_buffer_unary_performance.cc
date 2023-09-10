@@ -1,3 +1,5 @@
+#include <cstdio>
+#include <cmath>
 #include <iostream>
 #include <tuple>
 extern "C"
@@ -11,7 +13,6 @@ extern "C"
 #include <test_helper.h>
 
 #include <check.h>
-#include <math.h>
 }
 #include <torch/torch.h>
 
@@ -67,7 +68,8 @@ void setup(void)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    // aten::empty.memory_format not supported for cuda 
+                    // We're using CPU pytorch because we use an unsupported
+                    // version of CUDA... CUDA tests are disabled right now.
                     switch ((datatype_t) j)
                     {
                     case FLOAT32:
@@ -157,13 +159,10 @@ void print_heuristics(float64_t torch_time_mkl, float64_t torch_time_cuda,
     printf("MKL:\n");
     printf("PyTorch performance (nsec): %0.2lf\n", torch_time_mkl);
     printf("NW performance (nsec): %0.2lf\n", nw_time_mkl);
-    printf("Fraction (NW nsec/Pytorch nsec): %0.3lf\n\n", nw_time_mkl / torch_time_mkl);
+    printf("Fraction (NW nsec/Pytorch nsec): %0.3lf\n", nw_time_mkl / torch_time_mkl);
     printf("OpenBLAS:\n");
-    printf("NW performance (nsec): %0.2lf\n\n", nw_time_openblas);
+    printf("NW performance (nsec): %0.2lf\n", nw_time_openblas);
     printf("CUDA:\n");
-
-    // aten::empty.memory_format not supported for cuda 
-    
     // printf("PyTorch performance (nsec): %0.2lf\n", torch_time_cuda);
     printf("NW performance (nsec): %0.2lf\n\n", nw_time_cuda);
     // printf("Fraction (NW nsec/Pytorch nsec): %0.3lf\n\n", nw_time_cuda / torch_time_cuda);
@@ -180,27 +179,31 @@ void print_heuristics(float64_t torch_time_mkl, float64_t torch_flops_mkl,
     printf("NW exponential performance: %0.2lf nsec, %0.2lf FLOPS\n", nw_time_mkl, nw_flops_mkl);
     printf("Fraction (NW nsec/Pytorch nsec): %0.3lf\n\n", nw_time_mkl / torch_time_mkl);
     printf("OpenBLAS:\n");
-    printf("NW exponential performance: %0.2lf nsec, %0.2lf FLOPS\n\n", nw_time_openblas, nw_flops_openblas);
+    printf("NW exponential performance: %0.2lf nsec, %0.2lf FLOPS\n", nw_time_openblas, nw_flops_openblas);
     printf("CUDA:\n");
-
-    // aten::empty.memory_format not supported for cuda 
-
     // printf("PyTorch performance: %0.2lf nsec, %0.2lf FLOPS\n", torch_time_cuda, torch_flops_cuda);
     printf("NW exponential performance: %0.2lf nsec, %0.2lf FLOPS\n\n", nw_time_cuda, nw_flops_cuda);
     // printf("Fraction (NW nsec/Pytorch nsec): %0.3lf\n\n", nw_time_cuda / torch_time_cuda);
 }
 
-START_TEST(test_exponential_computational_performance)
+template <typename T, typename N>
+void performance_test(T torch_op, N nw_op)
 {
-    float64_t torch_time_mkl = 0, torch_time_cuda = 0;
-    float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
-    uint32_t runtime_total_runs = DATATYPES * CASES * MEASUREMENT_ITERS;
-
-    for (int i = 0; i < RUNTIMES; ++i)
+    uint32_t total_runs = DATATYPES * MEASUREMENT_ITERS;
+    
+    for (int k = 0; k < CASES; ++k)
     {
-        for (int j = 0; j < DATATYPES; ++j)
+        float64_t torch_time_mkl = 0, torch_time_cuda = 0;
+        float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
+        uint64_t n = shapes[k][0];
+
+        printf("Dimensions (%lu, %lu):\n", n, n);
+
+        for (int i = 0; i < RUNTIMES; ++i)
         {
-            for (int k = 0; k < CASES; ++k)
+            // Take average time of DATATYPES * MEASUREMENT_ITERS iterations for
+            // each runtime.
+            for (int j = 0; j < DATATYPES; ++j)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
@@ -210,11 +213,11 @@ START_TEST(test_exponential_computational_performance)
                     uint64_t nw_completion_time;
 
                     torch_start = get_time_nanoseconds();
-                    torch::Tensor expected_tensor = torch::exp(tensors[i][j][k][z]);
+                    torch::Tensor expected_tensor = torch_op(tensors[i][j][k][z]);
                     torch_end = get_time_nanoseconds();
 
                     nw_start = get_time_nanoseconds();
-                    error = runtime_exponential(buffers[i][j][k][z], returned_buffers[i][j][k][z]);
+                    error = nw_op(buffers[i][j][k][z], returned_buffers[i][j][k][z]);
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);
 
@@ -226,30 +229,115 @@ START_TEST(test_exponential_computational_performance)
                         case OPENBLAS_RUNTIME:
                             // Pytorch uses MKL on CPU
 
-                            nw_time_openblas += (float64_t) nw_completion_time / runtime_total_runs;
+                            nw_time_openblas += (float64_t) nw_completion_time / total_runs;
                             break;
                         case MKL_RUNTIME:
                             // Torch MKL gets double the runs as a biproduct of
                             // how the tests are setup.
 
-                            torch_time_mkl += (float64_t) torch_completion_time / (2 * runtime_total_runs);
-                            nw_time_mkl += (float64_t) nw_completion_time / runtime_total_runs;
+                            torch_time_mkl += (float64_t) torch_completion_time / (2 * total_runs);
+                            nw_time_mkl += (float64_t) nw_completion_time / total_runs;
                             break;
                         case CU_RUNTIME:
-                            torch_time_cuda += (float64_t) torch_completion_time / runtime_total_runs;
-                            nw_time_cuda += (float64_t) nw_completion_time / runtime_total_runs;
+                            torch_time_cuda += (float64_t) torch_completion_time / total_runs;
+                            nw_time_cuda += (float64_t) nw_completion_time / total_runs;
                             break;
                         default:
                         ck_abort_msg("unknown runtime.");
                     }
                 }
+
             }
         }
-    }
 
+        print_heuristics(torch_time_mkl, torch_time_cuda, nw_time_mkl,
+                nw_time_openblas, nw_time_cuda);
+    }
+}
+
+template <typename T, typename N>
+void performance_test(T torch_op, N nw_op,
+        std::function<uint64_t(uint64_t)> flop_calc)
+{
+    uint32_t total_runs = DATATYPES * MEASUREMENT_ITERS;
+    
+    for (int k = 0; k < CASES; ++k)
+    {
+        float64_t torch_time_mkl = 0, torch_time_cuda = 0;
+        float64_t torch_flops_mkl = 0, torch_flops_cuda = 0;
+        float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
+        float64_t nw_flops_mkl = 0, nw_flops_openblas = 0, nw_flops_cuda = 0;
+        uint64_t n = shapes[k][0];
+        uint64_t num_flop = flop_calc(n);
+
+        printf("Dimensions: (%lu, %lu)", n, n);
+
+        for (int i = 0; i < RUNTIMES; ++i)
+        {
+            // Take average time of DATATYPES * MEASUREMENT_ITERS iterations for
+            // each runtime.
+            for (int j = 0; j < DATATYPES; ++j)
+            {
+                for (int z = 0; z < MEASUREMENT_ITERS; ++z)
+                {
+                    uint64_t torch_start, torch_end;
+                    uint64_t torch_completion_time;
+                    uint64_t nw_start, nw_end;
+                    uint64_t nw_completion_time;
+
+                    torch_start = get_time_nanoseconds();
+                    torch::Tensor expected_tensor = torch_op(tensors[i][j][k][z]);
+                    torch_end = get_time_nanoseconds();
+
+                    nw_start = get_time_nanoseconds();
+                    error = nw_op(buffers[i][j][k][z], returned_buffers[i][j][k][z]);
+                    nw_end = get_time_nanoseconds();
+                    ck_assert_ptr_null(error);
+
+                    torch_completion_time = torch_end - torch_start;
+                    nw_completion_time = nw_end - nw_start;
+
+                    switch ((runtime_t) i)
+                    {
+                        case OPENBLAS_RUNTIME:
+                            // Pytorch uses MKL on CPU
+
+                            nw_time_openblas += (float64_t) nw_completion_time / total_runs;
+                            nw_flops_openblas += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * total_runs);
+                            break;
+                        case MKL_RUNTIME:
+                            // Torch MKL gets double the runs as a biproduct of
+                            // how the tests are setup.
+
+                            torch_time_mkl += (float64_t) torch_completion_time / (2 * total_runs);
+                            torch_flops_mkl += ((float64_t) num_flop * 1000000000) / ((float64_t) torch_completion_time * 2 * total_runs);
+                            nw_time_mkl += (float64_t) nw_completion_time / total_runs;
+                            nw_flops_mkl += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * total_runs);
+                            break;
+                        case CU_RUNTIME:
+                            torch_time_cuda += (float64_t) torch_completion_time / total_runs;
+                            torch_flops_cuda += ((float64_t) num_flop * 1000000000) / ((float64_t) torch_completion_time * total_runs);
+                            nw_time_cuda += (float64_t) nw_completion_time / total_runs;
+                            nw_flops_cuda += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * total_runs);
+                            break;
+                        default:
+                        ck_abort_msg("unknown runtime.");
+                    }
+                }
+
+            }
+        }
+
+        print_heuristics(torch_time_mkl, torch_flops_mkl, torch_time_cuda,
+                torch_flops_cuda, nw_time_mkl, nw_flops_mkl, nw_time_openblas,
+                nw_flops_openblas, nw_time_cuda, nw_flops_cuda);
+    }
+}
+
+START_TEST(test_exponential_computational_performance)
+{
     printf("--------------------   Exponential   ---------------------\n");
-    print_heuristics(torch_time_mkl, torch_time_cuda, nw_time_mkl,
-            nw_time_openblas, nw_time_cuda);
+    performance_test(&torch::exp, &runtime_exponential);
 }
 END_TEST
 
@@ -507,138 +595,16 @@ END_TEST
 
 START_TEST(test_reciprocal_computational_performance)
 {
-    float64_t torch_time_mkl = 0, torch_time_cuda = 0;
-    float64_t torch_flops_mkl = 0, torch_flops_cuda = 0;
-    float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
-    float64_t nw_flops_mkl = 0, nw_flops_openblas = 0, nw_flops_cuda = 0;
-    uint32_t runtime_total_runs = DATATYPES * CASES * MEASUREMENT_ITERS;
-
-    for (int i = 0; i < RUNTIMES; ++i)
-    {
-        for (int j = 0; j < DATATYPES; ++j)
-        {
-            for (int k = 0; k < CASES; ++k)
-            {
-                for (int z = 0; z < MEASUREMENT_ITERS; ++z)
-                {
-                    uint64_t n = ((uint64_t *) tensors[i][j][k][z].sizes().data())[0];
-                    uint64_t num_flop = pow(n, 2);
-                    uint64_t torch_start, torch_end;
-                    uint64_t torch_completion_time;
-                    uint64_t nw_start, nw_end;
-                    uint64_t nw_completion_time;
-
-                    torch_start = get_time_nanoseconds();
-                    torch::Tensor expected_tensor = torch::reciprocal(tensors[i][j][k][z]);
-                    torch_end = get_time_nanoseconds();
-
-                    nw_start = get_time_nanoseconds();
-                    error = runtime_reciprocal(buffers[i][j][k][z], returned_buffers[i][j][k][z]);
-                    nw_end = get_time_nanoseconds();
-                    ck_assert_ptr_null(error);
-
-                    torch_completion_time = torch_end - torch_start;
-                    nw_completion_time = nw_end - nw_start;
-
-
-                    switch ((runtime_t) i)
-                    {
-                        case OPENBLAS_RUNTIME:
-                            // Pytorch uses MKL on CPU
-
-                            nw_time_openblas += (float64_t) nw_completion_time / runtime_total_runs;
-                            nw_flops_openblas += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * runtime_total_runs);
-                            break;
-                        case MKL_RUNTIME:
-                            // Torch MKL gets double the runs as a biproduct of
-                            // how the tests are setup.
-
-                            torch_time_mkl += (float64_t) torch_completion_time / (2 * runtime_total_runs);
-                            torch_flops_mkl += ((float64_t) num_flop * 1000000000) / ((float64_t) torch_completion_time * 2 * runtime_total_runs);
-                            nw_time_mkl += (float64_t) nw_completion_time / runtime_total_runs;
-                            nw_flops_mkl += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * runtime_total_runs);
-                            break;
-                        case CU_RUNTIME:
-                            torch_time_cuda += (float64_t) torch_completion_time / runtime_total_runs;
-                            torch_flops_cuda += ((float64_t) num_flop * 1000000000) / ((float64_t) torch_completion_time * runtime_total_runs);
-                            nw_time_cuda += (float64_t) nw_completion_time / runtime_total_runs;
-                            nw_flops_cuda += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * runtime_total_runs);
-                            break;
-                        default:
-                        ck_abort_msg("unknown runtime.");
-                    }
-                }
-            }
-        }
-    }
-
     printf("---------------------   Reciprocal   ---------------------\n");
-    print_heuristics(torch_time_mkl, torch_flops_mkl, torch_time_cuda,
-            torch_flops_cuda, nw_time_mkl, nw_flops_mkl, nw_time_openblas,
-            nw_flops_openblas, nw_time_cuda, nw_flops_cuda);
+    performance_test(&torch::reciprocal, &runtime_reciprocal,
+            [] (uint64_t n) -> uint64_t { return pow(n, 2); });
 }
 END_TEST
 
 START_TEST(test_contiguous_computational_performance)
 {
-    float64_t torch_time_mkl = 0, torch_time_cuda = 0;
-    float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
-    uint32_t runtime_total_runs = DATATYPES * CASES * MEASUREMENT_ITERS;
-
-    for (int i = 0; i < RUNTIMES; ++i)
-    {
-        for (int j = 0; j < DATATYPES; ++j)
-        {
-            for (int k = 0; k < CASES; ++k)
-            {
-                for (int z = 0; z < MEASUREMENT_ITERS; ++z)
-                {
-                    uint64_t torch_start, torch_end;
-                    uint64_t torch_completion_time;
-                    uint64_t nw_start, nw_end;
-                    uint64_t nw_completion_time;
-
-                    torch_start = get_time_nanoseconds();
-                    torch::Tensor expected_tensor = tensors[i][j][k][z].contiguous();
-                    torch_end = get_time_nanoseconds();
-
-                    nw_start = get_time_nanoseconds();
-                    error = runtime_contiguous(buffers[i][j][k][z], returned_buffers[i][j][k][z]);
-                    nw_end = get_time_nanoseconds();
-                    ck_assert_ptr_null(error);
-
-                    torch_completion_time = torch_end - torch_start;
-                    nw_completion_time = nw_end - nw_start;
-
-                    switch ((runtime_t) i)
-                    {
-                        case OPENBLAS_RUNTIME:
-                            // Pytorch uses MKL on CPU
-
-                            nw_time_openblas += (float64_t) nw_completion_time / runtime_total_runs;
-                            break;
-                        case MKL_RUNTIME:
-                            // Torch MKL gets double the runs as a biproduct of
-                            // how the tests are setup.
-
-                            torch_time_mkl += (float64_t) torch_completion_time / (2 * runtime_total_runs);
-                            nw_time_mkl += (float64_t) nw_completion_time / runtime_total_runs;
-                            break;
-                        case CU_RUNTIME:
-                            torch_time_cuda += (float64_t) torch_completion_time / runtime_total_runs;
-                            nw_time_cuda += (float64_t) nw_completion_time / runtime_total_runs;
-                            break;
-                        default:
-                        ck_abort_msg("unknown runtime.");
-                    }
-                }
-            }
-        }
-    }
-
     printf("---------------------   Contiguous   ---------------------\n");
-    print_heuristics(torch_time_mkl, torch_time_cuda, nw_time_mkl,
-            nw_time_openblas, nw_time_cuda);
+    performance_test([] (torch::Tensor t) -> torch::Tensor { return t.contiguous(); }, &runtime_contiguous);
 }
 END_TEST
 

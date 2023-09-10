@@ -73,7 +73,8 @@ void setup(void)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    // aten::empty.memory_format not supported for cuda 
+                    // We're using CPU pytorch because we use an unsupported
+                    // version of CUDA... CUDA tests are disabled right now.
                     switch ((datatype_t) j)
                     {
                     case FLOAT32:
@@ -196,9 +197,6 @@ void print_heuristics(float64_t torch_time_mkl, float64_t torch_time_cuda,
     printf("OpenBLAS:\n");
     printf("NW performance (nsec): %0.2lf\n\n", nw_time_openblas);
     printf("CUDA:\n");
-
-    // aten::empty.memory_format not supported for cuda 
-    
     // printf("PyTorch performance (nsec): %0.2lf\n", torch_time_cuda);
     printf("NW performance (nsec): %0.2lf\n\n", nw_time_cuda);
     // printf("Fraction (NW nsec/Pytorch nsec): %0.3lf\n\n", nw_time_cuda / torch_time_cuda);
@@ -217,9 +215,6 @@ void print_heuristics(float64_t torch_time_mkl, float64_t torch_flops_mkl,
     printf("OpenBLAS:\n");
     printf("NW exponential performance: %0.2lf nsec, %0.2lf FLOPS\n\n", nw_time_openblas, nw_flops_openblas);
     printf("CUDA:\n");
-
-    // aten::empty.memory_format not supported for cuda 
-
     // printf("PyTorch performance: %0.2lf nsec, %0.2lf FLOPS\n", torch_time_cuda, torch_flops_cuda);
     printf("NW exponential performance: %0.2lf nsec, %0.2lf FLOPS\n\n", nw_time_cuda, nw_flops_cuda);
     // printf("Fraction (NW nsec/Pytorch nsec): %0.3lf\n\n", nw_time_cuda / torch_time_cuda);
