@@ -1,8 +1,3 @@
-// Unary operation performance tests. We're losing some accuracy due to lambdas
-// adding time to pytorch operations but I gather we're more concerned with
-// being multiplicatively faster/slower than we are with counting individual
-// clock cycles.
-
 #include <cstdio>
 #include <cmath>
 #include <iostream>
@@ -20,8 +15,6 @@ extern "C"
 #include <check.h>
 }
 #include <torch/torch.h>
-
-#define AS_LAMBDA(func) [&](auto&&... args) -> decltype(func(std::forward<decltype(args)>(args)...)) { return func(std::forward<decltype(args)>(args)...); }
 
 #define CASES 5
 
@@ -344,42 +337,42 @@ void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
 START_TEST(test_exponential_computational_performance)
 {
     printf("--------------------   Exponential   ---------------------\n");
-    performance_test(&torch::exp, &runtime_exponential);
+    performance_test(AS_LAMBDA(torch::exp), AS_LAMBDA(runtime_exponential));
 }
 END_TEST
 
 START_TEST(test_logarithm_computational_performance)
 {
     printf("---------------------   Logarithm   ----------------------\n");
-    performance_test(&torch::log, &runtime_logarithm);
+    performance_test(AS_LAMBDA(torch::log), AS_LAMBDA(runtime_logarithm));
 }
 END_TEST
 
 START_TEST(test_sine_computational_performance)
 {
     printf("------------------------   Sine   ------------------------\n");
-    performance_test(&torch::sin, &runtime_sine);
+    performance_test(AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
 }
 END_TEST
 
 START_TEST(test_cosine_computational_performance)
 {
     printf("-----------------------   Cosine   -----------------------\n");
-    performance_test(&torch::cos, &runtime_cosine);
+    performance_test(AS_LAMBDA(torch::cos), AS_LAMBDA(runtime_cosine));
 }
 END_TEST
 
 START_TEST(test_square_root_computational_performance)
 {
     printf("--------------------   Square Root   ---------------------\n");
-    performance_test(&torch::sqrt, &runtime_square_root);
+    performance_test(AS_LAMBDA(torch::sqrt), AS_LAMBDA(runtime_square_root));
 }
 END_TEST
 
 START_TEST(test_reciprocal_computational_performance)
 {
     printf("---------------------   Reciprocal   ---------------------\n");
-    performance_test(&torch::reciprocal, &runtime_reciprocal,
+    performance_test(AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
 }
 END_TEST
@@ -387,31 +380,28 @@ END_TEST
 START_TEST(test_copy_computational_performance)
 {
     printf("------------------------   Copy   ------------------------\n");
-    performance_test(AS_LAMBDA(torch::clone), &runtime_copy);
+    performance_test(AS_LAMBDA(torch::clone), AS_LAMBDA(runtime_copy));
 }
 END_TEST
 
 START_TEST(test_contiguous_computational_performance)
 {
     printf("---------------------   Contiguous   ---------------------\n");
-    performance_test([] (torch::Tensor t) -> torch::Tensor {
-            return t.contiguous();
-            },
-            &runtime_contiguous);
+    performance_test(AS_MEMBER_LAMBDA(torch::Tensor::contiguous), AS_LAMBDA(runtime_contiguous));
 }
 END_TEST
 
 START_TEST(test_negation_computational_performance)
 {
     printf("----------------------   Negation   ----------------------\n");
-    performance_test(&torch::neg, &runtime_negation);
+    performance_test(AS_LAMBDA(torch::neg), AS_LAMBDA(runtime_negation));
 }
 END_TEST
 
 START_TEST(test_rectified_linear_computational_performance)
 {
     printf("------------------   Rectified Linear   ------------------\n");
-    performance_test(&torch::relu, &runtime_rectified_linear,
+    performance_test(AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
 }
 END_TEST
