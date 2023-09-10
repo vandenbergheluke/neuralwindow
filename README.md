@@ -89,16 +89,19 @@ nvcc --version
 ```
 
 Install Doxygen (Optional)
+
 ```bash
 sudo apt-get install doxygen
 ```
 
 Install Graphviz (Optional)
+
 ```bash
 sudo apt install graphviz
 ```
 
 Install LCOV
+
 ```bash
 sudo apt-get install lcov
 ```
@@ -154,11 +157,13 @@ cat ./suppressions.log | ./../parse_valgrind_suppressions.sh > suppressions.supp
 ```
 
 To generate the coverage pages run
+
 ```bash
 make report
 ```
 
 To generate the documentation pages run the following command from the project root
+
 ```bash
 doxygen Doxyfile
 ```

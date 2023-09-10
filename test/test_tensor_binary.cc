@@ -67,6 +67,7 @@ void setup(void)
             for (int k = 0; k < CASES; ++k)
             {
                 tensors_x[i][j][k] = NULL;
+                tensors_y[i][j][k] = NULL;
                 returned_tensors[i][j][k] = NULL;
                 expected_tensors[i][j][k] = NULL;
                 expected_gradients_x[i][j][k] = NULL;

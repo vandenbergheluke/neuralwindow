@@ -692,12 +692,12 @@ bool_t shapes_equal(const uint64_t *x_shape, uint64_t x_rank, const uint64_t *y_
  */
 uint64_t shape_size(const uint64_t *shape, uint64_t rank)
 {
+    uint64_t total = 1;
+
     if (shape == NULL)
     {
-        return 0;
+        return total;
     }
-
-    uint64_t total = 0;
 
     for (uint64_t i = 0; i < rank; ++i)
     {
@@ -706,7 +706,7 @@ uint64_t shape_size(const uint64_t *shape, uint64_t rank)
             continue;
         }
 
-        total = (!total) ? shape[i] : total * shape[i];
+        total *= shape[i];
     }
     
     return total;

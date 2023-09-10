@@ -129,6 +129,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_UNIQUE";
     case ERROR_UNARY:
         return "ERROR_UNARY";
+    case ERROR_SIGMOID:
+        return "ERROR_SIGMOID";
     default:
         return "ERROR";
     }

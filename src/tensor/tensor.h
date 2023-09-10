@@ -64,5 +64,6 @@ nw_error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient);
 bool_t tensor_is_contiguous(const tensor_t *x);
 nw_error_t *init_zeroes(tensor_t *x);
 nw_error_t *init_ones(tensor_t *x);
-
+nw_error_t *tensor_sigmoid(const tensor_t *x, tensor_t *y);
+nw_error_t *tensor_mean(const tensor_t *x, tensor_t *y, const uint64_t *axis, uint64_t length, bool_t keep_dimension);
 #endif

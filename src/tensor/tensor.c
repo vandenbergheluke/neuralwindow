@@ -282,6 +282,32 @@ nw_error_t *tensor_broadcast_matrix_multiplication(const tensor_t *x_original,
     return NULL;
 }
 
+nw_error_t *tensor_sigmoid(const tensor_t *x, tensor_t *y)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINT_DEBUG_NEWLINE;
+
+    nw_error_t *error = apply_function_unary(SIGMOID_OPERATION, x, y);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to apply sigmoid to tensor."),
+                     error);
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINT_DEBUG_NEWLINE;
+
+    return NULL;
+}
+
 nw_error_t *tensor_expand(const tensor_t *x,
                           const uint64_t *shape,
                           uint64_t length,
@@ -560,6 +586,122 @@ nw_error_t *tensor_maximum(const tensor_t *x,
         return ERROR(ERROR_FORWARD,
                      string_create("failed to reduce tensor."),
                      error);
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINT_DEBUG_NEWLINE;
+
+    return NULL;
+}
+
+nw_error_t *tensor_mean(const tensor_t *x,
+                        tensor_t *y,
+                        const uint64_t *axis,
+                        uint64_t length,
+                        bool_t keep_dimension)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINTLN_DEBUG_UINT64_ARRAY("axis", axis, length);
+    PRINTLN_DEBUG_BOOLEAN("keep_dimension", keep_dimension);
+    PRINT_DEBUG_NEWLINE;
+
+    nw_error_t *error = NULL;
+    tensor_t *x_i;
+    tensor_t *x_j;
+
+    error = tensor_create_default(&x_i);
+    if (error != NULL)
+    {
+        ERROR(ERROR_CREATE,
+              string_create("failed to create tensor x_i."),
+              error);
+    }
+
+    error = tensor_create_default(&x_j);
+    if (error != NULL)
+    {
+        tensor_destroy(x_i);
+        ERROR(ERROR_CREATE,
+              string_create("failed to create tensor x_j."),
+              error);
+    }
+
+    error = tensor_summation(x, x_i, axis, length, keep_dimension);
+    if (error != NULL)
+    {
+        tensor_destroy(x_i);
+        tensor_destroy(x_j);
+        ERROR(ERROR_SUMMATION,
+              string_create("failed to sum tensor."),
+              error);
+    }
+
+    switch (x->buffer->storage->datatype)
+    {
+    case FLOAT32:
+        float32_t constant_32 = ((float32_t) shape_size(x_i->buffer->view->shape, x_i->buffer->view->rank) / 
+                                 (float32_t) shape_size(x->buffer->view->shape, x->buffer->view->rank)) ;
+        error = tensor_constant(&constant_32, 
+                                x->buffer->storage->datatype,
+                                x->buffer->storage->runtime,
+                                x_j);
+        if (error != NULL)
+        {
+            tensor_destroy(x_i);
+            tensor_destroy(x_j);
+            return ERROR(ERROR_INITIALIZATION,
+                         string_create("failed to initialize constant tensor."),
+                         error);
+        }
+        break;
+    case FLOAT64:
+        float64_t constant_64 = ((float64_t) shape_size(x_i->buffer->view->shape, x_i->buffer->view->rank) / 
+                                 (float64_t) shape_size(x->buffer->view->shape, x->buffer->view->rank));
+        error = tensor_constant(&constant_64,
+                                x->buffer->storage->datatype,
+                                x->buffer->storage->runtime,
+                                x_j);
+        if (error != NULL)
+        {
+            tensor_destroy(x_i);
+            tensor_destroy(x_j);
+            return ERROR(ERROR_INITIALIZATION,
+                         string_create("failed to initialize constant tensor."),
+                         error);
+        }
+        break;
+    default:
+        tensor_destroy(x_i);
+        tensor_destroy(x_j);
+        return ERROR(ERROR_DATATYPE,
+                     string_create("unknown datatype %d",
+                     (int) x->buffer->storage->datatype),
+                     NULL);
+    }
+
+    error = tensor_multiplication(x_j, x_i, y);
+    if (error != NULL)
+    {
+        tensor_destroy(x_i);
+        tensor_destroy(x_j);
+        return ERROR(ERROR_MULTIPLICATION,
+                     string_create("failed to multiply tensor."),
+                     error);
+    }
+
+    if (!x->requires_gradient)
+    {
+        tensor_destroy(x_i);
+        tensor_destroy(x_j);
     }
 
     PRINTLN_DEBUG_LOCATION("output");

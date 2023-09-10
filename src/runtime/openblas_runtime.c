@@ -276,6 +276,53 @@ void openblas_rectified_linear(datatype_t datatype, uint64_t n, const void *x_da
     }
 }
 
+static void openblas_sigmoid_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
+{
+    for (int i = 0; i < n; ++i)
+    {
+        float32_t x = x_data[i * x_stride];
+        if (x >= 0)
+        {
+            y_data[i * y_stride] = (float32_t) 1.0 / ((float32_t) 1.0 + expf(-x)); 
+        }
+        else
+        {
+            y_data[i * y_stride] = expf(x) / ((float32_t) 1.0 + expf(x)); 
+        }
+    }
+}
+
+static void openblas_sigmoid_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
+{
+    for (int i = 0; i < n; ++i)
+    {
+        float64_t x = x_data[i * x_stride];
+        if (x >= 0)
+        {
+            y_data[i * y_stride] = (float64_t) 1.0 / ((float64_t) 1.0 + exp(-x)); 
+        }
+        else
+        {
+            y_data[i * y_stride] = exp(x) / ((float64_t) 1.0 + exp(x)); 
+        }
+    }
+}
+
+void openblas_sigmoid(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_stride, uint64_t y_offset)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        openblas_sigmoid_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        break;
+    case FLOAT64:
+        openblas_sigmoid_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        break;
+    default:
+        break;
+    }
+}
+
 void openblas_addition(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, const void *y_data, uint64_t y_stride, uint64_t y_offset, void *z_data, uint64_t z_stride, uint64_t z_offset)
 {
     switch (datatype)

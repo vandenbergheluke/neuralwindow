@@ -210,7 +210,6 @@ START_TEST(test_maximum)
 }
 END_TEST
 
-
 Suite *make_buffer_reduction_suite(void)
 {
     Suite *s;

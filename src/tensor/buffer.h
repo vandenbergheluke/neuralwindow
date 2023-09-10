@@ -53,7 +53,8 @@ typedef enum runtime_unary_type_t
     RUNTIME_RECIPROCAL,
     RUNTIME_CONTIGUOUS,
     RUNTIME_NEGATION,
-    RUNTIME_RECTIFIED_LINEAR
+    RUNTIME_RECTIFIED_LINEAR,
+    RUNTIME_SIGMOID,
 } runtime_unary_type_t;
 
 typedef enum runtime_binary_elementwise_type_t
@@ -94,6 +95,7 @@ nw_error_t *runtime_copy(buffer_t *x, buffer_t *result);
 nw_error_t *runtime_contiguous(buffer_t *x, buffer_t *result);
 nw_error_t *runtime_negation(buffer_t *x, buffer_t *result);
 nw_error_t *runtime_rectified_linear(buffer_t *x, buffer_t *result);
+nw_error_t *runtime_sigmoid(buffer_t *x, buffer_t *result);
 nw_error_t *runtime_addition(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
 nw_error_t *runtime_subtraction(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
 nw_error_t *runtime_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);

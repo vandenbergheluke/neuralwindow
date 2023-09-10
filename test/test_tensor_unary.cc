@@ -170,6 +170,9 @@ void test_unary(unary_operation_type_t unary_operation_type)
                 case RECTIFIED_LINEAR_OPERATION:
                     expected_tensor = torch::relu(torch_tensors[i][j][k]);
                     break;
+                case SIGMOID_OPERATION:
+                    expected_tensor = torch::sigmoid(torch_tensors[i][j][k]);
+                    break;
                 default:
                     ck_abort_msg("unknown unary type.");
                 }
@@ -245,6 +248,9 @@ void test_unary(unary_operation_type_t unary_operation_type)
                     break;
                 case RECTIFIED_LINEAR_OPERATION:
                     error = tensor_rectified_linear(tensors[i][j][k], returned_tensors[i][j][k]);
+                    break;
+                case SIGMOID_OPERATION:
+                    error = tensor_sigmoid(tensors[i][j][k], returned_tensors[i][j][k]);
                     break;
                 default:
                     ck_abort_msg("unknown unary type.");
@@ -351,6 +357,12 @@ START_TEST(test_rectified_linear)
 }
 END_TEST
 
+START_TEST(test_sigmoid)
+{
+    test_unary(SIGMOID_OPERATION);
+}
+END_TEST
+
 Suite *make_unary_suite(void)
 {
     Suite *s;
@@ -369,6 +381,7 @@ Suite *make_unary_suite(void)
     tcase_add_test(tc_unary, test_contiguous);
     tcase_add_test(tc_unary, test_negation);
     tcase_add_test(tc_unary, test_rectified_linear);
+    tcase_add_test(tc_unary, test_sigmoid);
 
     suite_add_tcase(s, tc_unary);
 

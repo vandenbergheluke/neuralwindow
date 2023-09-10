@@ -402,6 +402,7 @@ typedef enum nw_error_type_t
     ERROR_UNIQUE,
     ERROR_N,
     ERROR_UNARY,
+    ERROR_SIGMOID,
 } nw_error_type_t;
 
 typedef struct nw_error_t
