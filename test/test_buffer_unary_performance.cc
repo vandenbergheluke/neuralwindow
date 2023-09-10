@@ -22,11 +22,11 @@ extern "C"
 
 nw_error_t *error;
 
-buffer_t *buffers[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
-buffer_t *returned_buffers[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
+buffer_t *buffers[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
+buffer_t *returned_buffers[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
 
-view_t *views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
-view_t *returned_views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
+view_t *views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
+view_t *returned_views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
 
 storage_t *storages[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 storage_t *returned_storages[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
@@ -51,19 +51,6 @@ void setup(void)
         runtime_create_context((runtime_t) i);
         for (int j = 0; j < DATATYPES; ++j)
         {
-            for (int k = 0; k < CASES; ++k)
-            {
-                for (int z = 0; z < MEASUREMENT_ITERS; ++z)
-                {
-                    buffers[i][j][k][z] = NULL;
-                    returned_buffers[i][j][k][z] = NULL;
-
-                    views[i][j][k][z] = NULL;
-                    returned_views[i][j][k][z] = NULL;
-                }
-            }
-
-            
             for (int k = 0; k < CASES; ++k)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)

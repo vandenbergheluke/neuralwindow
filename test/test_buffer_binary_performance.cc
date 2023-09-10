@@ -21,13 +21,13 @@ extern "C"
 
 nw_error_t *error;
 
-buffer_t *buffers_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
-buffer_t *buffers_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
-buffer_t *returned_buffers[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
+buffer_t *buffers_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
+buffer_t *buffers_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
+buffer_t *returned_buffers[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
 
-view_t *views_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
-view_t *views_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
-view_t *returned_views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
+view_t *views_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
+view_t *views_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
+view_t *returned_views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
 
 storage_t *storages_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 storage_t *storages_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
@@ -438,23 +438,23 @@ END_TEST
 Suite *make_buffer_binary_perf_suite(void)
 {
     Suite *s;
-    TCase *tc_unary;
+    TCase *tc_binary;
 
     s = suite_create("Test Buffer Binary Performance Suite");
 
-    // Unary Performance Operations
-    tc_unary = tcase_create("Buffer Binary Case");
-    tcase_add_checked_fixture(tc_unary, setup, teardown);
-    tcase_add_test(tc_unary, test_addition_computational_performance);
-    tcase_add_test(tc_unary, test_subtraction_computational_performance);
-    tcase_add_test(tc_unary, test_multiplication_computational_performance);
-    tcase_add_test(tc_unary, test_division_computational_performance);
-    tcase_add_test(tc_unary, test_power_computational_performance);
-    tcase_add_test(tc_unary, test_compare_equal_computational_performance);
-    tcase_add_test(tc_unary, test_compare_greater_computational_performance);
-    tcase_add_test(tc_unary, test_matrix_multiplication_computational_performance);
+    // Binary Performance Operations
+    tc_binary = tcase_create("Buffer Binary Case");
+    tcase_add_checked_fixture(tc_binary, setup, teardown);
+    tcase_add_test(tc_binary, test_addition_computational_performance);
+    tcase_add_test(tc_binary, test_subtraction_computational_performance);
+    tcase_add_test(tc_binary, test_multiplication_computational_performance);
+    tcase_add_test(tc_binary, test_division_computational_performance);
+    tcase_add_test(tc_binary, test_power_computational_performance);
+    tcase_add_test(tc_binary, test_compare_equal_computational_performance);
+    tcase_add_test(tc_binary, test_compare_greater_computational_performance);
+    tcase_add_test(tc_binary, test_matrix_multiplication_computational_performance);
 
-    suite_add_tcase(s, tc_unary);
+    suite_add_tcase(s, tc_binary);
 
     return s;
 }
