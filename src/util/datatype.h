@@ -35,7 +35,7 @@ typedef enum datatype_t
 // when passing it as an argument.
 //
 // AS_MEMBER_LAMBDA has the additional functionality of taking its first
-// parameter as the object whose member is being called.
+// argument as the object whose member is to be called.
 #if defined (__cplusplus) && (__cplusplus >= 201402L)
 #define AS_LAMBDA(func) [&](auto&&... args) -> decltype(func(std::forward<decltype(args)>(args)...)) { return func(std::forward<decltype(args)>(args)...); }
 #define AS_MEMBER_LAMBDA(func) [&](auto obj, auto&&... args) -> decltype(obj.func(std::forward<decltype(args)>(args)...)) { return obj.func(std::forward<decltype(args)>(args)...); }
