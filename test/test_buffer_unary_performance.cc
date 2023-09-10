@@ -2,9 +2,6 @@
 // adding time to pytorch operations but I gather we're more concerned with
 // being multiplicatively faster/slower than we are with counting individual
 // clock cycles.
-//
-// TODO: Find a generic solution that would not result in issues due to
-// overloading if pytorch changed its headers!!!
 
 #include <cstdio>
 #include <cmath>
@@ -23,6 +20,8 @@ extern "C"
 #include <check.h>
 }
 #include <torch/torch.h>
+
+#define AS_LAMBDA(func) [&](auto&&... args) -> decltype(func(std::forward<decltype(args)>(args)...)) { return func(std::forward<decltype(args)>(args)...); }
 
 #define CASES 5
 
@@ -388,10 +387,7 @@ END_TEST
 START_TEST(test_copy_computational_performance)
 {
     printf("------------------------   Copy   ------------------------\n");
-    performance_test([] (torch::Tensor t) -> torch::Tensor {
-            return torch::clone(t);
-            },
-            &runtime_copy);
+    performance_test(AS_LAMBDA(torch::clone), &runtime_copy);
 }
 END_TEST
 
