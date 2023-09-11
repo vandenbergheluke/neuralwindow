@@ -7,13 +7,11 @@ extern "C"
 #include <errors.h>
 #include <datatype.h>
 #include <measure.h>
-
-#include <test_helper.h>
-
+#include <tensor.h>
 #include <check.h>
 #include <math.h>
 }
-#include <torch/torch.h>
+#include <test_helper.h>
 
 #define CASES 5
 
@@ -21,20 +19,12 @@ extern "C"
 
 nw_error_t *error;
 
-buffer_t *buffers_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
-buffer_t *buffers_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
-buffer_t *returned_buffers[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
+tensor_t *tensors_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
+tensor_t *tensors_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
+tensor_t *returned_tensors[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
 
-view_t *views_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
-view_t *views_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
-view_t *returned_views[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
-
-storage_t *storages_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
-storage_t *storages_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
-storage_t *returned_storages[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
-
-torch::Tensor tensors_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
-torch::Tensor tensors_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
+torch::Tensor torch_tensors_x[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
+torch::Tensor torch_tensors_y[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 
 torch::Device device_cuda(torch::kCUDA);
 torch::Device device_cpu(torch::kCPU);
@@ -63,24 +53,24 @@ void setup(void)
                     switch ((datatype_t) j)
                     {
                     case FLOAT32:
-                        tensors_x[i][j][k][z] = torch::randn(shapes[k],
+                        torch_tensors_x[i][j][k][z] = torch::randn(shapes[k],
                                 torch::TensorOptions()
                                 .dtype(torch::kFloat32)
                                 // .device(((runtime_t) i == CU_RUNTIME) ? device_cuda : device_cpu)
                                 );
-                        tensors_y[i][j][k][z] = torch::randn(shapes[k],
+                        torch_tensors_y[i][j][k][z] = torch::randn(shapes[k],
                                 torch::TensorOptions()
                                 .dtype(torch::kFloat32)
                                 // .device(((runtime_t) i == CU_RUNTIME) ? device_cuda : device_cpu)
                                 );
                         break;
                     case FLOAT64:
-                        tensors_x[i][j][k][z] = torch::randn(shapes[k],
+                        torch_tensors_x[i][j][k][z] = torch::randn(shapes[k],
                                 torch::TensorOptions()
                                 .dtype(torch::kFloat64)
                                 // .device(((runtime_t) i == CU_RUNTIME) ? device_cuda : device_cpu)
                                 );
-                        tensors_y[i][j][k][z] = torch::randn(shapes[k],
+                        torch_tensors_y[i][j][k][z] = torch::randn(shapes[k],
                                 torch::TensorOptions()
                                 .dtype(torch::kFloat64)
                                 // .device(((runtime_t) i == CU_RUNTIME) ? device_cuda : device_cpu)
@@ -90,59 +80,8 @@ void setup(void)
                         ck_abort_msg("unknown datatype.");
                     }
 
-                    error = view_create(&views_x[i][j][k][z], 
-                                        (uint64_t) tensors_x[i][j][k][z].storage_offset(),
-                                        (uint64_t) tensors_x[i][j][k][z].ndimension(),
-                                        (uint64_t *) tensors_x[i][j][k][z].sizes().data(),
-                                        NULL);
-                    ck_assert_ptr_null(error);
-                    error = storage_create(&storages_x[i][j][k][z],
-                                           (runtime_t) i,
-                                           (datatype_t) j,
-                                           (uint64_t) tensors_x[i][j][k][z].storage().nbytes() / datatype_size((datatype_t) j),
-                                           (void *) tensors_x[i][j][k][z].data_ptr());
-                    ck_assert_ptr_null(error);
-                    error = buffer_create(&buffers_x[i][j][k][z],
-                                          views_x[i][j][k][z],
-                                          storages_x[i][j][k][z],
-                                          false);
-                    ck_assert_ptr_null(error);
-
-                    error = view_create(&views_y[i][j][k][z], 
-                                        (uint64_t) tensors_y[i][j][k][z].storage_offset(),
-                                        (uint64_t) tensors_y[i][j][k][z].ndimension(),
-                                        (uint64_t *) tensors_y[i][j][k][z].sizes().data(),
-                                        NULL);
-                    ck_assert_ptr_null(error);
-                    error = storage_create(&storages_y[i][j][k][z],
-                                           (runtime_t) i,
-                                           (datatype_t) j,
-                                           (uint64_t) tensors_y[i][j][k][z].storage().nbytes() / datatype_size((datatype_t) j),
-                                           (void *) tensors_y[i][j][k][z].data_ptr());
-                    ck_assert_ptr_null(error);
-                    error = buffer_create(&buffers_y[i][j][k][z],
-                                          views_y[i][j][k][z],
-                                          storages_y[i][j][k][z],
-                                          false);
-                    ck_assert_ptr_null(error);
-
-                    error = view_create(&returned_views[i][j][k][z],
-                                        (uint64_t) tensors_x[i][j][k][z].storage_offset(),
-                                        (uint64_t) tensors_x[i][j][k][z].ndimension(),
-                                        (uint64_t *) tensors_x[i][j][k][z].sizes().data(),
-                                        NULL);
-                    ck_assert_ptr_null(error);
-                    error = storage_create(&returned_storages[i][j][k][z],
-                                           (runtime_t) i,
-                                           (datatype_t) j,
-                                           (uint64_t) tensors_x[i][j][k][z].storage().nbytes() / datatype_size((datatype_t) j),
-                                           (void *) tensors_x[i][j][k][z].data_ptr());
-                    ck_assert_ptr_null(error);
-                    error = buffer_create(&returned_buffers[i][j][k][z],
-                                          returned_views[i][j][k][z],
-                                          returned_storages[i][j][k][z],
-                                          false);
-                    ck_assert_ptr_null(error);
+                    tensors_x[i][j][k][z] = torch_to_tensor(torch_tensors_x[i][j][k][z], (runtime_t) i, (datatype_t) j);
+                    tensors_y[i][j][k][z] = torch_to_tensor(torch_tensors_y[i][j][k][z], (runtime_t) i, (datatype_t) j);
                 }
             }
         }
@@ -160,9 +99,9 @@ void teardown(void)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    buffer_destroy(buffers_x[i][j][k][z]);
-                    buffer_destroy(buffers_y[i][j][k][z]);
-                    buffer_destroy(returned_buffers[i][j][k][z]);
+                    tensor_destroy(tensors_x[i][j][k][z]);
+                    tensor_destroy(tensors_y[i][j][k][z]);
+                    tensor_destroy(returned_tensors[i][j][k][z]);
                 }
             }
         }
@@ -232,11 +171,13 @@ void performance_test(std::function<torch::Tensor(torch::Tensor, torch::Tensor)>
                     uint64_t nw_completion_time;
 
                     torch_start = get_time_nanoseconds();
-                    torch::Tensor expected_tensor = torch_op(tensors_x[i][j][k][z], tensors_y[i][j][k][z]);
+                    torch::Tensor expected_tensor = torch_op(torch_tensors_x[i][j][k][z], torch_tensors_y[i][j][k][z]);
                     torch_end = get_time_nanoseconds();
 
+                    returned_tensors[i][j][k][z] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
+
                     nw_start = get_time_nanoseconds();
-                    error = nw_op(buffers_x[i][j][k][z], buffers_y[i][j][k][z], returned_buffers[i][j][k][z]);
+                    error = nw_op(tensors_x[i][j][k][z]->buffer, tensors_y[i][j][k][z]->buffer, returned_tensors[i][j][k][z]->buffer);
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);
 
@@ -305,11 +246,13 @@ void performance_test(std::function<torch::Tensor(torch::Tensor, torch::Tensor)>
                     uint64_t nw_completion_time;
 
                     torch_start = get_time_nanoseconds();
-                    torch::Tensor expected_tensor = torch_op(tensors_x[i][j][k][z], tensors_y[i][j][k][z]);
+                    torch::Tensor expected_tensor = torch_op(torch_tensors_x[i][j][k][z], torch_tensors_y[i][j][k][z]);
                     torch_end = get_time_nanoseconds();
 
+                    returned_tensors[i][j][k][z] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
+
                     nw_start = get_time_nanoseconds();
-                    error = nw_op(buffers_x[i][j][k][z], buffers_y[i][j][k][z], returned_buffers[i][j][k][z]);
+                    error = nw_op(tensors_x[i][j][k][z]->buffer, tensors_y[i][j][k][z]->buffer, returned_tensors[i][j][k][z]->buffer);
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);
 

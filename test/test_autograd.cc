@@ -7,9 +7,8 @@ extern "C"
 #include <buffer.h>
 #include <tensor.h>
 #include <function.h>
-#include <test_helper.h>
 }
-#include <torch/torch.h>
+#include <test_helper.h>
 
 #define CASES 1
 #define LAYERS 5
@@ -100,33 +99,7 @@ void setup(void)
                     ck_abort_msg("unknown datatype.");
                 }
 
-                view_t *view;
-                storage_t *storage;
-                buffer_t *buffer;
-                
-                error = view_create(&view, 
-                                    (uint64_t) torch_input[i][j][k].storage_offset(),
-                                    (uint64_t) torch_input[i][j][k].ndimension(),
-                                    (uint64_t *) torch_input[i][j][k].sizes().data(),
-                                    (uint64_t *) torch_input[i][j][k].strides().data());
-                ck_assert_ptr_null(error);
-
-                error = storage_create(&storage,
-                                       (runtime_t) i,
-                                       (datatype_t) j,
-                                       (uint64_t) torch_input[i][j][k].storage().nbytes() /
-                                       (uint64_t) datatype_size((datatype_t) j),
-                                       (void *) torch_input[i][j][k].data_ptr());
-                ck_assert_ptr_null(error);
-
-                error = buffer_create(&buffer,
-                                      view,
-                                      storage,
-                                      false);
-                ck_assert_ptr_null(error);
-
-                error = tensor_create(&input[i][j][k], buffer, NULL, NULL, false, true);
-                ck_assert_ptr_null(error);
+                input[i][j][k] = torch_to_tensor(torch_input[i][j][k], (runtime_t) i, (datatype_t) j);
 
                 error = tensor_create_default(&cost[i][j][k]);
                 ck_assert_ptr_null(error);
@@ -161,56 +134,9 @@ void setup(void)
                     torch_weights[i][j][k][l].retain_grad();
                     torch_bias[i][j][k][l].retain_grad();
 
-                    // Weights
-                    error = view_create(&view, 
-                                        (uint64_t) torch_weights[i][j][k][l].storage_offset(),
-                                        (uint64_t) torch_weights[i][j][k][l].ndimension(),
-                                        (uint64_t *) torch_weights[i][j][k][l].sizes().data(),
-                                        (uint64_t *) torch_weights[i][j][k][l].strides().data());
-                    ck_assert_ptr_null(error);
-
-                    error = storage_create(&storage,
-                                           (runtime_t) i,
-                                           (datatype_t) j,
-                                           (uint64_t) torch_weights[i][j][k][l].storage().nbytes() /
-                                           (uint64_t) datatype_size((datatype_t) j),
-                                           (void *) torch_weights[i][j][k][l].data_ptr());
-                    ck_assert_ptr_null(error);
-
-                    error = buffer_create(&buffer,
-                                          view,
-                                          storage,
-                                          false);
-                    ck_assert_ptr_null(error);
-
-                    error = tensor_create(&weights[i][j][k][l], buffer, NULL, NULL, true, true);
-                    ck_assert_ptr_null(error);
-
-                    // Bias
-                    error = view_create(&view, 
-                                        (uint64_t) torch_bias[i][j][k][l].storage_offset(),
-                                        (uint64_t) torch_bias[i][j][k][l].ndimension(),
-                                        (uint64_t *) torch_bias[i][j][k][l].sizes().data(),
-                                        (uint64_t *) torch_bias[i][j][k][l].strides().data());
-                    ck_assert_ptr_null(error);
-
-                    error = storage_create(&storage,
-                                           (runtime_t) i,
-                                           (datatype_t) j,
-                                           (uint64_t) torch_bias[i][j][k][l].storage().nbytes() /
-                                           (uint64_t) datatype_size((datatype_t) j),
-                                           (void *) torch_bias[i][j][k][l].data_ptr());
-                    ck_assert_ptr_null(error);
-
-                    error = buffer_create(&buffer,
-                                        view,
-                                        storage,
-                                        false);
-                    ck_assert_ptr_null(error);
-
-                    error = tensor_create(&bias[i][j][k][l], buffer, NULL, NULL, true, true);
-                    ck_assert_ptr_null(error);
-
+                    weights[i][j][k][l] = torch_to_tensor(torch_weights[i][j][k][l], (runtime_t) i, (datatype_t) j);
+                    bias[i][j][k][l] = torch_to_tensor(torch_bias[i][j][k][l], (runtime_t) i, (datatype_t) j);
+                    
                     error = tensor_create_default(&returned_tensors[i][j][k][l]);
                     ck_assert_ptr_null(error);
                     returned_tensors[i][j][k][l]->lock = true;
@@ -263,16 +189,12 @@ START_TEST(test_feed_forward_neural_network)
         {
             for (int k = 0; k < CASES; k++)
             {
-                view_t *view;
-                storage_t *storage;
-                buffer_t *buffer;
                 torch::Tensor expected_tensor = torch_input[i][j][k];
+
                 for (int l = 0; l < LAYERS; l++)
                 {
-                    expected_tensor = torch::matmul(expected_tensor, 
-                                                    torch_weights[i][j][k][l]);
-                    expected_tensor = torch::add(expected_tensor,
-                                                 torch_bias[i][j][k][l]);
+                    expected_tensor = torch::matmul(expected_tensor, torch_weights[i][j][k][l]);
+                    expected_tensor = torch::add(expected_tensor, torch_bias[i][j][k][l]);
                     if (l == LAYERS - 1)
                     {
                         expected_tensor = torch::sigmoid(expected_tensor);
@@ -312,34 +234,7 @@ START_TEST(test_feed_forward_neural_network)
                     }
                     ck_assert_ptr_null(error);
                     
-                    error = view_create(&view,
-                                        (uint64_t) expected_tensor.storage_offset(),
-                                        (uint64_t) expected_tensor.ndimension(),
-                                        (uint64_t *) expected_tensor.sizes().data(),
-                                        (uint64_t *) expected_tensor.strides().data());
-                    ck_assert_ptr_null(error);
-
-                    error = storage_create(&storage,
-                                           (runtime_t) i,
-                                           (datatype_t) j,
-                                           (uint64_t) expected_tensor.storage().nbytes() / 
-                                           (uint64_t) datatype_size((datatype_t) j),
-                                           (void *) expected_tensor.data_ptr());
-                    ck_assert_ptr_null(error);
-
-                    error = buffer_create(&buffer,
-                                          view,
-                                          storage,
-                                          false);
-                    ck_assert_ptr_null(error);
-
-                    error = tensor_create(&expected_tensors[i][j][k][l],
-                                          buffer,
-                                          NULL,
-                                          NULL,
-                                          expected_tensor.requires_grad(),
-                                          false);
-                    ck_assert_ptr_null(error);
+                    expected_tensors[i][j][k][l] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
 
                     ck_assert_tensor_equiv(returned_tensors[i][j][k][l], 
                                            expected_tensors[i][j][k][l]);
@@ -347,7 +242,6 @@ START_TEST(test_feed_forward_neural_network)
                 
                 // Backward Propogation
                 expected_tensor.mean().backward();
-
                 error = tensor_mean(returned_tensors[i][j][k][LAYERS - 1],
                                     cost[i][j][k],
                                     NULL,
@@ -359,68 +253,11 @@ START_TEST(test_feed_forward_neural_network)
 
                 for (int l = 0; l < LAYERS; l++)
                 {
-                    error = view_create(&view,
-                                        (uint64_t) torch_weights[i][j][k][l].grad().storage_offset(),
-                                        (uint64_t) torch_weights[i][j][k][l].grad().ndimension(),
-                                        (uint64_t *) torch_weights[i][j][k][l].grad().sizes().data(),
-                                        (uint64_t *) torch_weights[i][j][k][l].grad().strides().data());
-                    ck_assert_ptr_null(error);
+                    expected_gradients_weights[i][j][k][l] = torch_to_tensor(torch_weights[i][j][k][l].grad(), (runtime_t) i, (datatype_t) j);
+                    expected_gradients_bias[i][j][k][l] = torch_to_tensor(torch_bias[i][j][k][l].grad(), (runtime_t) i, (datatype_t) j);
 
-                    error = storage_create(&storage,
-                                           (runtime_t) i,
-                                           (datatype_t) j,
-                                           (uint64_t) torch_weights[i][j][k][l].grad().storage().nbytes() / 
-                                           (uint64_t) datatype_size((datatype_t) j),
-                                           (void *) torch_weights[i][j][k][l].grad().data_ptr());
-                    ck_assert_ptr_null(error);
-
-                    error = buffer_create(&buffer,
-                                          view,
-                                          storage,
-                                          false);
-                    ck_assert_ptr_null(error);
-
-                    error = tensor_create(&expected_gradients_weights[i][j][k][l],
-                                          buffer,
-                                          NULL,
-                                          NULL,
-                                          false,
-                                          false);
-                    ck_assert_ptr_null(error);
-
-                    error = view_create(&view,
-                                        (uint64_t) torch_bias[i][j][k][l].grad().storage_offset(),
-                                        (uint64_t) torch_bias[i][j][k][l].grad().ndimension(),
-                                        (uint64_t *) torch_bias[i][j][k][l].grad().sizes().data(),
-                                        (uint64_t *) torch_bias[i][j][k][l].grad().strides().data());
-                    ck_assert_ptr_null(error);
-
-                    error = storage_create(&storage,
-                                           (runtime_t) i,
-                                           (datatype_t) j,
-                                           (uint64_t) torch_bias[i][j][k][l].grad().storage().nbytes() / 
-                                           (uint64_t) datatype_size((datatype_t) j),
-                                           (void *) torch_bias[i][j][k][l].grad().data_ptr());
-                    ck_assert_ptr_null(error);
-
-                    error = buffer_create(&buffer,
-                                          view,
-                                          storage,
-                                          false);
-                    ck_assert_ptr_null(error);
-
-                    error = tensor_create(&expected_gradients_bias[i][j][k][l],
-                                          buffer,
-                                          NULL,
-                                          NULL,
-                                          false,
-                                          false);
-                    ck_assert_ptr_null(error);
-
-                    ck_assert_tensor_equiv(weights[i][j][k][l]->gradient,
-                                           expected_gradients_weights[i][j][k][l]);
-                    ck_assert_tensor_equiv(bias[i][j][k][l]->gradient,
-                                           expected_gradients_bias[i][j][k][l]);
+                    ck_assert_tensor_equiv(weights[i][j][k][l]->gradient, expected_gradients_weights[i][j][k][l]);
+                    ck_assert_tensor_equiv(bias[i][j][k][l]->gradient, expected_gradients_bias[i][j][k][l]);
                 }
             }
         }

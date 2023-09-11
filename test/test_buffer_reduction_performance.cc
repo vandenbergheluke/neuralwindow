@@ -1,20 +1,16 @@
-#include <cstdio>
-#include <cmath>
 #include <iostream>
 #include <tuple>
 extern "C"
 {
 #include <buffer.h>
+#include <tensor.h>
 #include <view.h>
 #include <errors.h>
 #include <datatype.h>
 #include <measure.h>
-
-#include <test_helper.h>
-
 #include <check.h>
 }
-#include <torch/torch.h>
+#include <test_helper.h>
 
 #define CASES 8
 
@@ -22,10 +18,10 @@ extern "C"
 
 nw_error_t *error;
 
-buffer_t *buffers[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
-buffer_t *returned_buffers[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS] = { NULL };
+tensor_t *tensors[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
+tensor_t *returned_tensors[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 
-torch::Tensor tensors[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
+torch::Tensor torch_tensors[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 
 torch::Device device_cuda(torch::kCUDA);
 torch::Device device_cpu(torch::kCPU);
@@ -79,14 +75,14 @@ void setup(void)
                     switch ((datatype_t) j)
                     {
                     case FLOAT32:
-                        tensors[i][j][k][z] = torch::randn(shapes[k],
+                        torch_tensors[i][j][k][z] = torch::randn(shapes[k],
                                 torch::TensorOptions()
                                 .dtype(torch::kFloat32)
                                 // .device(((runtime_t) i == CU_RUNTIME) ? device_cuda : device_cpu)
                                 );
                         break;
                     case FLOAT64:
-                        tensors[i][j][k][z] = torch::randn(shapes[k],
+                        torch_tensors[i][j][k][z] = torch::randn(shapes[k],
                                 torch::TensorOptions()
                                 .dtype(torch::kFloat64)
                                 // .device(((runtime_t) i == CU_RUNTIME) ? device_cuda : device_cpu)
@@ -96,27 +92,7 @@ void setup(void)
                         ck_abort_msg("unknown datatype.");
                     }
 
-                    view_t *view;
-                    storage_t *storage;
-
-                    error = view_create(&view, 
-                                        (uint64_t) tensors[i][j][k][z].storage_offset(),
-                                        (uint64_t) tensors[i][j][k][z].ndimension(),
-                                        (uint64_t *) tensors[i][j][k][z].sizes().data(),
-                                        (uint64_t *) tensors[i][j][k][z].strides().data());
-                    ck_assert_ptr_null(error);
-                    error = storage_create(&storage,
-                                          (runtime_t) i,
-                                          (datatype_t) j,
-                                          tensors[i][j][k][z].storage().nbytes() / 
-                                          datatype_size((datatype_t) j),
-                                          (void *) tensors[i][j][k][z].data_ptr());
-                    ck_assert_ptr_null(error);
-                    error = buffer_create(&buffers[i][j][k][z],
-                                          view,
-                                          storage,
-                                          false);
-                    ck_assert_ptr_null(error);
+                    tensors[i][j][k][z] = torch_to_tensor(torch_tensors[i][j][k][z], (runtime_t) i, (datatype_t) j);
                 }
             }
         }
@@ -134,8 +110,8 @@ void teardown(void)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    buffer_destroy(buffers[i][j][k][z]);
-                    buffer_destroy(returned_buffers[i][j][k][z]);
+                    tensor_destroy(tensors[i][j][k][z]);
+                    tensor_destroy(returned_tensors[i][j][k][z]);
                 }
             }
         }
@@ -194,33 +170,13 @@ START_TEST(test_summation_computational_performance)
                     uint64_t nw_completion_time;
 
                     torch_start = get_time_nanoseconds();
-                    torch::Tensor expected_tensor = torch::sum(tensors[i][j][k][z], std::vector<int64_t>({(int64_t) axis[k]}), keep_dimension[k]);
+                    torch::Tensor expected_tensor = torch::sum(torch_tensors[i][j][k][z], std::vector<int64_t>({(int64_t) axis[k]}), keep_dimension[k]);
                     torch_end = get_time_nanoseconds();
 
-                    view_t *view;
-                    storage_t *storage;
-
-                    error = view_create(&view,
-                                        (uint64_t) expected_tensor.storage_offset(),
-                                        (uint64_t) expected_tensor.ndimension(),
-                                        (uint64_t *) expected_tensor.sizes().data(),
-                                        (uint64_t *) expected_tensor.strides().data());
-                    ck_assert_ptr_null(error);
-                    error = storage_create(&storage,
-                                           (runtime_t) i,
-                                           (datatype_t) j,
-                                           expected_tensor.storage().nbytes() / 
-                                           datatype_size((datatype_t) j),
-                                           NULL);
-                    ck_assert_ptr_null(error);
-                    error = buffer_create(&returned_buffers[i][j][k][z],
-                                          view,
-                                          storage,
-                                          false);
-                    ck_assert_ptr_null(error);
+                    returned_tensors[i][j][k][z] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
 
                     nw_start = get_time_nanoseconds();
-                    error = runtime_summation(buffers[i][j][k][z], returned_buffers[i][j][k][z], axis[k]);
+                    error = runtime_summation(tensors[i][j][k][z]->buffer, returned_tensors[i][j][k][z]->buffer, axis[k]);
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);
 
@@ -296,34 +252,14 @@ START_TEST(test_maximum_computational_performance)
                     uint64_t nw_completion_time;
 
                     torch_start = get_time_nanoseconds();
-                    torch::Tensor expected_tensor = std::get<0>(torch::max(tensors[i][j][k][z], 
+                    torch::Tensor expected_tensor = std::get<0>(torch::max(torch_tensors[i][j][k][z], 
                                                   {(int64_t) axis[k]}, keep_dimension[k]));
                     torch_end = get_time_nanoseconds();
 
-                    view_t *view;
-                    storage_t *storage;
-
-                    error = view_create(&view,
-                                        (uint64_t) expected_tensor.storage_offset(),
-                                        (uint64_t) expected_tensor.ndimension(),
-                                        (uint64_t *) expected_tensor.sizes().data(),
-                                        (uint64_t *) expected_tensor.strides().data());
-                    ck_assert_ptr_null(error);
-                    error = storage_create(&storage,
-                                           (runtime_t) i,
-                                           (datatype_t) j,
-                                           expected_tensor.storage().nbytes() / 
-                                           datatype_size((datatype_t) j),
-                                           NULL);
-                    ck_assert_ptr_null(error);
-                    error = buffer_create(&returned_buffers[i][j][k][z],
-                                          view,
-                                          storage,
-                                          false);
-                    ck_assert_ptr_null(error);
+                    returned_tensors[i][j][k][z] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
 
                     nw_start = get_time_nanoseconds();
-                    error = runtime_maximum(buffers[i][j][k][z], returned_buffers[i][j][k][z], axis[k]);
+                    error = runtime_maximum(tensors[i][j][k][z]->buffer, returned_tensors[i][j][k][z]->buffer, axis[k]);
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);
 

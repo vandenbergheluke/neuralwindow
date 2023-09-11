@@ -8,17 +8,15 @@ extern "C"
 #include <buffer.h>
 #include <tensor.h>
 #include <function.h>
-#include <test_helper.h>
 }
-#include <torch/torch.h>
+#include <test_helper.h>
 
-typedef enum tensor_reduction_operation_type_t
+typedef enum tensor_reduction_type_t
 {
-    TENSOR_SUMMATION_OPERATION,
-    TENSOR_MAXIMUM_OPERATION,
-    TENSOR_MEAN_OPERATION,
-} tensor_reduction_operation_type_t;
-
+    TENSOR_SUMMATION,
+    TENSOR_MAXIMUM,
+    TENSOR_MEAN,
+} tensor_reduction_type_t;
 
 #define CASES 9
 
@@ -113,32 +111,7 @@ void setup(void)
                 }
                 torch_tensors[i][j][k].retain_grad();
 
-                view_t *view;
-                storage_t *storage;
-                buffer_t *buffer;
-
-                error = view_create(&view, 
-                                    (uint64_t) torch_tensors[i][j][k].storage_offset(),
-                                    (uint64_t) torch_tensors[i][j][k].ndimension(),
-                                    (uint64_t *) torch_tensors[i][j][k].sizes().data(),
-                                    (uint64_t *) torch_tensors[i][j][k].strides().data());
-                ck_assert_ptr_null(error);
-
-                error = storage_create(&storage,
-                                       (runtime_t) i,
-                                       (datatype_t) j,
-                                       (uint64_t) torch_tensors[i][j][k].storage().nbytes() / (uint64_t) datatype_size((datatype_t) j),
-                                       (void *) torch_tensors[i][j][k].data_ptr());
-                ck_assert_ptr_null(error);
-
-                error = buffer_create(&buffer,
-                                      view,
-                                      storage,
-                                      false);
-                ck_assert_ptr_null(error);
-
-                error = tensor_create(&tensors[i][j][k], buffer, NULL, NULL, true, true);
-                ck_assert_ptr_null(error);
+                tensors[i][j][k] = torch_to_tensor(torch_tensors[i][j][k], (runtime_t) i, (datatype_t) j);
 
                 error = tensor_create_default(&returned_tensors[i][j][k]);
                 ck_assert_ptr_null(error);
@@ -169,7 +142,7 @@ void teardown(void)
     error_destroy(error);
 }
 
-void test_reduction(tensor_reduction_operation_type_t tensor_reduction_operation_type)
+void test_reduction(tensor_reduction_type_t tensor_reduction_type)
 {
     for (int i = 0; i < RUNTIMES; i++)
     {
@@ -179,15 +152,15 @@ void test_reduction(tensor_reduction_operation_type_t tensor_reduction_operation
             {
                 torch::Tensor expected_tensor;
 
-                switch (tensor_reduction_operation_type)
+                switch (tensor_reduction_type)
                 {
-                case TENSOR_SUMMATION_OPERATION:
+                case TENSOR_SUMMATION:
                     expected_tensor = torch::sum(torch_tensors[i][j][k], axis[k], keep_dimension[k]);
                     break;
-                case TENSOR_MAXIMUM_OPERATION:
+                case TENSOR_MAXIMUM:
                     expected_tensor = torch::amax(torch_tensors[i][j][k], axis[k], keep_dimension[k]);
                     break;
-                case TENSOR_MEAN_OPERATION:
+                case TENSOR_MEAN:
                     expected_tensor = torch::mean(torch_tensors[i][j][k], axis[k], keep_dimension[k]);
                     break;
                 default:
@@ -195,56 +168,25 @@ void test_reduction(tensor_reduction_operation_type_t tensor_reduction_operation
                 }
                 expected_tensor.sum().backward();
 
-                view_t *view;
-                storage_t *storage;
-                buffer_t *buffer;
+                expected_tensors[i][j][k] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
 
-                error = view_create(&view,
-                                    (uint64_t) expected_tensor.storage_offset(),
-                                    (uint64_t) expected_tensor.ndimension(),
-                                    (uint64_t *) expected_tensor.sizes().data(),
-                                    (uint64_t *) expected_tensor.strides().data());
-                ck_assert_ptr_null(error);
-
-                error = storage_create(&storage,
-                                       (runtime_t) i,
-                                       (datatype_t) j,
-                                       (uint64_t) expected_tensor.storage().nbytes() /
-                                        (uint64_t) datatype_size((datatype_t) j),
-                                       (void *) expected_tensor.data_ptr());
-                ck_assert_ptr_null(error);
-
-                error = buffer_create(&buffer,
-                                      view,
-                                      storage,
-                                      false);
-                ck_assert_ptr_null(error);
-
-                error = tensor_create(&expected_tensors[i][j][k],
-                                      buffer,
-                                      NULL,
-                                      NULL,
-                                      true,
-                                      false);
-                ck_assert_ptr_null(error);
-
-                switch (tensor_reduction_operation_type)
+                switch (tensor_reduction_type)
                 {
-                case TENSOR_SUMMATION_OPERATION:
+                case TENSOR_SUMMATION:
                     error = tensor_summation(tensors[i][j][k], 
                                              returned_tensors[i][j][k],
                                              (uint64_t *) axis[k].data(),
                                              (uint64_t) axis[k].size(),
                                              keep_dimension[k]);
                     break;
-                case TENSOR_MAXIMUM_OPERATION:
+                case TENSOR_MAXIMUM:
                     error = tensor_maximum(tensors[i][j][k], 
                                            returned_tensors[i][j][k],
                                            (uint64_t *) axis[k].data(),
                                            (uint64_t) axis[k].size(),
                                            keep_dimension[k]);
                     break;
-                case TENSOR_MEAN_OPERATION:
+                case TENSOR_MEAN:
                     error = tensor_mean(tensors[i][j][k], 
                                         returned_tensors[i][j][k],
                                         (uint64_t *) axis[k].data(),
@@ -259,34 +201,7 @@ void test_reduction(tensor_reduction_operation_type_t tensor_reduction_operation
                 ck_assert_tensor_equiv(returned_tensors[i][j][k],
                                        expected_tensors[i][j][k]);
 
-                // Initialize expected gradient
-                error = view_create(&view,
-                                    (uint64_t) torch_tensors[i][j][k].grad().storage_offset(),
-                                    (uint64_t) torch_tensors[i][j][k].grad().ndimension(),
-                                    (uint64_t *) torch_tensors[i][j][k].grad().sizes().data(),
-                                    (uint64_t *) torch_tensors[i][j][k].grad().strides().data());
-                ck_assert_ptr_null(error);
-                error = storage_create(&storage,
-                                       (runtime_t) i,
-                                       (datatype_t) j,
-                                       (uint64_t) torch_tensors[i][j][k].grad().storage().nbytes() / 
-                                       (uint64_t) datatype_size((datatype_t) j),
-                                       (void *) torch_tensors[i][j][k].grad().data_ptr());
-                ck_assert_ptr_null(error);
-
-                error = buffer_create(&buffer,
-                                      view,
-                                      storage,
-                                      false);
-                ck_assert_ptr_null(error);
-
-                error = tensor_create(&expected_gradient[i][j][k],
-                                      buffer,
-                                      NULL,
-                                      NULL,
-                                      false,
-                                      false);
-                ck_assert_ptr_null(error);
+                expected_gradient[i][j][k] = torch_to_tensor(torch_tensors[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
 
                 // Back prop
                 tensor_t *cost;
@@ -311,19 +226,19 @@ void test_reduction(tensor_reduction_operation_type_t tensor_reduction_operation
 
 START_TEST(test_summation)
 {
-    test_reduction(TENSOR_SUMMATION_OPERATION);
+    test_reduction(TENSOR_SUMMATION);
 }
 END_TEST
 
 START_TEST(test_maximum)
 {
-    test_reduction(TENSOR_MAXIMUM_OPERATION);
+    test_reduction(TENSOR_MAXIMUM);
 }
 END_TEST
 
 START_TEST(test_mean)
 {
-    test_reduction(TENSOR_MEAN_OPERATION);
+    test_reduction(TENSOR_MEAN);
 }
 END_TEST
 

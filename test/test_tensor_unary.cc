@@ -7,9 +7,22 @@ extern "C"
 #include <buffer.h>
 #include <tensor.h>
 #include <function.h>
-#include <test_helper.h>
 }
-#include <torch/torch.h>
+#include <test_helper.h>
+
+typedef enum tensor_unary_type_t
+{
+    TENSOR_EXPONENTIAL,
+    TENSOR_LOGARITHM,
+    TENSOR_SINE,
+    TENSOR_COSINE,
+    TENSOR_SQUARE_ROOT,
+    TENSOR_RECIPROCAL,
+    TENSOR_CONTIGUOUS,
+    TENSOR_NEGATION,
+    TENSOR_RECTIFIED_LINEAR,
+    TENSOR_SIGMOID,
+} tensor_unary_type_t;
 
 #define CASES 5
 
@@ -73,32 +86,7 @@ void setup(void)
                 }
                 torch_tensors[i][j][k].retain_grad();
 
-                view_t *view;
-                storage_t *storage;
-                buffer_t *buffer;
-
-                error = view_create(&view, 
-                                    (uint64_t) torch_tensors[i][j][k].storage_offset(),
-                                    (uint64_t) torch_tensors[i][j][k].ndimension(),
-                                    (uint64_t *) torch_tensors[i][j][k].sizes().data(),
-                                    (uint64_t *) torch_tensors[i][j][k].strides().data());
-                ck_assert_ptr_null(error);
-
-                error = storage_create(&storage,
-                                       (runtime_t) i,
-                                       (datatype_t) j,
-                                       (uint64_t) torch_tensors[i][j][k].storage().nbytes() / (uint64_t) datatype_size((datatype_t) j),
-                                       (void *) torch_tensors[i][j][k].data_ptr());
-                ck_assert_ptr_null(error);
-
-                error = buffer_create(&buffer,
-                                      view,
-                                      storage,
-                                      false);
-                ck_assert_ptr_null(error);
-
-                error = tensor_create(&tensors[i][j][k], buffer, NULL, NULL, true, true);
-                ck_assert_ptr_null(error);
+                tensors[i][j][k] = torch_to_tensor(torch_tensors[i][j][k], (runtime_t) i, (datatype_t) j);
 
                 error = tensor_create_default(&returned_tensors[i][j][k]);
                 ck_assert_ptr_null(error);
@@ -129,7 +117,7 @@ void teardown(void)
     error_destroy(error);
 }
 
-void test_unary(unary_operation_type_t unary_operation_type)
+void test_unary(tensor_unary_type_t tensor_unary_type)
 {
     for (int i = 0; i < RUNTIMES; i++)
     {
@@ -137,40 +125,38 @@ void test_unary(unary_operation_type_t unary_operation_type)
         {
             for (int k = 0; k < CASES; k++)
             {
-                unary_operation_t *unary_operation = NULL;
-                operation_t *operation = NULL;
                 torch::Tensor expected_tensor;
 
-                switch (unary_operation_type)
+                switch (tensor_unary_type)
                 {
-                case EXPONENTIAL_OPERATION:
+                case TENSOR_EXPONENTIAL:
                     expected_tensor = torch::exp(torch_tensors[i][j][k]);
                     break;
-                case LOGARITHM_OPERATION:
+                case TENSOR_LOGARITHM:
                     expected_tensor = torch::log(torch_tensors[i][j][k]);
                     break;
-                case SINE_OPERATION:
+                case TENSOR_SINE:
                     expected_tensor = torch::sin(torch_tensors[i][j][k]);
                     break;
-                case COSINE_OPERATION:
+                case TENSOR_COSINE:
                     expected_tensor = torch::cos(torch_tensors[i][j][k]);
                     break;
-                case SQUARE_ROOT_OPERATION:
+                case TENSOR_SQUARE_ROOT:
                     expected_tensor = torch::sqrt(torch_tensors[i][j][k]);
                     break;
-                case RECIPROCAL_OPERATION:
+                case TENSOR_RECIPROCAL:
                     expected_tensor = torch::reciprocal(torch_tensors[i][j][k]);
                     break;
-                case CONTIGUOUS_OPERATION:
+                case TENSOR_CONTIGUOUS:
                     expected_tensor = torch_tensors[i][j][k].contiguous();
                     break;
-                case NEGATION_OPERATION:
+                case TENSOR_NEGATION:
                     expected_tensor = torch::neg(torch_tensors[i][j][k]);
                     break;
-                case RECTIFIED_LINEAR_OPERATION:
+                case TENSOR_RECTIFIED_LINEAR:
                     expected_tensor = torch::relu(torch_tensors[i][j][k]);
                     break;
-                case SIGMOID_OPERATION:
+                case TENSOR_SIGMOID:
                     expected_tensor = torch::sigmoid(torch_tensors[i][j][k]);
                     break;
                 default:
@@ -178,78 +164,38 @@ void test_unary(unary_operation_type_t unary_operation_type)
                 }
                 expected_tensor.sum().backward();
 
-                view_t *view;
-                buffer_t *buffer;
-                storage_t *storage;
+                expected_tensors[i][j][k] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
 
-                error = view_create(&view,
-                                    (uint64_t) expected_tensor.storage_offset(),
-                                    (uint64_t) expected_tensor.ndimension(),
-                                    (uint64_t *) expected_tensor.sizes().data(),
-                                    (uint64_t *) expected_tensor.strides().data());
-                ck_assert_ptr_null(error);
-
-                error = storage_create(&storage,
-                                       (runtime_t) i,
-                                       (datatype_t) j,
-                                       (uint64_t) expected_tensor.storage().nbytes() / (uint64_t) datatype_size((datatype_t) j),
-                                       (void *) expected_tensor.data_ptr());
-                ck_assert_ptr_null(error);
-
-                error = buffer_create(&buffer,
-                                      view,
-                                      storage,
-                                      false);
-                ck_assert_ptr_null(error);
-
-                error = tensor_create(&expected_tensors[i][j][k],
-                                      buffer,
-                                      NULL,
-                                      NULL,
-                                      expected_tensor.requires_grad(),
-                                      false);
-                ck_assert_ptr_null(error);
-
-                error = unary_operation_create(&unary_operation,
-                                               unary_operation_type,
-                                               tensors[i][j][k],
-                                               expected_tensors[i][j][k]);
-                ck_assert_ptr_null(error);
-                error = operation_create(&operation, UNARY_OPERATION, unary_operation);
-                ck_assert_ptr_null(error);
-                error = function_create(&expected_tensors[i][j][k]->context, operation, UNARY_OPERATION);
-                ck_assert_ptr_null(error);
-
-                switch (unary_operation_type)
+                switch (tensor_unary_type)
                 {
-                case EXPONENTIAL_OPERATION:
+                case TENSOR_EXPONENTIAL:
                     error = tensor_exponential(tensors[i][j][k], returned_tensors[i][j][k]);
                     break;
-                case LOGARITHM_OPERATION:
+                case TENSOR_LOGARITHM:
                     error = tensor_logarithm(tensors[i][j][k], returned_tensors[i][j][k]);
                     break;
-                case SINE_OPERATION:
+                case TENSOR_SINE:
                     error = tensor_sine(tensors[i][j][k], returned_tensors[i][j][k]);
                     break;
-                case COSINE_OPERATION:
+                case TENSOR_COSINE:
                     error = tensor_cosine(tensors[i][j][k], returned_tensors[i][j][k]);
                     break;
-                case SQUARE_ROOT_OPERATION:
+                case TENSOR_SQUARE_ROOT:
                     error = tensor_square_root(tensors[i][j][k], returned_tensors[i][j][k]);
                     break;
-                case RECIPROCAL_OPERATION:
+                case TENSOR_RECIPROCAL:
                     error = tensor_reciprocal(tensors[i][j][k], returned_tensors[i][j][k]);
                     break;
-                case CONTIGUOUS_OPERATION:
+                case TENSOR_CONTIGUOUS:
                     error = tensor_contiguous(tensors[i][j][k], returned_tensors[i][j][k]);
                     break;
-                case NEGATION_OPERATION:
+                case TENSOR_NEGATION:
                     error = tensor_negation(tensors[i][j][k], returned_tensors[i][j][k]);
                     break;
-                case RECTIFIED_LINEAR_OPERATION:
+                case TENSOR_RECTIFIED_LINEAR:
                     error = tensor_rectified_linear(tensors[i][j][k], returned_tensors[i][j][k]);
                     break;
-                case SIGMOID_OPERATION:
+                case TENSOR_SIGMOID:
                     error = tensor_sigmoid(tensors[i][j][k], returned_tensors[i][j][k]);
                     break;
                 default:
@@ -259,35 +205,8 @@ void test_unary(unary_operation_type_t unary_operation_type)
 
                 ck_assert_tensor_equiv(returned_tensors[i][j][k], expected_tensors[i][j][k]);
 
-                // Initialize expected gradient
-                error = view_create(&view,
-                                    (uint64_t) torch_tensors[i][j][k].grad().storage_offset(),
-                                    (uint64_t) torch_tensors[i][j][k].grad().ndimension(),
-                                    (uint64_t *) torch_tensors[i][j][k].grad().sizes().data(),
-                                    (uint64_t *) torch_tensors[i][j][k].grad().strides().data());
-                ck_assert_ptr_null(error);
+                expected_gradients[i][j][k] = torch_to_tensor(torch_tensors[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
 
-                error = storage_create(&storage,
-                                       (runtime_t) i,
-                                       (datatype_t) j,
-                                       (uint64_t) torch_tensors[i][j][k].grad().storage().nbytes() / 
-                                       (uint64_t) datatype_size((datatype_t) j),
-                                       (void *) torch_tensors[i][j][k].grad().data_ptr());
-                ck_assert_ptr_null(error);
-
-                error = buffer_create(&buffer,
-                                      view,
-                                      storage,
-                                      false);
-                ck_assert_ptr_null(error);
-
-                error = tensor_create(&expected_gradients[i][j][k],
-                                      buffer,
-                                      NULL,
-                                      NULL,
-                                      false,
-                                      false);
-                ck_assert_ptr_null(error);
                 // Back prop
                 tensor_t *cost;
                 error = tensor_create_default(&cost);
@@ -305,61 +224,61 @@ void test_unary(unary_operation_type_t unary_operation_type)
 
 START_TEST(test_exponential)
 {
-    test_unary(EXPONENTIAL_OPERATION);
+    test_unary(TENSOR_EXPONENTIAL);
 }
 END_TEST
 
 START_TEST(test_logarithm)
 {
-    test_unary(LOGARITHM_OPERATION);
+    test_unary(TENSOR_LOGARITHM);
 }
 END_TEST
 
 START_TEST(test_sine)
 {
-    test_unary(SINE_OPERATION);
+    test_unary(TENSOR_SINE);
 }
 END_TEST
 
 START_TEST(test_cosine)
 {
-    test_unary(COSINE_OPERATION);
+    test_unary(TENSOR_COSINE);
 }
 END_TEST
 
 START_TEST(test_square_root)
 {
-    test_unary(SQUARE_ROOT_OPERATION);
+    test_unary(TENSOR_SQUARE_ROOT);
 }
 END_TEST
 
 START_TEST(test_reciprocal)
 {
-    test_unary(RECIPROCAL_OPERATION);
+    test_unary(TENSOR_RECIPROCAL);
 }
 END_TEST
 
 START_TEST(test_contiguous)
 {
-    test_unary(CONTIGUOUS_OPERATION);
+    test_unary(TENSOR_CONTIGUOUS);
 }
 END_TEST
 
 START_TEST(test_negation)
 {
-    test_unary(NEGATION_OPERATION);
+    test_unary(TENSOR_NEGATION);
 }
 END_TEST
 
 START_TEST(test_rectified_linear)
 {
-    test_unary(RECTIFIED_LINEAR_OPERATION);
+    test_unary(TENSOR_RECTIFIED_LINEAR);
 }
 END_TEST
 
 START_TEST(test_sigmoid)
 {
-    test_unary(SIGMOID_OPERATION);
+    test_unary(TENSOR_SIGMOID);
 }
 END_TEST
 

@@ -1,8 +1,4 @@
-// Some of these includes might not be needed here...
-#include <ATen/core/TensorBody.h>
-#include <ATen/ops/sum.h>
-#include <torch/torch.h>
-
+#include <iostream>
 extern "C"
 {
 #include <view.h>
@@ -12,16 +8,9 @@ extern "C"
 #include <datatype.h>
 #include <errors.h>
 #include <measure.h>
-
-#include <test_helper.h>
-
 #include <check.h>
 }
-
-#include <iostream>
-#include <cstdio>
-#include <cstring>
-#include <cmath>
+#include <test_helper.h>
 
 #define CASES 5
 
@@ -83,34 +72,7 @@ void setup(void)
                     default:
                         ck_abort_msg("unknown datatype.");
                     }
-
-                    view_t *view;
-                    storage_t *storage;
-                    buffer_t *buffer;
-
-                    error = view_create(&view, 
-                                        (uint64_t) torch_tensors[i][j][k][z].storage_offset(),
-                                        (uint64_t) torch_tensors[i][j][k][z].ndimension(),
-                                        (uint64_t *) torch_tensors[i][j][k][z].sizes().data(),
-                                        (uint64_t *) torch_tensors[i][j][k][z].strides().data());
-                    ck_assert_ptr_null(error);
-
-
-                    error = storage_create(&storage,
-                                           (runtime_t) i,
-                                           (datatype_t) j,
-                                           (uint64_t) torch_tensors[i][j][k][z].storage().nbytes() / (uint64_t) datatype_size((datatype_t) j),
-                                           (void *) torch_tensors[i][j][k][z].data_ptr());
-                    ck_assert_ptr_null(error);
-
-                    error = buffer_create(&buffer,
-                                          view,
-                                          storage,
-                                          false);
-                    ck_assert_ptr_null(error);
-
-                    error = tensor_create(&tensors[i][j][k][z], buffer, NULL, NULL, false, false);
-                    ck_assert_ptr_null(error);
+                    tensors[i][j][k][z] = torch_to_tensor(torch_tensors[i][j][k][z], (runtime_t) i , (datatype_t) j);
 
                     error = tensor_create_default(&returned_tensors[i][j][k][z]);
                     ck_assert_ptr_null(error);
