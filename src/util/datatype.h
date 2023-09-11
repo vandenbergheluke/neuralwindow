@@ -30,6 +30,17 @@ typedef enum datatype_t
     FLOAT64
 } datatype_t;
 
+// >=C++14
+// Defines that force the compiler to choose the correct overloaded function
+// when passing it as an argument.
+//
+// AS_MEMBER_LAMBDA has the additional functionality of taking its first
+// argument as the object whose member is to be called.
+#if defined (__cplusplus) && (__cplusplus >= 201402L)
+#define AS_LAMBDA(func) [&](auto&&... args) -> decltype(func(std::forward<decltype(args)>(args)...)) { return func(std::forward<decltype(args)>(args)...); }
+#define AS_MEMBER_LAMBDA(func) [&](auto obj, auto&&... args) -> decltype(obj.func(std::forward<decltype(args)>(args)...)) { return obj.func(std::forward<decltype(args)>(args)...); }
+#endif
+
 #define DATATYPES 2
 
 string_t datatype_string(datatype_t datatype);
