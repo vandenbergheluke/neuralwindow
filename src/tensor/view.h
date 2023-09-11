@@ -135,6 +135,8 @@ nw_error_t *n_from_shape_and_strides(const uint64_t *shape,
                                      const uint64_t *strides,
                                      uint64_t rank,
                                      uint64_t *n);
+bool_t is_valid_reshape(const uint64_t *original_shape, uint64_t original_rank,
+                        const uint64_t *new_shape, uint64_t new_rank);
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 

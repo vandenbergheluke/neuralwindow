@@ -293,6 +293,9 @@ static void runtime_unary_execute(runtime_unary_type_t runtime_unary_type,
         case RUNTIME_RECTIFIED_LINEAR:
             openblas_rectified_linear(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
             break;
+        case RUNTIME_SIGMOID:
+            openblas_sigmoid(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
+            break;
         case RUNTIME_RECIPROCAL:
             openblas_reciprocal(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
             break;
@@ -326,6 +329,9 @@ static void runtime_unary_execute(runtime_unary_type_t runtime_unary_type,
             break;
         case RUNTIME_RECTIFIED_LINEAR:
             mkl_rectified_linear(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
+            break;
+        case RUNTIME_SIGMOID:
+            mkl_sigmoid(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
             break;
         case RUNTIME_RECIPROCAL:
             mkl_reciprocal(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
@@ -361,6 +367,9 @@ static void runtime_unary_execute(runtime_unary_type_t runtime_unary_type,
             break;
         case RUNTIME_RECTIFIED_LINEAR:
             cu_rectified_linear(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
+            break;
+        case RUNTIME_SIGMOID:
+            cu_sigmoid(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
             break;
         case RUNTIME_RECIPROCAL:
             cu_reciprocal(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
@@ -406,6 +415,17 @@ static nw_error_t *runtime_unary(runtime_unary_type_t runtime_unary_type,
 
     switch (rank)
     {
+    case 0:
+        n = 1;
+        x_stride = 0;
+        y_stride = 0;
+        x_offset = x_buffer->view->offset;
+        y_offset = y_buffer->view->offset;
+        runtime_unary_execute(runtime_unary_type, 
+                              runtime, datatype, n, 
+                              x_data, x_stride, x_offset, 
+                              y_data, y_stride, y_offset);
+        break;
     case 1:
         n = y_buffer->view->shape[0];
         x_stride = x_buffer->view->strides[0];
@@ -636,6 +656,19 @@ nw_error_t *runtime_rectified_linear(buffer_t *x, buffer_t *result)
     return NULL;
 }
 
+nw_error_t *runtime_sigmoid(buffer_t *x, buffer_t *result)
+{
+    nw_error_t *error = runtime_unary(RUNTIME_SIGMOID, x, result);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_UNARY, 
+                     string_create("failed to apply unary operation."),
+                     error);
+    }
+
+    return NULL;
+}
+
 
 static void runtime_binary_elementwise_execute(runtime_binary_elementwise_type_t runtime_binary_elementwise_type,
                                                runtime_t runtime,
@@ -785,6 +818,20 @@ static nw_error_t *runtime_binary_elementwise(runtime_binary_elementwise_type_t 
 
     switch (rank)
     {
+    case 0:
+        n = 1;
+        x_stride = 0;
+        y_stride = 0;
+        z_stride = 0;
+        x_offset = x_buffer->view->offset;
+        y_offset = y_buffer->view->offset;
+        z_offset = z_buffer->view->offset;
+        runtime_binary_elementwise_execute(runtime_binary_elementwise_type, 
+                                           runtime, datatype, n, 
+                                           x_data, x_stride, x_offset, 
+                                           y_data, y_stride, y_offset,
+                                           z_data, z_stride, z_offset);
+        break;
     case 1:
         n = z_buffer->view->shape[0];
         x_stride = x_buffer->view->strides[0];

@@ -692,12 +692,12 @@ bool_t shapes_equal(const uint64_t *x_shape, uint64_t x_rank, const uint64_t *y_
  */
 uint64_t shape_size(const uint64_t *shape, uint64_t rank)
 {
+    uint64_t total = 1;
+
     if (shape == NULL)
     {
-        return 0;
+        return total;
     }
-
-    uint64_t total = 0;
 
     for (uint64_t i = 0; i < rank; ++i)
     {
@@ -706,7 +706,7 @@ uint64_t shape_size(const uint64_t *shape, uint64_t rank)
             continue;
         }
 
-        total = (!total) ? shape[i] : total * shape[i];
+        total *= shape[i];
     }
     
     return total;
@@ -1073,17 +1073,6 @@ bool_t is_broadcastable(const uint64_t *original_shape,
     return true;
 }
 
-/**
- * @brief 
- * 
- * @param original_shape 
- * @param original_rank 
- * @param broadcasted_shape 
- * @param broadcasted_rank 
- * @param length_keep_dimension 
- * @param length_remove_dimension 
- * @return 
- */
 nw_error_t *reduce_axis_length(const uint64_t *original_shape,
                                uint64_t original_rank,
                                const uint64_t *broadcasted_shape,
@@ -1117,7 +1106,8 @@ nw_error_t *reduce_axis_length(const uint64_t *original_shape,
     {
         if (original_rank >= (i + 1))
         {
-            if (original_shape[original_rank - (i + 1)] != broadcasted_shape[broadcasted_rank - (i + 1)])
+            if (original_shape[original_rank - (i + 1)] != 
+                broadcasted_shape[broadcasted_rank - (i + 1)])
             {
                 ++(*length_keep_dimension);
             }
@@ -1147,7 +1137,10 @@ nw_error_t *reduce_axis(const uint64_t *original_shape,
     {
         return ERROR(ERROR_RANK_CONFLICT, 
                      string_create("original rank %lu and broadcasted rank %lu must be less than or equal to %d.", 
-                     (unsigned long) original_rank, (unsigned long) broadcasted_rank, (int) MAX_RANK), NULL);
+                     (unsigned long) original_rank, 
+                     (unsigned long) broadcasted_rank,
+                     (int) MAX_RANK),
+                     NULL);
     }
 
     if (!is_broadcastable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
@@ -1163,7 +1156,8 @@ nw_error_t *reduce_axis(const uint64_t *original_shape,
     {
         if (original_rank >= (i + 1))
         {
-            if (original_shape[original_rank - (i + 1)] != broadcasted_shape[broadcasted_rank - (i + 1)])
+            if (original_shape[original_rank - (i + 1)] != 
+                broadcasted_shape[broadcasted_rank - (i + 1)])
             {
                 axis_keep_dimension[j] = broadcasted_rank - (i + 1);
                 ++j;
@@ -1177,6 +1171,17 @@ nw_error_t *reduce_axis(const uint64_t *original_shape,
     }
 
     return NULL;
+}
+
+bool_t is_valid_reshape(const uint64_t *original_shape, uint64_t original_rank,
+                        const uint64_t *new_shape, uint64_t new_rank)
+{
+    if (original_shape == NULL || new_shape == NULL)
+    {
+        return false;
+    }
+
+    return shape_size(original_shape, original_rank) != shape_size(new_shape, new_rank);
 }
 
 nw_error_t *slice_shape(const uint64_t *original_shape,

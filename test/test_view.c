@@ -1334,8 +1334,8 @@ END_TEST
 
 START_TEST(test_shapes_size)
 {
-    ck_assert_uint_eq(shape_size(NULL, 0), 0);
-    ck_assert_uint_eq(shape_size((uint64_t[]){}, 0), 0);
+    ck_assert_uint_eq(shape_size(NULL, 0), 1);
+    ck_assert_uint_eq(shape_size((uint64_t[]){}, 0), 1);
     ck_assert_uint_eq(shape_size((uint64_t[]) {1}, 1), 1);
     ck_assert_uint_eq(shape_size((uint64_t[]) {2}, 1), 2);
     ck_assert_uint_eq(shape_size((uint64_t[]) {1, 2, 1}, 3), 2);

@@ -1,9 +1,77 @@
+#include <iostream>
+extern "C"
+{
 #include <check.h>
 #include <view.h>
 #include <buffer.h>
 #include <tensor.h>
 #include <function.h>
+}
 #include <test_helper.h>
+#include <torch/torch.h>
+
+tensor_t *torch_to_tensor(torch::Tensor torch_tensor, runtime_t runtime, datatype_t datatype)
+{
+    nw_error_t *error;
+    view_t *view;
+    storage_t *storage;
+    buffer_t *buffer;
+    tensor_t *tensor;
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        torch_tensor = torch_tensor.to(torch::kFloat32);
+        break;
+    case FLOAT64:
+        torch_tensor = torch_tensor.to(torch::kFloat64);
+        break;
+    default:
+        ck_abort_msg("invalid datatype.");
+    }
+
+    error = view_create(&view, 
+                        (uint64_t) torch_tensor.storage_offset(),
+                        (uint64_t) torch_tensor.ndimension(),
+                        (uint64_t *) torch_tensor.sizes().data(),
+                        (uint64_t *) torch_tensor.strides().data());
+    if (error)
+    {
+        error_print(error);
+    }
+    ck_assert_ptr_null(error);
+
+    error = storage_create(&storage,
+                           runtime,
+                           datatype,
+                           (uint64_t) torch_tensor.storage().nbytes() /
+                           (uint64_t) datatype_size(datatype),
+                           (void *) torch_tensor.data_ptr());
+    if (error)
+    {
+        error_print(error);
+    }
+    ck_assert_ptr_null(error);
+
+    error = buffer_create(&buffer,
+                          view,
+                          storage,
+                          false);
+    if (error)
+    {
+        error_print(error);
+    }
+    ck_assert_ptr_null(error);
+
+    error = tensor_create(&tensor, buffer, NULL, NULL, true, true);
+    if (error)
+    {
+        error_print(error);
+    }
+    ck_assert_ptr_null(error);
+
+    return tensor;
+}
 
 void ck_assert_element_eq(const void *returned_data, uint64_t returned_index,
                           const void *expected_data, uint64_t expected_index,

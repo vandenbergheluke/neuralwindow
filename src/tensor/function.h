@@ -23,7 +23,8 @@ typedef enum unary_operation_type_t
     RECIPROCAL_OPERATION,
     CONTIGUOUS_OPERATION,
     NEGATION_OPERATION,
-    RECTIFIED_LINEAR_OPERATION
+    RECTIFIED_LINEAR_OPERATION,
+    SIGMOID_OPERATION,
 } unary_operation_type_t;
 
 typedef struct unary_operation_t
@@ -84,7 +85,7 @@ string_t binary_operation_type_string(binary_operation_type_t binary_operation_t
 typedef enum reduction_operation_type_t
 {
     SUMMATION_OPERATION,
-    MAXIMUM_OPERATION
+    MAXIMUM_OPERATION,
 } reduction_operation_type_t;
 
 typedef struct reduction_operation_t

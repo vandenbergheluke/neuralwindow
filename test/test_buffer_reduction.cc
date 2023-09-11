@@ -4,22 +4,22 @@ extern "C"
 {
 #include <check.h>
 #include <buffer.h>
+#include <tensor.h>
 #include <view.h>
 #include <errors.h>
 #include <datatype.h>
-#include <test_helper.h>
 }
-#include <torch/torch.h>
+#include <test_helper.h>
 
 #define CASES 4
 
 nw_error_t *error;
 
-buffer_t *buffers[RUNTIMES][DATATYPES][CASES];
-buffer_t *returned_buffers[RUNTIMES][DATATYPES][CASES];
-buffer_t *expected_buffers[RUNTIMES][DATATYPES][CASES];
+tensor_t *tensors[RUNTIMES][DATATYPES][CASES];
+tensor_t *returned_tensors[RUNTIMES][DATATYPES][CASES];
+tensor_t *expected_tensors[RUNTIMES][DATATYPES][CASES];
 
-torch::Tensor tensors[RUNTIMES][DATATYPES][CASES];
+torch::Tensor torch_tensors[RUNTIMES][DATATYPES][CASES];
 
 std::vector<int64_t> shapes[CASES] = {
     {2, 2},
@@ -51,51 +51,31 @@ void setup(void)
         {
             for (int k = 0; k < CASES; ++k)
             {
-                buffers[i][j][k] = NULL;
-                returned_buffers[i][j][k] = NULL;
-                expected_buffers[i][j][k] = NULL;
+                tensors[i][j][k] = NULL;
+                returned_tensors[i][j][k] = NULL;
+                expected_tensors[i][j][k] = NULL;
             }
+
             
             for (int k = 0; k < CASES; ++k)
             {
                 switch ((datatype_t) j)
                 {
                 case FLOAT32:
-                    tensors[i][j][k] = torch::randn(shapes[k], torch::TensorOptions().dtype(torch::kFloat32));
+                    torch_tensors[i][j][k] = torch::randn(shapes[k], torch::TensorOptions().dtype(torch::kFloat32));
                     break;
                 case FLOAT64:
-                    tensors[i][j][k] = torch::randn(shapes[k], torch::TensorOptions().dtype(torch::kFloat64));
+                    torch_tensors[i][j][k] = torch::randn(shapes[k], torch::TensorOptions().dtype(torch::kFloat64));
                     break;
                 default:
                     ck_abort_msg("unknown datatype.");
                 }
 
-                view_t *view;
-                storage_t *storage;
-
-                error = view_create(&view, 
-                                    (uint64_t) tensors[i][j][k].storage_offset(),
-                                    (uint64_t) tensors[i][j][k].ndimension(),
-                                    (uint64_t *) tensors[i][j][k].sizes().data(),
-                                    (uint64_t *) tensors[i][j][k].strides().data());
-                ck_assert_ptr_null(error);
-                error = storage_create(&storage,
-                                      (runtime_t) i,
-                                      (datatype_t) j,
-                                      tensors[i][j][k].nbytes() / 
-                                      datatype_size((datatype_t) j),
-                                      (void *) tensors[i][j][k].data_ptr());
-                ck_assert_ptr_null(error);
-                error = buffer_create(&buffers[i][j][k],
-                                      view,
-                                      storage,
-                                      false);
-                ck_assert_ptr_null(error);
+                tensors[i][j][k] = torch_to_tensor(torch_tensors[i][j][k], (runtime_t) i, (datatype_t) j);
             }
         }
     }
 }
-
 
 void teardown(void)
 {
@@ -106,9 +86,9 @@ void teardown(void)
         {
             for (int k = 0; k < CASES; ++k)
             {
-                buffer_destroy(buffers[i][j][k]);
-                buffer_destroy(returned_buffers[i][j][k]);
-                buffer_destroy(expected_buffers[i][j][k]);
+                tensor_destroy(tensors[i][j][k]);
+                tensor_destroy(returned_tensors[i][j][k]);
+                tensor_destroy(expected_tensors[i][j][k]);
             }
         }
     }
@@ -129,71 +109,34 @@ void test_reduction(runtime_reduction_type_t runtime_reduction_type)
                 switch (runtime_reduction_type)
                 {
                 case RUNTIME_SUMMATION:
-                    expected_tensor = torch::sum(tensors[i][j][k], 
+                    expected_tensor = torch::sum(torch_tensors[i][j][k], 
                                                  std::vector<int64_t>({(int64_t) axis[k]}),
                                                  keep_dimension[k]);
                     break;
                 case RUNTIME_MAXIMUM:
-                    expected_tensor = std::get<0>(torch::max(tensors[i][j][k], 
+                    expected_tensor = std::get<0>(torch::max(torch_tensors[i][j][k], 
                                                   {(int64_t) axis[k]}, keep_dimension[k]));
                     break;
                 default:
                     ck_abort_msg("unknown reduction type.");
                 }
 
-                view_t *view;
-                storage_t *storage;
-
-                error = view_create(&view,
-                                    (uint64_t) expected_tensor.storage_offset(),
-                                    (uint64_t) expected_tensor.ndimension(),
-                                    (uint64_t *) expected_tensor.sizes().data(),
-                                    (uint64_t *) expected_tensor.strides().data());
-                ck_assert_ptr_null(error);
-                error = storage_create(&storage,
-                                       (runtime_t) i,
-                                       (datatype_t) j,
-                                       expected_tensor.nbytes() / 
-                                       datatype_size((datatype_t) j),
-                                       NULL);
-                error = buffer_create(&returned_buffers[i][j][k],
-                                      view,
-                                      storage,
-                                      false);
-                ck_assert_ptr_null(error);
-
-                error = view_create(&view,
-                                    (uint64_t) expected_tensor.storage_offset(),
-                                    (uint64_t) expected_tensor.ndimension(),
-                                    (uint64_t *) expected_tensor.sizes().data(),
-                                    (uint64_t *) expected_tensor.strides().data());
-                ck_assert_ptr_null(error);
-                error = storage_create(&storage,
-                                      (runtime_t) i,
-                                      (datatype_t) j,
-                                      expected_tensor.nbytes() / 
-                                      datatype_size((datatype_t) j),
-                                      (void *) expected_tensor.data_ptr());
-                ck_assert_ptr_null(error);
-                error = buffer_create(&expected_buffers[i][j][k],
-                                      view,
-                                      storage,
-                                      false);
-                ck_assert_ptr_null(error);
+                expected_tensors[i][j][k] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
+                returned_tensors[i][j][k] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
 
                 switch (runtime_reduction_type)
                 {
                 case RUNTIME_SUMMATION:
-                    error = runtime_summation(buffers[i][j][k], returned_buffers[i][j][k], axis[k]);
+                    error = runtime_summation(tensors[i][j][k]->buffer, returned_tensors[i][j][k]->buffer, axis[k]);
                     break;
                 case RUNTIME_MAXIMUM:
-                    error = runtime_maximum(buffers[i][j][k], returned_buffers[i][j][k], axis[k]);
+                    error = runtime_maximum(tensors[i][j][k]->buffer, returned_tensors[i][j][k]->buffer, axis[k]);
                     break;
                 default:
                     ck_abort_msg("unknown reduction type.");
                 }
                 ck_assert_ptr_null(error);
-                ck_assert_buffer_eq(returned_buffers[i][j][k], expected_buffers[i][j][k]);
+                ck_assert_buffer_eq(returned_tensors[i][j][k]->buffer, expected_tensors[i][j][k]->buffer);
             }
         }
     }
@@ -210,7 +153,6 @@ START_TEST(test_maximum)
     test_reduction(RUNTIME_MAXIMUM);
 }
 END_TEST
-
 
 Suite *make_buffer_reduction_suite(void)
 {
