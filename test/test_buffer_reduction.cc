@@ -15,9 +15,9 @@ extern "C"
 
 nw_error_t *error;
 
-buffer_t *buffers[RUNTIMES][DATATYPES][CASES];
-buffer_t *returned_buffers[RUNTIMES][DATATYPES][CASES];
-buffer_t *expected_buffers[RUNTIMES][DATATYPES][CASES];
+buffer_t *buffers[RUNTIMES][DATATYPES][CASES] = { NULL };
+buffer_t *returned_buffers[RUNTIMES][DATATYPES][CASES] = { NULL };
+buffer_t *expected_buffers[RUNTIMES][DATATYPES][CASES] = { NULL };
 
 torch::Tensor tensors[RUNTIMES][DATATYPES][CASES];
 
@@ -51,13 +51,6 @@ void setup(void)
         {
             for (int k = 0; k < CASES; ++k)
             {
-                buffers[i][j][k] = NULL;
-                returned_buffers[i][j][k] = NULL;
-                expected_buffers[i][j][k] = NULL;
-            }
-            
-            for (int k = 0; k < CASES; ++k)
-            {
                 switch ((datatype_t) j)
                 {
                 case FLOAT32:
@@ -82,7 +75,7 @@ void setup(void)
                 error = storage_create(&storage,
                                       (runtime_t) i,
                                       (datatype_t) j,
-                                      tensors[i][j][k].nbytes() / 
+                                      tensors[i][j][k].storage().nbytes() / 
                                       datatype_size((datatype_t) j),
                                       (void *) tensors[i][j][k].data_ptr());
                 ck_assert_ptr_null(error);
@@ -153,9 +146,10 @@ void test_reduction(runtime_reduction_type_t runtime_reduction_type)
                 error = storage_create(&storage,
                                        (runtime_t) i,
                                        (datatype_t) j,
-                                       expected_tensor.nbytes() / 
+                                       expected_tensor.storage().nbytes() / 
                                        datatype_size((datatype_t) j),
                                        NULL);
+                ck_assert_ptr_null(error);
                 error = buffer_create(&returned_buffers[i][j][k],
                                       view,
                                       storage,
@@ -171,7 +165,7 @@ void test_reduction(runtime_reduction_type_t runtime_reduction_type)
                 error = storage_create(&storage,
                                       (runtime_t) i,
                                       (datatype_t) j,
-                                      expected_tensor.nbytes() / 
+                                      expected_tensor.storage().nbytes() / 
                                       datatype_size((datatype_t) j),
                                       (void *) expected_tensor.data_ptr());
                 ck_assert_ptr_null(error);

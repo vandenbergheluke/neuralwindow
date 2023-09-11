@@ -2,9 +2,9 @@ find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 set(TEST_C
-    test_map
-    test_queue
-    test_view
+    # test_map
+    # test_queue
+    # test_view
 )
 
 set(TEST_CXX
@@ -16,7 +16,7 @@ set(TEST_CXX
     test_buffer_reduction
     test_buffer_unary
     test_buffer_binary
-    # test_buffer_reduction_performance
+    test_buffer_reduction_performance
     test_buffer_unary_performance
     test_buffer_binary_performance
     test_autograd

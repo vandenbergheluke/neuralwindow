@@ -99,7 +99,7 @@ void setup(void)
                     error = storage_create(&storages_x[i][j][k][z],
                                            (runtime_t) i,
                                            (datatype_t) j,
-                                           (uint64_t) tensors_x[i][j][k][z].numel(),
+                                           (uint64_t) tensors_x[i][j][k][z].storage().nbytes() / datatype_size((datatype_t) j),
                                            (void *) tensors_x[i][j][k][z].data_ptr());
                     ck_assert_ptr_null(error);
                     error = buffer_create(&buffers_x[i][j][k][z],
@@ -117,7 +117,7 @@ void setup(void)
                     error = storage_create(&storages_y[i][j][k][z],
                                            (runtime_t) i,
                                            (datatype_t) j,
-                                           (uint64_t) tensors_y[i][j][k][z].numel(),
+                                           (uint64_t) tensors_y[i][j][k][z].storage().nbytes() / datatype_size((datatype_t) j),
                                            (void *) tensors_y[i][j][k][z].data_ptr());
                     ck_assert_ptr_null(error);
                     error = buffer_create(&buffers_y[i][j][k][z],
@@ -135,7 +135,7 @@ void setup(void)
                     error = storage_create(&returned_storages[i][j][k][z],
                                            (runtime_t) i,
                                            (datatype_t) j,
-                                           (uint64_t) tensors_x[i][j][k][z].numel(),
+                                           (uint64_t) tensors_x[i][j][k][z].storage().nbytes() / datatype_size((datatype_t) j),
                                            (void *) tensors_x[i][j][k][z].data_ptr());
                     ck_assert_ptr_null(error);
                     error = buffer_create(&returned_buffers[i][j][k][z],

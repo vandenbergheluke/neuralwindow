@@ -71,7 +71,7 @@ void setup(void)
                 error = storage_create(&storage,
                                       (runtime_t) i,
                                       (datatype_t) j,
-                                      tensors[i][j][k].nbytes() / 
+                                      tensors[i][j][k].storage().nbytes() / 
                                       datatype_size((datatype_t) j),
                                       (void *) tensors[i][j][k].data_ptr());
                 error = buffer_create(&buffers[i][j][k],
@@ -157,7 +157,7 @@ void test_unary(runtime_unary_type_t runtime_unary_type)
                 error = storage_create(&storage,
                                        (runtime_t) i,
                                        (datatype_t) j,
-                                       expected_tensor.nbytes() / 
+                                       expected_tensor.storage().nbytes() / 
                                        datatype_size((datatype_t) j),
                                        NULL);
                 error = buffer_create(&returned_buffers[i][j][k],
@@ -175,7 +175,7 @@ void test_unary(runtime_unary_type_t runtime_unary_type)
                 error = storage_create(&storage,
                                       (runtime_t) i,
                                       (datatype_t) j,
-                                      expected_tensor.nbytes() / 
+                                      expected_tensor.storage().nbytes() / 
                                       datatype_size((datatype_t) j),
                                       (void *) expected_tensor.data_ptr());
                 ck_assert_ptr_null(error);

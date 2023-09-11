@@ -86,7 +86,7 @@ void setup(void)
                     error = storage_create(&storages[i][j][k][z],
                                            (runtime_t) i,
                                            (datatype_t) j,
-                                           (uint64_t) tensors[i][j][k][z].numel(),
+                                           (uint64_t) tensors[i][j][k][z].storage().nbytes() / datatype_size((datatype_t) j),
                                            (void *) tensors[i][j][k][z].data_ptr());
                     ck_assert_ptr_null(error);
                     error = buffer_create(&buffers[i][j][k][z],
@@ -104,7 +104,7 @@ void setup(void)
                     error = storage_create(&returned_storages[i][j][k][z],
                                            (runtime_t) i,
                                            (datatype_t) j,
-                                           (uint64_t) tensors[i][j][k][z].numel(),
+                                           (uint64_t) tensors[i][j][k][z].storage().nbytes() / datatype_size((datatype_t) j),
                                            (void *) tensors[i][j][k][z].data_ptr());
                     ck_assert_ptr_null(error);
                     error = buffer_create(&returned_buffers[i][j][k][z],
@@ -363,15 +363,6 @@ START_TEST(test_reciprocal_computational_performance)
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
 }
 END_TEST
-
-#if 0
-START_TEST(test_copy_computational_performance)
-{
-    printf("------------------------   Copy   ------------------------\n");
-    performance_test(AS_LAMBDA(torch::clone), AS_LAMBDA(runtime_copy));
-}
-END_TEST
-#endif
 
 START_TEST(test_contiguous_computational_performance)
 {

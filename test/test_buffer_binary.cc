@@ -73,7 +73,7 @@ void setup(void)
                 error = storage_create(&storage,
                                       (runtime_t) i,
                                       (datatype_t) j,
-                                      tensors_x[i][j][k].nbytes() / 
+                                      tensors_x[i][j][k].storage().nbytes() / 
                                       datatype_size((datatype_t) j),
                                       (void *) tensors_x[i][j][k].data_ptr());
                 error = buffer_create(&buffers_x[i][j][k],
@@ -91,7 +91,7 @@ void setup(void)
                 error = storage_create(&storage,
                                       (runtime_t) i,
                                       (datatype_t) j,
-                                      tensors_y[i][j][k].nbytes() / 
+                                      tensors_y[i][j][k].storage().nbytes() / 
                                       datatype_size((datatype_t) j),
                                       (void *) tensors_y[i][j][k].data_ptr());
                 error = buffer_create(&buffers_y[i][j][k],
@@ -173,7 +173,7 @@ void test_binary(runtime_binary_elementwise_type_t runtime_binary_elementwise_ty
                 error = storage_create(&storage,
                                        (runtime_t) i,
                                        (datatype_t) j,
-                                       expected_tensor.nbytes() / 
+                                       expected_tensor.storage().nbytes() / 
                                        datatype_size((datatype_t) j),
                                        NULL);
                 error = buffer_create(&returned_buffers[i][j][k],
@@ -191,7 +191,7 @@ void test_binary(runtime_binary_elementwise_type_t runtime_binary_elementwise_ty
                 error = storage_create(&storage,
                                       (runtime_t) i,
                                       (datatype_t) j,
-                                      expected_tensor.nbytes() / 
+                                      expected_tensor.storage().nbytes() / 
                                       datatype_size((datatype_t) j),
                                       (void *) expected_tensor.data_ptr());
                 ck_assert_ptr_null(error);
