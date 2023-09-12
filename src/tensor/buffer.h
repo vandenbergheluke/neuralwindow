@@ -106,5 +106,6 @@ nw_error_t *runtime_compare_greater(buffer_t *x_buffer, buffer_t *y_buffer, buff
 nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
 nw_error_t *runtime_summation(buffer_t *x, buffer_t *result, uint64_t axis);
 nw_error_t *runtime_maximum(buffer_t *x, buffer_t *result, uint64_t axis);
-
+nw_error_t *runtime_init_zeroes(buffer_t *buffer);
+nw_error_t *runtime_init_ones(buffer_t *buffer);
 #endif

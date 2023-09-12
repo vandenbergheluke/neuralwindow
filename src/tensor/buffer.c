@@ -1567,3 +1567,59 @@ string_t runtime_string(runtime_t runtime)
         return "UNKNOWN_RUNTIME";
     }
 }
+
+nw_error_t *runtime_init_zeroes(buffer_t *buffer)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
+    CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
+
+    void *data = buffer->storage->data;
+    uint64_t n = buffer->storage->n;
+    datatype_t datatype = buffer->storage->datatype;
+
+    for (uint64_t i = 0; i < n; ++i)
+    {
+        switch (datatype)
+        {
+        case FLOAT32:
+            ((float32_t *) data)[i] = (float32_t) 0.0;
+            break;
+        case FLOAT64:
+            ((float64_t *) data)[i] = (float64_t) 0.0;
+            break;
+        default:
+            return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        }
+    }
+
+    return NULL;
+}
+
+nw_error_t *runtime_init_ones(buffer_t *buffer)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
+    CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
+
+    void *data = buffer->storage->data;
+    uint64_t n = buffer->storage->n;
+    datatype_t datatype = buffer->storage->datatype;
+
+    for (uint64_t i = 0; i < n; ++i)
+    {
+        switch (datatype)
+        {
+        case FLOAT32:
+            ((float32_t *) data)[i] = (float32_t) 1.0;
+            break;
+        case FLOAT64:
+            ((float64_t *) data)[i] = (float64_t) 1.0;
+            break;
+        default:
+            return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        }
+    }
+
+    return NULL;
+}

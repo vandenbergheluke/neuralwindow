@@ -47,13 +47,11 @@ nw_error_t *function_create(function_t **function,
  */
 void function_destroy(function_t *function)
 {
-    if (function == NULL)
+    if (function)
     {
-        return;
+        operation_destroy(function->operation, function->operation_type);
+        free(function);
     }
-
-    operation_destroy(function->operation, function->operation_type);
-    free(function);
 }
 
 /**
@@ -85,7 +83,7 @@ static nw_error_t *apply_function(operation_type_t operation_type,
     error = function_create(&function, operation, operation_type);
     if (error != NULL)
     {
-        free(operation);
+        operation_destroy(operation, operation_type);
         return ERROR(ERROR_CREATE,
                      string_create("failed to create function operation of type %s.",
                      operation_type_string(operation_type)), 
@@ -95,15 +93,14 @@ static nw_error_t *apply_function(operation_type_t operation_type,
     error = function_forward(function);
     if (error != NULL)
     {
-        free(operation);
-        free(function);
+        function_destroy(function);
         return ERROR(ERROR_FORWARD,
                      string_create("failed to execute function forward pass of type %s.",
                      operation_type_string(operation_type)), 
                      error);
     }
 
-    return NULL;
+    return error;
 }
 
 /**

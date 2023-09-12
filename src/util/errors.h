@@ -403,6 +403,7 @@ typedef enum nw_error_type_t
     ERROR_N,
     ERROR_UNARY,
     ERROR_SIGMOID,
+    ERROR_PUSH,
 } nw_error_type_t;
 
 typedef struct nw_error_t
