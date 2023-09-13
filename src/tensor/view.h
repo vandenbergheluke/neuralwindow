@@ -137,6 +137,7 @@ nw_error_t *n_from_shape_and_strides(const uint64_t *shape,
                                      uint64_t *n);
 bool_t is_valid_reshape(const uint64_t *original_shape, uint64_t original_rank,
                         const uint64_t *new_shape, uint64_t new_rank);
+nw_error_t *view_copy(const view_t *source_view, view_t **destination_view);
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 

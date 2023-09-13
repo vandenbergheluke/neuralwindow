@@ -37,11 +37,7 @@
  *         Error if a dimension in shape is 0.
  *         NULL if view was successfully dynamically memory allocated and initialized.
  */
-nw_error_t *view_create(view_t **view,
-                        uint64_t offset,
-                        uint64_t rank,
-                        const uint64_t *shape,
-                        const uint64_t *strides)
+nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uint64_t *shape, const uint64_t *strides)
 {
     CHECK_NULL_ARGUMENT(view, "view");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -153,6 +149,22 @@ void view_destroy(view_t *view)
     free(view);
 }
 
+nw_error_t *view_copy(const view_t *source_view, view_t **destination_view)
+{
+    CHECK_NULL_ARGUMENT(source_view, "source_view");
+    CHECK_NULL_ARGUMENT(destination_view, "destination_view");
+
+    nw_error_t *error = NULL;
+
+    error = view_create(destination_view, source_view->offset, source_view->rank, source_view->shape, source_view->strides);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    return error;
+        
+}
 
 /**
  * @brief Determine if tensor is contiguous in memory. 
