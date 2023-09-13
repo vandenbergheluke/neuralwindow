@@ -1,12 +1,25 @@
 /**@file cu_runtime.cu
- * @brief
- *
+ * @brief Implementation of low level matrix operations using CUDA kernels and
+ * CuBLAS.
  */
 
 #include <cuda_runtime.h>
 #include <cublas.h>
 extern "C" {
     #include <cu_runtime.h>
+}
+
+static inline float __attribute__((unused)) get_occupancy(const void * func, int blk_sz) {
+    cudaDeviceSynchronize();
+    int max_active_blocks;
+    int device;
+    cudaDeviceProp props;
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor( &max_active_blocks, func, blk_sz, 0);
+    cudaGetDevice(&device);
+    cudaGetDeviceProperties(&props, device);
+    return (max_active_blocks * blk_sz / props.warpSize) / 
+                    (float)(props.maxThreadsPerMultiProcessor / 
+                            props.warpSize);
 }
 
 #define EPSILON 1e-7
@@ -26,6 +39,7 @@ extern "C" nw_error_t *cu_create_context(void)
 
 extern "C" void cu_destroy_context(void)
 {
+    // Automatically synchronizes the device.
     cublasDestroy_v2(handle);
 }
 
@@ -47,31 +61,65 @@ extern "C" void cu_memory_free(void *p)
     cudaFree(p);
 }
 
-extern "C" static void cu_exponential_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
+__global__ static void cu_exponential_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; ++i)
-    {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if (i < n) {
         y_data[i * y_stride] = expf(x_data[i * x_stride]); 
     }
 }
 
-extern "C" static void cu_exponential_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
+__global__ static void cu_exponential_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    for (int i = 0; i < n; ++i)
-    {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if (i < n) {
         y_data[i * y_stride] = exp(x_data[i * x_stride]); 
     }
 }
 
 extern "C" void cu_exponential(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset)
 {
+    // CUDA devs want us using ints here for minor optimization purposes, and
+    // presumably because we know we're not going to overflow.
+    int block_size;
+    int min_grid_size;
+    int grid_size;
+
     switch (datatype)
     {
     case FLOAT32:
-        cu_exponential_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        // I want to move this code into cu_context_create and store the grid
+        // and block size somewhere, but presumably
+        // cudaOccupancyMaxPotentialBlockSize is compile time so we're only
+        // losing time on the division, and darknet does something completely
+        // different so I think it's best to try to understand that before doing
+        // any major restructuring.
+        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
+                cu_exponential_float32, 0, 0);
+
+        grid_size = (n + block_size - 1) / block_size;
+
+        cu_exponential_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+
+#ifdef DEBUG
+        // We'll want to tune by comparing against this before we got into any
+        // ILP optimization.
+        PRINT_DEBUG_LOCATION;
+        PRINTF_DEBUG("cu_exponential_float32 occupancy: %f", get_occupancy(cu_exponential_float32, block_size));
+#endif
         break;
     case FLOAT64:
-        cu_exponential_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
+                cu_exponential_float64, 0, 0);
+
+        grid_size = (n + block_size - 1) / block_size;
+
+        cu_exponential_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+
+#ifdef DEBUG
+        PRINT_DEBUG_LOCATION;
+        PRINTF_DEBUG("cu_exponential_float32 occupancy: %f", get_occupancy(cu_exponential_float32, block_size));
+#endif
         break;
     default:
         break;

@@ -1,5 +1,5 @@
 /**@file cu_runtime.h
- * @brief
+ * @brief Provides low level matrix operations using CUDA kernels and CuBLAS.
  *
  */
 
