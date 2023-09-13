@@ -1229,6 +1229,47 @@ nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_g
     return error;
 }
 
+nw_error_t *tensor_create_empty(const uint64_t *shape, uint64_t rank, tensor_t **y, bool_t requires_gradient, runtime_t runtime, datatype_t datatype)
+{
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    nw_error_t *error = NULL;
+    view_t *view = NULL;
+    storage_t *storage = NULL;
+    buffer_t *buffer = NULL;
+
+    error = view_create(&view, 0, rank, shape, NULL);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    error = storage_create(&storage, runtime, datatype, shape_size(shape, rank), NULL);
+    if (error != NULL)
+    {
+        view_destroy(view);
+        return ERROR(ERROR_CREATE, string_create("failed to create storage."), error);
+    }
+
+    error = buffer_create(&buffer, view, storage, false);
+    if (error != NULL)
+    {
+        view_destroy(view);
+        storage_destroy(storage);
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    error = tensor_create(y, buffer, NULL, NULL, requires_gradient);
+    if (error != NULL)
+    {
+        buffer_destroy(buffer);
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    return error;
+}
+
 nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
