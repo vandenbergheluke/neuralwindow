@@ -300,23 +300,21 @@
     }\
     else\
     {\
-        fprintf(stderr, "(id: %lu", tensor->id);\
+        fprintf(stderr, "(id: %lu", (tensor)->id);\
         fprintf(stderr, ", buffer: ");\
-        PRINT_DEBUG_BUFFER(tensor->buffer);\
+        PRINT_DEBUG_BUFFER((tensor)->buffer);\
         fprintf(stderr, ", context: ");\
-        PRINT_DEBUG_FUNCTION(tensor->context);\
-        if (tensor->gradient == NULL)\
+        PRINT_DEBUG_FUNCTION((tensor)->context);\
+        if ((tensor)->gradient == NULL)\
         {\
             fprintf(stderr, ", gradient: NULL");\
         }\
         else\
         {\
-            fprintf(stderr, ", gradient: (id: %lu)", tensor->gradient->id);\
+            fprintf(stderr, ", gradient: (id: %lu)", (tensor)->gradient->id);\
         }\
         fprintf(stderr, ", requires_gradient: ");\
-        PRINT_DEBUG_BOOLEAN(tensor->requires_gradient);\
-        fprintf(stderr, ", lock: ");\
-        PRINT_DEBUG_BOOLEAN(tensor->lock);\
+        PRINT_DEBUG_BOOLEAN((tensor)->requires_gradient);\
         fprintf(stderr, ")");\
     }\
 } while(0)

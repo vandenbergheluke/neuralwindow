@@ -101,7 +101,6 @@ void setup(void)
 
                 input[i][j][k] = torch_to_tensor(torch_input[i][j][k], (runtime_t) i, (datatype_t) j);
 
-                error = tensor_create_default(&cost[i][j][k]);
                 ck_assert_ptr_null(error);
 
                 for (int l = 0; l < LAYERS; ++l)
@@ -136,18 +135,6 @@ void setup(void)
 
                     weights[i][j][k][l] = torch_to_tensor(torch_weights[i][j][k][l], (runtime_t) i, (datatype_t) j);
                     bias[i][j][k][l] = torch_to_tensor(torch_bias[i][j][k][l], (runtime_t) i, (datatype_t) j);
-                    
-                    error = tensor_create_default(&returned_tensors[i][j][k][l]);
-                    ck_assert_ptr_null(error);
-                    returned_tensors[i][j][k][l]->lock = true;
-
-                    error = tensor_create_default(&returned_tensors_i[i][j][k][l]);
-                    ck_assert_ptr_null(error);
-                    returned_tensors_i[i][j][k][l]->lock = true;
-                    
-                    error = tensor_create_default(&returned_tensors_j[i][j][k][l]);
-                    ck_assert_ptr_null(error);
-                    returned_tensors_j[i][j][k][l]->lock = true;
                 }
             }
         }
@@ -207,30 +194,30 @@ START_TEST(test_feed_forward_neural_network)
                     {
                         error = tensor_matrix_multiplication(input[i][j][k],
                                                              weights[i][j][k][l],
-                                                             returned_tensors_i[i][j][k][l]);
+                                                             &returned_tensors_i[i][j][k][l]);
                     }
                     else
                     {
                         error = tensor_matrix_multiplication(returned_tensors[i][j][k][l - 1],
                                                              weights[i][j][k][l],
-                                                             returned_tensors_i[i][j][k][l]);
+                                                             &returned_tensors_i[i][j][k][l]);
                     }
                     ck_assert_ptr_null(error);
 
                     error = tensor_addition(returned_tensors_i[i][j][k][l],
                                             bias[i][j][k][l],
-                                            returned_tensors_j[i][j][k][l]);
+                                            &returned_tensors_j[i][j][k][l]);
                     ck_assert_ptr_null(error);
 
                     if (l == LAYERS - 1)
                     {
                         error = tensor_sigmoid(returned_tensors_j[i][j][k][l],
-                                               returned_tensors[i][j][k][l]);
+                                               &returned_tensors[i][j][k][l]);
                     }
                     else
                     {
                         error = tensor_rectified_linear(returned_tensors_j[i][j][k][l],
-                                                        returned_tensors[i][j][k][l]);
+                                                        &returned_tensors[i][j][k][l]);
                     }
                     ck_assert_ptr_null(error);
                     
@@ -243,7 +230,7 @@ START_TEST(test_feed_forward_neural_network)
                 // Backward Propogation
                 expected_tensor.mean().backward();
                 error = tensor_mean(returned_tensors[i][j][k][LAYERS - 1],
-                                    cost[i][j][k],
+                                    &cost[i][j][k],
                                     NULL,
                                     returned_tensors[i][j][k][LAYERS - 1]->buffer->view->rank,
                                     false);

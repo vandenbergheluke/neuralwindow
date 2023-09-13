@@ -63,7 +63,7 @@ tensor_t *torch_to_tensor(torch::Tensor torch_tensor, runtime_t runtime, datatyp
     }
     ck_assert_ptr_null(error);
 
-    error = tensor_create(&tensor, buffer, NULL, NULL, true, true);
+    error = tensor_create(&tensor, buffer, NULL, NULL, true);
     if (error)
     {
         error_print(error);

@@ -219,7 +219,7 @@ nw_error_t *tensor_expand(const tensor_t *x, const uint64_t *shape, uint64_t len
 
     if (shapes_equal(x->buffer->view->shape, x->buffer->view->rank, shape, length))
     {
-        *y = x;
+        *y = (tensor_t *) x;
     }
     else
     {
@@ -620,12 +620,12 @@ nw_error_t *tensor_mean(const tensor_t *x, tensor_t **y, const uint64_t *axis, u
     case FLOAT32:
         error = tensor_constant_float32((float32_t) tensor_number_of_elements(x_i) / 
                                         (float32_t) tensor_number_of_elements(x), 
-                                        runtime, &x_j);
+                                        &x_j, runtime);
         break;
     case FLOAT64:
         error = tensor_constant_float64((float64_t) tensor_number_of_elements(x_i) / 
                                         (float64_t) tensor_number_of_elements(x), 
-                                        runtime, &x_j);
+                                        &x_j, runtime);
         break;
     default:
         error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
@@ -1229,7 +1229,8 @@ nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_g
     return error;
 }
 
-nw_error_t *tensor_create_empty(const uint64_t *shape, const uint64_t *strides, uint64_t rank, tensor_t **y, bool_t requires_gradient, runtime_t runtime, datatype_t datatype)
+nw_error_t *tensor_create_empty(const uint64_t *shape, const uint64_t *strides, uint64_t rank, tensor_t **y, 
+                                bool_t requires_gradient, runtime_t runtime, datatype_t datatype)
 {
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -1302,7 +1303,7 @@ nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
             return ERROR(ERROR_RANK_CONFLICT, string_create("gradient only implicitly created for scalars"), NULL);
         }
 
-        error = tensor_ones_like(x, &(x->gradient), false, false);
+        error = tensor_ones_like(x, &x->gradient, false, false);
         if (error != NULL)
         {
             return ERROR(ERROR_CREATE, string_create("failed to create tensor of ones."), error);

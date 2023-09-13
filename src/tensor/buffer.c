@@ -141,7 +141,6 @@ nw_error_t *buffer_create_empty(buffer_t **buffer,
     nw_error_t *error = NULL;
     view_t *view = NULL;
     storage_t *storage = NULL;
-    buffer_t *buffer = NULL;
     uint64_t n;
 
     error = view_create(&view, 0, rank, shape, strides);
@@ -164,7 +163,7 @@ nw_error_t *buffer_create_empty(buffer_t **buffer,
         return ERROR(ERROR_CREATE, string_create("failed to create storage."), error);
     }
 
-    error = buffer_create(&buffer, view, storage, false);
+    error = buffer_create(buffer, view, storage, false);
     if (error != NULL)
     {
         view_destroy(view);
@@ -1112,7 +1111,6 @@ static void runtime_matrix_multiplication_execute(runtime_t runtime,
     }
 }
 
-
 nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer,
                                           buffer_t *y_buffer,
                                           buffer_t *z_buffer)
@@ -1304,76 +1302,6 @@ static void runtime_reduction_execute(runtime_reduction_type_t runtime_reduction
         break;
     }
 
-}
-static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_type,
-                                     buffer_t *x,
-                                     uint64_t *axis,
-                                     uint64_t length,
-                                     buffer_t *result,
-                                     bool_t keep_dimension)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(x->view, "x->view");
-    CHECK_NULL_ARGUMENT(x->storage, "x->storage");
-    CHECK_NULL_ARGUMENT(axis, "axis");
-    CHECK_NULL_ARGUMENT(result, "result");
-
-    datatype_t datatype = x->storage->datatype;
-    runtime_t runtime = x->storage->runtime;
-    uint64_t reduced_rank = x->view->rank; 
-    nw_error_t *error = NULL;
-    buffer_t *intermediate_buffer = NULL;
-
-    if (x->view->rank < length)
-    {
-        return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("rank of tensor being reduced (%lu) must be not be less than length of axis (%lu).",
-                     (unsigned long) (x->view->rank), (unsigned long) length), NULL);
-    }
-
-    for (uint64_t i = 0; i < length; ++i)
-    {
-        uint64_t *shape = x->view->shape;
-        uint64_t *strides = x->view->strides;
-        uint64_t rank = x->view->rank;
-        uint64_t reduced_shape[reduced_rank];
-        uint64_t reduced_strides[reduced_rank];
-
-        error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, &axis[i], (uint64_t) 1, keep_dimension);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensors"), error);
-        }
-
-        if (i < length - 1)
-        {
-            error = buffer_create_empty(&intermediate_buffer, reduced_shape, reduced_strides, reduced_rank, runtime, datatype);
-            if (error != NULL)
-            {
-                return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-            }
-        }
-        else
-        {
-            intermediate_buffer = result;
-        }
-
-        error = runtime_reduction_dimension(runtime_reduction_type, x, intermediate_buffer, axis[i]);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor dimension."), error);
-        }
-
-        if (i > 0)
-        {
-            buffer_destroy(x);
-            x = intermediate_buffer;
-        }
-
-        --reduced_rank;
-    }
-
-    return error; 
 }
 
 static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_reduction_type, buffer_t *x_buffer, buffer_t *y_buffer, uint64_t axis)
@@ -1594,6 +1522,77 @@ static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_
     }
 
     return NULL;
+}
+
+static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_type,
+                                     buffer_t *x,
+                                     uint64_t *axis,
+                                     uint64_t length,
+                                     buffer_t *result,
+                                     bool_t keep_dimension)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->view, "x->view");
+    CHECK_NULL_ARGUMENT(x->storage, "x->storage");
+    CHECK_NULL_ARGUMENT(axis, "axis");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    datatype_t datatype = x->storage->datatype;
+    runtime_t runtime = x->storage->runtime;
+    uint64_t reduced_rank = x->view->rank; 
+    nw_error_t *error = NULL;
+    buffer_t *intermediate_buffer = NULL;
+
+    if (x->view->rank < length)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("rank of tensor being reduced (%lu) must be not be less than length of axis (%lu).",
+                     (unsigned long) (x->view->rank), (unsigned long) length), NULL);
+    }
+
+    for (uint64_t i = 0; i < length; ++i)
+    {
+        uint64_t *shape = x->view->shape;
+        uint64_t *strides = x->view->strides;
+        uint64_t rank = x->view->rank;
+        uint64_t reduced_shape[reduced_rank];
+        uint64_t reduced_strides[reduced_rank];
+
+        error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, &axis[i], (uint64_t) 1, keep_dimension);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensors"), error);
+        }
+
+        if (i + 1 < length)
+        {
+            error = buffer_create_empty(&intermediate_buffer, reduced_shape, reduced_strides, reduced_rank, runtime, datatype);
+            if (error != NULL)
+            {
+                return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+            }
+        }
+        else
+        {
+            intermediate_buffer = result;
+        }
+
+        error = runtime_reduction_dimension(runtime_reduction_type, x, intermediate_buffer, axis[i]);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor dimension."), error);
+        }
+
+        if (i > 0)
+        {
+            buffer_destroy(x);
+            x = intermediate_buffer;
+        }
+
+        --reduced_rank;
+    }
+
+    return error; 
 }
 
 nw_error_t *runtime_summation(buffer_t *x, uint64_t *axis, uint64_t length, buffer_t *result, bool_t keep_dimension)
