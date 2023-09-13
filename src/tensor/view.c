@@ -620,10 +620,7 @@ nw_error_t *reduce(const uint64_t *original_shape,
  *         Error if `rank` greater than max rank.
  *         NULL if `n` is computed successfully.
  */
-nw_error_t *n_from_shape_and_strides(const uint64_t *shape, 
-                                     const uint64_t *strides,
-                                     uint64_t rank,
-                                     uint64_t *n)
+nw_error_t *n_from_shape_and_strides(const uint64_t *shape, const uint64_t *strides, uint64_t rank, uint64_t *n)
 {
     CHECK_NULL_ARGUMENT(shape, "shape");
     CHECK_NULL_ARGUMENT(strides, "strides");

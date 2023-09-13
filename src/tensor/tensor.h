@@ -44,7 +44,7 @@ nw_error_t *tensor_zeroes_like(const tensor_t *x, tensor_t **y, bool_t requires_
 nw_error_t *tensor_ones_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t preserve_memory_format);
 nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t preserve_memory_format);
 nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y, bool_t requires_gradient);
-nw_error_t *tensor_create_empty(const uint64_t *shape, uint64_t rank, tensor_t **y, bool_t requires_gradient, runtime_t runtime, datatype_t datatype);
+nw_error_t *tensor_create_empty(const uint64_t *shape, const uint64_t *strides, uint64_t rank, tensor_t **y, bool_t requires_gradient, runtime_t runtime, datatype_t datatype);
 
 // Structure Operations
 nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_original, tensor_t **x_broadcasted, tensor_t **y_broadcasted);

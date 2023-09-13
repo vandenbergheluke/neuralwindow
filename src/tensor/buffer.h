@@ -81,7 +81,8 @@ void runtime_free(storage_t *storage);
 
 nw_error_t *buffer_create(buffer_t **buffer, view_t *view, storage_t *storage, bool_t copy);
 void buffer_destroy(buffer_t *buffer);
-
+nw_error_t *buffer_create_empty(buffer_t **buffer, const uint64_t *shape, const uint64_t *strides,
+                                uint64_t rank, runtime_t runtime, datatype_t datatype);
 string_t runtime_string(runtime_t runtime);
 nw_error_t *runtime_create_context(runtime_t runtime);
 void runtime_destroy_context(runtime_t runtime);
@@ -104,8 +105,8 @@ nw_error_t *runtime_power(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_bu
 nw_error_t *runtime_compare_equal(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
 nw_error_t *runtime_compare_greater(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
 nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
-nw_error_t *runtime_summation(buffer_t *x, buffer_t *result, uint64_t axis);
-nw_error_t *runtime_maximum(buffer_t *x, buffer_t *result, uint64_t axis);
+nw_error_t *runtime_summation(buffer_t *x, uint64_t *axis, uint64_t length, buffer_t *result, bool_t keep_dimension);
+nw_error_t *runtime_maximum(buffer_t *x, uint64_t *axis, uint64_t length, buffer_t *result, bool_t keep_dimension);
 nw_error_t *runtime_init_zeroes(buffer_t *buffer);
 nw_error_t *runtime_init_ones(buffer_t *buffer);
 #endif

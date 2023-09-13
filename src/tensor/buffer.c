@@ -74,10 +74,7 @@ void storage_destroy(storage_t *storage)
 }
 
 
-nw_error_t *buffer_create(buffer_t **buffer,
-                          view_t *view,
-                          storage_t *storage,
-                          bool_t copy)
+nw_error_t *buffer_create(buffer_t **buffer, view_t *view, storage_t *storage, bool_t copy)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(view, "view");
@@ -131,6 +128,53 @@ void buffer_destroy(buffer_t *buffer)
     free(buffer);
 }
 
+nw_error_t *buffer_create_empty(buffer_t **buffer,
+                                const uint64_t *shape,
+                                const uint64_t *strides,
+                                uint64_t rank,
+                                runtime_t runtime,
+                                datatype_t datatype)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    nw_error_t *error = NULL;
+    view_t *view = NULL;
+    storage_t *storage = NULL;
+    buffer_t *buffer = NULL;
+    uint64_t n;
+
+    error = view_create(&view, 0, rank, shape, strides);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    error = n_from_shape_and_strides(view->shape, view->strides, view->rank, &n);
+    if (error != NULL)
+    {
+        view_destroy(view);
+        return ERROR(ERROR_N, string_create("failed to obtain storage size."), error);
+    }
+
+    error = storage_create(&storage, runtime, datatype, n, NULL);
+    if (error != NULL)
+    {
+        view_destroy(view);
+        return ERROR(ERROR_CREATE, string_create("failed to create storage."), error);
+    }
+
+    error = buffer_create(&buffer, view, storage, false);
+    if (error != NULL)
+    {
+        view_destroy(view);
+        storage_destroy(storage);
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    return error;
+}
+
 nw_error_t *runtime_create_context(runtime_t runtime)
 {
     nw_error_t *error;
@@ -146,17 +190,13 @@ nw_error_t *runtime_create_context(runtime_t runtime)
         break;
 #endif
     default:
-        error = ERROR(ERROR_UNKNOWN_RUNTIME,
-                      string_create("unknown runtime %d.",
-                      (int) runtime), NULL);
+        error = ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) runtime), NULL);
         break;
     }
     
     if (error != NULL)
     {
-        return ERROR(ERROR_CREATE,
-                     string_create("failed to create context for runtime %s.",
-                     runtime_string(runtime)), error);
+        return ERROR(ERROR_CREATE, string_create("failed to create context for runtime %s.", runtime_string(runtime)), error);
     }
 
     return NULL;
@@ -195,24 +235,18 @@ nw_error_t *runtime_malloc(storage_t *storage)
     switch (storage->runtime)
     {
     case OPENBLAS_RUNTIME:
-        error = openblas_memory_allocate(&storage->data,
-                                         storage->n * datatype_size(storage->datatype));
+        error = openblas_memory_allocate(&storage->data, storage->n * datatype_size(storage->datatype));
         break;
     case MKL_RUNTIME:
-        error = mkl_memory_allocate(&storage->data,
-                                    storage->n * datatype_size(storage->datatype));
+        error = mkl_memory_allocate(&storage->data, storage->n * datatype_size(storage->datatype));
         break;
 #ifndef CPU_ONLY
     case CU_RUNTIME:
-        error = cu_memory_allocate(&storage->data,
-                                   storage->n * datatype_size(storage->datatype));
+        error = cu_memory_allocate(&storage->data, storage->n * datatype_size(storage->datatype));
         break;
 #endif
     default:
-        error = ERROR(ERROR_UNKNOWN_RUNTIME,
-                      string_create("unknown runtime %d.",
-                      (int) storage->runtime),
-                      NULL);
+        error = ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) storage->runtime), NULL);
         break;
     }
 
@@ -544,9 +578,7 @@ nw_error_t *runtime_exponential(buffer_t *x, buffer_t *result)
     nw_error_t *error = runtime_unary(RUNTIME_EXPONENTIAL, x, result);
     if (error != NULL)
     {
-        return ERROR(ERROR_UNARY, 
-                     string_create("failed to apply unary operation."),
-                     error);
+        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
     }
 
     return NULL;
@@ -557,9 +589,7 @@ nw_error_t *runtime_logarithm(buffer_t *x, buffer_t *result)
     nw_error_t *error = runtime_unary(RUNTIME_LOGARITHM, x, result);
     if (error != NULL)
     {
-        return ERROR(ERROR_UNARY, 
-                     string_create("failed to apply unary operation."),
-                     error);
+        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
     }
 
     return NULL;
@@ -570,9 +600,7 @@ nw_error_t *runtime_sine(buffer_t *x, buffer_t *result)
     nw_error_t *error = runtime_unary(RUNTIME_SINE, x, result);
     if (error != NULL)
     {
-        return ERROR(ERROR_UNARY, 
-                     string_create("failed to apply unary operation."),
-                     error);
+        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
     }
 
     return NULL;
@@ -583,9 +611,7 @@ nw_error_t *runtime_cosine(buffer_t *x, buffer_t *result)
     nw_error_t *error = runtime_unary(RUNTIME_COSINE, x, result);
     if (error != NULL)
     {
-        return ERROR(ERROR_UNARY, 
-                     string_create("failed to apply unary operation."),
-                     error);
+        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
     }
 
     return NULL;
@@ -596,9 +622,7 @@ nw_error_t *runtime_square_root(buffer_t *x, buffer_t *result)
     nw_error_t *error = runtime_unary(RUNTIME_SQUARE_ROOT, x, result);
     if (error != NULL)
     {
-        return ERROR(ERROR_UNARY, 
-                     string_create("failed to apply unary operation."),
-                     error);
+        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
     }
 
     return NULL;
@@ -609,9 +633,7 @@ nw_error_t *runtime_reciprocal(buffer_t *x, buffer_t *result)
     nw_error_t *error = runtime_unary(RUNTIME_RECIPROCAL, x, result);
     if (error != NULL)
     {
-        return ERROR(ERROR_UNARY, 
-                     string_create("failed to apply unary operation."),
-                     error);
+        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
     }
 
     return NULL;
@@ -635,9 +657,7 @@ nw_error_t *runtime_negation(buffer_t *x, buffer_t *result)
     nw_error_t *error = runtime_unary(RUNTIME_NEGATION, x, result);
     if (error != NULL)
     {
-        return ERROR(ERROR_UNARY, 
-                     string_create("failed to apply unary operation."),
-                     error);
+        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
     }
 
     return NULL;
@@ -648,9 +668,7 @@ nw_error_t *runtime_rectified_linear(buffer_t *x, buffer_t *result)
     nw_error_t *error = runtime_unary(RUNTIME_RECTIFIED_LINEAR, x, result);
     if (error != NULL)
     {
-        return ERROR(ERROR_UNARY, 
-                     string_create("failed to apply unary operation."),
-                     error);
+        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
     }
 
     return NULL;
@@ -661,9 +679,7 @@ nw_error_t *runtime_sigmoid(buffer_t *x, buffer_t *result)
     nw_error_t *error = runtime_unary(RUNTIME_SIGMOID, x, result);
     if (error != NULL)
     {
-        return ERROR(ERROR_UNARY, 
-                     string_create("failed to apply unary operation."),
-                     error);
+        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
     }
 
     return NULL;
@@ -980,9 +996,7 @@ nw_error_t *runtime_addition(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z
     nw_error_t *error = runtime_binary_elementwise(RUNTIME_ADDITION, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
-        return ERROR(ERROR_BINARY_ELEMENTWISE, 
-                     string_create("failed to apply binary elementwise operation."),
-                     error);
+        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
     }
 
     return NULL;
@@ -993,9 +1007,7 @@ nw_error_t *runtime_subtraction(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t
     nw_error_t *error = runtime_binary_elementwise(RUNTIME_SUBTRACTION, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
-        return ERROR(ERROR_BINARY_ELEMENTWISE, 
-                     string_create("failed to apply binary elementwise operation."),
-                     error);
+        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
     }
 
     return NULL;
@@ -1006,9 +1018,7 @@ nw_error_t *runtime_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffe
     nw_error_t *error = runtime_binary_elementwise(RUNTIME_MULTIPLICATION, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
-        return ERROR(ERROR_BINARY_ELEMENTWISE, 
-                     string_create("failed to apply binary elementwise operation."),
-                     error);
+        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
     }
 
     return NULL;
@@ -1019,9 +1029,7 @@ nw_error_t *runtime_division(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z
     nw_error_t *error = runtime_binary_elementwise(RUNTIME_DIVISION, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
-        return ERROR(ERROR_BINARY_ELEMENTWISE, 
-                     string_create("failed to apply binary elementwise operation."),
-                     error);
+        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
     }
 
     return NULL;
@@ -1032,9 +1040,7 @@ nw_error_t *runtime_power(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_bu
     nw_error_t *error = runtime_binary_elementwise(RUNTIME_POWER, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
-        return ERROR(ERROR_BINARY_ELEMENTWISE, 
-                     string_create("failed to apply binary elementwise operation."),
-                     error);
+        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
     }
 
     return NULL;
@@ -1045,9 +1051,7 @@ nw_error_t *runtime_compare_equal(buffer_t *x_buffer, buffer_t *y_buffer, buffer
     nw_error_t *error = runtime_binary_elementwise(RUNTIME_COMPARE_EQUAL, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
-        return ERROR(ERROR_BINARY_ELEMENTWISE, 
-                     string_create("failed to apply binary elementwise operation."),
-                     error);
+        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
     }
 
     return NULL;
@@ -1058,9 +1062,7 @@ nw_error_t *runtime_compare_greater(buffer_t *x_buffer, buffer_t *y_buffer, buff
     nw_error_t *error = runtime_binary_elementwise(RUNTIME_COMPARE_GREATER, x_buffer, y_buffer, z_buffer);
     if (error != NULL)
     {
-        return ERROR(ERROR_BINARY_ELEMENTWISE, 
-                     string_create("failed to apply binary elementwise operation."),
-                     error);
+        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
     }
 
     return NULL;
@@ -1303,11 +1305,78 @@ static void runtime_reduction_execute(runtime_reduction_type_t runtime_reduction
     }
 
 }
-
 static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_type,
-                                     buffer_t *x_buffer,
-                                     buffer_t *y_buffer,
-                                     uint64_t axis)
+                                     buffer_t *x,
+                                     uint64_t *axis,
+                                     uint64_t length,
+                                     buffer_t *result,
+                                     bool_t keep_dimension)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->view, "x->view");
+    CHECK_NULL_ARGUMENT(x->storage, "x->storage");
+    CHECK_NULL_ARGUMENT(axis, "axis");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    datatype_t datatype = x->storage->datatype;
+    runtime_t runtime = x->storage->runtime;
+    uint64_t reduced_rank = x->view->rank; 
+    nw_error_t *error = NULL;
+    buffer_t *intermediate_buffer = NULL;
+
+    if (x->view->rank < length)
+    {
+        return ERROR(ERROR_RANK_CONFLICT,
+                     string_create("rank of tensor being reduced (%lu) must be not be less than length of axis (%lu).",
+                     (unsigned long) (x->view->rank), (unsigned long) length), NULL);
+    }
+
+    for (uint64_t i = 0; i < length; ++i)
+    {
+        uint64_t *shape = x->view->shape;
+        uint64_t *strides = x->view->strides;
+        uint64_t rank = x->view->rank;
+        uint64_t reduced_shape[reduced_rank];
+        uint64_t reduced_strides[reduced_rank];
+
+        error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, &axis[i], (uint64_t) 1, keep_dimension);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensors"), error);
+        }
+
+        if (i < length - 1)
+        {
+            error = buffer_create_empty(&intermediate_buffer, reduced_shape, reduced_strides, reduced_rank, runtime, datatype);
+            if (error != NULL)
+            {
+                return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+            }
+        }
+        else
+        {
+            intermediate_buffer = result;
+        }
+
+        error = runtime_reduction_dimension(runtime_reduction_type, x, intermediate_buffer, axis[i]);
+        if (error != NULL)
+        {
+            return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor dimension."), error);
+        }
+
+        if (i > 0)
+        {
+            buffer_destroy(x);
+            x = intermediate_buffer;
+        }
+
+        --reduced_rank;
+    }
+
+    return error; 
+}
+
+static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_reduction_type, buffer_t *x_buffer, buffer_t *y_buffer, uint64_t axis)
 {
     CHECK_NULL_ARGUMENT(x_buffer, "x_buffer");
     CHECK_NULL_ARGUMENT(y_buffer, "y_buffer");
@@ -1527,30 +1596,38 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
     return NULL;
 }
 
-nw_error_t *runtime_summation(buffer_t *x, buffer_t *result, uint64_t axis)
+nw_error_t *runtime_summation(buffer_t *x, uint64_t *axis, uint64_t length, buffer_t *result, bool_t keep_dimension)
 {
-    nw_error_t *error = runtime_reduction(RUNTIME_SUMMATION, x, result, axis);
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(axis, "axis");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    nw_error_t *error = NULL;
+
+    error = runtime_reduction(RUNTIME_SUMMATION, x, axis, length, result, keep_dimension);
     if (error != NULL)
     {
-        return ERROR(ERROR_REDUCTION,
-                     string_create("failed to apply reduction operation."),
-                     error);
+        return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
     }
 
     return NULL;
 }
 
-nw_error_t *runtime_maximum(buffer_t *x, buffer_t *result, uint64_t axis)
+nw_error_t *runtime_maximum(buffer_t *x, uint64_t *axis, uint64_t length, buffer_t *result, bool_t keep_dimension)
 {
-    nw_error_t *error = runtime_reduction(RUNTIME_MAXIMUM, x, result, axis);
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(axis, "axis");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    nw_error_t *error = NULL;
+
+    error = runtime_reduction(RUNTIME_MAXIMUM, x, axis, length, result, keep_dimension);
     if (error != NULL)
     {
-        return ERROR(ERROR_REDUCTION,
-                     string_create("failed to apply reduction operation."),
-                     error);
+        return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
     }
 
-    return NULL;
+    return error;
 }
 
 string_t runtime_string(runtime_t runtime)

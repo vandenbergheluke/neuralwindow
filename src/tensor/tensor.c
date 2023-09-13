@@ -1229,7 +1229,7 @@ nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_g
     return error;
 }
 
-nw_error_t *tensor_create_empty(const uint64_t *shape, uint64_t rank, tensor_t **y, bool_t requires_gradient, runtime_t runtime, datatype_t datatype)
+nw_error_t *tensor_create_empty(const uint64_t *shape, const uint64_t *strides, uint64_t rank, tensor_t **y, bool_t requires_gradient, runtime_t runtime, datatype_t datatype)
 {
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -1238,14 +1238,22 @@ nw_error_t *tensor_create_empty(const uint64_t *shape, uint64_t rank, tensor_t *
     view_t *view = NULL;
     storage_t *storage = NULL;
     buffer_t *buffer = NULL;
+    uint64_t n;
 
-    error = view_create(&view, 0, rank, shape, NULL);
+    error = view_create(&view, 0, rank, shape, strides);
     if (error != NULL)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
     }
 
-    error = storage_create(&storage, runtime, datatype, shape_size(shape, rank), NULL);
+    error = n_from_shape_and_strides(view->shape, view->strides, view->rank, &n);
+    if (error != NULL)
+    {
+        view_destroy(view);
+        return ERROR(ERROR_N, string_create("failed to obtain storage size."), error);
+    }
+
+    error = storage_create(&storage, runtime, datatype, n, NULL);
     if (error != NULL)
     {
         view_destroy(view);
