@@ -1552,6 +1552,11 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
 
     for (uint64_t i = 0; i < length; ++i)
     {
+        if (!keep_dimension)
+        {
+            --reduced_rank;
+        }
+
         uint64_t *shape = x->view->shape;
         uint64_t *strides = x->view->strides;
         uint64_t rank = x->view->rank;
@@ -1561,7 +1566,7 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
         error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, &axis[i], (uint64_t) 1, keep_dimension);
         if (error != NULL)
         {
-            return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensors"), error);
+            return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
         }
 
         if (i + 1 < length)
@@ -1588,8 +1593,6 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
             buffer_destroy(x);
             x = intermediate_buffer;
         }
-
-        --reduced_rank;
     }
 
     return error; 

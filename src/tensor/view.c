@@ -526,16 +526,14 @@ nw_error_t *reduce(const uint64_t *original_shape,
     {
         return ERROR(ERROR_RANK_CONFLICT,
                      string_create("conflicting ranks with original rank %lu and reduced rank %lu.",
-                     (unsigned long) original_rank, (unsigned long) reduced_rank),
-                     NULL);
+                     (unsigned long) original_rank, (unsigned long) reduced_rank), NULL);
     }
 
     if (!keep_dimensions && reduced_rank != original_rank - rank)
     {
         return ERROR(ERROR_RANK_CONFLICT,
                      string_create("conflicting ranks with expected reduced rank %lu and reduced rank %lu.", 
-                     (unsigned long) (original_rank - rank), (unsigned long) reduced_rank),
-                     NULL);
+                     (unsigned long) (original_rank - rank), (unsigned long) reduced_rank), NULL);
     }
 
 
