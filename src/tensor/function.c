@@ -206,11 +206,6 @@ cleanup:
     return error;
 }
 
-static int comparator (const void * p1, const void * p2)
-{
-    return (*(uint64_t *) p2 - *(uint64_t *) p1);
-}
-
 /**
  * @brief Execute the reduction operation of a function.
  * @param reduction_operation_type The type of reduction operation being applied.
@@ -245,8 +240,6 @@ nw_error_t *apply_function_reduction(reduction_operation_type_t reduction_operat
     {
         reduce_axis[i] = (!axis || !length) ? i : axis[i];
     }
-
-    qsort(reduce_axis, reduce_length, sizeof(uint64_t), comparator);
 
     error = reduction_operation_create(&reduction_operation, reduction_operation_type,
                                        x, reduce_axis, reduce_length, keep_dimension);

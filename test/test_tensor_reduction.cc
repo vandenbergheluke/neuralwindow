@@ -201,7 +201,7 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type)
 
                 // Back prop
                 tensor_t *cost;
-                error = tensor_summation(returned_tensors[i][j][k], &cost, NULL, returned_tensors[i][j][k]->buffer->view->rank, false);
+                error = tensor_summation(returned_tensors[i][j][k], &cost, NULL, 0, false);
                 ck_assert_ptr_null(error);
                 error = tensor_backward(cost, NULL);
                 ck_assert_ptr_null(error);

@@ -1304,7 +1304,7 @@ static void runtime_reduction_execute(runtime_reduction_type_t runtime_reduction
 
 }
 
-static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_reduction_type, buffer_t *x_buffer, buffer_t *y_buffer, uint64_t axis)
+static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_reduction_type, buffer_t *x_buffer, buffer_t *y_buffer, uint64_t axis, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x_buffer, "x_buffer");
     CHECK_NULL_ARGUMENT(y_buffer, "y_buffer");
@@ -1361,7 +1361,7 @@ static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_
             x_offset = x_buffer->view->offset
                        + i * x_buffer->view->strides[idim];
             y_offset = y_buffer->view->offset
-                       + i * y_buffer->view->strides[idim];
+                       + i * y_buffer->view->strides[(idim >= axis && !keep_dimension) ? idim - 1 : idim];
             runtime_reduction_execute(runtime_reduction_type, runtime, datatype, n, 
                                     x_data, x_stride, x_offset, 
                                     y_data, y_offset);
@@ -1394,8 +1394,8 @@ static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_
                            + i * x_buffer->view->strides[idim]
                            + j * x_buffer->view->strides[jdim];
                 y_offset = y_buffer->view->offset
-                           + i * y_buffer->view->strides[idim]
-                           + j * y_buffer->view->strides[jdim];
+                       + i * y_buffer->view->strides[(idim >= axis && !keep_dimension) ? idim - 1 : idim]
+                       + j * y_buffer->view->strides[(jdim >= axis && !keep_dimension) ? jdim - 1 : jdim];
                 runtime_reduction_execute(runtime_reduction_type, runtime, datatype, n, 
                                           x_data, x_stride, x_offset, 
                                           y_data, y_offset);
@@ -1441,9 +1441,9 @@ static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_
                                + j * x_buffer->view->strides[jdim]
                                + k * x_buffer->view->strides[kdim];
                     y_offset = y_buffer->view->offset
-                               + i * y_buffer->view->strides[idim]
-                               + j * y_buffer->view->strides[jdim]
-                               + k * y_buffer->view->strides[kdim];
+                       + i * y_buffer->view->strides[(idim >= axis && !keep_dimension) ? idim - 1 : idim]
+                       + j * y_buffer->view->strides[(jdim >= axis && !keep_dimension) ? jdim - 1 : jdim]
+                       + k * y_buffer->view->strides[(kdim >= axis && !keep_dimension) ? kdim - 1 : kdim];
                     runtime_reduction_execute(runtime_reduction_type, runtime, datatype, n, 
                                               x_data, x_stride, x_offset, 
                                               y_data, y_offset);
@@ -1502,10 +1502,10 @@ static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_
                                    + k * x_buffer->view->strides[kdim]
                                    + l * x_buffer->view->strides[ldim];
                         y_offset = y_buffer->view->offset
-                                   + i * y_buffer->view->strides[idim]
-                                   + j * y_buffer->view->strides[jdim]
-                                   + k * y_buffer->view->strides[kdim]
-                                   + l * y_buffer->view->strides[ldim];
+                       + i * y_buffer->view->strides[(idim >= axis && !keep_dimension) ? idim - 1 : idim]
+                       + j * y_buffer->view->strides[(jdim >= axis && !keep_dimension) ? jdim - 1 : jdim]
+                       + k * y_buffer->view->strides[(kdim >= axis && !keep_dimension) ? kdim - 1 : kdim]
+                       + l * y_buffer->view->strides[(ldim >= axis && !keep_dimension) ? ldim - 1 : ldim];
                         runtime_reduction_execute(runtime_reduction_type, runtime, datatype, n, 
                                                   x_data, x_stride, x_offset, 
                                                   y_data, y_offset);
@@ -1517,11 +1517,15 @@ static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_
     default:
         return ERROR(ERROR_RANK_CONFLICT,
                      string_create("unsupported rank %d",
-                     (int) x_buffer->view->rank),
-                     NULL);
+                     (int) x_buffer->view->rank), NULL);
     }
 
     return NULL;
+}
+
+static int comparator (const void * p1, const void * p2)
+{
+    return (*(uint64_t *) p2 - *(uint64_t *) p1);
 }
 
 static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_type,
@@ -1536,12 +1540,16 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
     CHECK_NULL_ARGUMENT(x->storage, "x->storage");
     CHECK_NULL_ARGUMENT(axis, "axis");
     CHECK_NULL_ARGUMENT(result, "result");
+    CHECK_UNIQUE(axis, length, "axis");
 
     datatype_t datatype = x->storage->datatype;
     runtime_t runtime = x->storage->runtime;
     uint64_t reduced_rank = x->view->rank; 
     nw_error_t *error = NULL;
     buffer_t *intermediate_buffer = NULL;
+
+    // Descending order
+    qsort(axis, length, sizeof(uint64_t), comparator);
 
     if (x->view->rank < length)
     {
@@ -1582,7 +1590,7 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
             intermediate_buffer = result;
         }
 
-        error = runtime_reduction_dimension(runtime_reduction_type, x, intermediate_buffer, axis[i]);
+        error = runtime_reduction_dimension(runtime_reduction_type, x, intermediate_buffer, axis[i], keep_dimension);
         if (error != NULL)
         {
             return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor dimension."), error);
@@ -1591,8 +1599,9 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
         if (i > 0)
         {
             buffer_destroy(x);
-            x = intermediate_buffer;
         }
+
+        x = intermediate_buffer;
     }
 
     return error; 

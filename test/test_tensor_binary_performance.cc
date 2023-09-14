@@ -87,9 +87,6 @@ void setup(void)
 
                     tensors_x[i][j][k][z] = torch_to_tensor(torch_tensors_x[i][j][k][z], (runtime_t) i , (datatype_t) j);
                     tensors_y[i][j][k][z] = torch_to_tensor(torch_tensors_y[i][j][k][z], (runtime_t) i , (datatype_t) j);
-
-                    error = tensor_create_default(&returned_tensors[i][j][k][z]);
-                    ck_assert_ptr_null(error);
                 }
             }
         }
@@ -154,7 +151,7 @@ void print_heuristics(float64_t torch_time_mkl, float64_t torch_flops_mkl,
 }
 
 void performance_test(std::function<torch::Tensor(torch::Tensor, torch::Tensor)> torch_op,
-        std::function<nw_error_t *(tensor_t *, tensor_t *, tensor_t *)> nw_op)
+        std::function<nw_error_t *(tensor_t *, tensor_t *, tensor_t **)> nw_op)
 {
     uint32_t total_runs = DATATYPES * MEASUREMENT_ITERS;
     
@@ -184,7 +181,7 @@ void performance_test(std::function<torch::Tensor(torch::Tensor, torch::Tensor)>
                     torch_end = get_time_nanoseconds();
 
                     nw_start = get_time_nanoseconds();
-                    error = nw_op(tensors_x[i][j][k][z], tensors_y[i][j][k][z], returned_tensors[i][j][k][z]);
+                    error = nw_op(tensors_x[i][j][k][z], tensors_y[i][j][k][z], &returned_tensors[i][j][k][z]);
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);
 
@@ -223,7 +220,7 @@ void performance_test(std::function<torch::Tensor(torch::Tensor, torch::Tensor)>
 }
 
 void performance_test(std::function<torch::Tensor(torch::Tensor, torch::Tensor)> torch_op,
-        std::function<nw_error_t *(tensor_t *, tensor_t *, tensor_t *)> nw_op,
+        std::function<nw_error_t *(tensor_t *, tensor_t *, tensor_t **)> nw_op,
         std::function<uint64_t(uint64_t)> flop_calc)
 {
     uint32_t total_runs = DATATYPES * MEASUREMENT_ITERS;
@@ -257,7 +254,7 @@ void performance_test(std::function<torch::Tensor(torch::Tensor, torch::Tensor)>
                     torch_end = get_time_nanoseconds();
 
                     nw_start = get_time_nanoseconds();
-                    error = nw_op(tensors_x[i][j][k][z], tensors_y[i][j][k][z], returned_tensors[i][j][k][z]);
+                    error = nw_op(tensors_x[i][j][k][z], tensors_y[i][j][k][z], &returned_tensors[i][j][k][z]);
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);
 
