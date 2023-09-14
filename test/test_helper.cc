@@ -53,17 +53,14 @@ tensor_t *torch_to_tensor(torch::Tensor torch_tensor, runtime_t runtime, datatyp
     }
     ck_assert_ptr_null(error);
 
-    error = buffer_create(&buffer,
-                          view,
-                          storage,
-                          false);
+    error = buffer_create(&buffer, view, storage, false);
     if (error)
     {
         error_print(error);
     }
     ck_assert_ptr_null(error);
 
-    error = tensor_create(&tensor, buffer, NULL, NULL, true);
+    error = tensor_create(&tensor, buffer, NULL, NULL, (bool_t) torch_tensor.requires_grad());
     if (error)
     {
         error_print(error);
@@ -243,13 +240,13 @@ void ck_assert_tensor_eq(const tensor_t *returned_tensor, const tensor_t *expect
     PRINTLN_DEBUG_TENSOR("expected", expected_tensor);
     PRINT_DEBUG_NEWLINE;
 
-    if (expected_tensor == NULL)
+    if (!expected_tensor)
     {
         ck_assert_ptr_null(returned_tensor);
         return;
     }
 
-    if (expected_tensor->buffer == NULL)
+    if (!expected_tensor->buffer)
     {
         ck_assert_ptr_null(expected_tensor->buffer);
     }
@@ -258,7 +255,7 @@ void ck_assert_tensor_eq(const tensor_t *returned_tensor, const tensor_t *expect
         ck_assert_buffer_eq(returned_tensor->buffer, expected_tensor->buffer);
     }
 
-    if (expected_tensor->context == NULL)
+    if (!expected_tensor->context)
     {
         ck_assert_ptr_null(returned_tensor->context);
     }

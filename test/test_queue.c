@@ -8,7 +8,7 @@ nw_error_t *error;
 void setup(void)
 {
     error = queue_create(&queue);
-    if (error != NULL)
+    if (error)
     {
        error_print(error);
        error_destroy(error); 
@@ -51,7 +51,7 @@ START_TEST(test_queue)
     int test_case_2 = 2;
     int test_case_3 = 3;
     error = queue_enqueue(queue, (void *) &test_case_1);
-    if (error != NULL)
+    if (error)
     {
        error_print(error);
        error_destroy(error); 
@@ -59,7 +59,7 @@ START_TEST(test_queue)
     ck_assert_uint_eq(queue->size, 1);
 
     error = queue_enqueue(queue, (void *) &test_case_2);
-    if (error != NULL)
+    if (error)
     {
        error_print(error);
        error_destroy(error); 
@@ -67,7 +67,7 @@ START_TEST(test_queue)
     ck_assert_uint_eq(queue->size, 2);
 
     error = queue_enqueue(queue, (void *) &test_case_3);
-    if (error != NULL)
+    if (error)
     {
        error_print(error);
        error_destroy(error); 
@@ -80,7 +80,7 @@ START_TEST(test_queue)
     int *test_case_ptr_4;
 
     error = queue_dequeue(queue, (void **) &test_case_ptr_1);
-    if (error != NULL)
+    if (error)
     {
        error_print(error);
        error_destroy(error); 
@@ -89,7 +89,7 @@ START_TEST(test_queue)
     ck_assert_int_eq(test_case_1, *test_case_ptr_1);
 
     error = queue_dequeue(queue, (void **) &test_case_ptr_2);
-    if (error != NULL)
+    if (error)
     {
        error_print(error);
        error_destroy(error); 
@@ -98,7 +98,7 @@ START_TEST(test_queue)
     ck_assert_int_eq(test_case_2, *test_case_ptr_2);
 
     error = queue_dequeue(queue, (void **) &test_case_ptr_3);
-    if (error != NULL)
+    if (error)
     {
        error_print(error);
        error_destroy(error); 
@@ -107,7 +107,7 @@ START_TEST(test_queue)
     ck_assert_int_eq(test_case_3, *test_case_ptr_3);
     
     error = queue_enqueue(queue, (void *) NULL);
-    if (error != NULL)
+    if (error)
     {
        error_print(error);
        error_destroy(error); 
@@ -115,7 +115,7 @@ START_TEST(test_queue)
     ck_assert_uint_eq(queue->size, 1);
 
     error = queue_dequeue(queue, (void **) &test_case_ptr_4);
-    if (error != NULL)
+    if (error)
     {
        error_print(error);
        error_destroy(error); 

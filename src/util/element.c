@@ -12,7 +12,7 @@ nw_error_t *element_create(element_t **element, void *data)
 
     size_t size = sizeof(element_t);
     *element = (element_t *) malloc(size);
-    if (element == NULL)
+    if (!element)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION,
                      string_create("failed to allocate element of size %zu bytes.", size),
@@ -28,10 +28,8 @@ nw_error_t *element_create(element_t **element, void *data)
 
 void element_destroy(element_t *element)
 {
-    if (element == NULL)
+    if (element)
     {
-        return;
+        free(element);
     }
-
-    free(element);
 }

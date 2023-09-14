@@ -128,7 +128,7 @@ void teardown(void)
             {
                 tensor_destroy(tensors[i][j][k]);
                 tensor_destroy(expected_tensors[i][j][k]);
-                tensor_destroy(returned_tensors[i][j][k]);
+                // tensor_destroy(returned_tensors[i][j][k]);
                 tensor_destroy(expected_gradient[i][j][k]);
             }
         }
@@ -204,8 +204,6 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type)
                 error = tensor_summation(returned_tensors[i][j][k], &cost, NULL, 0, false);
                 ck_assert_ptr_null(error);
                 error = tensor_backward(cost, NULL);
-                ck_assert_ptr_null(error);
-
                 ck_assert_ptr_null(error);
 
                 ck_assert_tensor_equiv(tensors[i][j][k]->gradient, expected_gradient[i][j][k]);

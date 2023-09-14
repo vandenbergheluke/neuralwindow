@@ -14,7 +14,7 @@ nw_error_t *openblas_memory_allocate(void **pp, size_t size)
     CHECK_NULL_ARGUMENT(pp, "pp");
 
     *pp = malloc(size);
-    if (*pp == NULL)
+    if (!*pp)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
     }

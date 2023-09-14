@@ -61,7 +61,7 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
 
     // View
     *view = (view_t *) malloc((size_t) sizeof(view_t));
-    if (view == NULL)
+    if (!*view)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION,
                      string_create("failed to allocate view of size %lu.",
@@ -76,7 +76,7 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
 
     // If rank is 0, this should return a reference to a block of memory of size 0.
     (*view)->shape = (uint64_t *) malloc((size_t) (rank * sizeof(uint64_t)));
-    if ((*view)->shape == NULL)
+    if (!(*view)->shape)
     {
         free(*view);
         return ERROR(ERROR_MEMORY_ALLOCATION,
@@ -88,7 +88,7 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
 
     // If rank is 0, this should return a reference to a block of memory of size 0.
     (*view)->strides = (uint64_t *) malloc((size_t) (rank * sizeof(uint64_t)));
-    if ((*view)->strides == NULL)
+    if (!(*view)->strides)
     {
         free(*view);
         free((*view)->shape);
@@ -110,7 +110,7 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
            (const void *) shape, (size_t) (rank * sizeof(uint64_t)));
 
     // Initialize Strides
-    if (strides != NULL)
+    if (strides)
     {
         memcpy((void *) ((*view)->strides), 
                (const void *) strides,
@@ -119,14 +119,12 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
     else
     {
         nw_error_t *error = strides_from_shape((*view)->strides, shape, rank);
-        if (error != NULL)
+        if (error)
         {
             free((*view)->strides);
             free((*view)->shape);
             free(*view);
-            return ERROR(ERROR_CREATE,
-                         string_create("failed to create strides from shape."),
-                         error);
+            return ERROR(ERROR_CREATE, string_create("failed to create strides from shape."), error);
         }
     }
 
@@ -139,14 +137,12 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
  */
 void view_destroy(view_t *view)
 {
-    if (view == NULL)
+    if (view)
     {
-        return;
+        free(view->shape);
+        free(view->strides);
+        free(view);
     }
-
-    free(view->shape);
-    free(view->strides);
-    free(view);
 }
 
 nw_error_t *view_copy(const view_t *source_view, view_t **destination_view)
@@ -157,7 +153,7 @@ nw_error_t *view_copy(const view_t *source_view, view_t **destination_view)
     nw_error_t *error = NULL;
 
     error = view_create(destination_view, source_view->offset, source_view->rank, source_view->shape, source_view->strides);
-    if (error != NULL)
+    if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
     }
@@ -184,24 +180,14 @@ nw_error_t *view_copy(const view_t *source_view, view_t **destination_view)
  */
 bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset)
 {
-    if (shape == NULL || strides == NULL)
-    {
-        return false;
-    }
-
-    if (rank > MAX_RANK)
-    {
-        return false;
-    }
-
-    if (offset)
+    if (!shape || !strides || rank > MAX_RANK || offset)
     {
         return false;
     }
 
     uint64_t contiguous_strides[rank];    
     nw_error_t *error = strides_from_shape(contiguous_strides, shape, rank);
-    if (error != NULL)
+    if (error)
     {
         error_destroy(error);
         return false;
@@ -333,7 +319,7 @@ nw_error_t *reverse_permute(const uint64_t *axis, uint64_t rank, uint64_t *rever
     }
 
     pair_t *new_axis = (pair_t *) malloc((size_t) (rank * sizeof(pair_t)));
-    if (new_axis == NULL)
+    if (!new_axis)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION,
                      string_create("failed to allocate new axis of size %lu bytes.",
@@ -670,7 +656,7 @@ nw_error_t *n_from_shape_and_strides(const uint64_t *shape, const uint64_t *stri
  */
 bool_t shapes_equal(const uint64_t *x_shape, uint64_t x_rank, const uint64_t *y_shape, uint64_t y_rank)
 {
-    if (x_shape == NULL || y_shape == NULL || x_rank != y_rank)
+    if (!x_shape || !y_shape || x_rank != y_rank)
     {
         return false;
     }
@@ -701,7 +687,7 @@ uint64_t shape_size(const uint64_t *shape, uint64_t rank)
 {
     uint64_t total = 1;
 
-    if (shape == NULL)
+    if (!shape)
     {
         return total;
     }
@@ -1059,8 +1045,8 @@ bool_t is_broadcastable(const uint64_t *original_shape,
                         const uint64_t *broadcasted_shape,
                         uint64_t broadcasted_rank)
 {
-    if (original_shape == NULL ||
-        broadcasted_shape == NULL ||
+    if (!original_shape ||
+        !broadcasted_shape ||
         broadcasted_rank < original_rank)
     {
         return false;
@@ -1183,7 +1169,7 @@ nw_error_t *reduce_axis(const uint64_t *original_shape,
 bool_t is_valid_reshape(const uint64_t *original_shape, uint64_t original_rank,
                         const uint64_t *new_shape, uint64_t new_rank)
 {
-    if (original_shape == NULL || new_shape == NULL)
+    if (!original_shape || !new_shape)
     {
         return false;
     }

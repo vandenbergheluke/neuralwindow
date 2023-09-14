@@ -9,7 +9,7 @@ nw_error_t *error;
 void setup(void)
 {
     error = map_create(&map);
-    if (error != NULL)
+    if (error)
     {
        error_print(error);
        error_destroy(error); 
@@ -33,7 +33,7 @@ START_TEST(test_map)
    ck_assert(!map_contains(map, test_case_key_2));
    ck_assert(!map_contains(map, test_case_key_3));
    error = map_set(map, test_case_key_1, (void *) &test_case_value_1);
-   if (error != NULL)
+   if (error)
    {
       error_print(error);
       error_destroy(error); 
@@ -44,7 +44,7 @@ START_TEST(test_map)
    ck_assert(!map_contains(map, test_case_key_3));
 
    error = map_set(map, test_case_key_2, (void *) &test_case_value_2);
-   if (error != NULL)
+   if (error)
    {
       error_print(error);
       error_destroy(error); 
@@ -55,7 +55,7 @@ START_TEST(test_map)
    ck_assert(!map_contains(map, test_case_key_3));
 
    error = map_set(map, test_case_key_3, (void *) &test_case_value_3);
-   if (error != NULL)
+   if (error)
    {
       error_print(error);
       error_destroy(error); 
@@ -70,7 +70,7 @@ START_TEST(test_map)
    int *test_case_value_ptr_3;
 
    error = map_get(map, test_case_key_1, (void *) &test_case_value_ptr_1);
-   if (error != NULL)
+   if (error)
    {
       error_print(error);
       error_destroy(error); 
@@ -78,7 +78,7 @@ START_TEST(test_map)
    ck_assert_int_eq(test_case_value_1, *test_case_value_ptr_1);
 
    error = map_get(map, test_case_key_2, (void *) &test_case_value_ptr_2);
-   if (error != NULL)
+   if (error)
    {
       error_print(error);
       error_destroy(error); 
@@ -86,7 +86,7 @@ START_TEST(test_map)
    ck_assert_int_eq(test_case_value_2, *test_case_value_ptr_2);
 
    error = map_get(map, test_case_key_3, (void *) &test_case_value_ptr_3);
-   if (error != NULL)
+   if (error)
    {
       error_print(error);
       error_destroy(error); 

@@ -8,7 +8,7 @@
 nw_error_t *error_create(nw_error_type_t error_type, string_t file, uint64_t line_number, string_t function, string_t message, nw_error_t *next_error)
 {
     nw_error_t *error = (nw_error_t *) malloc(sizeof(nw_error_t));
-    if (error == NULL)
+    if (!error)
         return NULL;
 
     error->error_type = error_type;
@@ -22,7 +22,7 @@ nw_error_t *error_create(nw_error_type_t error_type, string_t file, uint64_t lin
 
 void error_destroy(nw_error_t *error)
 {
-    while(error != NULL)
+    while(error)
     {
         nw_error_t *next_error = error->next_error;
         string_destroy(error->message);
@@ -140,16 +140,16 @@ string_t error_type_string(nw_error_type_t error_type)
 
 void error_print(nw_error_t *error)
 {
-    while (error != NULL)
+    while (error)
     {
         fprintf(
             stderr, 
             "%s:%s:%lu:%s:%s\n", 
             error_type_string(error->error_type),
-            error->file != NULL ? error->file : "NULL", 
+            error->file ? error->file : "NULL", 
             error->line_number, 
-            error->function != NULL ? error->function : "NULL", 
-            error->message != NULL ? error->message : "NULL"
+            error->function ? error->function : "NULL", 
+            error->message ? error->message : "NULL"
         );
         error = error->next_error;
     }

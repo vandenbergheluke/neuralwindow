@@ -26,7 +26,7 @@ nw_error_t *map_create(map_t **map)
 
     size_t size = sizeof(map_t);
     *map = (map_t *) malloc(size);
-    if (*map == NULL)
+    if (!*map)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION,
                      string_create("failed to allocate map of size %zu bytes.", size),
@@ -42,7 +42,7 @@ nw_error_t *map_create(map_t **map)
         (*map)->entries[i].data = NULL;
     }
 
-    if ((*map)->entries == NULL)
+    if (!(*map)->entries)
     {
         free(*map);
         return ERROR(ERROR_MEMORY_ALLOCATION,
@@ -55,9 +55,9 @@ nw_error_t *map_create(map_t **map)
 
 void map_destroy(map_t *map)
 {
-    if (map != NULL)
+    if (map)
     {
-        if (map->entries != NULL)
+        if (map->entries)
         {
             for (uint64_t i = 0; i < map->capacity; ++i)
             {
@@ -78,7 +78,7 @@ nw_error_t *map_get(map_t *map, string_t key, void **data)
 
     uint64_t hash = map_hash_key(key);
     uint64_t index = (uint64_t)(hash & (uint64_t)(map->capacity - 1));
-    while (map->entries[index].key != NULL)
+    while (map->entries[index].key)
     {
         if (strcmp(key, map->entries[index].key) == 0)
         {
@@ -100,7 +100,7 @@ static nw_error_t *map_set_entry(entry_t *entries, uint64_t capacity, string_t k
 
     uint64_t hash = map_hash_key(key);
     uint64_t index = (uint64_t)(hash & (uint64_t)(capacity - 1));
-    while (entries[index].key != NULL)
+    while (entries[index].key)
     {
         if (strcmp(key, entries[index].key) == 0)
         {
@@ -121,14 +121,14 @@ static nw_error_t *map_set_entry(entry_t *entries, uint64_t capacity, string_t k
 
 bool_t map_contains(map_t *map, string_t key)
 {
-    if (map == NULL || map->entries == NULL || key == NULL)
+    if (!map || !map->entries || !key)
     {
         return false;
     }
 
     uint64_t hash = map_hash_key(key);
     uint64_t index = (uint64_t)(hash & (uint64_t)(map->capacity - 1));
-    while (map->entries[index].key != NULL)
+    while (map->entries[index].key)
     {
         if (strcmp(key, map->entries[index].key) == 0)
         {
@@ -158,7 +158,7 @@ static nw_error_t *map_expand(map_t *map)
 
     size_t size = new_capacity * sizeof(entry_t);
     entry_t *new_entries = (entry_t *) malloc(size);
-    if (new_entries == NULL)
+    if (!new_entries)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION,
                      string_create("failed to allocate map entries of size %zu bytes.", size),
@@ -173,10 +173,10 @@ static nw_error_t *map_expand(map_t *map)
     for (uint64_t i = 0; i < map->capacity; ++i)
     {
         entry_t entry = map->entries[i];
-        if (entry.key != NULL)
+        if (entry.key)
         {
             nw_error_t *error = map_set_entry(new_entries, new_capacity, entry.key, entry.data);
-            if (error != NULL)
+            if (error)
             {
                 free(new_entries);
                 return ERROR(ERROR_SET,
@@ -203,7 +203,7 @@ nw_error_t *map_set(map_t *map, string_t key, void *data)
     if (map->length >= map->capacity / 2)
     {
         error = map_expand(map);
-        if (error != NULL)
+        if (error)
         {
             return ERROR(ERROR_EXPAND,
                          string_create("failed to increase capacity of map."),
@@ -212,7 +212,7 @@ nw_error_t *map_set(map_t *map, string_t key, void *data)
     }
 
     error = map_set_entry(map->entries, map->capacity, key, data);
-    if (error != NULL)
+    if (error)
     {
         return ERROR(ERROR_SET,
                      string_create("failed to set map entry with corresponding key %s.", key),

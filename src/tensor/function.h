@@ -49,7 +49,9 @@ typedef enum binary_operation_type_t
     MULTIPLICATION_OPERATION,
     DIVISION_OPERATION,
     POWER_OPERATION,
-    MATRIX_MULTIPLICATION_OPERATION
+    MATRIX_MULTIPLICATION_OPERATION,
+    COMPARE_EQUAL,
+    COMPARE_GREATER,
 } binary_operation_type_t;
 
 typedef struct binary_operation_t
