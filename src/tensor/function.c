@@ -240,46 +240,37 @@ nw_error_t *apply_function_reduction(reduction_operation_type_t reduction_operat
 
     nw_error_t *error = NULL;
     reduction_operation_t *reduction_operation = NULL;
-    uint64_t reduce_length = length || x->buffer->view->rank;
+    uint64_t reduce_length = length ? length : x->buffer->view->rank;
     uint64_t reduce_axis[reduce_length];
-    uint64_t *shape = x->buffer->view->shape;
-    uint64_t rank = x->buffer->view->rank;
 
     if (x->buffer->view->rank < reduce_length)
     {
         return ERROR(ERROR_RANK_CONFLICT, string_create("reduce axis length greater than rank of tensor."), NULL);
     }
 
-    if (reduce_length && shape_size(shape, rank) > 1)
+    for (uint64_t i = 0; i < reduce_length; ++i)
     {
-        for (uint64_t i = 0; i < reduce_length; ++i)
-        {
-            reduce_axis[i] = (!axis || !length) ? i : axis[i];
-        }
-
-        CHECK_UNIQUE(reduce_axis, reduce_length, "reduce_axis");
-
-        error = reduction_operation_create(&reduction_operation, reduction_operation_type,
-                                           x, reduce_axis, reduce_length, keep_dimension);
-        if (error)
-        {
-            return ERROR(ERROR_CREATE,
-                        string_create("failed to create reduction operation of type %s.",
-                        reduction_operation_type_string(reduction_operation_type)), error);
-        }
-
-        error = apply_function(REDUCTION_OPERATION, (void *) reduction_operation, result);
-        if (error)
-        {
-            reduction_operation_destroy(reduction_operation);
-            return ERROR(ERROR_FORWARD,
-                         string_create("failed to apply reduction function of type %s.",
-                         reduction_operation_type_string(reduction_operation_type)), error);
-        }
+        reduce_axis[i] = (!axis || !length) ? i : axis[i];
     }
-    else
+
+    CHECK_UNIQUE(reduce_axis, reduce_length, "reduce_axis");
+
+    error = reduction_operation_create(&reduction_operation, reduction_operation_type,
+                                        x, reduce_axis, reduce_length, keep_dimension);
+    if (error)
     {
-        *result = (tensor_t *) x;
+        return ERROR(ERROR_CREATE,
+                    string_create("failed to create reduction operation of type %s.",
+                    reduction_operation_type_string(reduction_operation_type)), error);
+    }
+
+    error = apply_function(REDUCTION_OPERATION, (void *) reduction_operation, result);
+    if (error)
+    {
+        reduction_operation_destroy(reduction_operation);
+        return ERROR(ERROR_FORWARD,
+                        string_create("failed to apply reduction function of type %s.",
+                        reduction_operation_type_string(reduction_operation_type)), error);
     }
 
     return error;

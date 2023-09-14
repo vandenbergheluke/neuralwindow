@@ -217,17 +217,10 @@ nw_error_t *tensor_expand(const tensor_t *x, const uint64_t *shape, uint64_t len
 
     nw_error_t *error = NULL;
 
-    if (shapes_equal(x->buffer->view->shape, x->buffer->view->rank, shape, length))
+    error = apply_function_structure(EXPAND_OPERATION, x, shape, length, y);
+    if (error)
     {
-        *y = (tensor_t *) x;
-    }
-    else
-    {
-        error = apply_function_structure(EXPAND_OPERATION, x, shape, length, y);
-        if (error)
-        {
-            return ERROR(ERROR_FORWARD, string_create("failed to expand tensor."), error);
-        }
+        return ERROR(ERROR_FORWARD, string_create("failed to expand tensor."), error);
     }
 
     PRINTLN_DEBUG_LOCATION("output");
@@ -706,16 +699,9 @@ nw_error_t *tensor_mean(const tensor_t *x, tensor_t **y, const uint64_t *axis, u
     PRINTLN_DEBUG_TENSOR("y", *y);
     PRINT_DEBUG_NEWLINE;
 
-    if (!x->requires_gradient)
-    {
-        goto cleanup;
-    }
-
-    return error;
-
 cleanup:
 
-    if (x != x_i)
+    if (!x_i->requires_gradient)
     {
         tensor_destroy(x_i);
     }
@@ -1408,7 +1394,10 @@ nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
                 goto cleanup;
             }
 
-            PRINTLN_DEBUG_TENSOR("y", y);
+        }
+
+        if (y->context || !y->requires_gradient)
+        {
             tensor_destroy(y);
         }
     }
