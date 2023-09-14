@@ -153,7 +153,6 @@ void teardown(void)
                 tensor_destroy(input[i][j][k]);
                 for (int l = 0; l < LAYERS; l++)
                 {
-                    tensor_destroy(returned_tensors[i][j][k][l]);
                     tensor_destroy(expected_tensors[i][j][k][l]);
                     tensor_destroy(weights[i][j][k][l]);
                     tensor_destroy(bias[i][j][k][l]);

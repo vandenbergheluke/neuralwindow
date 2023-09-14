@@ -3458,6 +3458,11 @@ nw_error_t *structure_operation_forward(structure_operation_t *structure_operati
         }
         break;
     case PERMUTE_OPERATION:
+        error = tensor_create(result, NULL, NULL, NULL, x->requires_gradient);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create tensor"), error);
+        }
         error = permute_operation_forward(x, arguments, length, *result);
         break;
     case RESHAPE_OPERATION:

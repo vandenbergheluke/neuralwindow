@@ -1090,7 +1090,7 @@ static nw_error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *t
         switch (operation_type)
         {
         case UNARY_OPERATION:
-            if (!operation->unary_operation)
+            if (operation->unary_operation)
             {
                 error = topological_sort(operation->unary_operation->x, visited, tensors);
             }

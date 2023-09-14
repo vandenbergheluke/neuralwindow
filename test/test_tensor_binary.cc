@@ -152,7 +152,6 @@ void teardown(void)
                 tensor_destroy(tensors_x[i][j][k]);
                 tensor_destroy(tensors_y[i][j][k]);
                 tensor_destroy(expected_tensors[i][j][k]);
-                tensor_destroy(returned_tensors[i][j][k]);
                 tensor_destroy(expected_gradients_x[i][j][k]);
                 tensor_destroy(expected_gradients_y[i][j][k]);
             }
