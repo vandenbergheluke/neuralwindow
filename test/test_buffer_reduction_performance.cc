@@ -37,15 +37,15 @@ std::vector<int64_t> shapes[CASES] = {
     {128, 128},
 };
 
-uint64_t axis[CASES] = {
-    0,
-    1,
-    0,
-    1,
-    0,
-    1,
-    0,
-    1,
+std::vector<int64_t> axis[CASES] = {
+    {0},
+    {1},
+    {0},
+    {1},
+    {0},
+    {1},
+    {0},
+    {1},
 };
 
 bool_t keep_dimension[CASES] = {
@@ -154,7 +154,7 @@ START_TEST(test_summation_computational_performance)
         uint64_t n = shapes[k][0];
         uint64_t num_flop = pow(n, 2);
 
-        printf("Dimensions (%lu, %lu), Axis %lu:\n", n, n, axis[k]);
+        printf("Dimensions (%lu, %lu), Axis Size %lu:\n", n, n, (unsigned long) axis[k].size());
 
         for (int i = 0; i < RUNTIMES; ++i)
         {
@@ -170,13 +170,17 @@ START_TEST(test_summation_computational_performance)
                     uint64_t nw_completion_time;
 
                     torch_start = get_time_nanoseconds();
-                    torch::Tensor expected_tensor = torch::sum(torch_tensors[i][j][k][z], std::vector<int64_t>({(int64_t) axis[k]}), keep_dimension[k]);
+                    torch::Tensor expected_tensor = torch::sum(torch_tensors[i][j][k][z], axis[k], keep_dimension[k]);
                     torch_end = get_time_nanoseconds();
 
                     returned_tensors[i][j][k][z] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
 
                     nw_start = get_time_nanoseconds();
-                    error = runtime_summation(tensors[i][j][k][z]->buffer, returned_tensors[i][j][k][z]->buffer, axis[k]);
+                    error = runtime_summation(tensors[i][j][k][z]->buffer,
+                                              (uint64_t *) axis[k].data(),
+                                              (uint64_t) axis[k].size(),
+                                              returned_tensors[i][j][k][z]->buffer,
+                                              keep_dimension[k]);
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);
 
@@ -236,7 +240,7 @@ START_TEST(test_maximum_computational_performance)
         uint64_t n = shapes[k][0];
         uint64_t num_flop = pow(n, 2);
 
-        printf("Dimensions (%lu, %lu), Axis %lu:\n", n, n, axis[k]);
+        printf("Dimensions (%lu, %lu), Axis Size %lu:\n", n, n, (unsigned long) axis[k].size());
 
         for (int i = 0; i < RUNTIMES; ++i)
         {
@@ -252,14 +256,17 @@ START_TEST(test_maximum_computational_performance)
                     uint64_t nw_completion_time;
 
                     torch_start = get_time_nanoseconds();
-                    torch::Tensor expected_tensor = std::get<0>(torch::max(torch_tensors[i][j][k][z], 
-                                                  {(int64_t) axis[k]}, keep_dimension[k]));
+                    torch::Tensor expected_tensor = torch::amax(torch_tensors[i][j][k][z], axis[k], keep_dimension[k]);
                     torch_end = get_time_nanoseconds();
 
                     returned_tensors[i][j][k][z] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
 
                     nw_start = get_time_nanoseconds();
-                    error = runtime_maximum(tensors[i][j][k][z]->buffer, returned_tensors[i][j][k][z]->buffer, axis[k]);
+                    error = runtime_maximum(tensors[i][j][k][z]->buffer,
+                                            (uint64_t *) axis[k].data(),
+                                            (uint64_t) axis[k].size(),
+                                            returned_tensors[i][j][k][z]->buffer,
+                                            keep_dimension[k]);
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);
 

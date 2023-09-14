@@ -11,7 +11,7 @@ nw_error_t *queue_create(queue_t **queue)
 
     size_t size = sizeof(queue_t);
     *queue = (queue_t *) malloc(size);
-    if (queue == NULL)
+    if (!*queue)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION,
                      string_create("failed to allocate queue of size %zu bytes.", size),
@@ -28,10 +28,10 @@ nw_error_t *queue_create(queue_t **queue)
 
 void queue_destroy(queue_t *queue)
 {
-    if (queue != NULL)
+    if (queue)
     {
         element_t *element = queue->head;
-        while (element != NULL)
+        while (element)
         {
             element_t *next = element->next;
             element_destroy(element);
@@ -47,14 +47,14 @@ nw_error_t *queue_enqueue(queue_t *queue, void *data)
 
     element_t *element;
     nw_error_t *error = element_create(&element, data); 
-    if (error != NULL)
+    if (error)
     {
         return ERROR(ERROR_CREATE,
                      string_create("failed to create element."),
                      error);
     }
 
-    if (queue->head == NULL)
+    if (!queue->head)
     {
         queue->head = element;
         queue->tail = element;
@@ -74,7 +74,7 @@ nw_error_t *queue_dequeue(queue_t *queue, void **data)
     CHECK_NULL_ARGUMENT(queue, "queue");
     CHECK_NULL_ARGUMENT(data, "data");
 
-    if (queue->head == NULL)
+    if (!queue->head)
     {
         return ERROR(ERROR_DESTROY,
                      string_create("failed to dequeue element from empty queue."),

@@ -33,7 +33,7 @@ size_t datatype_size(datatype_t datatype)
 
 string_t string_create(string_t format, ...)
 {
-    if (format == NULL)
+    if (!format)
     {
         return NULL;
     }

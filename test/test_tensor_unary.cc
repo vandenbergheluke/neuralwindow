@@ -87,10 +87,6 @@ void setup(void)
                 torch_tensors[i][j][k].retain_grad();
 
                 tensors[i][j][k] = torch_to_tensor(torch_tensors[i][j][k], (runtime_t) i, (datatype_t) j);
-
-                error = tensor_create_default(&returned_tensors[i][j][k]);
-                ck_assert_ptr_null(error);
-                returned_tensors[i][j][k]->lock = true;
             }
         }
     }
@@ -107,7 +103,6 @@ void teardown(void)
             {
                 tensor_destroy(tensors[i][j][k]);
                 tensor_destroy(expected_tensors[i][j][k]);
-                tensor_destroy(returned_tensors[i][j][k]);
                 tensor_destroy(expected_gradients[i][j][k]);
             }
         }
@@ -169,34 +164,34 @@ void test_unary(tensor_unary_type_t tensor_unary_type)
                 switch (tensor_unary_type)
                 {
                 case TENSOR_EXPONENTIAL:
-                    error = tensor_exponential(tensors[i][j][k], returned_tensors[i][j][k]);
+                    error = tensor_exponential(tensors[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_LOGARITHM:
-                    error = tensor_logarithm(tensors[i][j][k], returned_tensors[i][j][k]);
+                    error = tensor_logarithm(tensors[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_SINE:
-                    error = tensor_sine(tensors[i][j][k], returned_tensors[i][j][k]);
+                    error = tensor_sine(tensors[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_COSINE:
-                    error = tensor_cosine(tensors[i][j][k], returned_tensors[i][j][k]);
+                    error = tensor_cosine(tensors[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_SQUARE_ROOT:
-                    error = tensor_square_root(tensors[i][j][k], returned_tensors[i][j][k]);
+                    error = tensor_square_root(tensors[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_RECIPROCAL:
-                    error = tensor_reciprocal(tensors[i][j][k], returned_tensors[i][j][k]);
+                    error = tensor_reciprocal(tensors[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_CONTIGUOUS:
-                    error = tensor_contiguous(tensors[i][j][k], returned_tensors[i][j][k]);
+                    error = tensor_contiguous(tensors[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_NEGATION:
-                    error = tensor_negation(tensors[i][j][k], returned_tensors[i][j][k]);
+                    error = tensor_negation(tensors[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_RECTIFIED_LINEAR:
-                    error = tensor_rectified_linear(tensors[i][j][k], returned_tensors[i][j][k]);
+                    error = tensor_rectified_linear(tensors[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_SIGMOID:
-                    error = tensor_sigmoid(tensors[i][j][k], returned_tensors[i][j][k]);
+                    error = tensor_sigmoid(tensors[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 default:
                     ck_abort_msg("unknown unary type.");
@@ -209,9 +204,7 @@ void test_unary(tensor_unary_type_t tensor_unary_type)
 
                 // Back prop
                 tensor_t *cost;
-                error = tensor_create_default(&cost);
-                ck_assert_ptr_null(error);
-                error = tensor_summation(returned_tensors[i][j][k], cost, NULL, returned_tensors[i][j][k]->buffer->view->rank, false);
+                error = tensor_summation(returned_tensors[i][j][k], &cost, NULL, 0, false);
                 ck_assert_ptr_null(error);
                 error = tensor_backward(cost, NULL);
                 ck_assert_ptr_null(error);

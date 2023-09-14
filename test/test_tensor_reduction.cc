@@ -112,10 +112,6 @@ void setup(void)
                 torch_tensors[i][j][k].retain_grad();
 
                 tensors[i][j][k] = torch_to_tensor(torch_tensors[i][j][k], (runtime_t) i, (datatype_t) j);
-
-                error = tensor_create_default(&returned_tensors[i][j][k]);
-                ck_assert_ptr_null(error);
-                returned_tensors[i][j][k]->lock = true;
             }
         }
     }
@@ -132,7 +128,6 @@ void teardown(void)
             {
                 tensor_destroy(tensors[i][j][k]);
                 tensor_destroy(expected_tensors[i][j][k]);
-                tensor_destroy(returned_tensors[i][j][k]);
                 tensor_destroy(expected_gradient[i][j][k]);
             }
         }
@@ -174,21 +169,21 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type)
                 {
                 case TENSOR_SUMMATION:
                     error = tensor_summation(tensors[i][j][k], 
-                                             returned_tensors[i][j][k],
+                                             &returned_tensors[i][j][k],
                                              (uint64_t *) axis[k].data(),
                                              (uint64_t) axis[k].size(),
                                              keep_dimension[k]);
                     break;
                 case TENSOR_MAXIMUM:
                     error = tensor_maximum(tensors[i][j][k], 
-                                           returned_tensors[i][j][k],
+                                           &returned_tensors[i][j][k],
                                            (uint64_t *) axis[k].data(),
                                            (uint64_t) axis[k].size(),
                                            keep_dimension[k]);
                     break;
                 case TENSOR_MEAN:
                     error = tensor_mean(tensors[i][j][k], 
-                                        returned_tensors[i][j][k],
+                                        &returned_tensors[i][j][k],
                                         (uint64_t *) axis[k].data(),
                                         (uint64_t) axis[k].size(),
                                         keep_dimension[k]);
@@ -205,17 +200,9 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type)
 
                 // Back prop
                 tensor_t *cost;
-                error = tensor_create_default(&cost);
-                ck_assert_ptr_null(error);
-                error = tensor_summation(returned_tensors[i][j][k], 
-                                         cost,
-                                         NULL,
-                                         returned_tensors[i][j][k]->buffer->view->rank,
-                                         false);
+                error = tensor_summation(returned_tensors[i][j][k], &cost, NULL, 0, false);
                 ck_assert_ptr_null(error);
                 error = tensor_backward(cost, NULL);
-                ck_assert_ptr_null(error);
-
                 ck_assert_ptr_null(error);
 
                 ck_assert_tensor_equiv(tensors[i][j][k]->gradient, expected_gradient[i][j][k]);

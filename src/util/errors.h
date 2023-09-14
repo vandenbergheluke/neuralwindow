@@ -76,7 +76,7 @@
 } while(0)
 
 #define PRINT_DEBUG_VIEW(view) do {\
-    if (view == NULL)\
+    if (!view)\
     {\
         fprintf(stderr, "NULL");\
     }\
@@ -99,7 +99,7 @@
 } while(0)
 
 #define PRINT_DEBUG_STORAGE(storage) do {\
-    if (storage == NULL)\
+    if (!storage)\
     {\
         fprintf(stderr, "NULL");\
     }\
@@ -110,7 +110,7 @@
         fprintf(stderr, ", n: %lu", storage->n);\
         fprintf(stderr, ", reference_count: %lu", storage->reference_count);\
         fprintf(stderr, ", data: ");\
-        if (storage->data == NULL)\
+        if (!storage->data)\
         {\
             fprintf(stderr, "NULL");\
         }\
@@ -158,7 +158,7 @@
 } while(0)
 
 #define PRINT_DEBUG_BUFFER(buffer) do {\
-    if (buffer == NULL)\
+    if (!buffer)\
     {\
         fprintf(stderr, "NULL");\
     }\
@@ -179,7 +179,7 @@
 } while(0)
 
 #define PRINT_DEBUG_FUNCTION(function) do {\
-    if (function == NULL)\
+    if (!function)\
     {\
         fprintf(stderr, "NULL");\
     }\
@@ -191,7 +191,7 @@
         {\
         case UNARY_OPERATION:\
             fprintf(stderr, "%s", unary_operation_type_string(function->operation->unary_operation->operation_type));\
-            if (function->operation->unary_operation->x == NULL)\
+            if (!function->operation->unary_operation->x)\
             {\
                 fprintf(stderr, ", x: NULL");\
             }\
@@ -199,7 +199,7 @@
             {\
                 fprintf(stderr, ", x: (id: %lu)", function->operation->unary_operation->x->id);\
             }\
-            if (function->operation->unary_operation->result == NULL)\
+            if (!function->operation->unary_operation->result)\
             {\
                 fprintf(stderr, ", result: NULL");\
             }\
@@ -210,7 +210,7 @@
             break;\
         case BINARY_OPERATION:\
             fprintf(stderr, "%s", binary_operation_type_string(function->operation->binary_operation->operation_type));\
-            if (function->operation->binary_operation->x == NULL)\
+            if (!function->operation->binary_operation->x)\
             {\
                 fprintf(stderr, ", x: NULL");\
             }\
@@ -218,7 +218,7 @@
             {\
                 fprintf(stderr, ", x: (id: %lu)", function->operation->binary_operation->x->id);\
             }\
-            if (function->operation->binary_operation->y == NULL)\
+            if (!function->operation->binary_operation->y)\
             {\
                 fprintf(stderr, ", y: NULL");\
             }\
@@ -226,7 +226,7 @@
             {\
                 fprintf(stderr, ", y: (id: %lu)", function->operation->binary_operation->y->id);\
             }\
-            if (function->operation->binary_operation->result == NULL)\
+            if (!function->operation->binary_operation->result)\
             {\
                 fprintf(stderr, ", result: NULL");\
             }\
@@ -237,7 +237,7 @@
             break;\
         case REDUCTION_OPERATION:\
             fprintf(stderr, "%s", reduction_operation_type_string(function->operation->reduction_operation->operation_type));\
-            if (function->operation->reduction_operation->x == NULL)\
+            if (!function->operation->reduction_operation->x)\
             {\
                 fprintf(stderr, ", x: NULL");\
             }\
@@ -245,7 +245,7 @@
             {\
                 fprintf(stderr, ", x: (id: %lu)", function->operation->reduction_operation->x->id);\
             }\
-            if (function->operation->reduction_operation->result == NULL)\
+            if (!function->operation->reduction_operation->result)\
             {\
                 fprintf(stderr, ", result: NULL");\
             }\
@@ -261,7 +261,7 @@
             break;\
         case STRUCTURE_OPERATION:\
             fprintf(stderr, "%s", structure_operation_type_string(function->operation->structure_operation->operation_type));\
-            if (function->operation->structure_operation->x == NULL)\
+            if (!function->operation->structure_operation->x)\
             {\
                 fprintf(stderr, ", x: NULL");\
             }\
@@ -269,7 +269,7 @@
             {\
                 fprintf(stderr, ", x: (id: %lu)", function->operation->structure_operation->x->id);\
             }\
-            if (function->operation->structure_operation->result == NULL)\
+            if (!function->operation->structure_operation->result)\
             {\
                 fprintf(stderr, ", result: NULL");\
             }\
@@ -294,29 +294,27 @@
 } while(0)
 
 #define PRINT_DEBUG_TENSOR(tensor) do {\
-    if (tensor == NULL)\
+    if (!tensor)\
     {\
         fprintf(stderr, "NULL");\
     }\
     else\
     {\
-        fprintf(stderr, "(id: %lu", tensor->id);\
+        fprintf(stderr, "(id: %lu", (tensor)->id);\
         fprintf(stderr, ", buffer: ");\
-        PRINT_DEBUG_BUFFER(tensor->buffer);\
+        PRINT_DEBUG_BUFFER((tensor)->buffer);\
         fprintf(stderr, ", context: ");\
-        PRINT_DEBUG_FUNCTION(tensor->context);\
-        if (tensor->gradient == NULL)\
+        PRINT_DEBUG_FUNCTION((tensor)->context);\
+        if (!(tensor)->gradient)\
         {\
             fprintf(stderr, ", gradient: NULL");\
         }\
         else\
         {\
-            fprintf(stderr, ", gradient: (id: %lu)", tensor->gradient->id);\
+            fprintf(stderr, ", gradient: (id: %lu)", (tensor)->gradient->id);\
         }\
         fprintf(stderr, ", requires_gradient: ");\
-        PRINT_DEBUG_BOOLEAN(tensor->requires_gradient);\
-        fprintf(stderr, ", lock: ");\
-        PRINT_DEBUG_BOOLEAN(tensor->lock);\
+        PRINT_DEBUG_BOOLEAN((tensor)->requires_gradient);\
         fprintf(stderr, ")");\
     }\
 } while(0)
@@ -403,6 +401,7 @@ typedef enum nw_error_type_t
     ERROR_N,
     ERROR_UNARY,
     ERROR_SIGMOID,
+    ERROR_PUSH,
 } nw_error_type_t;
 
 typedef struct nw_error_t
@@ -423,7 +422,7 @@ string_t error_type_string(nw_error_type_t error_type);
 #define ERROR(error_type, error_string, error) (error_create(error_type, __FILE__, __LINE__, __FUNCTION__, error_string, error))
 
 #define CHECK_NULL_ARGUMENT(pointer, string) do {\
-            if (pointer == NULL)\
+            if (!pointer)\
             {\
                 return ERROR(ERROR_NULL, string_create("received null argument for %s.", string), NULL);\
             }\

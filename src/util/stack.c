@@ -11,7 +11,7 @@ nw_error_t *stack_create(stack_t **stack)
 
     size_t size = sizeof(stack_t);
     *stack = (stack_t *) malloc(size);
-    if (stack == NULL)
+    if (!*stack)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate stack of size %zu bytes.", size), NULL);
     }
@@ -25,10 +25,10 @@ nw_error_t *stack_create(stack_t **stack)
 
 void stack_destroy(stack_t *stack)
 {
-    if (stack != NULL)
+    if (stack)
     {
         element_t *element = stack->head;
-        while (element != NULL)
+        while (element)
         {
             element_t *next = element->next;
             element_destroy(element);
@@ -44,12 +44,12 @@ nw_error_t *stack_push(stack_t *stack, void *data)
 
     element_t *element;
     nw_error_t *error = element_create(&element, data); 
-    if (error != NULL)
+    if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create element."), error);
     }
 
-    if (stack->head == NULL)
+    if (!stack->head)
     {
         stack->head = element;
     }
@@ -68,7 +68,7 @@ nw_error_t *stack_pop(stack_t *stack, void **data)
     CHECK_NULL_ARGUMENT(stack, "stack");
     CHECK_NULL_ARGUMENT(data, "data");
 
-    if (stack->head == NULL)
+    if (!stack->head)
     {
         return ERROR(ERROR_DESTROY, string_create("failed to pop element from empty stack."), NULL);
     }

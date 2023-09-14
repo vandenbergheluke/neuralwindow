@@ -125,10 +125,6 @@ void setup(binary_operation_class_t binary_operation_class)
 
                 tensors_x[i][j][k] = torch_to_tensor(torch_tensors_x[i][j][k], (runtime_t) i, (datatype_t) j);
                 tensors_y[i][j][k] = torch_to_tensor(torch_tensors_y[i][j][k], (runtime_t) i, (datatype_t) j);
-
-                error = tensor_create_default(&returned_tensors[i][j][k]);
-                ck_assert_ptr_null(error);
-                returned_tensors[i][j][k]->lock = true;
             }
         }
     }
@@ -156,7 +152,6 @@ void teardown(void)
                 tensor_destroy(tensors_x[i][j][k]);
                 tensor_destroy(tensors_y[i][j][k]);
                 tensor_destroy(expected_tensors[i][j][k]);
-                tensor_destroy(returned_tensors[i][j][k]);
                 tensor_destroy(expected_gradients_x[i][j][k]);
                 tensor_destroy(expected_gradients_y[i][j][k]);
             }
@@ -180,28 +175,22 @@ void test_binary(tensor_binary_operation_type_t tensor_binary_operation_type)
                 switch (tensor_binary_operation_type)
                 {
                 case TENSOR_ADDITION:
-                    expected_tensor = torch::add(torch_tensors_x[i][j][k],
-                                                 torch_tensors_y[i][j][k]);
+                    expected_tensor = torch::add(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]);
                     break;
                 case TENSOR_SUBTRACTION:
-                    expected_tensor = torch::sub(torch_tensors_x[i][j][k],
-                                                 torch_tensors_y[i][j][k]);
+                    expected_tensor = torch::sub(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]);
                     break;
                 case TENSOR_MULTIPLICATION:
-                    expected_tensor = torch::mul(torch_tensors_x[i][j][k],
-                                                 torch_tensors_y[i][j][k]);
+                    expected_tensor = torch::mul(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]);
                     break;
                 case TENSOR_DIVISION:
-                    expected_tensor = torch::div(torch_tensors_x[i][j][k],
-                                                 torch_tensors_y[i][j][k]);
+                    expected_tensor = torch::div(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]);
                     break;
                 case TENSOR_POWER:
-                    expected_tensor = torch::pow(torch_tensors_x[i][j][k],
-                                                 torch_tensors_y[i][j][k]);
+                    expected_tensor = torch::pow(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]);
                     break;
                 case TENSOR_MATRIX_MULTIPLICATION:
-                    expected_tensor = torch::matmul(torch_tensors_x[i][j][k],
-                                                    torch_tensors_y[i][j][k]);
+                    expected_tensor = torch::matmul(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]);
                     break;
                 default:
                     ck_abort_msg("unsupported binary operation type.");
@@ -213,34 +202,22 @@ void test_binary(tensor_binary_operation_type_t tensor_binary_operation_type)
                 switch (tensor_binary_operation_type)
                 {
                 case TENSOR_ADDITION:
-                    error = tensor_addition(tensors_x[i][j][k],
-                                            tensors_y[i][j][k],
-                                            returned_tensors[i][j][k]);
+                    error = tensor_addition(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_SUBTRACTION:
-                    error = tensor_subtraction(tensors_x[i][j][k],
-                                               tensors_y[i][j][k],
-                                               returned_tensors[i][j][k]);
+                    error = tensor_subtraction(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_MULTIPLICATION:
-                    error = tensor_multiplication(tensors_x[i][j][k],
-                                                  tensors_y[i][j][k],
-                                                  returned_tensors[i][j][k]);
+                    error = tensor_multiplication(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_DIVISION:
-                    error = tensor_division(tensors_x[i][j][k],
-                                            tensors_y[i][j][k],
-                                            returned_tensors[i][j][k]);
+                    error = tensor_division(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_POWER:
-                    error = tensor_power(tensors_x[i][j][k],
-                                         tensors_y[i][j][k],
-                                         returned_tensors[i][j][k]);
+                    error = tensor_power(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_MATRIX_MULTIPLICATION:
-                    error = tensor_matrix_multiplication(tensors_x[i][j][k],
-                                                         tensors_y[i][j][k],
-                                                         returned_tensors[i][j][k]);
+                    error = tensor_matrix_multiplication(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 default:
                     ck_abort_msg("unsupported binary operation type.");
@@ -253,21 +230,13 @@ void test_binary(tensor_binary_operation_type_t tensor_binary_operation_type)
                 expected_gradients_y[i][j][k] = torch_to_tensor(torch_tensors_y[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
 
                 tensor_t *cost;
-                error = tensor_create_default(&cost);
-                ck_assert_ptr_null(error);
-                error = tensor_summation(returned_tensors[i][j][k],
-                                         cost,
-                                         NULL,
-                                         returned_tensors[i][j][k]->buffer->view->rank,
-                                         false);
+                error = tensor_summation(returned_tensors[i][j][k], &cost, NULL, 0, false);
                 ck_assert_ptr_null(error);
                 error = tensor_backward(cost, NULL);
                 ck_assert_ptr_null(error);
 
-                ck_assert_tensor_equiv(tensors_x[i][j][k]->gradient,
-                                       expected_gradients_x[i][j][k]);
-                ck_assert_tensor_equiv(tensors_y[i][j][k]->gradient,
-                                       expected_gradients_y[i][j][k]);
+                ck_assert_tensor_equiv(tensors_x[i][j][k]->gradient, expected_gradients_x[i][j][k]);
+                ck_assert_tensor_equiv(tensors_y[i][j][k]->gradient, expected_gradients_y[i][j][k]);
             }
         }
     }

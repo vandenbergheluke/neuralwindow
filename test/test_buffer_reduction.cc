@@ -11,7 +11,7 @@ extern "C"
 }
 #include <test_helper.h>
 
-#define CASES 4
+#define CASES 8
 
 nw_error_t *error;
 
@@ -21,25 +21,37 @@ tensor_t *expected_tensors[RUNTIMES][DATATYPES][CASES];
 
 torch::Tensor torch_tensors[RUNTIMES][DATATYPES][CASES];
 
-std::vector<int64_t> shapes[CASES] = {
-    {2, 2},
-    {2, 2},
-    {2, 2},
-    {2, 2},
-};
-
-uint64_t axis[CASES] = {
-    0,
-    0,
-    1,
-    1,
+std::vector<int64_t> axis[CASES] = {
+    {0},
+    {0},
+    {1},
+    {1},
+    {0, 2},
+    {1},
+    {0, 1, 2, 3},
+    {0, 2, 3},
 };
 
 bool_t keep_dimension[CASES] = {
+    false,
+    true,
+    false,
     true,
     true,
+    false,
+    false,
     true,
-    true,
+};
+
+std::vector<int64_t> shapes[CASES] = {
+    {1},
+    {10},
+    {10, 1},
+    {10, 10},
+    {3, 4, 5},
+    {3, 4, 5},
+    {2, 3, 4, 5},
+    {2, 3, 4, 5},
 };
     
 void setup(void)
@@ -109,13 +121,10 @@ void test_reduction(runtime_reduction_type_t runtime_reduction_type)
                 switch (runtime_reduction_type)
                 {
                 case RUNTIME_SUMMATION:
-                    expected_tensor = torch::sum(torch_tensors[i][j][k], 
-                                                 std::vector<int64_t>({(int64_t) axis[k]}),
-                                                 keep_dimension[k]);
+                    expected_tensor = torch::sum(torch_tensors[i][j][k], axis[k], keep_dimension[k]);
                     break;
                 case RUNTIME_MAXIMUM:
-                    expected_tensor = std::get<0>(torch::max(torch_tensors[i][j][k], 
-                                                  {(int64_t) axis[k]}, keep_dimension[k]));
+                    expected_tensor = torch::amax(torch_tensors[i][j][k], axis[k], keep_dimension[k]);
                     break;
                 default:
                     ck_abort_msg("unknown reduction type.");
@@ -127,14 +136,23 @@ void test_reduction(runtime_reduction_type_t runtime_reduction_type)
                 switch (runtime_reduction_type)
                 {
                 case RUNTIME_SUMMATION:
-                    error = runtime_summation(tensors[i][j][k]->buffer, returned_tensors[i][j][k]->buffer, axis[k]);
+                    error = runtime_summation(tensors[i][j][k]->buffer,
+                                              (uint64_t *) axis[k].data(),
+                                              (uint64_t) axis[k].size(),
+                                              returned_tensors[i][j][k]->buffer,
+                                              keep_dimension[k]);
                     break;
                 case RUNTIME_MAXIMUM:
-                    error = runtime_maximum(tensors[i][j][k]->buffer, returned_tensors[i][j][k]->buffer, axis[k]);
+                    error = runtime_maximum(tensors[i][j][k]->buffer,
+                                            (uint64_t *) axis[k].data(),
+                                            (uint64_t) axis[k].size(),
+                                            returned_tensors[i][j][k]->buffer,
+                                            keep_dimension[k]);
                     break;
                 default:
                     ck_abort_msg("unknown reduction type.");
                 }
+
                 ck_assert_ptr_null(error);
                 ck_assert_buffer_eq(returned_tensors[i][j][k]->buffer, expected_tensors[i][j][k]->buffer);
             }
