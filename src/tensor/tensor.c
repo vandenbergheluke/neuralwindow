@@ -752,7 +752,7 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const uint64_t *shap
 
 cleanup:
 
-    if (x != x_contiguous && !(x->requires_gradient))
+    if (x != x_contiguous && !x->requires_gradient)
     {
         tensor_destroy(x_contiguous);
     }
@@ -852,19 +852,11 @@ nw_error_t *tensor_contiguous(const tensor_t *x, tensor_t **y)
 
     nw_error_t *error = NULL;
 
-    if (tensor_is_contiguous(x))
+    error = apply_function_unary(CONTIGUOUS_OPERATION, x, y);
+    if (error)
     {
-        *y = (tensor_t *) x;
+        return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
     }
-    else
-    {
-        error = apply_function_unary(CONTIGUOUS_OPERATION, x, y);
-        if (error)
-        {
-            return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
-        }
-    }
-
     
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("x", x);

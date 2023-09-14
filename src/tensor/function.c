@@ -1334,10 +1334,7 @@ static nw_error_t *rectified_linear_operation_backward(tensor_t *x, tensor_t *gr
 cleanup:
 
     tensor_destroy(x_gradient);
-    if (x_gradient_i != x_gradient_k)
-    {
-        tensor_destroy(x_gradient_i);
-    }
+    tensor_destroy(x_gradient_i);
     tensor_destroy(x_gradient_j);
     tensor_destroy(x_gradient_k);
     tensor_destroy(x_gradient_l);
@@ -2667,7 +2664,6 @@ static nw_error_t *maximum_operation_backward(tensor_t *x, uint64_t *axis, uint6
                 goto cleanup;
             }
 
-            // TODO: Replace with reshapes
             error = tensor_reshape(x_gradient_j, &x_gradient_k, recovered_result_shape, rank);
             if (error)
             {
@@ -2733,26 +2729,19 @@ static nw_error_t *maximum_operation_backward(tensor_t *x, uint64_t *axis, uint6
 
 cleanup:
 
-    if (x_gradient_n != x_gradient_o)
+    tensor_destroy(x_gradient_i);    
+    if (x_gradient_j != x_gradient_k)
     {
-        tensor_destroy(x_gradient_o);    
+        tensor_destroy(x_gradient_j);    
     }
-    if (x_gradient_k != x_gradient_m)
-    {
-        tensor_destroy(x_gradient_m);    
-    }
-    if (x_gradient_k != x_gradient_j)
-    {
-        tensor_destroy(x_gradient_k);    
-    }
+    tensor_destroy(x_gradient_k);    
     if (x_gradient_l != gradient)
     {
         tensor_destroy(x_gradient_l);    
     }
-
-    tensor_destroy(x_gradient_i);    
-    tensor_destroy(x_gradient_j);    
+    tensor_destroy(x_gradient_m);    
     tensor_destroy(x_gradient_n);    
+    tensor_destroy(x_gradient_o);    
     tensor_destroy(x_gradient_p);    
     tensor_destroy(x_gradient);    
 
@@ -3435,29 +3424,60 @@ cleanup:
 nw_error_t *structure_operation_forward(structure_operation_t *structure_operation, tensor_t **result)
 {
     CHECK_NULL_ARGUMENT(structure_operation, "structure_operation");
+    CHECK_NULL_ARGUMENT(structure_operation->x, "structure_operation->x");
+    CHECK_NULL_ARGUMENT(structure_operation->x->buffer, "structure_operation->x->buffer");
+    CHECK_NULL_ARGUMENT(structure_operation->x->buffer->view, "structure_operation->x->buffer->view");
 
     nw_error_t *error = NULL;
     tensor_t *x = structure_operation->x;
     uint64_t *arguments = structure_operation->arguments;
     uint64_t length = structure_operation->length;
     structure_operation_type_t operation_type = structure_operation->operation_type;
-
-    error = tensor_create(result, NULL, NULL, NULL, x->requires_gradient);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor"), error);
-    }
+    uint64_t *shape = x->buffer->view->shape;
+    uint64_t rank = x->buffer->view->rank;
 
     switch (operation_type)
     {
     case EXPAND_OPERATION:
-        error = expand_operation_forward(x, arguments, length, *result);
+        if (shapes_equal(shape, rank, arguments, length))
+        {
+            error = tensor_as_tensor(x, result, x->requires_gradient);
+            if (error)
+            {
+                return ERROR(ERROR_CREATE, string_create("failed to create tensor"), error);
+            }
+        }
+        else
+        {
+            error = tensor_create(result, NULL, NULL, NULL, x->requires_gradient);
+            if (error)
+            {
+                return ERROR(ERROR_CREATE, string_create("failed to create tensor"), error);
+            }
+            error = expand_operation_forward(x, arguments, length, *result);
+        }
         break;
     case PERMUTE_OPERATION:
         error = permute_operation_forward(x, arguments, length, *result);
         break;
     case RESHAPE_OPERATION:
-        error = reshape_operation_forward(x, arguments, length, *result);
+        if (shapes_equal(shape, rank, arguments, length))
+        {
+            error = tensor_as_tensor(x, result, x->requires_gradient);
+            if (error)
+            {
+                return ERROR(ERROR_CREATE, string_create("failed to create tensor"), error);
+            }
+        }
+        else
+        {
+            error = tensor_create(result, NULL, NULL, NULL, x->requires_gradient);
+            if (error)
+            {
+                return ERROR(ERROR_CREATE, string_create("failed to create tensor"), error);
+            }
+            error = reshape_operation_forward(x, arguments, length, *result);
+        }
         break;
     // case SLICE_OPERATION:
     //     error = slice_operation_forward(x, arguments, length, *result);
