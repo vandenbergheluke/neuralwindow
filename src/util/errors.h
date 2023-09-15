@@ -402,6 +402,9 @@ typedef enum nw_error_type_t
     ERROR_UNARY,
     ERROR_SIGMOID,
     ERROR_PUSH,
+    ERROR_TRANSPOSE,
+    ERROR_SOFTMAX,
+    ERROR_MEAN,
 } nw_error_type_t;
 
 typedef struct nw_error_t

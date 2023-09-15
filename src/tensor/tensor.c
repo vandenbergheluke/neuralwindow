@@ -710,9 +710,170 @@ cleanup:
     return error;
 }
 
+static nw_error_t *softmax(const tensor_t *x, tensor_t **y_max, tensor_t **y_num, tensor_t **y_den, const uint64_t *axis, uint64_t length)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_UINT64_ARRAY("axis", axis, length);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y_max, "y_max");
+    CHECK_NULL_ARGUMENT(y_num, "y_num");
+    CHECK_NULL_ARGUMENT(y_den, "y_den");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_i = NULL;
+
+    error = tensor_maximum(x, &x_i, axis, length, true);
+    if (error)
+    {
+        error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_subtraction(x, x_i, y_max);
+    if (error)
+    {
+        error = ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_exponential(*y_max, y_num);
+    if (error)
+    {
+        error = ERROR(ERROR_EXPONENTIAL, string_create("failed to exponentiate tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_summation(*y_num, y_den, axis, length, true);
+    if (error)
+    {
+        error = ERROR(ERROR_SUMMATION, string_create("failed to sum tensor."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y_max", *y_max);
+    PRINTLN_DEBUG_TENSOR("y_num", *y_num);
+    PRINTLN_DEBUG_TENSOR("y_den", *y_den);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    if (!x->requires_gradient)
+    {
+        tensor_destroy(x_i);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_softmax(const tensor_t *x, tensor_t **y, const uint64_t *axis, uint64_t length)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_UINT64_ARRAY("axis", axis, length);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_i = NULL;
+    tensor_t *x_j = NULL;
+    tensor_t *x_k = NULL;
+
+    error = softmax(x, &x_i, &x_j, &x_k, axis, length);
+    if (error)
+    {
+        error = ERROR(ERROR_SOFTMAX, string_create("failed to softmax tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_division(x_j, x_k, y);
+    if (error)
+    {
+        error = ERROR(ERROR_DIVISION, string_create("failed to divide tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    tensor_destroy(x_i);
+    if (!x->requires_gradient)
+    {
+        tensor_destroy(x_j);
+        tensor_destroy(x_k);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_logsoftmax(const tensor_t *x, tensor_t **y, const uint64_t *axis, uint64_t length)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_UINT64_ARRAY("axis", axis, length);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_i = NULL;
+    tensor_t *x_j = NULL;
+    tensor_t *x_k = NULL;
+    tensor_t *x_l = NULL;
+
+    error = softmax(x, &x_i, &x_j, &x_k, axis, length);
+    if (error)
+    {
+        error = ERROR(ERROR_SOFTMAX, string_create("failed to softmax tensor."), error);
+        goto cleanup;
+    }
+    
+    error = tensor_logarithm(x_k, &x_l);
+    if (error)
+    {
+        error = ERROR(ERROR_LOGARITHM, string_create("failed to log tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_subtraction(x_i, x_l, y);
+    if (error)
+    {
+        error = ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    tensor_destroy(x_j);
+    if (!x->requires_gradient)
+    {
+        tensor_destroy(x_i);
+        tensor_destroy(x_k);
+        tensor_destroy(x_l);
+    }
+
+    return error;
+}
+
 bool_t tensor_is_contiguous(const tensor_t *x)
 {
-    return !(!x || !x->buffer || !x->buffer->view) &&
+    return x && x->buffer && x->buffer->view &&
            is_contiguous(x->buffer->view->shape, x->buffer->view->rank, 
                          x->buffer->view->strides, x->buffer->view->offset);
 }
@@ -774,6 +935,51 @@ nw_error_t *tensor_permute(const tensor_t *x, tensor_t **y, uint64_t *axis, uint
     nw_error_t *error = NULL;
 
     error = apply_function_structure(PERMUTE_OPERATION, x, axis, length, y);
+    if (error)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+    return error;
+}
+
+bool_t tensor_shapes_equal(const tensor_t *x, const tensor_t *y)
+{
+    return x && y && x->buffer && y->buffer && x->buffer->view && y->buffer->view &&
+           shapes_equal(x->buffer->view->shape, x->buffer->view->rank,
+                        y->buffer->view->shape, y->buffer->view->rank);
+}
+
+nw_error_t *tensor_transpose(const tensor_t *x, tensor_t **y, uint64_t axis1, uint64_t axis2)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTF_DEBUG("(axis1: %lu, axis2: %lu)\n", axis1, axis2);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+
+    uint64_t rank = x->buffer->view->rank;
+    uint64_t axis[rank];
+    for (uint64_t i = 0; i < rank; ++i)
+    {
+        axis[i] = i;
+    }
+    uint64_t temp = axis[axis2];
+    axis[axis2] = axis[axis1];
+    axis[axis1] = temp;
+
+    error = apply_function_structure(PERMUTE_OPERATION, x, axis, rank, y);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);

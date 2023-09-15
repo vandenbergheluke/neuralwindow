@@ -133,6 +133,12 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_SIGMOID";
     case ERROR_PUSH:
         return "ERROR_PUSH";
+    case ERROR_TRANSPOSE:
+        return "ERROR_TRANSPOSE";
+    case ERROR_SOFTMAX:
+        return "ERROR_SOFTMAX";
+    case ERROR_MEAN:
+        return "ERROR_MEAN";
     default:
         return "ERROR";
     }

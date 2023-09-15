@@ -2113,7 +2113,6 @@ static nw_error_t *matrix_multiplication_operation_forward(tensor_t *x, tensor_t
         return ERROR(ERROR_MATRIX_MULTIPLICATION, string_create("failed to run matrix multiplication operation."), error);
     }
 
-
     return error;
 }
 
@@ -2122,9 +2121,10 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
-    CHECK_NULL_ARGUMENT(gradient->buffer, "gradient->buffer");
-    CHECK_NULL_ARGUMENT(gradient->buffer->view, "gradient->buffe->view");
-    CHECK_NULL_ARGUMENT(gradient->buffer->view->shape, "gradient->buffe->view->shape");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(y->buffer, "y->buffer");
+    CHECK_NULL_ARGUMENT(y->buffer->view, "y->buffer->view");
 
     nw_error_t *error = NULL;
     tensor_t *x_gradient = NULL;
@@ -2134,19 +2134,10 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
     tensor_t *y_gradient_i = NULL;
     tensor_t *y_gradient_j = NULL;
 
-    // Transpose
-    uint64_t rank = gradient->buffer->view->rank;
-    uint64_t axis[rank];
-    for (uint64_t i = 0; i < rank; ++i)
-    {
-        axis[i] = i;
-    }
-    uint64_t temp = axis[rank - 1];
-    axis[rank - 1] = axis[rank - 2];
-    axis[rank - 2] = temp;
-
     if (x->requires_gradient)
     {
+        uint64_t rank = y->buffer->view->rank;
+
         error = tensor_as_tensor(y, &x_gradient_j, false);
         if (error)
         {
@@ -2154,10 +2145,10 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
             goto cleanup;
         }
 
-        error = tensor_permute(x_gradient_j, &x_gradient_i, axis, rank);
+        error = tensor_transpose(x_gradient_j, &x_gradient_i, rank - 2, rank - 1);
         if (error)
         {
-            error = ERROR(ERROR_PERMUTE, string_create("failed to permute tensor"), error);
+            error = ERROR(ERROR_TRANSPOSE, string_create("failed to transpose tensor"), error);
             goto cleanup;
         }
 
@@ -2178,6 +2169,8 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
 
     if (y->requires_gradient)
     {
+        uint64_t rank = x->buffer->view->rank;
+
         error = tensor_as_tensor(x, &y_gradient_j, false);
         if (error)
         {
@@ -2185,10 +2178,10 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
             goto cleanup;
         }
 
-        error = tensor_permute(y_gradient_j, &y_gradient_i, axis, rank);
+        error = tensor_transpose(y_gradient_j, &y_gradient_i, rank - 2, rank - 1);
         if (error)
         {
-            error = ERROR(ERROR_PERMUTE, string_create("failed to permute tensor"), error);
+            error = ERROR(ERROR_TRANSPOSE, string_create("failed to transpose tensor"), error);
             goto cleanup;
         }
 
@@ -2304,7 +2297,7 @@ nw_error_t *binary_operation_forward(binary_operation_t *binary_operation, tenso
 
     if (operation_type != MATRIX_MULTIPLICATION_OPERATION)
     {
-        if (!shapes_equal(x_shape, x_rank, y_shape, y_rank))
+        if (!tensor_shapes_equal(x, y))
         {
             return ERROR(ERROR_SHAPE_CONFLICT, string_create("incompatible tensor shapes."), NULL);
         }
