@@ -8,6 +8,7 @@ endif()
 
 set(TEST_DIR test)
 set(SRC_DIR src)
+set(EXAMPLE_DIR example)
 set(REPORT_DIR lcov)
 
 set(BUILD_SHARED_LIBS OFF)
@@ -38,6 +39,7 @@ endif()
 list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")
 
 add_subdirectory(${SRC_DIR})
+add_subdirectory(${EXAMPLE_DIR})
 enable_testing()
 add_subdirectory(${TEST_DIR})
 

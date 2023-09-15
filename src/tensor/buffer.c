@@ -12,7 +12,7 @@
 #include <openblas_runtime.h>
 #include <string.h>
 
-nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, uint64_t n, void *data)
+nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, uint64_t n, void *data, bool_t copy)
 {
     CHECK_NULL_ARGUMENT(storage, "storage");
 
@@ -44,7 +44,7 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
                      runtime_string(runtime), datatype_string(datatype)), error);
     }
 
-    if (data)
+    if (data && copy)
     {
         memcpy((*storage)->data, data, (*storage)->n * datatype_size(datatype));
     }
@@ -90,7 +90,7 @@ nw_error_t *buffer_create(buffer_t **buffer, view_t *view, storage_t *storage, b
 
     if (copy)
     {
-        error = storage_create(&(*buffer)->storage, storage->runtime, storage->datatype, storage->n, storage->data);
+        error = storage_create(&(*buffer)->storage, storage->runtime, storage->datatype, storage->n, storage->data, copy);
         if (error)
         {
             return ERROR(ERROR_CREATE, string_create("failed to create storage copy."), error);
@@ -143,7 +143,7 @@ nw_error_t *buffer_create_empty(buffer_t **buffer,
         return ERROR(ERROR_N, string_create("failed to obtain storage size."), error);
     }
 
-    error = storage_create(&storage, runtime, datatype, n, NULL);
+    error = storage_create(&storage, runtime, datatype, n, NULL, true);
     if (error)
     {
         view_destroy(view);

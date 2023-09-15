@@ -139,6 +139,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_SOFTMAX";
     case ERROR_MEAN:
         return "ERROR_MEAN";
+    case ERROR_FILE:
+        return "ERROR_FILE";
     default:
         return "ERROR";
     }

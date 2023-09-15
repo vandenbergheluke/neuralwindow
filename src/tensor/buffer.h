@@ -74,7 +74,7 @@ typedef enum runtime_reduction_type_t
     RUNTIME_MAXIMUM
 } runtime_reduction_type_t;
 
-nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, uint64_t n, void *data);
+nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, uint64_t n, void *data, bool_t copy);
 void storage_destroy(storage_t *storage);
 nw_error_t *runtime_malloc(storage_t *storage);
 void runtime_free(storage_t *storage);

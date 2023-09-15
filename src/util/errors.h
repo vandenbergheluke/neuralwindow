@@ -405,6 +405,7 @@ typedef enum nw_error_type_t
     ERROR_TRANSPOSE,
     ERROR_SOFTMAX,
     ERROR_MEAN,
+    ERROR_FILE,
 } nw_error_type_t;
 
 typedef struct nw_error_t

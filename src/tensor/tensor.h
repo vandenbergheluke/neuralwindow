@@ -36,6 +36,8 @@ nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_g
 nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y, bool_t requires_gradient);
 nw_error_t *tensor_create_empty(const uint64_t *shape, const uint64_t *strides, uint64_t rank,
                                 tensor_t **y, bool_t requires_gradient, runtime_t runtime, datatype_t datatype);
+nw_error_t *tensor_from_data(tensor_t **x, void *data, runtime_t runtime, datatype_t datatype, 
+                             uint64_t rank, uint64_t *shape, bool_t copy, bool_t requires_gradient);
 
 // Structure Operations
 nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_original, tensor_t **x_broadcasted, tensor_t **y_broadcasted);
