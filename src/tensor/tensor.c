@@ -601,6 +601,104 @@ nw_error_t *tensor_maximum(const tensor_t *x, tensor_t **y, const uint64_t *axis
     return error;
 }
 
+nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, int64_t axis, bool_t keep_dimension)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTF_DEBUG("axis: %lu\n", axis);
+    PRINTLN_DEBUG_BOOLEAN("keep_dimension", keep_dimension);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->storage, "x->buffer->storage");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(x->buffer->view->shape, "x->buffer->view->shape");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    uint64_t *shape = x->buffer->view->shape;
+    uint64_t rank = x->buffer->view->rank;
+
+    if (axis >= rank)
+    {
+        return ERROR(ERROR_AXIS, string_create("axis out of range of tensor."), NULL);
+    }
+
+    runtime_t runtime = x->buffer->storage->runtime;
+    datatype_t datatype = x->buffer->storage->datatype;
+    uint64_t new_rank = rank -axis;
+    uint64_t new_shape [new_rank];
+    new_shape[0] = shape[axis];
+    for (uint64_t i = 1; i < new_rank; ++i)
+    {
+        new_shape[i] = (uint64_t) 1;
+    }
+
+    tensor_t *x_i = NULL;
+    tensor_t *x_j = NULL;
+    tensor_t *x_k = NULL;
+    tensor_t *x_l = NULL;
+    tensor_t *x_m = NULL;
+
+    error = tensor_maximum(x, &x_i, (uint64_t[]){axis}, (uint64_t) 1, true);
+    if (error)
+    {
+        error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_compare_equal(x_i, x, &x_j);
+    if (error)
+    {
+        error = ERROR(ERROR_COMPARE_EQUAL, string_create("failed to compare equal tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_arange(&x_k, (uint64_t) 0, shape[axis], (uint64_t) 1, runtime, datatype, false);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_reshape(x_k, &x_l, new_shape, new_rank);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(x_j, x_l, &x_m);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_maximum(x_m, y, (uint64_t[]){axis}, (uint64_t) 1, keep_dimension);
+    if (error)
+    {
+        error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    tensor_destroy(x_i);
+    tensor_destroy(x_j);
+    tensor_destroy(x_k);
+    tensor_destroy(x_l);
+    tensor_destroy(x_m);
+
+    return error;
+}
+
 inline uint64_t tensor_number_of_elements(const tensor_t *x)
 {
     return (x && x->buffer && x->buffer->view) ? shape_size(x->buffer->view->shape, x->buffer->view->rank) : 0;
@@ -1414,6 +1512,35 @@ cleanup:
     return error;
 }
 
+nw_error_t *tensor_arange(tensor_t **x, uint64_t start, uint64_t stop, uint64_t step, runtime_t runtime, datatype_t datatype, bool_t requires_gradient)
+{
+    nw_error_t *error = NULL;
+    uint64_t interval = 1 + (((stop - start) - 1 ) / step);
+    buffer_t *buffer = NULL;
+
+    error = buffer_create_empty(&buffer, (uint64_t[]) {interval}, NULL, 1, runtime, datatype);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    error = runtime_init_arange(buffer, start, stop, step);
+    if (error)
+    {
+        buffer_destroy(buffer);
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize buffer."), error);
+    }
+
+    error = tensor_create(x, buffer, NULL, NULL, requires_gradient);
+    if (error)
+    {
+        buffer_destroy(buffer);
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    return error;
+}
+
 nw_error_t *tensor_zeroes_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t preserve_memory_format)
 {
     CHECK_NULL_ARGUMENT(x, "x");
@@ -1518,36 +1645,12 @@ nw_error_t *tensor_create_empty(const uint64_t *shape, const uint64_t *strides, 
     CHECK_NULL_ARGUMENT(shape, "shape");
 
     nw_error_t *error = NULL;
-    view_t *view = NULL;
-    storage_t *storage = NULL;
     buffer_t *buffer = NULL;
     uint64_t n = 0;
 
-    error = view_create(&view, 0, rank, shape, strides);
+    error = buffer_create_empty(&buffer, shape, strides, rank, runtime, datatype);
     if (error)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
-    }
-
-    error = n_from_shape_and_strides(view->shape, view->strides, view->rank, &n);
-    if (error)
-    {
-        view_destroy(view);
-        return ERROR(ERROR_N, string_create("failed to obtain storage size."), error);
-    }
-
-    error = storage_create(&storage, runtime, datatype, n, NULL, true);
-    if (error)
-    {
-        view_destroy(view);
-        return ERROR(ERROR_CREATE, string_create("failed to create storage."), error);
-    }
-
-    error = buffer_create(&buffer, view, storage, false);
-    if (error)
-    {
-        view_destroy(view);
-        storage_destroy(storage);
         return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
     }
 

@@ -406,6 +406,13 @@ typedef enum nw_error_type_t
     ERROR_SOFTMAX,
     ERROR_MEAN,
     ERROR_FILE,
+    ERROR_SETUP,
+    ERROR_TEARDOWN,
+    ERROR_LOAD,
+    ERROR_CRITERION,
+    ERROR_METRICS,
+    ERROR_STEP,
+    ERROR_RESET,
 } nw_error_type_t;
 
 typedef struct nw_error_t

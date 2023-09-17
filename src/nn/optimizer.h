@@ -3,8 +3,6 @@
 
 #include <errors.h>
 
-typedef struct model_t model_t;
-typedef struct cost_t cost_t;
 
 typedef struct stochastic_gradient_descent_t
 {
@@ -28,6 +26,5 @@ typedef struct optimizer_t
 } optimizer_t;
  
 
- nw_error_t *fit(model_t *model, cost_t *cost, optimizer_t *optimizer);
 
 #endif

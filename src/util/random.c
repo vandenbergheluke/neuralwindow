@@ -41,3 +41,14 @@ float64_t normal(float64_t mean, float64_t standard_deviation)
 
     return mean + standard_deviation * v * f;
 }
+
+void shuffle(uint64_t *array, uint64_t length)
+{   
+    for (uint64_t i = 0; i < length - 1; i++)
+    {
+        size_t j = i + rand() / (RAND_MAX / (length - i) + 1);
+        uint64_t temp = array[j];
+        array[j] = array[i];
+        array[i] = temp;
+    }
+}

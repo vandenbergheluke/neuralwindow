@@ -141,6 +141,20 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_MEAN";
     case ERROR_FILE:
         return "ERROR_FILE";
+    case ERROR_SETUP:
+        return "ERROR_SETUP";
+    case ERROR_TEARDOWN:
+        return "ERROR_TEARDOWN";
+    case ERROR_LOAD:
+        return "ERROR_LOAD";
+    case ERROR_CRITERION:
+        return "ERROR_CRITERION";
+    case ERROR_METRICS:
+        return "ERROR_METRICS";
+    case ERROR_STEP:
+        return "ERROR_STEP";
+    case ERROR_RESET:
+        return "ERROR_RESET";
     default:
         return "ERROR";
     }

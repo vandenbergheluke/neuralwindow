@@ -105,6 +105,7 @@ nw_error_t *mnist_dataloader(dataset_t *dataset, batch_t *batch, uint64_t index)
     void *labels = NULL;
     datatype_t datatype = dataset->datatype;
     runtime_t runtime = dataset->runtime;
+    bool_t copy = runtime == CU_RUNTIME;
     uint8_t file_buffer[1];
 
     switch (datatype)
@@ -134,10 +135,10 @@ nw_error_t *mnist_dataloader(dataset_t *dataset, batch_t *batch, uint64_t index)
         switch (datatype)
         {
         case FLOAT32:
-            ((float32_t *) data)[i] = (float32_t) *file_buffer;
+            ((float32_t *) data)[i] = (float32_t) *file_buffer / (float32_t) 255.0;
             break;
         case FLOAT64:
-            ((float64_t *) data)[i] = (float64_t) *file_buffer;
+            ((float64_t *) data)[i] = (float64_t) *file_buffer / (float64_t) 255.0;
             break;
         default:
             return ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
@@ -164,13 +165,13 @@ nw_error_t *mnist_dataloader(dataset_t *dataset, batch_t *batch, uint64_t index)
         }
     }
 
-    error = tensor_from_data(&batch->x, data, runtime, datatype, 2, (uint64_t[]) {batch_size, number_of_pixels}, runtime == CU_RUNTIME, false);
+    error = tensor_from_data(&batch->x, data, runtime, datatype, 2, (uint64_t[]) {batch_size, number_of_pixels}, copy, false);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
-    error = tensor_from_data(&batch->y, data, runtime, datatype, 2, (uint64_t[]) {batch_size, number_of_labels}, runtime == CU_RUNTIME, false);
+    error = tensor_from_data(&batch->y, data, runtime, datatype, 2, (uint64_t[]) {batch_size, number_of_labels}, copy, false);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -180,22 +181,25 @@ nw_error_t *mnist_dataloader(dataset_t *dataset, batch_t *batch, uint64_t index)
 }
 
 
-static string_t MNIST_TRAIN_IMAGES_PATH = "../data/train-images-idx3-ubyte";
-static string_t MNIST_TRAIN_LABELS_PATH = "../data/train-labels-idx1-ubyte";
 int main(void)
 {
-    tensor_t *tensor = NULL;
-    nw_error_t *error = NULL;
+    mnist_dataset_t mnist_dataset = (mnist_dataset_t) {
+        .images_path = "../data/train-images-idx3-ubyte",
+        .labels_path = "../data/train-labels-idx1-ubyte",
+        .images_file = NULL,
+        .labels_file = NULL,
+    };
 
-    error = tensor_create(&tensor, NULL, NULL, NULL, false);
-    if (error)
-    {
-        error_print(error);
-        error_destroy(error);
-        return EXIT_FAILURE;
-    }
+    dataset_t dataset = (dataset_t) {
+        .batch_size = 4,
+        .shuffle = true,
+        .datatype = FLOAT32,
+        .runtime = OPENBLAS_RUNTIME,
+        .arguments = (void *) &mnist_dataset,
+    };
 
-    tensor_destroy(tensor);
+    // Create model
+
     
     return EXIT_SUCCESS;
 }

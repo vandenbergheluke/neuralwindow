@@ -1697,3 +1697,39 @@ nw_error_t *runtime_init_ones(buffer_t *buffer)
 
     return NULL;
 }
+
+// Assumes tensor is contiguous
+nw_error_t *runtime_init_arange(buffer_t *buffer, uint64_t start, uint64_t stop, uint64_t step)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
+    CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
+
+    uint64_t interval = 1 + (((stop - start) - 1 ) / step);
+
+    if (interval != buffer->storage->n)
+    {
+        return ERROR(ERROR_N, string_create("size of buffer does not match size of interval."), NULL);
+    }
+
+    void *data = buffer->storage->data;
+    uint64_t n = buffer->storage->n;
+    datatype_t datatype = buffer->storage->datatype;
+
+    for (uint64_t i = start; i < stop; i += step)
+    {
+        switch (datatype)
+        {
+        case FLOAT32:
+            ((float32_t *) data)[i] = (float32_t) i;
+            break;
+        case FLOAT64:
+            ((float64_t *) data)[i] = (float64_t) i;
+            break;
+        default:
+            return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        }
+    }
+
+    return NULL;
+}

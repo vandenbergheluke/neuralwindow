@@ -12,5 +12,6 @@
 void set_seed(uint64_t seed);
 float64_t uniform(float64_t lower_bound, float64_t upper_bound);
 float64_t normal(float64_t mean, float64_t variance);
+void shuffle(uint64_t *array, uint64_t length);
 
 #endif
