@@ -7,6 +7,7 @@
 #define LAYER_H
 
 #include <datatype.h>
+#include <errors.h>
 
 // Forward declarations
 typedef struct tensor_t tensor_t;
@@ -73,7 +74,7 @@ void dropout_destroy(dropout_t *dropout);
 nw_error_t *layer_create(layer_t **layer, layer_type_t layer_type, void *type_layer);
 void layer_destroy(layer_t *layer, layer_type_t layer_type);
 nw_error_t *unit_create(unit_t **unit, layer_type_t layer_type, layer_t *layer);
-void layer_destroy(unit_t *unit);
+void layer_destroy(layer_t *layer, layer_type_t layer_type);
 nw_error_t *module_create(module_t **module, unit_t **units, uint64_t depth);
 void module_destroy(module_t *module);
 

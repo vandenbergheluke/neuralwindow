@@ -98,7 +98,7 @@ nw_error_t *layer_create(layer_t **layer, layer_type_t layer_type, void *type_la
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(layer_t)), NULL);
     }
 
-    switch (layer_type_t)
+    switch (layer_type)
     {
     case LINEAR:
         (*layer)->linear = (linear_t *) type_layer;
