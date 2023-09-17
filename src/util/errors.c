@@ -43,6 +43,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_UNKNOWN_RUNTIME";
     case ERROR_UKNOWN_OPERATION_TYPE:
         return "ERROR_UKNOWN_OPERATION_TYPE";
+    case ERROR_UKNOWN_LAYER_TYPE:
+        return "ERROR_UKNOWN_LAYER_TYPE";
     case ERROR_NULL:
         return "ERROR_NULL";
     case ERROR_DATATYPE_CONFLICT:
