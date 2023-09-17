@@ -1064,18 +1064,19 @@ extern "C" void cu_compare_equal(datatype_t datatype, int64_t n, const void *x_d
     }
 }
 
-// TODO: Leaving this part for Mohammed.
-extern "C" static void cu_compare_greater_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
+__global__ static void cu_compare_greater_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; ++i)
+    int i = (blockDim.x * blockIdx.x) + threadIdx.x;
+    if (i < n)
     {
         z_data[i * z_stride] = (x_data[i * x_stride] > y_data[i * y_stride]) ? (float32_t) 1.0 : (float32_t) 0.0;
     }
 }
 
-extern "C" static void cu_compare_greater_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
+__global__ static void cu_compare_greater_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    for (int i = 0; i < n; ++i)
+    int i = (blockDim.x * blockIdx.x) + threadIdx.x;
+    if (i < n)
     {
         z_data[i * z_stride] = (x_data[i * x_stride] > y_data[i * y_stride]) ? (float64_t) 1.0 : (float64_t) 0.0;
     }
@@ -1083,13 +1084,39 @@ extern "C" static void cu_compare_greater_float64(int n, const float64_t *x_data
 
 extern "C" void cu_compare_greater(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, const void *y_data, int64_t y_stride, int64_t y_offset, void *z_data, int64_t z_stride, int64_t z_offset)
 {
+    int block_size;
+    int min_grid_size;
+    int grid_size;
+
     switch (datatype)
     {
     case FLOAT32:
-        cu_compare_greater_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
+                cu_compare_greater_float32, 0, 0);
+
+        grid_size = (n + block_size - 1) / block_size;
+
+        cu_compare_greater_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+
+#ifdef DEBUG
+        cudaDeviceSynchronize();
+        PRINT_DEBUG_LOCATION;
+        PRINTF_DEBUG("cu_compare_greater_float32 occupancy: %f", get_occupancy(cu_compare_greater_float32, block_size));
+#endif
         break;
     case FLOAT64:
-        cu_compare_greater_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
+                cu_compare_greater_float64, 0, 0);
+
+        grid_size = (n + block_size - 1) / block_size;
+
+        cu_compare_greater_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+
+#ifdef DEBUG
+        cudaDeviceSynchronize();
+        PRINT_DEBUG_LOCATION;
+        PRINTF_DEBUG("cu_compare_greater_float64 occupancy: %f", get_occupancy(cu_compare_greater_float64, block_size));
+#endif
         break;
     default:
         break;
