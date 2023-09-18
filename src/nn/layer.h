@@ -1,37 +1,36 @@
-/**@file layer.h
- * @brief
- *
- */
-
 #ifndef LAYER_H
 #define LAYER_H
 
 #include <datatype.h>
 #include <errors.h>
+#include <buffer.h>
 
 // Forward declarations
 typedef struct tensor_t tensor_t;
+typedef struct block_t block_t;
 
-struct parameters_t;
-struct linear_t;
-struct dropout_t;
-union layer_t;
-enum layer_type_t;
-struct unit_t;
-struct module_t;
+// typedef union activation_function_t
+// {
+// } activation_function_t;
 
-typedef struct parameters_t
+typedef enum activation_t
 {
-    tensor_t *weights;
-    tensor_t *mask;
-    tensor_t *bias;
-} parameters_t;
+    ACTIVATION_RECTIFIED_LINEAR,
+    ACTIVATION_SIGMOID,
+    ACTIVATION_SOFTMAX,
+} activation_t;
+
+// typedef struct activation_t
+// {
+//     activation_function_t activation_function;
+//     activation_function_type_t activation_function_type;
+// } activation_t;
 
 typedef struct linear_t
 {
-    uint64_t input_features;
-    uint64_t output_features;
-    parameters_t *parameters;
+    tensor_t *weights;
+    tensor_t *bias;
+    activation_t activation;
 } linear_t;
 
 typedef struct dropout_t
@@ -39,43 +38,50 @@ typedef struct dropout_t
     float32_t probability;
 } dropout_t;
 
-typedef union layer_t
+typedef union transformation_t
 {
     linear_t *linear;
     dropout_t *dropout;
-    struct module_t *module;
-} layer_t;
+    block_t *block;
+} transformation_t;
 
-typedef enum layer_type_t
+typedef enum transformation_type_t
 {
     LINEAR,
     DROPOUT,
-    MODULE
-} layer_type_t;
+    BLOCK
+} transformation_type_t;
 
-typedef struct unit_t
+typedef struct layer_t
 {
-    layer_t *layer;
-    layer_type_t layer_type;
-} unit_t;
+    transformation_t *transformation;
+    transformation_type_t transformation_type;
+} layer_t;
 
-typedef struct module_t
+typedef struct block_t
 {
-    unit_t **units;
+    layer_t **layers;
     uint64_t depth;
-} module_t;
+} block_t;
 
-nw_error_t *parameters_create(parameters_t **parameters, tensor_t *weights, tensor_t *mask, tensor_t *bias);
-void parameters_destroy(parameters_t *parameters);
-nw_error_t *linear_create(linear_t **linear, uint64_t input_features, uint64_t output_features, parameters_t *parameters);
+typedef struct model_t
+{
+    runtime_t runtime;
+    datatype_t datatype;
+    block_t *block;
+} model_t;
+
+nw_error_t *layer_create(layer_t **layer, transformation_t *transformation, transformation_type_t transformation_type);
+void layer_destroy(layer_t *layer);
+nw_error_t *transformation_create(transformation_t **transformation, transformation_type_t transformation_type, void *type_transformation);
+void transformation_destroy(transformation_t *transformation, transformation_type_t transformation_type);
+nw_error_t *linear_create(linear_t **linear, tensor_t *weights, tensor_t *bias, activation_t activation);
 void linear_destroy(linear_t *linear);
 nw_error_t *dropout_create(dropout_t **dropout, float32_t probability);
 void dropout_destroy(dropout_t *dropout);
-nw_error_t *layer_create(layer_t **layer, layer_type_t layer_type, void *type_layer);
-void layer_destroy(layer_t *layer, layer_type_t layer_type);
-nw_error_t *unit_create(unit_t **unit, layer_type_t layer_type, layer_t *layer);
-void layer_destroy(layer_t *layer, layer_type_t layer_type);
-nw_error_t *module_create(module_t **module, unit_t **units, uint64_t depth);
-void module_destroy(module_t *module);
+nw_error_t *block_create(block_t **block, layer_t **layers, uint64_t depth);
+void block_destroy(block_t *block);
+
+
 
 #endif

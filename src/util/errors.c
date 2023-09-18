@@ -157,6 +157,16 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_STEP";
     case ERROR_RESET:
         return "ERROR_RESET";
+    case ERROR_TRAIN:
+        return "ERROR_TRAIN";
+    case ERROR_VALID:
+        return "ERROR_VALID";
+    case ERROR_TEST:
+        return "ERROR_TEST";
+    case ERROR_UNKNOWN_ALGORITHM:
+        return "ERROR_UNKNOWN_ALGORITHM";
+    case ERROR_GAIN:
+        return "ERROR_GAIN";
     default:
         return "ERROR";
     }

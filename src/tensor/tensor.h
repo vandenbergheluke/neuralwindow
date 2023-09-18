@@ -39,7 +39,28 @@ nw_error_t *tensor_create_empty(const uint64_t *shape, const uint64_t *strides, 
 nw_error_t *tensor_from_data(tensor_t **x, void *data, runtime_t runtime, datatype_t datatype, 
                              uint64_t rank, uint64_t *shape, bool_t copy, bool_t requires_gradient);
 nw_error_t *tensor_arange(tensor_t **x, uint64_t start, uint64_t stop, uint64_t step, runtime_t runtime, datatype_t datatype, bool_t requires_gradient);
-
+nw_error_t *tensor_create_zeroes(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                                 runtime_t runtime, datatype_t datatype, bool_t requires_gradient);
+nw_error_t *tensor_create_ones(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                               runtime_t runtime, datatype_t datatype, bool_t requires_gradient);
+nw_error_t *tensor_create_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                                  runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
+                                  void *lower_bound, void *upper_bound);
+nw_error_t *tensor_create_normal(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                                 runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
+                                 void *mean, void *standard_deviation);
+nw_error_t *tensor_create_kaiming_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                                          runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
+                                          void *gain, void *fan);
+nw_error_t *tensor_create_kaiming_normal(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                                         runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
+                                         void *gain, void *fan);
+nw_error_t *tensor_create_glorot_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                                         runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
+                                         void *gain, void *fan_in, void *fan_out);
+nw_error_t *tensor_create_glorot_normal(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                                        runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
+                                        void *gain, void *fan_in, void *fan_out);
 // Structure Operations
 nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_original, tensor_t **x_broadcasted, tensor_t **y_broadcasted);
 nw_error_t *tensor_broadcast_matrix_multiplication(const tensor_t *x_original, const tensor_t *y_original,

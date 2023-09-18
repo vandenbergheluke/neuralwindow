@@ -5,6 +5,7 @@
 
 #include <buffer.h>
 #include <view.h>
+#include <random.h>
 #ifndef CPU_ONLY
 #include <cu_runtime.h>
 #endif
@@ -1725,6 +1726,66 @@ nw_error_t *runtime_init_arange(buffer_t *buffer, uint64_t start, uint64_t stop,
             break;
         case FLOAT64:
             ((float64_t *) data)[i] = (float64_t) i;
+            break;
+        default:
+            return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        }
+    }
+
+    return NULL;
+}
+
+nw_error_t *runtime_init_uniform(buffer_t *buffer, void *lower_bound, void *upper_bound)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
+    CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
+    CHECK_NULL_ARGUMENT(lower_bound, "lower_bound");
+    CHECK_NULL_ARGUMENT(upper_bound, "upper_bound");
+
+    void *data = buffer->storage->data;
+    uint64_t n = buffer->storage->n;
+    datatype_t datatype = buffer->storage->datatype;
+
+    for (uint64_t i = 0; i < n; ++i)
+    {
+        switch (datatype)
+        {
+        case FLOAT32:
+            ((float32_t *) data)[i] = uniformf(*(float32_t *) lower_bound, *(float32_t *) upper_bound);
+            break;
+        case FLOAT64:
+            ((float64_t *) data)[i] = uniform(*(float64_t *) lower_bound, *(float64_t *) upper_bound);
+            break;
+        default:
+            return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        }
+    }
+
+    return NULL;
+}
+
+nw_error_t *runtime_init_normal(buffer_t *buffer, void *mean, void *standard_deviation)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
+    CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
+    CHECK_NULL_ARGUMENT(mean, "mean");
+    CHECK_NULL_ARGUMENT(standard_deviation, "standard_deviation");
+
+    void *data = buffer->storage->data;
+    uint64_t n = buffer->storage->n;
+    datatype_t datatype = buffer->storage->datatype;
+
+    for (uint64_t i = 0; i < n; ++i)
+    {
+        switch (datatype)
+        {
+        case FLOAT32:
+            ((float32_t *) data)[i] = normalf(*(float32_t *) mean, *(float32_t *) standard_deviation);
+            break;
+        case FLOAT64:
+            ((float64_t *) data)[i] = normal(*(float64_t *) mean, *(float64_t *) standard_deviation);
             break;
         default:
             return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
