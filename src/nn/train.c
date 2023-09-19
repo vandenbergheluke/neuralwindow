@@ -1,5 +1,6 @@
 #include <buffer.h>
 #include <tensor.h>
+#include <layer.h>
 #include <train.h>
 #include <random.h>
 
@@ -80,9 +81,8 @@ nw_error_t *train(uint64_t epochs,
     tensor_t *y_pred = NULL;
     tensor_t *cost = NULL;
     batch_t *batch = NULL;
-    // Model 
-    datatype_t datatype = FLOAT32;
-    runtime_t runtime = OPENBLAS_RUNTIME;
+    datatype_t datatype = model->datatype;
+    runtime_t runtime = model->runtime;
 
     error = batch_create(&batch, batch_size, datatype, runtime);
     if (error)
@@ -92,6 +92,11 @@ nw_error_t *train(uint64_t epochs,
 
     for (uint64_t i = 0; i < epochs; ++i)
     {
+        error = model_requires_gradient(model, true);
+        if (error)
+        {
+            return ERROR(ERROR_REQUIRES_GRADIENT, string_create("failed to modify model's requires gradient flag."), error);
+        }
         for (uint64_t j = 0; j < train_iterations; ++j)
         {
             error = (*dataloader)(indicies[j] * batch_size, batch, arguments);
@@ -100,7 +105,7 @@ nw_error_t *train(uint64_t epochs,
                 return ERROR(ERROR_LOAD, string_create("failed to load batch."), error);
             }
 
-            error = forward(model, batch->x, &y_pred, true);
+            error = model_forward(model, batch->x, &y_pred);
             if (error)
             {
                 return ERROR(ERROR_FORWARD, string_create("failed model forward pass."), error);
@@ -129,14 +134,13 @@ nw_error_t *train(uint64_t epochs,
             {
                 return ERROR(ERROR_STEP, string_create("failed to update weights."), error);
             }
-
-            error = reset_gradients(model);
-            if (error)
-            {
-                return ERROR(ERROR_RESET, string_create("failed to reset gradients."), error);
-            }
         }
 
+        error = model_requires_gradient(model, false);
+        if (error)
+        {
+            return ERROR(ERROR_REQUIRES_GRADIENT, string_create("failed to modify model's requires gradient flag."), error);
+        }
         for (uint64_t j = train_iterations; j < train_iterations + valid_iterations; ++j)
         {
             error = (*dataloader)(indicies[j] * batch_size, batch, arguments);
@@ -145,7 +149,7 @@ nw_error_t *train(uint64_t epochs,
                 return ERROR(ERROR_LOAD, string_create("failed to load batch."), error);
             }
 
-            error = forward(model, batch->x, &y_pred, false);
+            error = model_forward(model, batch->x, &y_pred);
             if (error)
             {
                 return ERROR(ERROR_FORWARD, string_create("failed model forward pass."), error);
@@ -180,7 +184,7 @@ nw_error_t *test(uint64_t epochs,
                  uint64_t number_of_samples,
                  uint64_t batch_size,
                  model_t *model,
-                 void * arguments,
+                 void *arguments,
                  nw_error_t *(*setup)(void *),
                  nw_error_t *(*teardown)(void *),
                  nw_error_t *(*dataloader)(uint64_t, batch_t *, void *),
@@ -188,9 +192,8 @@ nw_error_t *test(uint64_t epochs,
 {
     nw_error_t *error = NULL;        
     batch_t *batch = NULL;
-    // Model 
-    datatype_t datatype = FLOAT32;
-    runtime_t runtime = OPENBLAS_RUNTIME;
+    datatype_t datatype = model->datatype;
+    runtime_t runtime = model->runtime;
     tensor_t *y_pred = NULL;
 
     error = batch_create(&batch, batch_size, datatype, runtime);
@@ -199,9 +202,13 @@ nw_error_t *test(uint64_t epochs,
         return ERROR(ERROR_CREATE, string_create("failed to create batch."), error);
     }
 
-    uint64_t iterations = number_of_samples / batch_size;
+    error = model_requires_gradient(model, false);
+    if (error)
+    {
+        return ERROR(ERROR_REQUIRES_GRADIENT, string_create("failed to modify model's requires gradient flag."), error);
+    }
 
-    for (uint64_t i = 0; i < iterations; ++i)
+    for (uint64_t i = 0; i < number_of_samples / batch_size; ++i)
     {
         error = (*dataloader)(i * batch_size, batch, arguments);
         if (error)
@@ -209,7 +216,7 @@ nw_error_t *test(uint64_t epochs,
             return ERROR(ERROR_LOAD, string_create("failed to load batch."), error);
         }
 
-        error = forward(model, batch->x, &y_pred, false);
+        error = model_forward(model, batch->x, &y_pred);
         if (error)
         {
             return ERROR(ERROR_FORWARD, string_create("failed model forward pass."), error);
@@ -220,6 +227,12 @@ nw_error_t *test(uint64_t epochs,
         {
             return ERROR(ERROR_METRICS, string_create("failed to compute metrics."), error);
         }
+    }
+
+    error = model_requires_gradient(model, true);
+    if (error)
+    {
+        return ERROR(ERROR_REQUIRES_GRADIENT, string_create("failed to modify model's requires gradient flag."), error);
     }
 
     batch_destroy(batch);

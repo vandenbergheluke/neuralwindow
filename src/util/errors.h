@@ -419,6 +419,9 @@ typedef enum nw_error_type_t
     ERROR_TEST,
     ERROR_UNKNOWN_ALGORITHM,
     ERROR_GAIN,
+    ERROR_UPDATE,
+    ERROR_REQUIRES_GRADIENT,
+    ERROR_ACTIVATION_TYPE,
 } nw_error_type_t;
 
 typedef struct nw_error_t

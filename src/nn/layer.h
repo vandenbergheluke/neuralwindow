@@ -9,28 +9,35 @@
 typedef struct tensor_t tensor_t;
 typedef struct block_t block_t;
 
-// typedef union activation_function_t
-// {
-// } activation_function_t;
+typedef struct softmax_t
+{
+    uint64_t *axis;
+    uint64_t length;
+} softmax_t;
 
-typedef enum activation_t
+typedef union activation_function_t
+{
+    softmax_t *softmax;
+} activation_function_t;
+
+typedef enum activation_function_type_t
 {
     ACTIVATION_RECTIFIED_LINEAR,
     ACTIVATION_SIGMOID,
     ACTIVATION_SOFTMAX,
-} activation_t;
+} activation_function_type_t;
 
-// typedef struct activation_t
-// {
-//     activation_function_t activation_function;
-//     activation_function_type_t activation_function_type;
-// } activation_t;
+typedef struct activation_t
+{
+    activation_function_t *activation_function;
+    activation_function_type_t activation_function_type;
+} activation_t;
 
 typedef struct linear_t
 {
     tensor_t *weights;
     tensor_t *bias;
-    activation_t activation;
+    activation_t *activation;
 } linear_t;
 
 typedef struct dropout_t
@@ -71,16 +78,9 @@ typedef struct model_t
     block_t *block;
 } model_t;
 
-nw_error_t *layer_create(layer_t **layer, transformation_t *transformation, transformation_type_t transformation_type);
-void layer_destroy(layer_t *layer);
-nw_error_t *transformation_create(transformation_t **transformation, transformation_type_t transformation_type, void *type_transformation);
-void transformation_destroy(transformation_t *transformation, transformation_type_t transformation_type);
-nw_error_t *linear_create(linear_t **linear, tensor_t *weights, tensor_t *bias, activation_t activation);
-void linear_destroy(linear_t *linear);
-nw_error_t *dropout_create(dropout_t **dropout, float32_t probability);
-void dropout_destroy(dropout_t *dropout);
-nw_error_t *block_create(block_t **block, layer_t **layers, uint64_t depth);
-void block_destroy(block_t *block);
+nw_error_t *model_forward(model_t *model, tensor_t *x, tensor_t **y);
+nw_error_t *model_requires_gradient(model_t *model, bool_t requires_gradient);
+
 
 
 

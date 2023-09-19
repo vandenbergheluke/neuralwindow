@@ -1,4 +1,119 @@
+#include <buffer.h>
+#include <function.h>
+#include <tensor.h>
+#include <layer.h>
 #include <optimizer.h>
+
+nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer, tensor_t *parameters)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(parameters, "parameters");
+
+    nw_error_t *error = NULL;
+    tensor_t *learning_rate = NULL;
+    tensor_t *parameter_update = NULL;
+    datatype_t datatype = parameters->buffer->storage->datatype;
+    runtime_t runtime = parameters->buffer->storage->runtime;
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        error = tensor_constant_float32((float32_t) optimizer->learning_rate, &learning_rate, runtime);
+        break;
+    case FLOAT64:
+        error = tensor_constant_float64((float64_t) optimizer->learning_rate, &learning_rate, runtime);
+        break;
+    default:
+        return ERROR(ERROR_DATATYPE, string_create("unsupported datatype %d.", (int) datatype), error);
+    }
+
+    error = tensor_multiplication(learning_rate, parameters->gradient, &parameter_update);
+    if (error)
+    {
+        return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+    }
+
+    error = tensor_subtraction(parameters, parameter_update, &parameters);
+    if (error)
+    {
+        return ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensors."), error);
+    }
+
+    tensor_destroy(parameters->gradient);
+    function_destroy(parameters->context);
+    parameters->context = NULL;
+    parameters->gradient = NULL;
+
+    return error;
+}
+
+nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, block_t *block)
+{
+    CHECK_NULL_ARGUMENT(algorithm, "algorithm");
+    CHECK_NULL_ARGUMENT(block, "block");
+    CHECK_NULL_ARGUMENT(block->layers, "block->layers");
+
+    nw_error_t *error = NULL;
+
+    for (uint64_t i = 0; i < block->depth; ++i)
+    {
+        layer_t *layer = block->layers[i];
+        if (!layer)
+        {
+            return ERROR(ERROR_NULL, string_create("failed to optimize null layer."), NULL);
+        }
+
+        transformation_type_t transformation_type = layer->transformation_type;
+        transformation_t *transformation = layer->transformation;
+        if (!transformation)
+        {
+            return ERROR(ERROR_NULL, string_create("transformation is null."), NULL);
+        }
+
+        switch (transformation_type)
+        {
+        case LINEAR:
+            switch (algorithm_type)
+            {
+            case STOCASTIC_GRADIENT_DESCENT:
+                error = stochastic_gradient_descent(algorithm->stochastic_gradient_descent, transformation->linear->weights);
+                error = stochastic_gradient_descent(algorithm->stochastic_gradient_descent, transformation->linear->bias);
+                break;
+            default:
+                return ERROR(ERROR_UNKNOWN_ALGORITHM, string_create("unknown algorithm %d.", (int) algorithm_type), error);
+            }
+            break;
+        case BLOCK:
+            error = update(algorithm, algorithm_type, transformation->block);
+            break;
+        default:
+            return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown layer type %d.", transformation_type), error);
+        }
+
+        if (error)
+        {
+            return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+        }
+    }
+
+    return error;
+}
+
+nw_error_t *step(optimizer_t *optimizer, model_t *model)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(model, "model");
+
+    nw_error_t *error = NULL;
+
+    error = update(optimizer->algorithm, optimizer->algorithm_type, model->block);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update model parameters."), error);
+    }
+
+    return error;
+}
 
 nw_error_t *optimizer_create(optimizer_t **optimizer, algorithm_t *algorithm, algorithm_type_t algorithm_type)
 {

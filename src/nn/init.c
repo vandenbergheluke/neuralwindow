@@ -3,7 +3,9 @@
 #include <layer.h>
 #include <init.h>
 
-nw_error_t *parameter_initialization_create(parameter_initialization_t **parameter_initialization, initialization_t *initialization, initialization_type_t initialization_type)
+nw_error_t *parameter_initialization_create(parameter_initialization_t **parameter_initialization, 
+                                            initialization_t *initialization,
+                                            initialization_type_t initialization_type)
 {
     CHECK_NULL_ARGUMENT(parameter_initialization, "parameter_initialization");
     CHECK_NULL_ARGUMENT(initialization, "initialization");

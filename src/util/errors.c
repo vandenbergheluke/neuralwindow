@@ -167,6 +167,12 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_UNKNOWN_ALGORITHM";
     case ERROR_GAIN:
         return "ERROR_GAIN";
+    case ERROR_UPDATE:
+        return "ERROR_UPDATE";
+    case ERROR_REQUIRES_GRADIENT:
+        return "ERROR_REQUIRES_GRADIENT";
+    case ERROR_ACTIVATION_TYPE:
+        return "ERROR_ACTIVATION_TYPE";
     default:
         return "ERROR";
     }

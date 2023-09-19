@@ -1453,10 +1453,13 @@ nw_error_t *unary_operation_forward(unary_operation_t *unary_operation, tensor_t
     tensor_t *x = unary_operation->x;
     unary_operation_type_t operation_type = unary_operation->operation_type;
 
-    error = tensor_empty_like(x, result, x->requires_gradient, false);    
-    if (error)
+    if (!*result)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        error = tensor_empty_like(x, result, x->requires_gradient, false);    
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        }
     }
 
     switch (operation_type)
@@ -2295,39 +2298,42 @@ nw_error_t *binary_operation_forward(binary_operation_t *binary_operation, tenso
         runtime = x_runtime;
     }
 
-    if (operation_type != MATRIX_MULTIPLICATION_OPERATION)
+    if (!*result)
     {
-        if (!tensor_shapes_equal(x, y))
+        if (operation_type != MATRIX_MULTIPLICATION_OPERATION)
         {
-            return ERROR(ERROR_SHAPE_CONFLICT, string_create("incompatible tensor shapes."), NULL);
+            if (!tensor_shapes_equal(x, y))
+            {
+                return ERROR(ERROR_SHAPE_CONFLICT, string_create("incompatible tensor shapes."), NULL);
+            }
+            else
+            {
+                shape = x_shape;
+                rank = x_rank;
+            }
+
+            error = tensor_create_empty(shape, NULL, rank, result, requires_gradient, runtime, datatype);    
+            if (error)
+            {
+                return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            }
         }
         else
         {
-            shape = x_shape;
-            rank = x_rank;
-        }
+            uint64_t rank = MAX(x_rank, y_rank);
+            uint64_t shape[rank];
 
-        error = tensor_create_empty(shape, NULL, rank, result, requires_gradient, runtime, datatype);    
-        if (error)
-        {
-            return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-        }
-    }
-    else
-    {
-        uint64_t rank = MAX(x_rank, y_rank);
-        uint64_t shape[rank];
+            error = matrix_multiplication_shape(x_shape, y_shape, shape, rank);
+            if (error)
+            {
+                return ERROR(ERROR_SHAPE_CONFLICT, string_create("incompatible shapes for matrix multiplication."), error);
+            }
 
-        error = matrix_multiplication_shape(x_shape, y_shape, shape, rank);
-        if (error)
-        {
-            return ERROR(ERROR_SHAPE_CONFLICT, string_create("incompatible shapes for matrix multiplication."), error);
-        }
-
-        error = tensor_create_empty(shape, NULL, rank, result, requires_gradient, runtime, datatype);
-        if (error)
-        {
-            return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            error = tensor_create_empty(shape, NULL, rank, result, requires_gradient, runtime, datatype);
+            if (error)
+            {
+                return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            }
         }
     }
 
