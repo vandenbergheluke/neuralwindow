@@ -414,6 +414,11 @@ typedef enum nw_error_type_t
     ERROR_METRICS,
     ERROR_STEP,
     ERROR_RESET,
+    ERROR_TRAIN,
+    ERROR_VALID,
+    ERROR_TEST,
+    ERROR_UNKNOWN_ALGORITHM,
+    ERROR_GAIN,
 } nw_error_type_t;
 
 typedef struct nw_error_t

@@ -1,46 +1,139 @@
-/**@file layer.c
- * @brief
- *
- */
-
-#include <layer.h>
+#include <init.h>
 #include <tensor.h>
+#include <layer.h>
+#include <math.h>
 
-nw_error_t *parameters_create(parameters_t **parameters, tensor_t *weights, tensor_t *mask, tensor_t *bias)
+nw_error_t *linear_layer_create(layer_t **layer, 
+                                uint64_t in_features,
+                                uint64_t out_features,
+                                runtime_t runtime,
+                                datatype_t datatype,
+                                activation_t activation,
+                                initialization_type_t weight_initialization,
+                                initialization_type_t bias_initialization)
 {
-    CHECK_NULL_ARGUMENT(parameters, "parameters");
-    CHECK_NULL_ARGUMENT(weights, "weights");
-    CHECK_NULL_ARGUMENT(mask, "mask");
-    CHECK_NULL_ARGUMENT(bias, "bias");
+    CHECK_NULL_ARGUMENT(layer, "layer");
 
-    *parameters = (parameters_t *) malloc(sizeof(parameters_t));
-    if (!*parameters)
+    nw_error_t *error = NULL;
+    tensor_t *weights = NULL;
+    tensor_t *bias = NULL;
+    uint64_t *shape = (uint64_t[]) {in_features, out_features};
+    calculate_gain(activation, )
+
+    switch (weight_initialization)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(parameters_t)), NULL);
+    case ZEROES:
+        break;
+    case ONES:
+        break;
+    case UNIFORM:
+        break;
+    case NORMAL:
+        break;
+    case KAIMING_UNIFORM:
+        if (datatype == FLOAT32)
+        {
+            float32_t 
+        }
+        break;
+    case KAIMING_NORMAL:
+        break;
+    case GLOROT_UNIFORM:
+        break;
+    case GLOROT_NORMAL:
+        break;
+    default:
+        break;
     }
 
-    (*parameters)->weights = weights;
-    (*parameters)->mask = mask;
-    (*parameters)->bias = bias;
+    return NULL;
+
+}
+
+
+nw_error_t *layer_create(layer_t **layer, transformation_t *transformation, transformation_type_t transformation_type)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+    CHECK_NULL_ARGUMENT(transformation, "transformation");
+
+    *layer = (layer_t *) malloc(sizeof(layer_t));
+    if (!*layer)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(layer_t)), NULL);
+    }
+
+    (*layer)->transformation = transformation;
+    (*layer)->transformation_type = transformation_type;
 
     return NULL;
 }
 
-void parameters_destroy(parameters_t *parameters)
+void layer_destroy(layer_t *layer)
 {
-    if (parameters)
+    if (layer)
     {
-        tensor_destroy(parameters->weights);
-        tensor_destroy(parameters->mask);
-        tensor_destroy(parameters->bias);
-        free(parameters);
+        transformation_destroy(layer->transformation, layer->transformation_type);
+        free(layer);
     }
 }
 
-nw_error_t *linear_create(linear_t **linear, uint64_t input_features, uint64_t output_features, parameters_t *parameters)
+nw_error_t *transformation_create(transformation_t **transformation, transformation_type_t transformation_type, void *type_transformation)
+{
+    CHECK_NULL_ARGUMENT(transformation, "transformation");
+    CHECK_NULL_ARGUMENT(type_transformation, "type_transformation");
+
+    *transformation = (transformation_t *) malloc(sizeof(transformation_t));
+    if (!*transformation)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(transformation_t)), NULL);
+    }
+
+    switch (transformation_type)
+    {
+    case LINEAR:
+        (*transformation)->linear = (linear_t *) type_transformation;
+        break;
+    case DROPOUT:
+        (*transformation)->dropout = (dropout_t *) type_transformation;
+        break;
+    case BLOCK:
+        (*transformation)->block = (block_t *) type_transformation;
+        break;
+    default:
+        free(*transformation);
+        return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown transformation type %d.", (int) transformation_type), NULL);
+    }
+
+    return NULL;
+}
+
+void transformation_destroy(transformation_t *transformation, transformation_type_t transformation_type)
+{
+    if (transformation)
+    {
+        switch (transformation_type)
+        {
+        case LINEAR:
+            linear_destroy(transformation->linear);
+            break;
+        case DROPOUT:
+            dropout_destroy(transformation->dropout);
+            break;
+        case BLOCK:
+            block_destroy(transformation->block);
+            break;
+        default:
+            break;
+        }
+        free(transformation);
+    }
+}
+
+nw_error_t *linear_create(linear_t **linear, tensor_t *weights, tensor_t *bias, activation_t activation)
 {
     CHECK_NULL_ARGUMENT(linear, "linear");
-    CHECK_NULL_ARGUMENT(parameters, "parameters");
+    CHECK_NULL_ARGUMENT(weights, "weights");
+    CHECK_NULL_ARGUMENT(bias, "bias");
 
     *linear = (linear_t *) malloc(sizeof(linear_t));
     if (!*linear)
@@ -48,9 +141,9 @@ nw_error_t *linear_create(linear_t **linear, uint64_t input_features, uint64_t o
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(linear_t)), NULL);
     }
 
-    (*linear)->input_features = input_features;
-    (*linear)->output_features = output_features;
-    (*linear)->parameters = parameters;
+    (*linear)->weights = weights;
+    (*linear)->bias = bias;
+    (*linear)->activation = activation;
 
     return NULL;
 }
@@ -59,7 +152,8 @@ void linear_destroy(linear_t *linear)
 {
     if (linear)
     {
-        parameters_destroy(linear->parameters);
+        tensor_destroy(linear->weights);
+        tensor_destroy(linear->bias);
         free(linear);
     }
 }
@@ -87,123 +181,45 @@ void dropout_destroy(dropout_t *dropout)
     }
 }
 
-nw_error_t *layer_create(layer_t **layer, layer_type_t layer_type, void *type_layer)
+nw_error_t *block_create(block_t **block, layer_t **layers, uint64_t depth)
 {
-    CHECK_NULL_ARGUMENT(layer, "layer");
-    CHECK_NULL_ARGUMENT(type_layer, "type_layer");
+    CHECK_NULL_ARGUMENT(block, "block");
+    CHECK_NULL_ARGUMENT(layers, "layers");
 
-    *layer = (layer_t *) malloc(sizeof(layer_t));
-    if (!*layer)
+    *block = (block_t *) malloc(sizeof(block_t));
+    if (!*block)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(layer_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(block_t)), NULL);
     }
 
-    switch (layer_type)
+    (*block)->depth = depth;
+    (*block)->layers = (layer_t **) malloc(depth * sizeof(layer_t *));
+    if (!(*block)->layers)
     {
-    case LINEAR:
-        (*layer)->linear = (linear_t *) type_layer;
-        break;
-    case DROPOUT:
-        (*layer)->dropout = (dropout_t *) type_layer;
-        break;
-    case MODULE:
-        (*layer)->module = (module_t *) type_layer;
-        break;
-    default:
-        free(*layer);
-        return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown layer type %d.", (int) layer_type), NULL);
-    }
-
-    return NULL;
-}
-
-void layer_destroy(layer_t *layer, layer_type_t layer_type)
-{
-    if (layer)
-    {
-        switch (layer_type)
-        {
-        case LINEAR:
-            linear_destroy(layer->linear);
-            break;
-        case DROPOUT:
-            dropout_destroy(layer->dropout);
-            break;
-        case MODULE:
-            module_destroy(layer->module);
-            break;
-        default:
-            break;
-        }
-        free(layer);
-    }
-}
-
-nw_error_t *unit_create(unit_t **unit, layer_type_t layer_type, layer_t *layer)
-{
-    CHECK_NULL_ARGUMENT(unit, "unit");
-    CHECK_NULL_ARGUMENT(layer, "layer");
-
-    *unit = (unit_t *) malloc(sizeof(unit_t));
-    if (!*unit)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(unit_t)), NULL);
-    }
-
-    (*unit)->layer = layer;
-    (*unit)->layer_type = layer_type;
-
-    return NULL;
-}
-
-void unit_destroy(unit_t *unit)
-{
-    if (unit)
-    {
-        layer_destroy(unit->layer, unit->layer_type);
-        free(unit);
-    }
-}
-
-nw_error_t *module_create(module_t **module, unit_t **units, uint64_t depth)
-{
-    CHECK_NULL_ARGUMENT(module, "module");
-    CHECK_NULL_ARGUMENT(units, "units");
-
-    *module = (module_t *) malloc(sizeof(module_t));
-    if (!*module)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(module_t)), NULL);
-    }
-
-    (*module)->depth = depth;
-    (*module)->units = (unit_t **)malloc(depth * sizeof(unit_t *));
-    if (!(*module)->units)
-    {
-        free(module);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(depth * sizeof(unit_t *))), NULL);
+        free(block);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(depth * sizeof(layer_t *))), NULL);
     }
 
     for (uint64_t i = 0; i < depth; ++i)
     {
-        (*module)->units[i] = NULL;
+        (*block)->layers[i] = layers[i];
     }
 
     return NULL;
 }
 
-void module_destroy(module_t *module)
+void block_destroy(block_t *block)
 {
-    if (module)
+    if (block)
     {
-        if (module->units)
+        if (block->layers)
         {
-            for (uint64_t i = 0; i < module->depth; ++i)
+            for (uint64_t i = 0; i < block->depth; ++i)
             {
-                unit_destroy(module->units[i]);
+                layer_destroy(block->layers[i]);
             }
-            free(module->units);
+            free(block->layers);
         }
-        free(module);
+        free(block);
     }
 }
