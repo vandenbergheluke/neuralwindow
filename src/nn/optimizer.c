@@ -63,31 +63,31 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
             return ERROR(ERROR_NULL, string_create("failed to optimize null layer."), NULL);
         }
 
-        transformation_type_t transformation_type = layer->transformation_type;
-        transformation_t *transformation = layer->transformation;
-        if (!transformation)
+        transform_type_t transform_type = layer->transform_type;
+        transform_t *transform = layer->transform;
+        if (!transform)
         {
-            return ERROR(ERROR_NULL, string_create("transformation is null."), NULL);
+            return ERROR(ERROR_NULL, string_create("transform is null."), NULL);
         }
 
-        switch (transformation_type)
+        switch (transform_type)
         {
         case LINEAR:
             switch (algorithm_type)
             {
             case STOCASTIC_GRADIENT_DESCENT:
-                error = stochastic_gradient_descent(algorithm->stochastic_gradient_descent, transformation->linear->weights);
-                error = stochastic_gradient_descent(algorithm->stochastic_gradient_descent, transformation->linear->bias);
+                error = stochastic_gradient_descent(algorithm->stochastic_gradient_descent, transform->linear->weights);
+                error = stochastic_gradient_descent(algorithm->stochastic_gradient_descent, transform->linear->bias);
                 break;
             default:
                 return ERROR(ERROR_UNKNOWN_ALGORITHM, string_create("unknown algorithm %d.", (int) algorithm_type), error);
             }
             break;
         case BLOCK:
-            error = update(algorithm, algorithm_type, transformation->block);
+            error = update(algorithm, algorithm_type, transform->block);
             break;
         default:
-            return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown layer type %d.", transformation_type), error);
+            return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown layer type %d.", transform_type), error);
         }
 
         if (error)
@@ -99,7 +99,7 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
     return error;
 }
 
-nw_error_t *step(optimizer_t *optimizer, model_t *model)
+nw_error_t *optimizer_step(optimizer_t *optimizer, model_t *model)
 {
     CHECK_NULL_ARGUMENT(optimizer, "optimizer");
     CHECK_NULL_ARGUMENT(model, "model");

@@ -602,6 +602,35 @@ nw_error_t *tensor_maximum(const tensor_t *x, tensor_t **y, const uint64_t *axis
     return error;
 }
 
+nw_error_t *tensor_item(tensor_t *x, void *value)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->storage, "x->buffer->storage");
+    CHECK_NULL_ARGUMENT(x->buffer->storage->data, "x->buffer->storage->data");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(value, "value");
+
+    if (x->buffer->view->rank)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, string_create("tensor must be rank zero."), NULL);
+    }
+
+    switch (x->buffer->storage->datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) value = *(float32_t *) x->buffer->storage->data;
+        break;
+    case FLOAT64:
+        *(float64_t *) value = *(float64_t *) x->buffer->storage->data;
+        break;
+    default:
+        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) x->buffer->storage->datatype), NULL);
+    }
+
+    return NULL;
+}
+
 nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, int64_t axis, bool_t keep_dimension)
 {
     PRINTLN_DEBUG_LOCATION("input");

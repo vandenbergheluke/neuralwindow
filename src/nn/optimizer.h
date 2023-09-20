@@ -36,6 +36,8 @@ nw_error_t *optimizer_stochastic_gradient_descent_create(optimizer_t **optimizer
                                                          float32_t dampening,
                                                          float32_t weight_decay,
                                                          bool_t nesterov);
-nw_error_t *step(optimizer_t *optimizer, model_t *model);
+nw_error_t *optimizer_step(optimizer_t *optimizer, model_t *model);
+nw_error_t *optimizer_create(optimizer_t **optimizer, algorithm_t *algorithm, algorithm_type_t algorithm_type);
+void optimizer_destroy(optimizer_t *optimizer);
 
 #endif

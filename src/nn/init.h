@@ -3,30 +3,30 @@
 
 #include <errors.h>
 
-typedef struct uniform_initialization_t
+typedef struct uniform_init_t
 {
     void *lower_bound;
     void *upper_bound;
-} uniform_initialization_t;
+} uniform_init_t;
 
-typedef struct normal_initialization_t
+typedef struct normal_init_t
 {
     void *mean;
     void *standard_deviation;
-} normal_initialization_t;
+} normal_init_t;
 
-typedef struct kaiming_initialization_t
+typedef struct kaiming_init_t
 {
     void *fan;
     void *gain;
-} kaiming_initialization_t;
+} kaiming_init_t;
 
-typedef struct glorot_initialization_t
+typedef struct glorot_init_t
 {
     void *gain;
     void *fan_in;
     void *fan_out;
-} glorot_initialization_t;
+} glorot_init_t;
 
 typedef enum initializaton_type_t
 {
@@ -38,36 +38,49 @@ typedef enum initializaton_type_t
     KAIMING_NORMAL,
     GLOROT_UNIFORM,
     GLOROT_NORMAL,
-} initialization_type_t;
+} init_type_t;
 
-typedef union initialization_t
+typedef union init_t
 {
-    uniform_initialization_t *uniform_initialization;
-    normal_initialization_t *normal_initialization;
-    kaiming_initialization_t *kaiming_initialization;
-    glorot_initialization_t *glorot_initialization;
-} initialization_t;
+    uniform_init_t *uniform_init;
+    normal_init_t *normal_init;
+    kaiming_init_t *kaiming_init;
+    glorot_init_t *glorot_init;
+} init_t;
 
-typedef struct parameter_initialization_t
+typedef struct parameter_init_t
 {
-    initialization_type_t initialization_type;
-    initialization_t *initialization;
-} parameter_initialization_t;
+    init_type_t init_type;
+    init_t *init;
+} parameter_init_t;
 
-nw_error_t *parameter_initialization_create(parameter_initialization_t **parameter_initialization, initialization_t *initialization, initialization_type_t initialization_type);
-void parameter_initialization_destroy(parameter_initialization_t *parameter_initialization);
-nw_error_t *initialization_create(initialization_t **initialization, initialization_type_t initialization_type, void *type_initialization);
-void initialization_destroy(initialization_t *initialization, initialization_type_t initialization_type);
-nw_error_t *uniform_initialization_create(uniform_initialization_t **uniform_initialization, void *lower_bound, void *upper_bound);
-void uniform_initialization_destroy(uniform_initialization_t *uniform_initialization);
-nw_error_t *normal_initialization_create(normal_initialization_t **normal_initialization, void *mean, void *standard_deviation);
-void normal_initialization_destroy(normal_initialization_t *normal_initialization);
-nw_error_t *kaiming_initialization_create(kaiming_initialization_t **kaiming_initialization, void *fan, void *gain);
-void kaiming_initialization_destroy(kaiming_initialization_t *kaiming_initialization);
-nw_error_t *glorot_initialization_create(glorot_initialization_t **glorot_initialization, void *fan_in, void *fan_out, void *gain);
-void glorot_initialization_destroy(glorot_initialization_t *glorot_initialization);
-
-
-
+nw_error_t *parameter_init_create(parameter_init_t **parameter_init, init_t *init, init_type_t init_type);
+void parameter_init_destroy(parameter_init_t *parameter_init);
+nw_error_t *init_create(init_t **init, init_type_t init_type, void *type_init);
+void init_destroy(init_t *init, init_type_t init_type);
+nw_error_t *uniform_init_create(uniform_init_t **uniform_init, void *lower_bound, void *upper_bound);
+void uniform_init_destroy(uniform_init_t *uniform_init);
+nw_error_t *normal_init_create(normal_init_t **normal_init, void *mean, void *standard_deviation);
+void normal_init_destroy(normal_init_t *normal_init);
+nw_error_t *kaiming_init_create(kaiming_init_t **kaiming_init, void *fan, void *gain);
+void kaiming_init_destroy(kaiming_init_t *kaiming_init);
+nw_error_t *glorot_init_create(glorot_init_t **glorot_init, void *fan_in, void *fan_out, void *gain);
+void glorot_init_destroy(glorot_init_t *glorot_init);
+nw_error_t *zeroes_parameter_init(parameter_init_t **parameter_init);
+nw_error_t *ones_parameter_init(parameter_init_t **parameter_init);
+nw_error_t *uniform_parameter_init(parameter_init_t **parameter_init, void *lower_bound, void *upper_bound);
+nw_error_t *normal_parameter_init(parameter_init_t **parameter_init, void *mean, void *standard_deviation);
+nw_error_t *kaiming_uniform_parameter_init(parameter_init_t **parameter_init, void *fan, void *gain);
+nw_error_t *kaiming_normal_parameter_init(parameter_init_t **parameter_init, void *fan, void *gain);
+nw_error_t *glorot_uniform_parameter_init(parameter_init_t **parameter_init, void *fan_in, void *fan_out, void *gain);
+nw_error_t *glorot_normal_parameter_init(parameter_init_t **parameter_init, void *fan_in, void *fan_out, void *gain);
+nw_error_t *initialize(tensor_t **parameters,
+                       parameter_init_t *parameter_init,
+                       const uint64_t *shape,
+                       uint64_t rank,
+                       runtime_t runtime,
+                       datatype_t datatype,
+                       bool_t requires_gradient);
+nw_error_t *calculate_gain(activation_function_type_t activation_function_type, datatype_t datatype, void *a, void *gain);
 
 #endif

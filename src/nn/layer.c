@@ -4,52 +4,67 @@
 #include <math.h>
 #include <string.h>
 
-// nw_error_t *linear_layer_create(layer_t **layer, 
-//                                 uint64_t in_features,
-//                                 uint64_t out_features,
-//                                 runtime_t runtime,
-//                                 datatype_t datatype,
-//                                 activation_t activation,
-//                                 initialization_type_t weight_initialization,
-//                                 initialization_type_t bias_initialization)
-// {
-//     CHECK_NULL_ARGUMENT(layer, "layer");
+nw_error_t *linear_layer_create(layer_t **layer, 
+                                uint64_t in_features,
+                                uint64_t out_features,
+                                runtime_t runtime,
+                                datatype_t datatype,
+                                bool_t requires_gradient,
+                                activation_t *activation,
+                                parameter_init_t *weight_init,
+                                parameter_init_t *bias_init)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+    CHECK_NULL_ARGUMENT(activation, "activation");
+    CHECK_NULL_ARGUMENT(weight_init, "weight_init");
+    CHECK_NULL_ARGUMENT(bias_init, "bias_init");
 
-//     nw_error_t *error = NULL;
-//     tensor_t *weights = NULL;
-//     tensor_t *bias = NULL;
-//     uint64_t *shape = (uint64_t[]) {in_features, out_features};
-//     calculate_gain(activation, )
+    nw_error_t *error = NULL;
+    tensor_t *weights = NULL;
+    tensor_t *bias = NULL;
+    linear_t *linear = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = LINEAR;
+    uint64_t *shape = (uint64_t[]) {in_features, out_features};
+    uint64_t rank = 2;
 
-//     switch (weight_initialization)
-//     {
-//     case ZEROES:
-//         break;
-//     case ONES:
-//         break;
-//     case UNIFORM:
-//         break;
-//     case NORMAL:
-//         break;
-//     case KAIMING_UNIFORM:
-//         if (datatype == FLOAT32)
-//         {
-//             float32_t 
-//         }
-//         break;
-//     case KAIMING_NORMAL:
-//         break;
-//     case GLOROT_UNIFORM:
-//         break;
-//     case GLOROT_NORMAL:
-//         break;
-//     default:
-//         break;
-//     }
+    error = initialize(&weights, weight_init, shape, rank, runtime, datatype, requires_gradient);
+    if (error)
+    {
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize weights."), error);
+    }
+    
+    error = initialize(&bias, bias_init, shape, rank, runtime, datatype, requires_gradient);
+    if (error)
+    {
+        tensor_destroy(weights);
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize bias."), error);
+    }
 
-//     return NULL;
+    error = linear_create(&linear, weights, bias, activation);
+    if (error)
+    {
+        tensor_destroy(weights);
+        tensor_destroy(bias);
+        return ERROR(ERROR_CREATE, string_create("failed to create linear."), error);
+    }
 
-// }
+    error = transform_create(&transform, transform_type, (void *) linear);
+    if (error)
+    {
+        linear_destroy(linear);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
 
 static nw_error_t *activation_forward(activation_t *activation, tensor_t *x, tensor_t **y)
 {
@@ -142,8 +157,7 @@ cleanup:
     return error;
 }
 
-
-nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
+static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
 {
     CHECK_NULL_ARGUMENT(block, "block");
     CHECK_NULL_ARGUMENT(block->layers, "block->layers");
@@ -161,23 +175,23 @@ nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
             return ERROR(ERROR_NULL, string_create("layer is null."), NULL);
         }
 
-        transformation_type_t transformation_type = layer->transformation_type;
-        transformation_t *transformation = layer->transformation;
-        if (!transformation)
+        transform_type_t transform_type = layer->transform_type;
+        transform_t *transform = layer->transform;
+        if (!transform)
         {
-            return ERROR(ERROR_NULL, string_create("transformation is null."), NULL);
+            return ERROR(ERROR_NULL, string_create("transform is null."), NULL);
         }
 
-        switch (transformation_type)
+        switch (transform_type)
         {
         case LINEAR:
-            error = linear_forward(transformation->linear, x, &feature_map);
+            error = linear_forward(transform->linear, x, &feature_map);
             break;
         case BLOCK:
-            error = block_forward(transformation->block, x, &feature_map);
+            error = block_forward(transform->block, x, &feature_map);
             break;
         default:
-            error = ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown transformation type %d.", (int) transformation_type), NULL);
+            error = ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
             break;
         }
 
@@ -243,23 +257,23 @@ static nw_error_t *block_requires_gradient(block_t *block, bool_t requires_gradi
             return ERROR(ERROR_NULL, string_create("layer is null."), NULL);
         }
 
-        transformation_type_t transformation_type = layer->transformation_type;
-        transformation_t *transformation = layer->transformation;
-        if (!transformation)
+        transform_type_t transform_type = layer->transform_type;
+        transform_t *transform = layer->transform;
+        if (!transform)
         {
-            return ERROR(ERROR_NULL, string_create("transformation is null."), NULL);
+            return ERROR(ERROR_NULL, string_create("transform is null."), NULL);
         }
 
-        switch (transformation_type)
+        switch (transform_type)
         {
         case LINEAR:
-            error = linear_requires_gradient(transformation->linear, requires_gradient);
+            error = linear_requires_gradient(transform->linear, requires_gradient);
             break;
         case BLOCK:
-            error = block_requires_gradient(transformation->block, requires_gradient);
+            error = block_requires_gradient(transform->block, requires_gradient);
             break;
         default:
-            error = ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown transformation type %d.", (int) transformation_type), NULL);
+            error = ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
             break;
         }
 
@@ -287,10 +301,10 @@ nw_error_t *model_requires_gradient(model_t *model, bool_t requires_gradient)
     return error;
 }
 
-nw_error_t *layer_create(layer_t **layer, transformation_t *transformation, transformation_type_t transformation_type)
+nw_error_t *layer_create(layer_t **layer, transform_t *transform, transform_type_t transform_type)
 {
     CHECK_NULL_ARGUMENT(layer, "layer");
-    CHECK_NULL_ARGUMENT(transformation, "transformation");
+    CHECK_NULL_ARGUMENT(transform, "transform");
 
     *layer = (layer_t *) malloc(sizeof(layer_t));
     if (!*layer)
@@ -298,8 +312,8 @@ nw_error_t *layer_create(layer_t **layer, transformation_t *transformation, tran
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(layer_t)), NULL);
     }
 
-    (*layer)->transformation = transformation;
-    (*layer)->transformation_type = transformation_type;
+    (*layer)->transform = transform;
+    (*layer)->transform_type = transform_type;
 
     return NULL;
 }
@@ -308,60 +322,90 @@ void layer_destroy(layer_t *layer)
 {
     if (layer)
     {
-        transformation_destroy(layer->transformation, layer->transformation_type);
+        transform_destroy(layer->transform, layer->transform_type);
         free(layer);
     }
 }
 
-nw_error_t *transformation_create(transformation_t **transformation, transformation_type_t transformation_type, void *type_transformation)
+nw_error_t *transform_create(transform_t **transform, transform_type_t transform_type, void *type_transform)
 {
-    CHECK_NULL_ARGUMENT(transformation, "transformation");
-    CHECK_NULL_ARGUMENT(type_transformation, "type_transformation");
+    CHECK_NULL_ARGUMENT(transform, "transform");
+    CHECK_NULL_ARGUMENT(type_transform, "type_transform");
 
-    *transformation = (transformation_t *) malloc(sizeof(transformation_t));
-    if (!*transformation)
+    *transform = (transform_t *) malloc(sizeof(transform_t));
+    if (!*transform)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(transformation_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(transform_t)), NULL);
     }
 
-    switch (transformation_type)
+    switch (transform_type)
     {
     case LINEAR:
-        (*transformation)->linear = (linear_t *) type_transformation;
+        (*transform)->linear = (linear_t *) type_transform;
         break;
     case DROPOUT:
-        (*transformation)->dropout = (dropout_t *) type_transformation;
+        (*transform)->dropout = (dropout_t *) type_transform;
         break;
     case BLOCK:
-        (*transformation)->block = (block_t *) type_transformation;
+        (*transform)->block = (block_t *) type_transform;
         break;
     default:
-        free(*transformation);
-        return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown transformation type %d.", (int) transformation_type), NULL);
+        free(*transform);
+        return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
     }
 
     return NULL;
 }
 
-void transformation_destroy(transformation_t *transformation, transformation_type_t transformation_type)
+void transform_destroy(transform_t *transform, transform_type_t transform_type)
 {
-    if (transformation)
+    if (transform)
     {
-        switch (transformation_type)
+        switch (transform_type)
         {
         case LINEAR:
-            linear_destroy(transformation->linear);
+            linear_destroy(transform->linear);
             break;
         case DROPOUT:
-            dropout_destroy(transformation->dropout);
+            dropout_destroy(transform->dropout);
             break;
         case BLOCK:
-            block_destroy(transformation->block);
+            block_destroy(transform->block);
             break;
         default:
             break;
         }
-        free(transformation);
+        free(transform);
+    }
+}
+
+string_t transform_type_string(transform_type_t transform_type)
+{
+    switch (transform_type)
+    {
+    case LINEAR:
+        return "LINEAR";
+    case DROPOUT:
+        return "DROPOUT";
+    case BLOCK:
+        return "BLOCK";
+    default:
+        return "UNKNOWN_TRANSFORM_TYPE";
+    }
+}
+
+string_t activation_function_type_string(activation_function_type_t activation_function_type)
+{
+    switch (activation_function_type)
+    {
+    case ACTIVATION_RECTIFIED_LINEAR:
+        return "ACTIVATION_RECTIFIED_LINEAR";
+    case ACTIVATION_SIGMOID:
+        return "ACTIVATION_SIGMOID";
+    case ACTIVATION_SOFTMAX:
+        return "ACTIVATION_SOFTMAX";
+    default:
+        return "UNKNOWN_ACTIVATION_FUNCTION_TYPE";
     }
 }
 
@@ -501,12 +545,11 @@ void softmax_destroy(softmax_t *softmax)
     }
 }
 
-nw_error_t *activation_function(activation_function_t **activation_function,
-                                activation_function_type_t activation_function_type,
-                                void *type_activation_function)
+nw_error_t *activation_function_create(activation_function_t **activation_function,
+                                       activation_function_type_t activation_function_type,
+                                       void *type_activation_function)
 {
     CHECK_NULL_ARGUMENT(activation_function, "activation_function");
-    CHECK_NULL_ARGUMENT(type_activation_function, "type_activation_function");
 
     *activation_function = (activation_function_t *) malloc(sizeof(activation_function_t));
     if (!*activation_function)
@@ -571,5 +614,111 @@ void activation_destroy(activation_t *activation)
     {
         activation_function_destroy(activation->activation_function, activation->activation_function_type);
         free(activation);
+    }
+}
+
+nw_error_t *rectified_linear_activation_create(activation_t **activation)
+{
+    CHECK_NULL_ARGUMENT(activation, "activation");
+
+    nw_error_t *error = NULL;
+    activation_function_t *activation_function = NULL;
+    activation_function_type_t activation_function_type = ACTIVATION_RECTIFIED_LINEAR;
+
+    error = activation_function_create(&activation_function, activation_function_type, NULL);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create activation function."), error);
+    }
+
+    error = activation_create(activation, activation_function, activation_function_type);
+    if (error)
+    {
+        activation_function_destroy(activation_function, activation_function_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *sigmoid_activation_create(activation_t **activation)
+{
+    CHECK_NULL_ARGUMENT(activation, "activation");
+
+    nw_error_t *error = NULL;
+    activation_function_t *activation_function = NULL;
+    activation_function_type_t activation_function_type = ACTIVATION_SIGMOID;
+
+    error = activation_function_create(&activation_function, activation_function_type, NULL);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create activation function."), error);
+    }
+
+    error = activation_create(activation, activation_function, activation_function_type);
+    if (error)
+    {
+        activation_function_destroy(activation_function, activation_function_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *softmax_activation_create(activation_t **activation, uint64_t *axis, uint64_t length)
+{
+    CHECK_NULL_ARGUMENT(activation, "activation");
+    CHECK_NULL_ARGUMENT(axis, "axis");
+
+    nw_error_t *error = NULL;
+    softmax_t *softmax = NULL;
+    activation_function_t *activation_function = NULL;
+    activation_function_type_t activation_function_type = ACTIVATION_SOFTMAX;
+
+    error = softmax_create(&softmax, axis, length);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create softmax."), error);
+    }
+
+    error = activation_function_create(&activation_function, activation_function_type, softmax);
+    if (error)
+    {
+        softmax_destroy(softmax);
+        return ERROR(ERROR_CREATE, string_create("failed to create activation function."), error);
+    }
+
+    error = activation_create(activation, activation_function, activation_function_type);
+    if (error)
+    {
+        activation_function_destroy(activation_function, activation_function_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *model_create(model_t **model, block_t *block)
+{
+    CHECK_NULL_ARGUMENT(model, "model");
+    CHECK_NULL_ARGUMENT(block, "block");
+
+    nw_error_t *error = NULL;
+
+    *model = (model_t *) malloc(sizeof(model_t));
+    if (!*model)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(model_t)), NULL);
+    }
+
+    (*model)->block = block;
+}
+
+void model_destroy(model_t *model) 
+{
+    if (model)
+    {
+        block_destroy(model->block);
+        free(model);
     }
 }

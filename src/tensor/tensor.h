@@ -61,6 +61,8 @@ nw_error_t *tensor_create_glorot_uniform(tensor_t **x, const uint64_t *shape, ui
 nw_error_t *tensor_create_glorot_normal(tensor_t **x, const uint64_t *shape, uint64_t rank,
                                         runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
                                         void *gain, void *fan_in, void *fan_out);
+nw_error_t *tensor_item(tensor_t *x, void *value);
+
 // Structure Operations
 nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_original, tensor_t **x_broadcasted, tensor_t **y_broadcasted);
 nw_error_t *tensor_broadcast_matrix_multiplication(const tensor_t *x_original, const tensor_t *y_original,

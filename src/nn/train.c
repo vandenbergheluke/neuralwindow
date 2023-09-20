@@ -40,20 +40,21 @@ void batch_destroy(batch_t *batch)
     }
 }
 
-nw_error_t *train(uint64_t epochs,
-                  uint64_t number_of_samples,
-                  uint64_t batch_size,
-                  bool_t shuffle,
-                  float32_t train_split,
-                  float32_t valid_split,
-                  model_t *model,
-                  optimizer_t *optimizer,
-                  void * arguments,
-                  nw_error_t *(*setup)(void *),
-                  nw_error_t *(*teardown)(void *),
-                  nw_error_t *(*dataloader)(uint64_t, batch_t *, void *),
-                  nw_error_t *(*criterion)(const tensor_t *, const tensor_t *, tensor_t **),
-                  nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *))
+nw_error_t *fit(uint64_t epochs,
+                uint64_t number_of_samples,
+                batch_t *batch,
+                bool_t shuffle,
+                float32_t train_split,
+                float32_t valid_split,
+                float32_t test_split,
+                model_t *model,
+                optimizer_t *optimizer,
+                void * arguments,
+                nw_error_t *(*setup)(void *),
+                nw_error_t *(*teardown)(void *),
+                nw_error_t *(*dataloader)(uint64_t, batch_t *, void *),
+                nw_error_t *(*criterion)(const tensor_t *, const tensor_t *, tensor_t **),
+                nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *))
 {
     nw_error_t *error = NULL;
 
@@ -63,7 +64,7 @@ nw_error_t *train(uint64_t epochs,
         return ERROR(ERROR_SETUP, string_create("failed to setup."), error);
     }
 
-    uint64_t iterations = number_of_samples / batch_size;
+    uint64_t iterations = number_of_samples / batch->batch_size;
     uint64_t indicies[iterations];
 
     for (uint64_t i = 0; i < iterations; ++i)
@@ -78,20 +79,13 @@ nw_error_t *train(uint64_t epochs,
 
     uint64_t train_iterations = (uint64_t) (train_split * (float32_t) iterations);
     uint64_t valid_iterations = (uint64_t) (valid_split * (float32_t) iterations);
+    uint64_t test_iterations = (uint64_t) (test_split * (float32_t) iterations);
     tensor_t *y_pred = NULL;
     tensor_t *cost = NULL;
-    batch_t *batch = NULL;
-    datatype_t datatype = model->datatype;
-    runtime_t runtime = model->runtime;
-
-    error = batch_create(&batch, batch_size, datatype, runtime);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create batch."), error);
-    }
 
     for (uint64_t i = 0; i < epochs; ++i)
     {
+        LOG("%lu / %lu epochs ", i + 1, epochs);
         error = model_requires_gradient(model, true);
         if (error)
         {
@@ -99,7 +93,9 @@ nw_error_t *train(uint64_t epochs,
         }
         for (uint64_t j = 0; j < train_iterations; ++j)
         {
-            error = (*dataloader)(indicies[j] * batch_size, batch, arguments);
+            LOG("%s: %lu / %lu iterations ", dataset_type_string(TRAIN), j + 1, train_iterations);
+
+            error = (*dataloader)(indicies[j] * batch->batch_size, batch, arguments);
             if (error)
             {
                 return ERROR(ERROR_LOAD, string_create("failed to load batch."), error);
@@ -117,6 +113,8 @@ nw_error_t *train(uint64_t epochs,
                 return ERROR(ERROR_CRITERION, string_create("failed model forward pass."), error);
             }
 
+            LOG_SCALAR_TENSOR("cost", cost);
+
             error = (*metrics)(TRAIN, batch->y, y_pred);
             if (error)
             {
@@ -129,11 +127,13 @@ nw_error_t *train(uint64_t epochs,
                 return ERROR(ERROR_BACKWARD, string_create("failed back propogation."), error);
             }
 
-            error = step(optimizer, model);
+            error = optimizer_step(optimizer, model);
             if (error)
             {
                 return ERROR(ERROR_STEP, string_create("failed to update weights."), error);
             }
+            
+            LOG_NEWLINE;
         }
 
         error = model_requires_gradient(model, false);
@@ -141,9 +141,15 @@ nw_error_t *train(uint64_t epochs,
         {
             return ERROR(ERROR_REQUIRES_GRADIENT, string_create("failed to modify model's requires gradient flag."), error);
         }
-        for (uint64_t j = train_iterations; j < train_iterations + valid_iterations; ++j)
+
+        uint64_t start = train_iterations;
+        uint64_t end = valid_iterations + train_iterations;
+
+        for (uint64_t j = start; j < end; ++j)
         {
-            error = (*dataloader)(indicies[j] * batch_size, batch, arguments);
+            LOG("%s: %lu / %lu iterations ", dataset_type_string(VALID), j - start + 1, end - start);
+
+            error = (*dataloader)(indicies[j] * batch->batch_size, batch, arguments);
             if (error)
             {
                 return ERROR(ERROR_LOAD, string_create("failed to load batch."), error);
@@ -161,56 +167,26 @@ nw_error_t *train(uint64_t epochs,
                 return ERROR(ERROR_CRITERION, string_create("failed model forward pass."), error);
             }
 
+            LOG_SCALAR_TENSOR("cost", cost);
+
             error = (*metrics)(VALID, batch->y, y_pred);
             if (error)
             {
                 return ERROR(ERROR_METRICS, string_create("failed to compute metrics."), error);
             }
+
+            LOG_NEWLINE;
         }
     }
 
-    batch_destroy(batch);
+    uint64_t start = train_iterations + valid_iterations;
+    uint64_t end = valid_iterations + train_iterations + test_iterations;
 
-    error = (*teardown)(arguments);
-    if (error)
+    for (uint64_t i = start; i < end; ++i)
     {
-        return ERROR(ERROR_TEARDOWN, string_create("failed to teardown."), error);
-    }
-     
-    return error;
-}
+        LOG("%s: %lu / %lu iterations ", dataset_type_string(TEST), i - start + 1, end - start);
 
-nw_error_t *test(uint64_t epochs,
-                 uint64_t number_of_samples,
-                 uint64_t batch_size,
-                 model_t *model,
-                 void *arguments,
-                 nw_error_t *(*setup)(void *),
-                 nw_error_t *(*teardown)(void *),
-                 nw_error_t *(*dataloader)(uint64_t, batch_t *, void *),
-                 nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *))
-{
-    nw_error_t *error = NULL;        
-    batch_t *batch = NULL;
-    datatype_t datatype = model->datatype;
-    runtime_t runtime = model->runtime;
-    tensor_t *y_pred = NULL;
-
-    error = batch_create(&batch, batch_size, datatype, runtime);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create batch."), error);
-    }
-
-    error = model_requires_gradient(model, false);
-    if (error)
-    {
-        return ERROR(ERROR_REQUIRES_GRADIENT, string_create("failed to modify model's requires gradient flag."), error);
-    }
-
-    for (uint64_t i = 0; i < number_of_samples / batch_size; ++i)
-    {
-        error = (*dataloader)(i * batch_size, batch, arguments);
+        error = (*dataloader)(indicies[i] * batch->batch_size, batch, arguments);
         if (error)
         {
             return ERROR(ERROR_LOAD, string_create("failed to load batch."), error);
@@ -222,26 +198,43 @@ nw_error_t *test(uint64_t epochs,
             return ERROR(ERROR_FORWARD, string_create("failed model forward pass."), error);
         }
 
+        error = criterion(batch->y, y_pred, &cost);
+        if (error)
+        {
+            return ERROR(ERROR_CRITERION, string_create("failed model forward pass."), error);
+        }
+
+        LOG_SCALAR_TENSOR("cost", cost);
+
         error = (*metrics)(TEST, batch->y, y_pred);
         if (error)
         {
             return ERROR(ERROR_METRICS, string_create("failed to compute metrics."), error);
         }
+         
+        LOG_NEWLINE;
     }
-
-    error = model_requires_gradient(model, true);
-    if (error)
-    {
-        return ERROR(ERROR_REQUIRES_GRADIENT, string_create("failed to modify model's requires gradient flag."), error);
-    }
-
-    batch_destroy(batch);
 
     error = (*teardown)(arguments);
     if (error)
     {
         return ERROR(ERROR_TEARDOWN, string_create("failed to teardown."), error);
     }
-
+     
     return error;
+}
+
+string_t dataset_type_string(dataset_type_t dataset_type)
+{
+    switch (dataset_type)
+    {
+    case TRAIN:
+        return "TRAIN";
+    case VALID:
+        return "VALID";
+    case TEST:
+        return "TEST";
+    default:
+        return "UNKNOWN_DATASET_TYPE";
+    }
 }
