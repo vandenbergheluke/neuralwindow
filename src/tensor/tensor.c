@@ -94,7 +94,7 @@ nw_error_t *tensor_from_data(tensor_t **x, void *data, runtime_t runtime, dataty
         return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
     }
 
-    error = tensor_create(&x, buffer, NULL, NULL, false);
+    error = tensor_create(x, buffer, NULL, NULL, requires_gradient);
     if (error)
     {
         buffer_destroy(buffer);
@@ -631,7 +631,7 @@ nw_error_t *tensor_item(tensor_t *x, void *value)
     return NULL;
 }
 
-nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, int64_t axis, bool_t keep_dimension)
+nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t axis, bool_t keep_dimension)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
@@ -1959,7 +1959,6 @@ nw_error_t *tensor_create_empty(const uint64_t *shape, const uint64_t *strides, 
 
     nw_error_t *error = NULL;
     buffer_t *buffer = NULL;
-    uint64_t n = 0;
 
     error = buffer_create_empty(&buffer, shape, strides, rank, runtime, datatype);
     if (error)

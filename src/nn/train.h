@@ -8,6 +8,8 @@ typedef struct cost_t cost_t;
 typedef struct dataset_t dataset_t;
 typedef struct batch_t batch_t;
 typedef struct optimizer_t optimizer_t;
+typedef struct tensor_t tensor_t;
+typedef enum runtime_t runtime_t;
 
 #define LOG_SCALAR_TENSOR(msg, tensor) do {\
     fprintf(stdout, "%s ", msg);\
@@ -20,10 +22,10 @@ typedef struct optimizer_t optimizer_t;
         switch (tensor->buffer->storage->datatype)\
         {\
         case FLOAT32:\
-            fprintf(stdout, "%f", *(float32_t *) tensor->buffer->storage->data);\
+            fprintf(stdout, "%f ", *(float32_t *) tensor->buffer->storage->data);\
             break;\
         case FLOAT64:\
-            fprintf(stdout, "%lf", *(float64_t *) tensor->buffer->storage->data);\
+            fprintf(stdout, "%lf ", *(float64_t *) tensor->buffer->storage->data);\
             break;\
         default:\
             fprintf(stdout, " ");\
@@ -74,5 +76,5 @@ nw_error_t *fit(uint64_t epochs,
 
 nw_error_t *batch_create(batch_t **batch, uint64_t batch_size, datatype_t datatype, runtime_t runtime);
 void batch_destroy(batch_t *batch);
-
+string_t dataset_type_string(dataset_type_t dataset_type);
 #endif

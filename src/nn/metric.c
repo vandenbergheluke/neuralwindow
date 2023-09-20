@@ -52,10 +52,9 @@ nw_error_t *multiclass_accuracy(const tensor_t *y_pred, const tensor_t *y_true, 
     nw_error_t *error = NULL;
     tensor_t *y_i = NULL;
     tensor_t *y_j = NULL;
-    tensor_t *y_k = NULL;
     uint64_t rank = y_pred->buffer->view->rank;
 
-    error = tensor_argument_maximum(y_pred, &y_i, (uint64_t[]){rank - 1}, false);
+    error = tensor_argument_maximum(y_pred, &y_i, rank - 1, false);
     if (error)
     {
         error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);

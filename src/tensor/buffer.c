@@ -1714,7 +1714,6 @@ nw_error_t *runtime_init_arange(buffer_t *buffer, uint64_t start, uint64_t stop,
     }
 
     void *data = buffer->storage->data;
-    uint64_t n = buffer->storage->n;
     datatype_t datatype = buffer->storage->datatype;
 
     for (uint64_t i = start; i < stop; i += step)

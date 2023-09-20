@@ -2,16 +2,8 @@
 #include <tensor.h>
 #include <layer.h>
 #include <train.h>
+#include <optimizer.h>
 #include <random.h>
-
-typedef struct batch_t
-{
-    uint64_t batch_size;
-    datatype_t datatype;
-    runtime_t runtime;
-    tensor_t *x;
-    tensor_t *y;
-} batch_t;
 
 nw_error_t *batch_create(batch_t **batch, uint64_t batch_size, datatype_t datatype, runtime_t runtime)
 {

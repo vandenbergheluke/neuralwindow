@@ -3,6 +3,7 @@
 
 #include <errors.h>
 
+typedef struct model_t model_t;
 
 typedef struct stochastic_gradient_descent_t
 {

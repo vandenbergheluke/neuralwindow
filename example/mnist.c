@@ -74,6 +74,7 @@ nw_error_t *mnist_setup(void *arguments)
     mnist_dataset_t *mnist_dataset = (mnist_dataset_t *) arguments;
 
     uint8_t buffer[4];
+    size_t read;
 
     mnist_dataset->images_file = fopen(mnist_dataset->images_path, "rb");
     if (!mnist_dataset->images_file)
@@ -88,17 +89,33 @@ nw_error_t *mnist_setup(void *arguments)
     }
 
     // Magic Number
-    fread(buffer, sizeof(buffer), 1, mnist_dataset->images_file);
+    read = fread(buffer, sizeof(buffer), 1, mnist_dataset->images_file);
+    if (!read)
+    {
+        ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
+    }
 
     // Number of samples
-    fread(buffer, sizeof(buffer), 1, mnist_dataset->images_file);
+    read = fread(buffer, sizeof(buffer), 1, mnist_dataset->images_file);
+    if (!read)
+    {
+        ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
+    }
 
     // Height
-    fread(buffer, sizeof(buffer), 1, mnist_dataset->images_file);
+    read = fread(buffer, sizeof(buffer), 1, mnist_dataset->images_file);
+    if (!read)
+    {
+        ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
+    }
     mnist_dataset->height = (uint64_t) uint32_big_endian(buffer);
 
     // Width
-    fread(buffer, sizeof(buffer), 1, mnist_dataset->images_file);
+    read = fread(buffer, sizeof(buffer), 1, mnist_dataset->images_file);
+    if (!read)
+    {
+        ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
+    }
     mnist_dataset->width = (uint64_t) uint32_big_endian(buffer);
 
     mnist_dataset->number_of_labels = 10;
@@ -135,6 +152,7 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
     CHECK_NULL_ARGUMENT(batch, "batch");
 
     int status;
+    size_t read;
     nw_error_t *error = NULL;
     mnist_dataset_t *mnist_dataset = (mnist_dataset_t *) arguments;
     uint64_t number_of_pixels = mnist_dataset->height * mnist_dataset->width;
@@ -172,7 +190,11 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
 
     for (uint64_t i = 0; i < n; ++i)
     {
-        fread(file_buffer, sizeof(file_buffer), 1, mnist_dataset->images_file);
+        read = fread(file_buffer, sizeof(file_buffer), 1, mnist_dataset->images_file);
+        if (!read)
+        {
+            ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
+        }
 
         switch (datatype)
         {
@@ -189,7 +211,11 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
 
     for (uint64_t i = 0; i < batch_size; ++i)
     {
-        fread(file_buffer, sizeof(file_buffer), 1, mnist_dataset->labels_file);
+        read = fread(file_buffer, sizeof(file_buffer), 1, mnist_dataset->labels_file);
+        if (!read)
+        {
+            ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
+        }
 
         for (uint64_t j = 0; j < number_of_labels; ++j)
         {
@@ -309,7 +335,7 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         return ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
     }
 
-    layer_t **layers = {input_layer, output_layer};
+    layer_t *layers[] = {input_layer, output_layer};
     uint64_t depth = 2;
 
     error = block_create(&block, layers, depth);

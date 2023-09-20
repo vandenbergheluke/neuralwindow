@@ -115,29 +115,35 @@ nw_error_t *optimizer_step(optimizer_t *optimizer, model_t *model)
     return error;
 }
 
-nw_error_t *optimizer_create(optimizer_t **optimizer, algorithm_t *algorithm, algorithm_type_t algorithm_type)
+nw_error_t *stochastic_gradient_descent_create(stochastic_gradient_descent_t **stochastic_gradient_descent,
+                                               float32_t learning_rate,
+                                               float32_t momentum,
+                                               float32_t dampening,
+                                               float32_t weight_decay,
+                                               bool_t nesterov)
 {
-    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
-    CHECK_NULL_ARGUMENT(algorithm, "algorithm");
+    CHECK_NULL_ARGUMENT(stochastic_gradient_descent, "stochastic_gradient_descent");
 
-    *optimizer = (optimizer_t *) malloc(sizeof(optimizer_t));
-    if (!*optimizer)
+    *stochastic_gradient_descent = (stochastic_gradient_descent_t *) malloc(sizeof(stochastic_gradient_descent_t));
+    if (!*stochastic_gradient_descent)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(optimizer_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(stochastic_gradient_descent_t)), NULL);
     }
 
-    (*optimizer)->algorithm = algorithm;
-    (*optimizer)->algorithm_type = algorithm_type;
-    
+    (*stochastic_gradient_descent)->learning_rate = learning_rate;
+    (*stochastic_gradient_descent)->momentum = momentum;
+    (*stochastic_gradient_descent)->dampening = dampening;
+    (*stochastic_gradient_descent)->weight_decay = weight_decay;
+    (*stochastic_gradient_descent)->nesterov = nesterov;
+
     return NULL;
 }
 
-void optimizer_destroy(optimizer_t *optimizer)
+void stochastic_gradient_descent_destroy(stochastic_gradient_descent_t *stochastic_gradient_descent)
 {
-    if (optimizer)
+    if (stochastic_gradient_descent)
     {
-        algorithm_destroy(optimizer->algorithm, optimizer->algorithm_type);
-        free(optimizer);
+        free(stochastic_gradient_descent);
     }
 }
 
@@ -181,6 +187,32 @@ void algorithm_destroy(algorithm_t *algorithm, algorithm_type_t algorithm_type)
     }
 }
 
+nw_error_t *optimizer_create(optimizer_t **optimizer, algorithm_t *algorithm, algorithm_type_t algorithm_type)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(algorithm, "algorithm");
+
+    *optimizer = (optimizer_t *) malloc(sizeof(optimizer_t));
+    if (!*optimizer)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(optimizer_t)), NULL);
+    }
+
+    (*optimizer)->algorithm = algorithm;
+    (*optimizer)->algorithm_type = algorithm_type;
+    
+    return NULL;
+}
+
+void optimizer_destroy(optimizer_t *optimizer)
+{
+    if (optimizer)
+    {
+        algorithm_destroy(optimizer->algorithm, optimizer->algorithm_type);
+        free(optimizer);
+    }
+}
+
 string_t algorithm_type_string(algorithm_type_t algorithm_type)
 {
     switch (algorithm_type)
@@ -189,38 +221,6 @@ string_t algorithm_type_string(algorithm_type_t algorithm_type)
         return "STOCASTIC_GRADIENT_DESCENT";
     default:
         return "UNKNOWN_ALGORITHM";
-    }
-}
-
-nw_error_t *stochastic_gradient_descent_create(stochastic_gradient_descent_t **stochastic_gradient_descent,
-                                               float32_t learning_rate,
-                                               float32_t momentum,
-                                               float32_t dampening,
-                                               float32_t weight_decay,
-                                               bool_t nesterov)
-{
-    CHECK_NULL_ARGUMENT(stochastic_gradient_descent, "stochastic_gradient_descent");
-
-    *stochastic_gradient_descent = (stochastic_gradient_descent_t *) malloc(sizeof(stochastic_gradient_descent_t));
-    if (!*stochastic_gradient_descent)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(stochastic_gradient_descent_t)), NULL);
-    }
-
-    (*stochastic_gradient_descent)->learning_rate = learning_rate;
-    (*stochastic_gradient_descent)->momentum = momentum;
-    (*stochastic_gradient_descent)->dampening = dampening;
-    (*stochastic_gradient_descent)->weight_decay = weight_decay;
-    (*stochastic_gradient_descent)->nesterov = nesterov;
-
-    return NULL;
-}
-
-void stochastic_gradient_descent_destroy(stochastic_gradient_descent_t *stochastic_gradient_descent)
-{
-    if (stochastic_gradient_descent)
-    {
-        free(stochastic_gradient_descent);
     }
 }
 

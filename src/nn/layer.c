@@ -96,7 +96,7 @@ static nw_error_t *activation_forward(activation_t *activation, tensor_t *x, ten
         }
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown activation function %d.", (int) activation), NULL);
+        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown activation function %d.", (int) activation_function_type), NULL);
         break;
     }
 
@@ -703,8 +703,6 @@ nw_error_t *model_create(model_t **model, block_t *block)
     CHECK_NULL_ARGUMENT(model, "model");
     CHECK_NULL_ARGUMENT(block, "block");
 
-    nw_error_t *error = NULL;
-
     *model = (model_t *) malloc(sizeof(model_t));
     if (!*model)
     {
@@ -712,6 +710,8 @@ nw_error_t *model_create(model_t **model, block_t *block)
     }
 
     (*model)->block = block;
+
+    return NULL;
 }
 
 void model_destroy(model_t *model) 

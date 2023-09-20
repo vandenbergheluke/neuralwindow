@@ -2,6 +2,7 @@
 #include <tensor.h>
 #include <layer.h>
 #include <init.h>
+#include <math.h>
 
 nw_error_t *parameter_init_create(parameter_init_t **parameter_init, init_t *init, init_type_t init_type)
 {
@@ -75,7 +76,7 @@ void init_destroy(init_t *init, init_type_t init_type)
         {
         case ZEROES:
         case ONES:
-            return NULL;
+            return;
         case UNIFORM:
             uniform_init_destroy(init->uniform_init);
             break;
@@ -106,7 +107,7 @@ nw_error_t *uniform_init_create(uniform_init_t **uniform_init, void *lower_bound
     *uniform_init = (uniform_init_t *) malloc(sizeof(uniform_init_t));
     if (!*uniform_init)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes."), sizeof(uniform_init_t));
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(uniform_init_t)), NULL);
     }
 
     (*uniform_init)->lower_bound = lower_bound;
@@ -132,7 +133,7 @@ nw_error_t *normal_init_create(normal_init_t **normal_init, void *mean, void *st
     *normal_init = (normal_init_t *) malloc(sizeof(normal_init_t));
     if (!*normal_init)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes."), sizeof(normal_init_t));
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(normal_init_t)), NULL);
     }
 
     (*normal_init)->mean = mean;
@@ -158,7 +159,7 @@ nw_error_t *kaiming_init_create(kaiming_init_t **kaiming_init, void *fan, void *
     *kaiming_init = (kaiming_init_t *) malloc(sizeof(kaiming_init_t));
     if (!*kaiming_init)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes."), sizeof(kaiming_init_t));
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(kaiming_init_t)), NULL);
     }
 
     (*kaiming_init)->fan = fan;
@@ -185,7 +186,7 @@ nw_error_t *glorot_init_create(glorot_init_t **glorot_init, void *fan_in, void *
     *glorot_init = (glorot_init_t *) malloc(sizeof(glorot_init_t));
     if (!*glorot_init)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes."), sizeof(glorot_init_t));
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(glorot_init_t)), NULL);
     }
 
     (*glorot_init)->fan_in = fan_in;
@@ -553,7 +554,7 @@ nw_error_t *initialize(tensor_t **parameters,
     return error;
 }
 
-nw_error_t *calculate_gain(activation_function_type_t activation_function_type, datatype_t datatype, void *a, void *gain)
+nw_error_t *calculate_gain(activation_function_type_t activation_function_type, datatype_t datatype, void *gain)
 {
     CHECK_NULL_ARGUMENT(gain, "gain");
 

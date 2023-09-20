@@ -93,7 +93,7 @@ nw_error_t *tensor_maximum(const tensor_t *x, tensor_t **y, const uint64_t *axis
 nw_error_t *tensor_mean(const tensor_t *x, tensor_t **y, const uint64_t *axis, uint64_t length, bool_t keep_dimension);
 nw_error_t *tensor_softmax(const tensor_t *x, tensor_t **y, const uint64_t *axis, uint64_t length);
 nw_error_t *tensor_logsoftmax(const tensor_t *x, tensor_t **y, const uint64_t *axis, uint64_t length);
-nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, int64_t axis, bool_t keep_dimension);
+nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t axis, bool_t keep_dimension);
 
 // Unary Operations
 nw_error_t *tensor_contiguous(const tensor_t *x, tensor_t **y);

@@ -3,6 +3,10 @@
 
 #include <errors.h>
 
+typedef struct tensor_t tensor_t;
+typedef enum runtime_t runtime_t;
+typedef enum activation_function_type_t activation_function_type_t;
+
 typedef struct uniform_init_t
 {
     void *lower_bound;
@@ -81,6 +85,6 @@ nw_error_t *initialize(tensor_t **parameters,
                        runtime_t runtime,
                        datatype_t datatype,
                        bool_t requires_gradient);
-nw_error_t *calculate_gain(activation_function_type_t activation_function_type, datatype_t datatype, void *a, void *gain);
+nw_error_t *calculate_gain(activation_function_type_t activation_function_type, datatype_t datatype, void *gain);
 
 #endif
