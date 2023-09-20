@@ -422,6 +422,7 @@ typedef enum nw_error_type_t
     ERROR_UPDATE,
     ERROR_REQUIRES_GRADIENT,
     ERROR_ACTIVATION_TYPE,
+    ERROR_DROPOUT,
 } nw_error_type_t;
 
 typedef struct nw_error_t

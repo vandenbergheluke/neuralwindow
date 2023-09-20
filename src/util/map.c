@@ -36,18 +36,18 @@ nw_error_t *map_create(map_t **map)
     (*map)->capacity = INITIAL_CAPACITY;
     size = (*map)->capacity * sizeof(entry_t);
     (*map)->entries = (entry_t *) malloc(size);
-    for (uint64_t i = 0; i < (*map)->capacity; ++i)
-    {
-        (*map)->entries[i].key = NULL;
-        (*map)->entries[i].data = NULL;
-    }
-
     if (!(*map)->entries)
     {
         free(*map);
         return ERROR(ERROR_MEMORY_ALLOCATION,
                      string_create("failed to allocate map->entries of size %zu bytes.", size),
                      NULL);
+    }
+
+    for (uint64_t i = 0; i < (*map)->capacity; ++i)
+    {
+        (*map)->entries[i].key = NULL;
+        (*map)->entries[i].data = NULL;
     }
 
     return NULL;

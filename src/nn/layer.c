@@ -405,6 +405,11 @@ nw_error_t *dropout_create(dropout_t **dropout, float32_t probability)
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(dropout_t)), NULL);
     }
 
+    if (probability < 0 || probability > 1)
+    {
+        free(dropout);
+        return ERROR(ERROR_DROPOUT, string_create("Dropout probability has to be between 0 and 1, but got %f", probability), NULL);
+    }
     (*dropout)->probability = probability;
 
     return NULL;
