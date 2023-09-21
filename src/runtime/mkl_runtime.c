@@ -7,7 +7,7 @@
 #include <mkl.h>
 #include <math.h>
 
-#define EPSILON 0.00001
+#define EPSILON 0.0000001
 
 nw_error_t *mkl_memory_allocate(void **pp, size_t size)
 {

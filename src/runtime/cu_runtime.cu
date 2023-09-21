@@ -9,7 +9,7 @@ extern "C" {
     #include <cu_runtime.h>
 }
 
-#define EPSILON 0.00001
+#define EPSILON 0.0000001
 
 static cublasHandle_t handle = NULL;
 

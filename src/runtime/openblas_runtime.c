@@ -7,7 +7,7 @@
 #include <cblas.h>
 #include <math.h>
 
-#define EPSILON 0.00001
+#define EPSILON 0.0000001
 
 nw_error_t *openblas_memory_allocate(void **pp, size_t size)
 {
