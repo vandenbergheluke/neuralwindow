@@ -973,9 +973,9 @@ nw_error_t *tensor_softmax(const tensor_t *x, tensor_t **y, const uint64_t *axis
 
 cleanup:
 
-    tensor_destroy(x_i);
     if (!x->requires_gradient)
     {
+        tensor_destroy(x_i);
         tensor_destroy(x_j);
         tensor_destroy(x_k);
     }

@@ -16,6 +16,7 @@ typedef enum tensor_reduction_type_t
     TENSOR_SUMMATION,
     TENSOR_MAXIMUM,
     TENSOR_MEAN,
+    TENSOR_SOFTMAX,
 } tensor_reduction_type_t;
 
 #define CASES 9
@@ -158,6 +159,9 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type)
                 case TENSOR_MEAN:
                     expected_tensor = torch::mean(torch_tensors[i][j][k], axis[k], keep_dimension[k]);
                     break;
+                case TENSOR_SOFTMAX:
+                    expected_tensor = torch::softmax(torch_tensors[i][j][k], axis[k][0]);
+                    break;
                 default:
                     ck_abort_msg("unknown reduction type.");
                 }
@@ -187,6 +191,12 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type)
                                         (uint64_t *) axis[k].data(),
                                         (uint64_t) axis[k].size(),
                                         keep_dimension[k]);
+                    break;
+                case TENSOR_SOFTMAX:
+                    error = tensor_softmax(tensors[i][j][k], 
+                                           &returned_tensors[i][j][k],
+                                           (uint64_t *) axis[k].data(),
+                                           1);
                     break;
                 default:
                     ck_abort_msg("unknown reduction type.");
@@ -229,6 +239,12 @@ START_TEST(test_mean)
 }
 END_TEST
 
+START_TEST(test_softmax)
+{
+    test_reduction(TENSOR_SOFTMAX);
+}
+END_TEST
+
 Suite *make_reduction_suite(void)
 {
     Suite *s;
@@ -241,6 +257,7 @@ Suite *make_reduction_suite(void)
     tcase_add_test(tc_reduction, test_summation);
     tcase_add_test(tc_reduction, test_maximum);
     tcase_add_test(tc_reduction, test_mean);
+    tcase_add_test(tc_reduction, test_softmax);
 
     suite_add_tcase(s, tc_reduction);
 
