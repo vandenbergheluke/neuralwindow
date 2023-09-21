@@ -315,7 +315,7 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         return ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
     }
 
-    error = softmax_activation_create(&output_activation, (uint64_t[]){1}, (uint64_t) 1);
+    error = softmax_activation_create(&output_activation, (uint64_t) 1);
     if (error)
     {
         parameter_init_destroy(weight_init);

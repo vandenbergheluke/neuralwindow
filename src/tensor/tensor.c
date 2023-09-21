@@ -661,7 +661,7 @@ nw_error_t *tensor_item(tensor_t *x, void *value)
     return NULL;
 }
 
-nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t *axis, uint64_t length, bool_t keep_dimension)
+nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t axis, bool_t keep_dimension)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
@@ -679,26 +679,29 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t *a
     uint64_t *shape = x->buffer->view->shape;
     uint64_t rank = x->buffer->view->rank;
 
-    if (length)
+    if ((!rank && axis) || (rank && axis >= rank))
     {
-        CHECK_NULL_ARGUMENT(axis, "axis");
-        if (*axis >= rank)
-        {
-            return ERROR(ERROR_AXIS, string_create("axis out of range of tensor."), NULL);
-        }
-    }
-
-    if (length > 1)
-    {
-        return ERROR(ERROR_AXIS, string_create("axis can only have 1 or 0 elements."), NULL);
+        return ERROR(ERROR_AXIS, string_create("axis out of range of tensor."), NULL);
     }
 
     with_no_gradient(true);
+    float32_t dimension_float32;
+    float64_t dimension_float64;
     runtime_t runtime = x->buffer->storage->runtime;
     datatype_t datatype = x->buffer->storage->datatype;
-    uint64_t dimension = (length) ? shape[*axis] : 1;
-    uint64_t new_rank = rank - ((length) ? *axis : 0);
+    uint64_t dimension = (rank) ? shape[axis] : 1;
+    uint64_t new_rank = rank - axis;
     uint64_t new_shape [new_rank];
+    uint64_t *reduce_axis = (rank) ? ((uint64_t[]) {axis}) : ((uint64_t[]){});
+    uint64_t reduce_rank = (rank) ? 1 : 0;
+    tensor_t *x_i = NULL;
+    tensor_t *x_j = NULL;
+    tensor_t *x_k = NULL;
+    tensor_t *x_l = NULL;
+    tensor_t *x_m = NULL;
+    tensor_t *x_n = NULL;
+    tensor_t *x_o = NULL;
+
     if (new_rank)
     {
         new_shape[0] = dimension;
@@ -708,15 +711,7 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t *a
         }
     }
 
-    tensor_t *x_i = NULL;
-    tensor_t *x_j = NULL;
-    tensor_t *x_k = NULL;
-    tensor_t *x_l = NULL;
-    tensor_t *x_m = NULL;
-    tensor_t *x_n = NULL;
-    tensor_t *x_o = NULL;
-
-    error = tensor_maximum(x, &x_i, axis, length, true);
+    error = tensor_maximum(x, &x_i, reduce_axis, reduce_rank, true);
     if (error)
     {
         error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
@@ -751,16 +746,13 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t *a
         goto cleanup;
     }
 
-    error = tensor_maximum(x_m, &x_n, axis, length, keep_dimension);
+    error = tensor_maximum(x_m, &x_n, reduce_axis, reduce_rank, keep_dimension);
     if (error)
     {
         error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
         goto cleanup;
     }
     
-    float32_t dimension_float32;
-    float64_t dimension_float64;
-
     switch (datatype)
     {
     case FLOAT32:
@@ -956,22 +948,27 @@ cleanup:
     return error;
 }
 
-static nw_error_t *softmax(const tensor_t *x, tensor_t **y_max, tensor_t **y_num, tensor_t **y_den, const uint64_t *axis, uint64_t length)
+static nw_error_t *softmax(const tensor_t *x, tensor_t **y_max, tensor_t **y_num, tensor_t **y_den, uint64_t axis)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_UINT64_ARRAY("axis", axis, length);
+    PRINTF_DEBUG("axis %lu\n", axis);
     PRINT_DEBUG_NEWLINE;
 
     CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
     CHECK_NULL_ARGUMENT(y_max, "y_max");
     CHECK_NULL_ARGUMENT(y_num, "y_num");
     CHECK_NULL_ARGUMENT(y_den, "y_den");
 
     nw_error_t *error = NULL;
     tensor_t *x_i = NULL;
+    uint64_t rank = x->buffer->view->rank;
+    uint64_t *reduce_axis = (rank) ? ((uint64_t[]) {axis}) : ((uint64_t[]){});
+    uint64_t reduce_rank = (rank) ? 1 : 0;
 
-    error = tensor_maximum(x, &x_i, axis, length, true);
+    error = tensor_maximum(x, &x_i, reduce_axis, reduce_rank, true);
     if (error)
     {
         error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
@@ -992,7 +989,7 @@ static nw_error_t *softmax(const tensor_t *x, tensor_t **y_max, tensor_t **y_num
         goto cleanup;
     }
 
-    error = tensor_summation(*y_num, y_den, axis, length, true);
+    error = tensor_summation(*y_num, y_den, reduce_axis, reduce_rank, true);
     if (error)
     {
         error = ERROR(ERROR_SUMMATION, string_create("failed to sum tensor."), error);
@@ -1016,12 +1013,11 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_softmax(const tensor_t *x, tensor_t **y, const uint64_t *axis, uint64_t length)
+nw_error_t *tensor_softmax(const tensor_t *x, tensor_t **y, uint64_t axis)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_UINT64_ARRAY("axis", axis, length);
-    PRINTF_DEBUG("%lu\n", length);
+    PRINTF_DEBUG("axis %lu\n", axis);
     PRINT_DEBUG_NEWLINE;
 
     CHECK_NULL_ARGUMENT(x, "x");
@@ -1032,7 +1028,7 @@ nw_error_t *tensor_softmax(const tensor_t *x, tensor_t **y, const uint64_t *axis
     tensor_t *x_j = NULL;
     tensor_t *x_k = NULL;
 
-    error = softmax(x, &x_i, &x_j, &x_k, axis, length);
+    error = softmax(x, &x_i, &x_j, &x_k, axis);
     if (error)
     {
         error = ERROR(ERROR_SOFTMAX, string_create("failed to softmax tensor."), error);
@@ -1063,11 +1059,11 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_logsoftmax(const tensor_t *x, tensor_t **y, const uint64_t *axis, uint64_t length)
+nw_error_t *tensor_logsoftmax(const tensor_t *x, tensor_t **y, uint64_t axis)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_UINT64_ARRAY("axis", axis, length);
+    PRINTF_DEBUG("axis %lu\n", axis);
     PRINT_DEBUG_NEWLINE;
 
     CHECK_NULL_ARGUMENT(x, "x");
@@ -1079,7 +1075,7 @@ nw_error_t *tensor_logsoftmax(const tensor_t *x, tensor_t **y, const uint64_t *a
     tensor_t *x_k = NULL;
     tensor_t *x_l = NULL;
 
-    error = softmax(x, &x_i, &x_j, &x_k, axis, length);
+    error = softmax(x, &x_i, &x_j, &x_k, axis);
     if (error)
     {
         error = ERROR(ERROR_SOFTMAX, string_create("failed to softmax tensor."), error);

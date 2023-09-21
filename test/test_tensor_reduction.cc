@@ -20,43 +20,52 @@ typedef enum tensor_reduction_type_t
     TENSOR_ARGUMENT_MAXIMUM,
 } tensor_reduction_type_t;
 
-#define CASES 4
+#define CASES 9
+#define KEEP_DIMENSIONS 2
 
 nw_error_t *error;
 
-tensor_t *tensors[RUNTIMES][DATATYPES][CASES];
-tensor_t *returned_tensors[RUNTIMES][DATATYPES][CASES];
-tensor_t *expected_tensors[RUNTIMES][DATATYPES][CASES];
-tensor_t *expected_gradient[RUNTIMES][DATATYPES][CASES];
+tensor_t *tensors[RUNTIMES][DATATYPES][CASES][KEEP_DIMENSIONS];
+tensor_t *returned_tensors[RUNTIMES][DATATYPES][CASES][KEEP_DIMENSIONS];
+tensor_t *expected_tensors[RUNTIMES][DATATYPES][CASES][KEEP_DIMENSIONS];
+tensor_t *expected_gradient[RUNTIMES][DATATYPES][CASES][KEEP_DIMENSIONS];
 
-torch::Tensor torch_tensors[RUNTIMES][DATATYPES][CASES];
+torch::Tensor torch_tensors[RUNTIMES][DATATYPES][CASES][KEEP_DIMENSIONS];
 
 std::vector<int64_t> axis[CASES] = {
     {},
     {},
     {},
+    {0},
+    {1},
     {},
-};
-
-bool_t keep_dimension[CASES] = {
-    false,
-    true,
-    false,
-    true,
+    {0},
+    {0, 1},
+    {1, 0},
 };
 
 std::vector<int64_t> shapes[CASES] = {
     {},
-    {},
     {1},
-    {1},
+    {2},
+    {2},
+    {1, 2},
+    {1, 2},
+    {1, 2},
+    {1, 2},
+    {1, 2},
 };
 
 std::vector<int64_t> expanded_shapes[CASES] = {
     {},
-    {},
     {1},
-    {1},
+    {2},
+    {2},
+    {1, 2},
+    {1, 2},
+    {1, 2},
+    {1, 2},
+    {1, 2},
 };
 
 void setup(void)
@@ -68,32 +77,32 @@ void setup(void)
         {
             for (int k = 0; k < CASES; ++k)
             {
-                tensors[i][j][k] = NULL;
-                returned_tensors[i][j][k] = NULL;
-                expected_tensors[i][j][k] = NULL;
-                expected_gradient[i][j][k] = NULL;
-            }
-
-            for (int k = 0; k < CASES; ++k)
-            {
-                switch ((datatype_t) j)
+                for (int l = 0; l < KEEP_DIMENSIONS; ++l)
                 {
-                case FLOAT32:
-                    torch_tensors[i][j][k] = torch::randn(shapes[k], 
-                                                          torch::TensorOptions().dtype(torch::kFloat32).requires_grad(true)
-                                                          ).expand(expanded_shapes[k]);
-                    break;
-                case FLOAT64:
-                    torch_tensors[i][j][k] = torch::randn(shapes[k],
-                                                          torch::TensorOptions().dtype(torch::kFloat64).requires_grad(true)
-                                                          ).expand(expanded_shapes[k]);
-                    break;
-                default:
-                    ck_abort_msg("unknown datatype.");
-                }
-                torch_tensors[i][j][k].retain_grad();
+                    tensors[i][j][k][l] = NULL;
+                    returned_tensors[i][j][k][l] = NULL;
+                    expected_tensors[i][j][k][l] = NULL;
+                    expected_gradient[i][j][k][l] = NULL;
 
-                tensors[i][j][k] = torch_to_tensor(torch_tensors[i][j][k], (runtime_t) i, (datatype_t) j);
+                    switch ((datatype_t) j)
+                    {
+                    case FLOAT32:
+                        torch_tensors[i][j][k][l] = torch::randn(shapes[k], 
+                                                                 torch::TensorOptions().dtype(torch::kFloat32).requires_grad(true)
+                                                                 ).expand(expanded_shapes[k]);
+                        break;
+                    case FLOAT64:
+                        torch_tensors[i][j][k][l] = torch::randn(shapes[k],
+                                                                 torch::TensorOptions().dtype(torch::kFloat64).requires_grad(true)
+                                                                 ).expand(expanded_shapes[k]);
+                        break;
+                    default:
+                        ck_abort_msg("unknown datatype.");
+                    }
+                    torch_tensors[i][j][k][l].retain_grad();
+
+                    tensors[i][j][k][l] = torch_to_tensor(torch_tensors[i][j][k][l], (runtime_t) i, (datatype_t) j);
+                }
             }
         }
     }
@@ -108,9 +117,12 @@ void teardown(void)
         {
             for (int k = 0; k < CASES; k++)
             {
-                tensor_destroy(tensors[i][j][k]);
-                tensor_destroy(expected_tensors[i][j][k]);
-                tensor_destroy(expected_gradient[i][j][k]);
+                for (int l = 0; l < KEEP_DIMENSIONS; l++)
+                {
+                    tensor_destroy(tensors[i][j][k][l]);
+                    tensor_destroy(expected_tensors[i][j][k][l]);
+                    tensor_destroy(expected_gradient[i][j][k][l]);
+                }
             }
         }
     }
@@ -127,91 +139,92 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type)
         {
             for (int k = 0; k < CASES; k++)
             {
-                torch::Tensor expected_tensor;
-
-                switch (tensor_reduction_type)
+                for (int l = 0; l < KEEP_DIMENSIONS; l++)
                 {
-                case TENSOR_SUMMATION:
-                    expected_tensor = torch::sum(torch_tensors[i][j][k], axis[k], keep_dimension[k]);
-                    break;
-                case TENSOR_MAXIMUM:
-                    expected_tensor = torch::amax(torch_tensors[i][j][k], axis[k], keep_dimension[k]);
-                    break;
-                case TENSOR_MEAN:
-                    expected_tensor = torch::mean(torch_tensors[i][j][k], axis[k], keep_dimension[k]);
-                    break;
-                case TENSOR_SOFTMAX:
-                    expected_tensor = torch::softmax(torch_tensors[i][j][k], (axis[k].size()) ? axis[k][0] : -1);
-                    break;
-                case TENSOR_ARGUMENT_MAXIMUM:
-                    expected_tensor = torch::argmax(torch_tensors[i][j][k], (axis[k].size()) ? axis[k][0] : -1, keep_dimension[k]);
-                    break;
-                default:
-                    ck_abort_msg("unknown reduction type.");
+                    torch::Tensor expected_tensor;
+
+                    switch (tensor_reduction_type)
+                    {
+                    case TENSOR_SUMMATION:
+                        expected_tensor = torch::sum(torch_tensors[i][j][k][l], axis[k], (bool_t) l);
+                        break;
+                    case TENSOR_MAXIMUM:
+                        expected_tensor = torch::amax(torch_tensors[i][j][k][l], axis[k], (bool_t) l);
+                        break;
+                    case TENSOR_MEAN:
+                        expected_tensor = torch::mean(torch_tensors[i][j][k][l], axis[k],  (bool_t) l);
+                        break;
+                    case TENSOR_SOFTMAX:
+                        expected_tensor = torch::softmax(torch_tensors[i][j][k][l], (axis[k].size()) ? axis[k][0] : 0);
+                        break;
+                    case TENSOR_ARGUMENT_MAXIMUM:
+                        expected_tensor = torch::argmax(torch_tensors[i][j][k][l], (axis[k].size()) ? axis[k][0] : 0, (bool_t) l);
+                        break;
+                    default:
+                        ck_abort_msg("unknown reduction type.");
+                    }
+
+                    expected_tensors[i][j][k][l] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
+
+                    switch (tensor_reduction_type)
+                    {
+                    case TENSOR_SUMMATION:
+                        error = tensor_summation(tensors[i][j][k][l], 
+                                                 &returned_tensors[i][j][k][l],
+                                                 (uint64_t *) axis[k].data(),
+                                                 (uint64_t) axis[k].size(),
+                                                 (bool_t) l);
+                        break;
+                    case TENSOR_MAXIMUM:
+                        error = tensor_maximum(tensors[i][j][k][l], 
+                                               &returned_tensors[i][j][k][l],
+                                               (uint64_t *) axis[k].data(),
+                                               (uint64_t) axis[k].size(),
+                                               (bool_t) l);
+                        break;
+                    case TENSOR_MEAN:
+                        error = tensor_mean(tensors[i][j][k][l], 
+                                            &returned_tensors[i][j][k][l],
+                                            (uint64_t *) axis[k].data(),
+                                            (uint64_t) axis[k].size(),
+                                            (bool_t) l);
+                        break;
+                    case TENSOR_SOFTMAX:
+                        error = tensor_softmax(tensors[i][j][k][l], 
+                                               &returned_tensors[i][j][k][l],
+                                               (axis[k].size()) ? *(uint64_t *) axis[k].data() : (uint64_t) 0);
+                        break;
+                    case TENSOR_ARGUMENT_MAXIMUM:
+                        error = tensor_argument_maximum(tensors[i][j][k][l], 
+                                                        &returned_tensors[i][j][k][l],
+                                                        (axis[k].size()) ? *(uint64_t *) axis[k].data() : (uint64_t) 0,
+                                                        (bool_t) l);
+                        break;
+                    default:
+                        ck_abort_msg("unknown reduction type.");
+                    }
+                    ck_assert_ptr_null(error);
+
+                    ck_assert_tensor_equiv(returned_tensors[i][j][k][l],
+                                           expected_tensors[i][j][k][l]);
+
+                    if (tensor_reduction_type == TENSOR_ARGUMENT_MAXIMUM)
+                    {
+                        tensor_destroy(returned_tensors[i][j][k][l]);
+                        continue;
+                    }
+
+                    // Back prop
+                    expected_tensor.sum().backward();
+                    expected_gradient[i][j][k][l] = torch_to_tensor(torch_tensors[i][j][k][l].grad(), (runtime_t) i, (datatype_t) j);
+                    tensor_t *cost;
+                    error = tensor_summation(returned_tensors[i][j][k][l], &cost, NULL, 0, false);
+                    ck_assert_ptr_null(error);
+                    error = tensor_backward(cost, NULL);
+                    ck_assert_ptr_null(error);
+
+                    ck_assert_tensor_equiv(tensors[i][j][k][l]->gradient, expected_gradient[i][j][k][l]);
                 }
-
-                expected_tensors[i][j][k] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
-
-                switch (tensor_reduction_type)
-                {
-                case TENSOR_SUMMATION:
-                    error = tensor_summation(tensors[i][j][k], 
-                                             &returned_tensors[i][j][k],
-                                             (uint64_t *) axis[k].data(),
-                                             (uint64_t) axis[k].size(),
-                                             keep_dimension[k]);
-                    break;
-                case TENSOR_MAXIMUM:
-                    error = tensor_maximum(tensors[i][j][k], 
-                                           &returned_tensors[i][j][k],
-                                           (uint64_t *) axis[k].data(),
-                                           (uint64_t) axis[k].size(),
-                                           keep_dimension[k]);
-                    break;
-                case TENSOR_MEAN:
-                    error = tensor_mean(tensors[i][j][k], 
-                                        &returned_tensors[i][j][k],
-                                        (uint64_t *) axis[k].data(),
-                                        (uint64_t) axis[k].size(),
-                                        keep_dimension[k]);
-                    break;
-                case TENSOR_SOFTMAX:
-                    error = tensor_softmax(tensors[i][j][k], 
-                                           &returned_tensors[i][j][k],
-                                           (uint64_t *) axis[k].data(),
-                                           MIN(((uint64_t) axis[k].size()), 1));
-                    break;
-                case TENSOR_ARGUMENT_MAXIMUM:
-                    error = tensor_argument_maximum(tensors[i][j][k], 
-                                                    &returned_tensors[i][j][k],
-                                                    (uint64_t *) axis[k].data(),
-                                                    MIN(((uint64_t) axis[k].size()), 1),
-                                                    keep_dimension[k]);
-                    break;
-                default:
-                    ck_abort_msg("unknown reduction type.");
-                }
-                ck_assert_ptr_null(error);
-
-                ck_assert_tensor_equiv(returned_tensors[i][j][k],
-                                       expected_tensors[i][j][k]);
-
-                if (tensor_reduction_type == TENSOR_ARGUMENT_MAXIMUM)
-                {
-                    tensor_destroy(returned_tensors[i][j][k]);
-                    continue;
-                }
-
-                // Back prop
-                expected_tensor.sum().backward();
-                expected_gradient[i][j][k] = torch_to_tensor(torch_tensors[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
-                tensor_t *cost;
-                error = tensor_summation(returned_tensors[i][j][k], &cost, NULL, 0, false);
-                ck_assert_ptr_null(error);
-                error = tensor_backward(cost, NULL);
-                ck_assert_ptr_null(error);
-
-                ck_assert_tensor_equiv(tensors[i][j][k]->gradient, expected_gradient[i][j][k]);
             }
         }
     }

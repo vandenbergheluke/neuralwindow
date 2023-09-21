@@ -92,7 +92,7 @@ static nw_error_t *activation_forward(activation_t *activation, tensor_t *x, ten
         }
         else
         {
-            error = tensor_softmax(x, y, activation_function->softmax->axis, activation_function->softmax->length);
+            error = tensor_softmax(x, y, activation_function->softmax->axis);
         }
         break;
     default:
@@ -510,7 +510,7 @@ void block_destroy(block_t *block)
     }
 }
 
-nw_error_t *softmax_create(softmax_t **softmax, uint64_t *axis, uint64_t length)
+nw_error_t *softmax_create(softmax_t **softmax, uint64_t axis)
 {
     CHECK_NULL_ARGUMENT(softmax, "softmax");
 
@@ -520,18 +520,7 @@ nw_error_t *softmax_create(softmax_t **softmax, uint64_t *axis, uint64_t length)
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(softmax_t)), NULL);
     }
 
-    (*softmax)->length = length;
-    (*softmax)->axis = (uint64_t *) malloc(length * sizeof(uint64_t));
-    if (!(*softmax)->axis)
-    {
-        free(*softmax);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", (size_t)(length * sizeof(uint64_t))), NULL);
-    }
-
-    if (axis)
-    {
-        memcpy((*softmax)->axis, axis, (size_t)(length * sizeof(uint64_t)));
-    }
+    (*softmax)->axis = axis;
 
     return NULL;
 }
@@ -540,7 +529,6 @@ void softmax_destroy(softmax_t *softmax)
 {
     if (softmax)
     {
-        free(softmax->axis);
         free(softmax);
     }
 }
@@ -665,17 +653,16 @@ nw_error_t *sigmoid_activation_create(activation_t **activation)
     return error;
 }
 
-nw_error_t *softmax_activation_create(activation_t **activation, uint64_t *axis, uint64_t length)
+nw_error_t *softmax_activation_create(activation_t **activation, uint64_t axis)
 {
     CHECK_NULL_ARGUMENT(activation, "activation");
-    CHECK_NULL_ARGUMENT(axis, "axis");
 
     nw_error_t *error = NULL;
     softmax_t *softmax = NULL;
     activation_function_t *activation_function = NULL;
     activation_function_type_t activation_function_type = ACTIVATION_SOFTMAX;
 
-    error = softmax_create(&softmax, axis, length);
+    error = softmax_create(&softmax, axis);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create softmax."), error);
