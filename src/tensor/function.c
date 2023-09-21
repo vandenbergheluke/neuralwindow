@@ -9,6 +9,8 @@
 #include <buffer.h>
 #include <string.h>
 
+extern bool_t no_gradient;
+
 /**
  * @brief The function constructor.
  * @param function The address of the pointer to the function being instantiated.
@@ -196,7 +198,7 @@ nw_error_t *apply_function_binary(binary_operation_type_t binary_operation_type,
 
 cleanup:
 
-    if (!(x_broadcasted->requires_gradient || y_broadcasted->requires_gradient))
+    if (!(x_broadcasted->requires_gradient || y_broadcasted->requires_gradient) || no_gradient)
     {
         if (x != x_broadcasted)
         {
@@ -349,7 +351,7 @@ nw_error_t *function_forward(function_t *function, tensor_t **result)
 
     if (*result)
     {
-        if ((*result)->requires_gradient)
+        if ((*result)->requires_gradient && !no_gradient)
         {
             (*result)->context = function;
         }
@@ -2776,38 +2778,49 @@ nw_error_t *reduction_operation_forward(reduction_operation_t *reduction_operati
         return ERROR(ERROR_RANK_CONFLICT, string_create("reduction axis length greater than rank of tensor."), NULL);
     }
 
-    error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, axis, length, keep_dimension);
-    if (error)
+    if (!rank)
     {
-        return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
+        error = tensor_as_tensor(x, result, x->requires_gradient);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create tensor"), error);
+        }
     }
-
-    error = tensor_create_empty(reduced_shape, reduced_strides, reduced_rank, result, requires_gradient, runtime, datatype);
-    if (error)
+    else
     {
-        return ERROR(ERROR_CREATE, string_create("failed to reduce tensor."), error);
-    }
+        error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, axis, length, keep_dimension);
+        if (error)
+        {
+            return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
+        }
 
-    switch (operation_type)
-    {
-    case SUMMATION_OPERATION:
-        error = summation_operation_forward(x, axis, length, *result, keep_dimension);
-        break;
-    case MAXIMUM_OPERATION:
-        error = maximum_operation_forward(x, axis, length, *result, keep_dimension);
-        break;
-    default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
-        break;
-    }
+        error = tensor_create_empty(reduced_shape, reduced_strides, reduced_rank, result, requires_gradient, runtime, datatype);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to reduce tensor."), error);
+        }
 
-    if (error)
-    {
-        tensor_destroy(*result);
-        *result = NULL;
-        return ERROR(ERROR_FORWARD,
-                     string_create("failed to execute reduction operation forward pass of type %s.",
-                     reduction_operation_type_string(operation_type)), error);
+        switch (operation_type)
+        {
+        case SUMMATION_OPERATION:
+            error = summation_operation_forward(x, axis, length, *result, keep_dimension);
+            break;
+        case MAXIMUM_OPERATION:
+            error = maximum_operation_forward(x, axis, length, *result, keep_dimension);
+            break;
+        default:
+            error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+            break;
+        }
+
+        if (error)
+        {
+            tensor_destroy(*result);
+            *result = NULL;
+            return ERROR(ERROR_FORWARD,
+                         string_create("failed to execute reduction operation forward pass of type %s.",
+                         reduction_operation_type_string(operation_type)), error);
+        }
     }
 
     reduction_operation->result = *result;

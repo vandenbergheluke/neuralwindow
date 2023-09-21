@@ -1700,13 +1700,13 @@ nw_error_t *runtime_init_ones(buffer_t *buffer)
 }
 
 // Assumes tensor is contiguous
-nw_error_t *runtime_init_arange(buffer_t *buffer, uint64_t start, uint64_t stop, uint64_t step)
+nw_error_t *runtime_init_arange(buffer_t *buffer, int64_t start, int64_t stop, int64_t step)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
     CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
 
-    uint64_t interval = 1 + (((stop - start) - 1 ) / step);
+    uint64_t interval = (stop - start) / step;
 
     if (interval != buffer->storage->n)
     {
@@ -1716,19 +1716,21 @@ nw_error_t *runtime_init_arange(buffer_t *buffer, uint64_t start, uint64_t stop,
     void *data = buffer->storage->data;
     datatype_t datatype = buffer->storage->datatype;
 
-    for (uint64_t i = start; i < stop; i += step)
+    int64_t value = start;
+    for (uint64_t i = 0; i < interval; ++i)
     {
         switch (datatype)
         {
         case FLOAT32:
-            ((float32_t *) data)[i] = (float32_t) i;
+            ((float32_t *) data)[i] = (float32_t) value;
             break;
         case FLOAT64:
-            ((float64_t *) data)[i] = (float64_t) i;
+            ((float64_t *) data)[i] = (float64_t) value;
             break;
         default:
             return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
         }
+        value += step;
     }
 
     return NULL;

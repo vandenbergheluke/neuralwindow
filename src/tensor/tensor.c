@@ -12,6 +12,8 @@
 #include <string.h>
 #include <math.h>
 
+bool_t no_gradient = false;
+
 /**
  * @brief Dynamically memory allocate and initialize a tensor.
  * 
@@ -62,6 +64,28 @@ void tensor_destroy(tensor_t *tensor)
         tensor_destroy(tensor->gradient);
         function_destroy(tensor->context);
         free(tensor);
+    }
+}
+
+void with_no_gradient(bool_t flag)
+{
+    static uint64_t previous = 0;
+
+    if (flag)
+    {
+        ++previous;
+        no_gradient = true;
+    }
+    else
+    {
+        if (previous)
+        {
+            --previous; 
+            if (!previous)
+            {
+                no_gradient = false;
+            }
+        }
     }
 }
 
@@ -396,12 +420,15 @@ nw_error_t *tensor_compare_equal(const tensor_t *x, const tensor_t *y, tensor_t 
     CHECK_NULL_ARGUMENT(z, "z");
 
     nw_error_t *error = NULL;
+    with_no_gradient(true);
 
     error = apply_function_binary(COMPARE_EQUAL, x, y, z);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to compare equal tensors."), error);
     }
+
+    with_no_gradient(false);
 
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("x", x);
@@ -424,12 +451,15 @@ nw_error_t *tensor_compare_greater(const tensor_t *x, const tensor_t *y, tensor_
     CHECK_NULL_ARGUMENT(z, "z");
 
     nw_error_t *error = NULL;
+    with_no_gradient(true);
 
     error = apply_function_binary(COMPARE_GREATER, x, y, z);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to compare greater tensors."), error);
     }
+
+    with_no_gradient(false);
 
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("x", x);
@@ -631,7 +661,7 @@ nw_error_t *tensor_item(tensor_t *x, void *value)
     return NULL;
 }
 
-nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t axis, bool_t keep_dimension)
+nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t *axis, uint64_t length, bool_t keep_dimension)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
@@ -645,24 +675,37 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t ax
     CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
     CHECK_NULL_ARGUMENT(x->buffer->view->shape, "x->buffer->view->shape");
     CHECK_NULL_ARGUMENT(y, "y");
-
     nw_error_t *error = NULL;
     uint64_t *shape = x->buffer->view->shape;
     uint64_t rank = x->buffer->view->rank;
 
-    if (axis >= rank)
+    if (length)
     {
-        return ERROR(ERROR_AXIS, string_create("axis out of range of tensor."), NULL);
+        CHECK_NULL_ARGUMENT(axis, "axis");
+        if (*axis >= rank)
+        {
+            return ERROR(ERROR_AXIS, string_create("axis out of range of tensor."), NULL);
+        }
     }
 
+    if (length > 1)
+    {
+        return ERROR(ERROR_AXIS, string_create("axis can only have 1 or 0 elements."), NULL);
+    }
+
+    with_no_gradient(true);
     runtime_t runtime = x->buffer->storage->runtime;
     datatype_t datatype = x->buffer->storage->datatype;
-    uint64_t new_rank = rank -axis;
+    uint64_t dimension = (length) ? shape[*axis] : 1;
+    uint64_t new_rank = rank - ((length) ? *axis : 0);
     uint64_t new_shape [new_rank];
-    new_shape[0] = shape[axis];
-    for (uint64_t i = 1; i < new_rank; ++i)
+    if (new_rank)
     {
-        new_shape[i] = (uint64_t) 1;
+        new_shape[0] = dimension;
+        for (uint64_t i = 1; i < new_rank; ++i)
+        {
+            new_shape[i] = (uint64_t) 1;
+        }
     }
 
     tensor_t *x_i = NULL;
@@ -670,8 +713,10 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t ax
     tensor_t *x_k = NULL;
     tensor_t *x_l = NULL;
     tensor_t *x_m = NULL;
+    tensor_t *x_n = NULL;
+    tensor_t *x_o = NULL;
 
-    error = tensor_maximum(x, &x_i, (uint64_t[]){axis}, (uint64_t) 1, true);
+    error = tensor_maximum(x, &x_i, axis, length, true);
     if (error)
     {
         error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
@@ -685,7 +730,7 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t ax
         goto cleanup;
     }
 
-    error = tensor_arange(&x_k, (uint64_t) 0, shape[axis], (uint64_t) 1, runtime, datatype, false);
+    error = tensor_arange(&x_k, (int64_t) dimension, (int64_t) 0, (int64_t) -1, runtime, datatype, false);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -706,10 +751,41 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t ax
         goto cleanup;
     }
 
-    error = tensor_maximum(x_m, y, (uint64_t[]){axis}, (uint64_t) 1, keep_dimension);
+    error = tensor_maximum(x_m, &x_n, axis, length, keep_dimension);
     if (error)
     {
         error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
+        goto cleanup;
+    }
+    
+    float32_t dimension_float32;
+    float64_t dimension_float64;
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        dimension_float32 = (float32_t) dimension;
+        error = tensor_constant_float32(dimension_float32, &x_o, runtime);
+        break;
+    case FLOAT64:
+        dimension_float64 = (float64_t) dimension;
+        error = tensor_constant_float64(dimension_float64, &x_o, runtime);
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        break;
+    }
+
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+    
+    error = tensor_subtraction(x_o, x_n, y);
+    if (error)
+    {
+        error = ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensors."), error);
         goto cleanup;
     }
 
@@ -720,11 +796,14 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t ax
 
 cleanup:
 
+    with_no_gradient(false);
     tensor_destroy(x_i);
     tensor_destroy(x_j);
     tensor_destroy(x_k);
     tensor_destroy(x_l);
     tensor_destroy(x_m);
+    tensor_destroy(x_n);
+    tensor_destroy(x_o);
 
     return error;
 }
@@ -942,6 +1021,7 @@ nw_error_t *tensor_softmax(const tensor_t *x, tensor_t **y, const uint64_t *axis
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
     PRINTLN_DEBUG_UINT64_ARRAY("axis", axis, length);
+    PRINTF_DEBUG("%lu\n", length);
     PRINT_DEBUG_NEWLINE;
 
     CHECK_NULL_ARGUMENT(x, "x");
@@ -1542,10 +1622,10 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_arange(tensor_t **x, uint64_t start, uint64_t stop, uint64_t step, runtime_t runtime, datatype_t datatype, bool_t requires_gradient)
+nw_error_t *tensor_arange(tensor_t **x, int64_t start, int64_t stop, int64_t step, runtime_t runtime, datatype_t datatype, bool_t requires_gradient)
 {
     nw_error_t *error = NULL;
-    uint64_t interval = 1 + (((stop - start) - 1 ) / step);
+    uint64_t interval = (stop - start) / step;
     buffer_t *buffer = NULL;
 
     error = buffer_create_empty(&buffer, (uint64_t[]) {interval}, NULL, 1, runtime, datatype);

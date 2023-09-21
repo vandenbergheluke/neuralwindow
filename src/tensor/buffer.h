@@ -110,7 +110,7 @@ nw_error_t *runtime_maximum(buffer_t *x, uint64_t *axis, uint64_t length, buffer
 // Initialization
 nw_error_t *runtime_init_zeroes(buffer_t *buffer);
 nw_error_t *runtime_init_ones(buffer_t *buffer);
-nw_error_t *runtime_init_arange(buffer_t *buffer, uint64_t start, uint64_t stop, uint64_t step);
+nw_error_t *runtime_init_arange(buffer_t *buffer, int64_t start, int64_t stop, int64_t step);
 nw_error_t *runtime_init_uniform(buffer_t *buffer, void *lower_bound, void *upper_bound);
 nw_error_t *runtime_init_normal(buffer_t *buffer, void *mean, void *standard_deviation);
 #endif

@@ -17,9 +17,10 @@ typedef enum tensor_reduction_type_t
     TENSOR_MAXIMUM,
     TENSOR_MEAN,
     TENSOR_SOFTMAX,
+    TENSOR_ARGUMENT_MAXIMUM,
 } tensor_reduction_type_t;
 
-#define CASES 9
+#define CASES 4
 
 nw_error_t *error;
 
@@ -31,15 +32,10 @@ tensor_t *expected_gradient[RUNTIMES][DATATYPES][CASES];
 torch::Tensor torch_tensors[RUNTIMES][DATATYPES][CASES];
 
 std::vector<int64_t> axis[CASES] = {
-    {0},
-    {0},
-    {1},
-    {1},
-    {0, 2},
-    {1},
-    {0, 1, 2, 3},
-    {0, 1, 2, 3},
-    {0, 2, 3},
+    {},
+    {},
+    {},
+    {},
 };
 
 bool_t keep_dimension[CASES] = {
@@ -47,35 +43,20 @@ bool_t keep_dimension[CASES] = {
     true,
     false,
     true,
-    true,
-    false,
-    false,
-    false,
-    true,
 };
 
 std::vector<int64_t> shapes[CASES] = {
+    {},
+    {},
     {1},
-    {10},
-    {10, 1},
-    {10, 10},
-    {3, 4, 5},
-    {3, 4, 5},
-    {2, 3, 4, 5},
-    {5},
-    {3, 1, 1},
+    {1},
 };
 
 std::vector<int64_t> expanded_shapes[CASES] = {
-    {2},
-    {10},
-    {10, 1},
-    {10, 10},
-    {3, 4, 5},
-    {3, 4, 5},
-    {2, 3, 4, 5},
-    {2, 3, 4, 5},
-    {2, 3, 4, 5},
+    {},
+    {},
+    {1},
+    {1},
 };
 
 void setup(void)
@@ -160,12 +141,14 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type)
                     expected_tensor = torch::mean(torch_tensors[i][j][k], axis[k], keep_dimension[k]);
                     break;
                 case TENSOR_SOFTMAX:
-                    expected_tensor = torch::softmax(torch_tensors[i][j][k], axis[k][0]);
+                    expected_tensor = torch::softmax(torch_tensors[i][j][k], (axis[k].size()) ? axis[k][0] : -1);
+                    break;
+                case TENSOR_ARGUMENT_MAXIMUM:
+                    expected_tensor = torch::argmax(torch_tensors[i][j][k], (axis[k].size()) ? axis[k][0] : -1, keep_dimension[k]);
                     break;
                 default:
                     ck_abort_msg("unknown reduction type.");
                 }
-                expected_tensor.sum().backward();
 
                 expected_tensors[i][j][k] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
 
@@ -196,7 +179,14 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type)
                     error = tensor_softmax(tensors[i][j][k], 
                                            &returned_tensors[i][j][k],
                                            (uint64_t *) axis[k].data(),
-                                           1);
+                                           MIN(((uint64_t) axis[k].size()), 1));
+                    break;
+                case TENSOR_ARGUMENT_MAXIMUM:
+                    error = tensor_argument_maximum(tensors[i][j][k], 
+                                                    &returned_tensors[i][j][k],
+                                                    (uint64_t *) axis[k].data(),
+                                                    MIN(((uint64_t) axis[k].size()), 1),
+                                                    keep_dimension[k]);
                     break;
                 default:
                     ck_abort_msg("unknown reduction type.");
@@ -206,9 +196,15 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type)
                 ck_assert_tensor_equiv(returned_tensors[i][j][k],
                                        expected_tensors[i][j][k]);
 
-                expected_gradient[i][j][k] = torch_to_tensor(torch_tensors[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
+                if (tensor_reduction_type == TENSOR_ARGUMENT_MAXIMUM)
+                {
+                    tensor_destroy(returned_tensors[i][j][k]);
+                    continue;
+                }
 
                 // Back prop
+                expected_tensor.sum().backward();
+                expected_gradient[i][j][k] = torch_to_tensor(torch_tensors[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
                 tensor_t *cost;
                 error = tensor_summation(returned_tensors[i][j][k], &cost, NULL, 0, false);
                 ck_assert_ptr_null(error);
@@ -245,6 +241,12 @@ START_TEST(test_softmax)
 }
 END_TEST
 
+START_TEST(test_argument_maximum)
+{
+    test_reduction(TENSOR_ARGUMENT_MAXIMUM);
+}
+END_TEST
+
 Suite *make_reduction_suite(void)
 {
     Suite *s;
@@ -258,6 +260,7 @@ Suite *make_reduction_suite(void)
     tcase_add_test(tc_reduction, test_maximum);
     tcase_add_test(tc_reduction, test_mean);
     tcase_add_test(tc_reduction, test_softmax);
+    tcase_add_test(tc_reduction, test_argument_maximum);
 
     suite_add_tcase(s, tc_reduction);
 

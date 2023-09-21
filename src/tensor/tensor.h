@@ -38,7 +38,7 @@ nw_error_t *tensor_create_empty(const uint64_t *shape, const uint64_t *strides, 
                                 tensor_t **y, bool_t requires_gradient, runtime_t runtime, datatype_t datatype);
 nw_error_t *tensor_from_data(tensor_t **x, void *data, runtime_t runtime, datatype_t datatype, 
                              uint64_t rank, uint64_t *shape, bool_t copy, bool_t requires_gradient);
-nw_error_t *tensor_arange(tensor_t **x, uint64_t start, uint64_t stop, uint64_t step, runtime_t runtime, datatype_t datatype, bool_t requires_gradient);
+nw_error_t *tensor_arange(tensor_t **x, int64_t start, int64_t stop, int64_t step, runtime_t runtime, datatype_t datatype, bool_t requires_gradient);
 nw_error_t *tensor_create_zeroes(tensor_t **x, const uint64_t *shape, uint64_t rank,
                                  runtime_t runtime, datatype_t datatype, bool_t requires_gradient);
 nw_error_t *tensor_create_ones(tensor_t **x, const uint64_t *shape, uint64_t rank,
@@ -93,7 +93,7 @@ nw_error_t *tensor_maximum(const tensor_t *x, tensor_t **y, const uint64_t *axis
 nw_error_t *tensor_mean(const tensor_t *x, tensor_t **y, const uint64_t *axis, uint64_t length, bool_t keep_dimension);
 nw_error_t *tensor_softmax(const tensor_t *x, tensor_t **y, const uint64_t *axis, uint64_t length);
 nw_error_t *tensor_logsoftmax(const tensor_t *x, tensor_t **y, const uint64_t *axis, uint64_t length);
-nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t axis, bool_t keep_dimension);
+nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t *axis, uint64_t length, bool_t keep_dimension);
 
 // Unary Operations
 nw_error_t *tensor_contiguous(const tensor_t *x, tensor_t **y);
@@ -110,4 +110,5 @@ nw_error_t *tensor_sigmoid(const tensor_t *x, tensor_t **y);
 // Back Propogation
 nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient);
 nw_error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient);
+void with_no_gradient(bool_t flag);
 #endif
