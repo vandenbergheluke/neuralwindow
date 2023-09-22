@@ -393,7 +393,7 @@ void teardown(void)
     error_destroy(error);
 }
 
-void test_reduction(tensor_reduction_type_t tensor_reduction_type)
+void test_reduction(tensor_reduction_type_t tensor_reduction_type, bool_t test_gradient)
 {
     for (int i = 0; i < RUNTIMES; i++)
     {
@@ -470,7 +470,7 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type)
                     ck_assert_tensor_equiv(returned_tensors[i][j][k][l],
                                            expected_tensors[i][j][k][l]);
 
-                    if (tensor_reduction_type == TENSOR_ARGUMENT_MAXIMUM)
+                    if (!test_gradient)
                     {
                         tensor_destroy(returned_tensors[i][j][k][l]);
                         continue;
@@ -494,31 +494,31 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type)
 
 START_TEST(test_summation)
 {
-    test_reduction(TENSOR_SUMMATION);
+    test_reduction(TENSOR_SUMMATION, true);
 }
 END_TEST
 
 START_TEST(test_maximum)
 {
-    test_reduction(TENSOR_MAXIMUM);
+    test_reduction(TENSOR_MAXIMUM, true);
 }
 END_TEST
 
 START_TEST(test_mean)
 {
-    test_reduction(TENSOR_MEAN);
+    test_reduction(TENSOR_MEAN, true);
 }
 END_TEST
 
 START_TEST(test_softmax)
 {
-    test_reduction(TENSOR_SOFTMAX);
+    test_reduction(TENSOR_SOFTMAX, true);
 }
 END_TEST
 
 START_TEST(test_argument_maximum)
 {
-    test_reduction(TENSOR_ARGUMENT_MAXIMUM);
+    test_reduction(TENSOR_ARGUMENT_MAXIMUM, false);
 }
 END_TEST
 

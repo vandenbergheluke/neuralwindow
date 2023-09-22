@@ -8,7 +8,6 @@ typedef struct function_t function_t;
 typedef struct buffer_t buffer_t;
 typedef struct view_t view_t;
 
-#define EPSILON 0.001
 #define SEED 12345
 
 tensor_t *torch_to_tensor(torch::Tensor torch_tensor, runtime_t runtime, datatype_t datatype);
