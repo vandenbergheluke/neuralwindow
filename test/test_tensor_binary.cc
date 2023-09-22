@@ -10,7 +10,124 @@ extern "C"
 }
 #include <test_helper.h>
 
-#define CASES 5
+
+#define CASES_0_0 4
+#define CASES_1_0 10
+#define CASES_2_0 8
+#define CASES_3_0 2
+#define CASES CASES_0_0 + CASES_1_0 + CASES_2_0
+
+std::vector<int64_t> binary_elementwise_shapes_x[CASES] = {
+    // Cases 0.0
+    {},
+    {},
+    {1},
+    {1},
+    // Cases 1.0
+    {1},
+    {2},
+    {2, 1},
+    {2},
+    {2, 1},
+    {1, 2},
+    {2, 2},
+    {1, 1},
+    {1},
+    {2, 2},
+    // Cases 2.0
+    {1, 2, 3},
+    {3, 2, 1},
+    {3, 3, 3},
+    {1, 1, 1},
+    {1},
+    {4, 2, 3},
+    {3},
+    {4, 2, 3},
+};
+
+std::vector<int64_t> binary_elementwise_shapes_y[CASES] = {
+    // Cases 0.0
+    {},
+    {1},
+    {},
+    {1},
+    // Cases 1.0
+    {2},
+    {1},
+    {1},
+    {1, 2},
+    {1, 2},
+    {2, 1},
+    {1, 1},
+    {2, 2},
+    {2, 2},
+    {1},
+    // Cases 2.0
+    {3, 2, 1},
+    {1, 2, 3},
+    {1, 1, 1},
+    {3, 3, 3},
+    {4, 2, 3},
+    {1},
+    {4, 2, 3},
+    {3},
+};
+
+std::vector<int64_t> matrix_multiplication_shapes_x[CASES] = {
+    // Cases 0.0
+    {1, 1},
+    {2, 1},
+    {1, 2},
+    {2, 2},
+    // Cases 1.0
+    {1, 2, 2},
+    {2, 2},
+    {2, 2, 2},
+    {2, 2, 1},
+    {1, 2, 1},
+    {2, 2, 2},
+    {2, 2, 2},
+    {2, 2},
+    {1, 2, 3},
+    {2, 3, 1},
+    // Cases 2.0
+    {5, 4, 3, 2},
+    {5, 4, 2, 3},
+    {3, 2},
+    {5, 4, 2, 3},
+    {1, 1, 2, 3},
+    {5, 4, 2, 3},
+    {5, 1, 2, 3},
+    {1, 4, 2, 3},
+};
+
+std::vector<int64_t> matrix_multiplication_shapes_y[CASES] = {
+    // Cases 0.0
+    {1, 1},
+    {1, 2},
+    {2, 1},
+    {2, 2},
+    // Cases 1.0
+    {2, 2},
+    {1, 2, 2},
+    {2, 2},
+    {1, 1, 2},
+    {2, 1, 2},
+    {2, 2, 2},
+    {2, 2},
+    {2, 2, 2},
+    {2, 3, 1},
+    {2, 1, 3},
+    // Cases 2.0
+    {5, 4, 2, 3},
+    {5, 4, 3, 2},
+    {5, 4, 2, 3},
+    {3, 2},
+    {5, 4, 3, 2},
+    {1, 1, 3, 2},
+    {1, 4, 3, 2},
+    {5, 1, 3, 2},
+};
 
 nw_error_t *error = NULL;
 
@@ -37,47 +154,17 @@ typedef enum tensor_binary_operation_type_t
     TENSOR_MULTIPLICATION,
     TENSOR_DIVISION,
     TENSOR_POWER,
-    TENSOR_MATRIX_MULTIPLICATION
+    TENSOR_MATRIX_MULTIPLICATION,
+    TENSOR_COMPARE_EQUAL,
+    TENSOR_COMPARE_GREATER,
 } tensor_reduction_operation_type_t;
-
-std::vector<int64_t> binary_elementwise_shapes_x[CASES] = {
-    {1},
-    {3},
-    {5, 1, 3, 1},
-    {4, 2},
-    {3, 2, 1},
-};
-
-std::vector<int64_t> matrix_multiplication_shapes_x[CASES] = {
-    {4, 1},
-    {4, 5},
-    {2, 4, 5},
-    {1, 2, 2, 3, 5},
-    {1, 2, 2, 9, 2},
-};
-
-std::vector<int64_t> binary_elementwise_shapes_y[CASES] = {
-    {10},
-    {4, 3},
-    {5, 2, 3, 3},
-    {4, 2},
-    {1, 2, 3},
-};
-
-std::vector<int64_t> matrix_multiplication_shapes_y[CASES] = {
-    {1, 4},
-    {5, 4},
-    {5, 4},
-    {5, 7},
-    {1, 2, 2, 2},
-};
 
 void setup(binary_operation_class_t binary_operation_class)
 {
-    for (int i = 0; i < RUNTIMES; i++)
+    for (int i = 0; i < RUNTIMES; ++i)
     {
         runtime_create_context((runtime_t) i);
-        for (int j = 0; j < DATATYPES; j++)
+        for (int j = 0; j < DATATYPES; ++j)
         {
             for (int k = 0; k < CASES; ++k)
             {
@@ -87,10 +174,7 @@ void setup(binary_operation_class_t binary_operation_class)
                 expected_tensors[i][j][k] = NULL;
                 expected_gradients_x[i][j][k] = NULL;
                 expected_gradients_y[i][j][k] = NULL;
-            }
 
-            for (int k = 0; k < CASES; ++k)
-            {
                 std::vector<int64_t> shape_x = (binary_operation_class == MATRIX_MULTIPLICATION_CLASS) ?
                                                matrix_multiplication_shapes_x[k] : binary_elementwise_shapes_x[k];
                 std::vector<int64_t> shape_y = (binary_operation_class == MATRIX_MULTIPLICATION_CLASS) ?
@@ -192,10 +276,15 @@ void test_binary(tensor_binary_operation_type_t tensor_binary_operation_type)
                 case TENSOR_MATRIX_MULTIPLICATION:
                     expected_tensor = torch::matmul(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]);
                     break;
+                case TENSOR_COMPARE_EQUAL:
+                    expected_tensor = torch::isclose(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]);
+                    break;
+                case TENSOR_COMPARE_GREATER:
+                    expected_tensor = torch::gt(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]);
+                    break;
                 default:
                     ck_abort_msg("unsupported binary operation type.");
                 }
-                expected_tensor.sum().backward();
 
                 expected_tensors[i][j][k] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
 
@@ -219,6 +308,12 @@ void test_binary(tensor_binary_operation_type_t tensor_binary_operation_type)
                 case TENSOR_MATRIX_MULTIPLICATION:
                     error = tensor_matrix_multiplication(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
                     break;
+                case TENSOR_COMPARE_EQUAL:
+                    error = tensor_compare_equal(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
+                    break;
+                case TENSOR_COMPARE_GREATER:
+                    error = tensor_compare_greater(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
+                    break;
                 default:
                     ck_abort_msg("unsupported binary operation type.");
                 }
@@ -226,10 +321,16 @@ void test_binary(tensor_binary_operation_type_t tensor_binary_operation_type)
 
                 ck_assert_tensor_equiv(returned_tensors[i][j][k], expected_tensors[i][j][k]);
 
-                expected_gradients_x[i][j][k] = torch_to_tensor(torch_tensors_x[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
-                expected_gradients_y[i][j][k] = torch_to_tensor(torch_tensors_y[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
+                if (tensor_binary_operation_type == TENSOR_COMPARE_EQUAL || tensor_binary_operation_type == TENSOR_COMPARE_GREATER)
+                {
+                    tensor_destroy(returned_tensors[i][j][k]);
+                    continue;
+                }
 
                 tensor_t *cost;
+                expected_tensor.sum().backward();
+                expected_gradients_x[i][j][k] = torch_to_tensor(torch_tensors_x[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
+                expected_gradients_y[i][j][k] = torch_to_tensor(torch_tensors_y[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
                 error = tensor_summation(returned_tensors[i][j][k], &cost, NULL, 0, false);
                 ck_assert_ptr_null(error);
                 error = tensor_backward(cost, NULL);
@@ -272,6 +373,18 @@ START_TEST(test_power)
 }
 END_TEST
 
+START_TEST(test_compare_equal)
+{
+    test_binary(TENSOR_COMPARE_EQUAL);
+}
+END_TEST
+
+START_TEST(test_compare_greater)
+{
+    test_binary(TENSOR_COMPARE_GREATER);
+}
+END_TEST
+
 START_TEST(test_matrix_multiplication)
 {
     test_binary(TENSOR_MATRIX_MULTIPLICATION);
@@ -293,6 +406,8 @@ Suite *make_binary_suite(void)
     tcase_add_test(tc_binary_elementwise, test_multiplication);
     tcase_add_test(tc_binary_elementwise, test_division);
     tcase_add_test(tc_binary_elementwise, test_power);
+    tcase_add_test(tc_binary_elementwise, test_compare_equal);
+    tcase_add_test(tc_binary_elementwise, test_compare_greater);
 
     tc_matrix_multiplication = tcase_create("Test Matrix Multiplication Case");
     tcase_add_checked_fixture(tc_matrix_multiplication, setup_matrix_multiplication, teardown);

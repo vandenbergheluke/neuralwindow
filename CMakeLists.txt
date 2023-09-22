@@ -60,8 +60,8 @@ add_custom_target(report
 )
 
 add_custom_command(TARGET report POST_BUILD
-    COMMAND ${LCOV} --directory .. --capture --output-file lcov.info
-    COMMAND ${LCOV} --remove lcov.info -o lcov.info "${PROJECT_SOURCE_DIR}/${TEST_DIR}/*"
+    COMMAND ${LCOV} --directory ../src/ --capture --output-file lcov.info
+    COMMAND ${LCOV} --remove lcov.info -o lcov.info "/usr/include/x86_64-linux-gnu/bits/*" "${PROJECT_SOURCE_DIR}/${TEST_DIR}/*"
     COMMAND ${GENHTML} -o . lcov.info
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${REPORT_DIR}
 )
