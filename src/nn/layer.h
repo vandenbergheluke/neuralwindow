@@ -25,6 +25,7 @@ typedef enum activation_function_type_t
     ACTIVATION_RECTIFIED_LINEAR,
     ACTIVATION_SIGMOID,
     ACTIVATION_SOFTMAX,
+    ACTIVATION_LOGSOFTMAX,
 } activation_function_type_t;
 
 typedef struct activation_t
@@ -88,7 +89,7 @@ nw_error_t *linear_create(linear_t **linear, tensor_t *weights, tensor_t *bias, 
 void linear_destroy(linear_t *linear);
 nw_error_t *dropout_create(dropout_t **dropout, float32_t probability);
 void dropout_destroy(dropout_t *dropout);
-nw_error_t *block_create(block_t **block, layer_t **layers, uint64_t depth);
+nw_error_t *block_create(block_t **block, uint64_t depth, ...);
 void block_destroy(block_t *block);
 nw_error_t *softmax_create(softmax_t **softmax, uint64_t axis);
 void softmax_destroy(softmax_t *softmax);
@@ -105,6 +106,7 @@ void model_destroy(model_t *model);
 nw_error_t *rectified_linear_activation_create(activation_t **activation);
 nw_error_t *sigmoid_activation_create(activation_t **activation);
 nw_error_t *softmax_activation_create(activation_t **activation, uint64_t axis);
+nw_error_t *logsoftmax_activation_create(activation_t **activation, uint64_t axis);
 nw_error_t *linear_layer_create(layer_t **layer, 
                                 uint64_t in_features,
                                 uint64_t out_features,

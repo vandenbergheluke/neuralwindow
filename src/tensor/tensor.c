@@ -1103,10 +1103,10 @@ nw_error_t *tensor_logsoftmax(const tensor_t *x, tensor_t **y, uint64_t axis)
 
 cleanup:
 
-    tensor_destroy(x_j);
     if (!x->requires_gradient)
     {
         tensor_destroy(x_i);
+        tensor_destroy(x_j);
         tensor_destroy(x_k);
         tensor_destroy(x_l);
     }
@@ -1518,6 +1518,10 @@ nw_error_t *tensor_rectified_linear(const tensor_t *x, tensor_t **y)
 
 static nw_error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *tensors)
 {
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("tensor", tensor);
+    PRINT_DEBUG_NEWLINE;
+
     CHECK_NULL_ARGUMENT(tensor, "tensor");
     CHECK_NULL_ARGUMENT(visited, "visited");
     CHECK_NULL_ARGUMENT(tensors, "tensors");
@@ -1708,6 +1712,7 @@ nw_error_t *tensor_create_zeroes(tensor_t **x, const uint64_t *shape, uint64_t r
     }
 
     error = runtime_init_zeroes((*x)->buffer);
+    if (error)
     {
         tensor_destroy(*x);
         return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tensor."), error);
@@ -1731,6 +1736,7 @@ nw_error_t *tensor_create_ones(tensor_t **x, const uint64_t *shape, uint64_t ran
     }
 
     error = runtime_init_ones((*x)->buffer);
+    if (error)
     {
         tensor_destroy(*x);
         return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tensor."), error);
@@ -1757,6 +1763,7 @@ nw_error_t *tensor_create_uniform(tensor_t **x, const uint64_t *shape, uint64_t 
     }
 
     error = runtime_init_uniform((*x)->buffer, lower_bound, upper_bound);
+    if (error)
     {
         tensor_destroy(*x);
         return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tensor."), error);
@@ -1782,6 +1789,7 @@ nw_error_t *tensor_create_normal(tensor_t **x, const uint64_t *shape, uint64_t r
     }
 
     error = runtime_init_normal((*x)->buffer, mean, standard_deviation);
+    if (error)
     {
         tensor_destroy(*x);
         return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tensor."), error);

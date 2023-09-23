@@ -78,11 +78,6 @@ nw_error_t *fit(uint64_t epochs,
     for (uint64_t i = 0; i < epochs; ++i)
     {
         LOG("%lu / %lu epochs ", i + 1, epochs);
-        error = model_requires_gradient(model, true);
-        if (error)
-        {
-            return ERROR(ERROR_REQUIRES_GRADIENT, string_create("failed to modify model's requires gradient flag."), error);
-        }
         for (uint64_t j = 0; j < train_iterations; ++j)
         {
             LOG("%s: %lu / %lu iterations ", dataset_type_string(TRAIN), j + 1, train_iterations);
@@ -128,11 +123,7 @@ nw_error_t *fit(uint64_t epochs,
             LOG_NEWLINE;
         }
 
-        error = model_requires_gradient(model, false);
-        if (error)
-        {
-            return ERROR(ERROR_REQUIRES_GRADIENT, string_create("failed to modify model's requires gradient flag."), error);
-        }
+        with_no_gradient(true);
 
         uint64_t start = train_iterations;
         uint64_t end = valid_iterations + train_iterations;
@@ -169,10 +160,14 @@ nw_error_t *fit(uint64_t epochs,
 
             LOG_NEWLINE;
         }
+
+        with_no_gradient(false);
     }
 
     uint64_t start = train_iterations + valid_iterations;
     uint64_t end = valid_iterations + train_iterations + test_iterations;
+
+    with_no_gradient(true);
 
     for (uint64_t i = start; i < end; ++i)
     {
@@ -206,6 +201,8 @@ nw_error_t *fit(uint64_t epochs,
          
         LOG_NEWLINE;
     }
+
+    with_no_gradient(false);
 
     error = (*teardown)(arguments);
     if (error)

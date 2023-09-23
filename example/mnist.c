@@ -1,6 +1,7 @@
 #include <view.h>
 #include <buffer.h>
 #include <tensor.h>
+#include <function.h>
 #include <cost.h>
 #include <layer.h>
 #include <init.h>
@@ -37,6 +38,13 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type, const tensor_t *y_pred, c
     
     nw_error_t *error = NULL;
     tensor_t *accuracy = NULL;
+    tensor_t *probabilities = NULL;
+
+    error = tensor_exponential(y_pred, &probabilities);
+    if (error)
+    {
+        return ERROR(ERROR_EXPONENTIAL, string_create("failed to exponentiate tensor."), error);
+    }
 
     switch (dataset_type)
     {
@@ -62,6 +70,7 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type, const tensor_t *y_pred, c
     LOG_SCALAR_TENSOR("accuracy", accuracy);
 
     tensor_destroy(accuracy);
+    tensor_destroy(probabilities);
 
     return error;
 }
@@ -315,7 +324,7 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         return ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
     }
 
-    error = softmax_activation_create(&output_activation, (uint64_t) 1);
+    error = logsoftmax_activation_create(&output_activation, (uint64_t) 1);
     if (error)
     {
         parameter_init_destroy(weight_init);
@@ -335,10 +344,8 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         return ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
     }
 
-    layer_t *layers[] = {input_layer, output_layer};
     uint64_t depth = 2;
-
-    error = block_create(&block, layers, depth);
+    error = block_create(&block, depth, input_layer, output_layer);
     if (error)
     {
         parameter_init_destroy(weight_init);
@@ -414,7 +421,7 @@ int main(void)
     }
 
     error = fit(epochs, number_of_samples, batch, shuffle, train_split, valid_split, test_split, model, optimizer,
-                &mnist_dataset, &mnist_setup, &mnist_teardown, &mnist_dataloader, &categorical_cross_entropy, &mnist_metrics);
+                &mnist_dataset, &mnist_setup, &mnist_teardown, &mnist_dataloader, &negative_log_likelihood, &mnist_metrics);
     if (error)
     {
         error = ERROR(ERROR_TRAIN, string_create("failed to fit model."), error);

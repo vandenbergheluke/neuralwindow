@@ -17,6 +17,7 @@ typedef enum tensor_reduction_type_t
     TENSOR_MAXIMUM,
     TENSOR_MEAN,
     TENSOR_SOFTMAX,
+    TENSOR_LOGSOFTMAX,
     TENSOR_ARGUMENT_MAXIMUM,
 } tensor_reduction_type_t;
 
@@ -419,6 +420,9 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type, bool_t test_g
                     case TENSOR_SOFTMAX:
                         expected_tensor = torch::softmax(torch_tensors[i][j][k][l], (axis[k].size()) ? axis[k][0] : 0);
                         break;
+                    case TENSOR_LOGSOFTMAX:
+                        expected_tensor = torch::log_softmax(torch_tensors[i][j][k][l], (axis[k].size()) ? axis[k][0] : 0);
+                        break;
                     case TENSOR_ARGUMENT_MAXIMUM:
                         expected_tensor = torch::argmax(torch_tensors[i][j][k][l], (axis[k].size()) ? axis[k][0] : 0, (bool_t) l);
                         break;
@@ -455,6 +459,11 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type, bool_t test_g
                         error = tensor_softmax(tensors[i][j][k][l], 
                                                &returned_tensors[i][j][k][l],
                                                (axis[k].size()) ? *(uint64_t *) axis[k].data() : (uint64_t) 0);
+                        break;
+                    case TENSOR_LOGSOFTMAX:
+                        error = tensor_logsoftmax(tensors[i][j][k][l], 
+                                                  &returned_tensors[i][j][k][l],
+                                                  (axis[k].size()) ? *(uint64_t *) axis[k].data() : (uint64_t) 0);
                         break;
                     case TENSOR_ARGUMENT_MAXIMUM:
                         error = tensor_argument_maximum(tensors[i][j][k][l], 
@@ -516,6 +525,12 @@ START_TEST(test_softmax)
 }
 END_TEST
 
+START_TEST(test_logsoftmax)
+{
+    test_reduction(TENSOR_SOFTMAX, true);
+}
+END_TEST
+
 START_TEST(test_argument_maximum)
 {
     test_reduction(TENSOR_ARGUMENT_MAXIMUM, false);
@@ -535,6 +550,7 @@ Suite *make_reduction_suite(void)
     tcase_add_test(tc_reduction, test_maximum);
     tcase_add_test(tc_reduction, test_mean);
     tcase_add_test(tc_reduction, test_softmax);
+    tcase_add_test(tc_reduction, test_logsoftmax);
     tcase_add_test(tc_reduction, test_argument_maximum);
 
     suite_add_tcase(s, tc_reduction);

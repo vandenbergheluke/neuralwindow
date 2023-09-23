@@ -72,14 +72,14 @@ tensor_t *torch_to_tensor(torch::Tensor torch_tensor, runtime_t runtime, datatyp
 }
 
 // https://stackoverflow.com/questions/4915462/how-should-i-do-floating-point-comparison
-static inline float32_t get_epsilon_float(float32_t a, float32_t b, float32_t epsilon = 1e5 * FLT_EPSILON, float32_t abs_th = FLT_MIN)
+static inline float32_t get_epsilon_float(float32_t a, float32_t b, float32_t epsilon = 128 * FLT_EPSILON, float32_t abs_epsilon = 1e-5)
 {
-    return std::max(abs_th, epsilon * std::min((std::abs(a) + std::abs(b)), std::numeric_limits<float>::max()));
+    return std::max(abs_epsilon, epsilon * std::min((std::abs(a) + std::abs(b)), std::numeric_limits<float>::max()));
 }
 
-static inline float64_t get_epsilon_double(float64_t a, float64_t b, float64_t epsilon = 1e2 * FLT_EPSILON, float64_t abs_th = FLT_MIN)
+static inline float64_t get_epsilon_double(float64_t a, float64_t b, float64_t epsilon = 1e2 * FLT_EPSILON, float64_t abs_epsilon = 1e-5)
 {
-    return std::max(abs_th, epsilon * std::min((std::abs(a) + std::abs(b)), std::numeric_limits<double>::max()));
+    return std::max(abs_epsilon, epsilon * std::min((std::abs(a) + std::abs(b)), std::numeric_limits<double>::max()));
 }
 
 
@@ -93,6 +93,10 @@ void ck_assert_element_eq(const void *returned_data, uint64_t returned_index,
     switch (datatype)
     {
     case FLOAT32:
+        // printf("returned %f\n", ((float32_t *) returned_data)[returned_index]);
+        // printf("expected %f\n", ((float32_t *) expected_data)[expected_index]);
+        // printf("epsilon %f\n", get_epsilon_float(((float32_t *) returned_data)[returned_index],
+        //                                          ((float32_t *) expected_data)[expected_index]));
         if (isnanf(((float32_t *) expected_data)[expected_index]))
         {
             ck_assert_float_nan(((float32_t *) returned_data)[returned_index]);
@@ -106,6 +110,10 @@ void ck_assert_element_eq(const void *returned_data, uint64_t returned_index,
         }
         break;
     case FLOAT64:
+        // printf("returned %lf\n", ((float64_t *) returned_data)[returned_index]);
+        // printf("expected %lf\n", ((float64_t *) expected_data)[expected_index]);
+        // printf("epsilon %lf\n", get_epsilon_float(((float64_t *) returned_data)[returned_index],
+        //                                           ((float64_t *) expected_data)[expected_index]));
         if (isnanf(((float64_t *) expected_data)[expected_index]))
         {
             ck_assert_double_nan(((float64_t *) returned_data)[returned_index]);

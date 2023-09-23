@@ -1,11 +1,17 @@
 #include <buffer.h>
 #include <function.h>
+#include <view.h>
 #include <tensor.h>
 #include <layer.h>
 #include <optimizer.h>
 
 nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer, tensor_t *parameters)
 {
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_STOCHASTIC_GRADIENT_DESCENT("optimizer", optimizer);
+    PRINTLN_DEBUG_TENSOR("parameters", parameters);
+    PRINT_DEBUG_NEWLINE;
+
     CHECK_NULL_ARGUMENT(optimizer, "optimizer");
     CHECK_NULL_ARGUMENT(parameters, "parameters");
 
@@ -27,6 +33,8 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
         return ERROR(ERROR_DATATYPE, string_create("unsupported datatype %d.", (int) datatype), error);
     }
 
+    with_no_gradient(true);
+
     error = tensor_multiplication(learning_rate, parameters->gradient, &parameter_update);
     if (error)
     {
@@ -39,10 +47,15 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
         return ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensors."), error);
     }
 
+    with_no_gradient(false);
+
     tensor_destroy(parameters->gradient);
-    function_destroy(parameters->context);
-    parameters->context = NULL;
     parameters->gradient = NULL;
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("parameters", parameters);
+    PRINTLN_DEBUG_TENSOR("parameters->gradient", parameters->gradient);
+    PRINT_DEBUG_NEWLINE;
 
     return error;
 }
@@ -77,7 +90,15 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
             {
             case STOCASTIC_GRADIENT_DESCENT:
                 error = stochastic_gradient_descent(algorithm->stochastic_gradient_descent, transform->linear->weights);
+                if (error)
+                {
+                    return ERROR(ERROR_UPDATE, string_create("failed stochastic gradient descent."), error);
+                }
                 error = stochastic_gradient_descent(algorithm->stochastic_gradient_descent, transform->linear->bias);
+                if (error)
+                {
+                    return ERROR(ERROR_UPDATE, string_create("failed stochastic gradient descent."), error);
+                }
                 break;
             default:
                 return ERROR(ERROR_UNKNOWN_ALGORITHM, string_create("unknown algorithm %d.", (int) algorithm_type), error);
@@ -85,15 +106,15 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
             break;
         case BLOCK:
             error = update(algorithm, algorithm_type, transform->block);
+            if (error)
+            {
+                return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+            }
             break;
         default:
             return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown layer type %d.", transform_type), error);
         }
 
-        if (error)
-        {
-            return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
-        }
     }
 
     return error;
@@ -101,6 +122,11 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
 
 nw_error_t *optimizer_step(optimizer_t *optimizer, model_t *model)
 {
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_OPTIMIZER("optimizer", optimizer);
+    PRINTLN_DEBUG_MODEL("model", model);
+    PRINT_DEBUG_NEWLINE;
+
     CHECK_NULL_ARGUMENT(optimizer, "optimizer");
     CHECK_NULL_ARGUMENT(model, "model");
 
@@ -111,6 +137,10 @@ nw_error_t *optimizer_step(optimizer_t *optimizer, model_t *model)
     {
         return ERROR(ERROR_UPDATE, string_create("failed to update model parameters."), error);
     }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_MODEL("model", model);
+    PRINT_DEBUG_NEWLINE;
 
     return error;
 }

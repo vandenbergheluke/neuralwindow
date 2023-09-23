@@ -33,7 +33,6 @@ void parameter_init_destroy(parameter_init_t *parameter_init)
 nw_error_t *init_create(init_t **init, init_type_t init_type, void *type_init)
 {
     CHECK_NULL_ARGUMENT(init, "init");
-    CHECK_NULL_ARGUMENT(type_init, "type_init");
 
     *init = (init_t *) malloc(sizeof(init_t));
     if (!*init)

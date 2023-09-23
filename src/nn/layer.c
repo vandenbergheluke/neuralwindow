@@ -1,5 +1,8 @@
 #include <init.h>
+#include <view.h>
+#include <buffer.h>
 #include <tensor.h>
+#include <function.h>
 #include <layer.h>
 #include <math.h>
 #include <string.h>
@@ -25,16 +28,18 @@ nw_error_t *linear_layer_create(layer_t **layer,
     linear_t *linear = NULL;
     transform_t *transform = NULL;
     transform_type_t transform_type = LINEAR;
-    uint64_t *shape = (uint64_t[]) {in_features, out_features};
-    uint64_t rank = 2;
+    uint64_t *weight_shape = (uint64_t[]) {in_features, out_features};
+    uint64_t *bias_shape = (uint64_t[]) {out_features};
+    uint64_t weight_rank = 2;
+    uint64_t bias_rank = 1;
 
-    error = initialize(&weights, weight_init, shape, rank, runtime, datatype, requires_gradient);
+    error = initialize(&weights, weight_init, weight_shape, weight_rank, runtime, datatype, requires_gradient);
     if (error)
     {
         return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize weights."), error);
     }
     
-    error = initialize(&bias, bias_init, shape, rank, runtime, datatype, requires_gradient);
+    error = initialize(&bias, bias_init, bias_shape, bias_rank, runtime, datatype, requires_gradient);
     if (error)
     {
         tensor_destroy(weights);
@@ -68,6 +73,11 @@ nw_error_t *linear_layer_create(layer_t **layer,
 
 static nw_error_t *activation_forward(activation_t *activation, tensor_t *x, tensor_t **y)
 {
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_ACTIVATION("activation", activation);
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
     CHECK_NULL_ARGUMENT(activation, "activation");
     CHECK_NULL_ARGUMENT(activation->activation_function, "activation->activation_function");
     CHECK_NULL_ARGUMENT(x, "x");
@@ -95,6 +105,16 @@ static nw_error_t *activation_forward(activation_t *activation, tensor_t *x, ten
             error = tensor_softmax(x, y, activation_function->softmax->axis);
         }
         break;
+    case ACTIVATION_LOGSOFTMAX:
+        if (!activation_function->softmax)
+        {
+            error = ERROR(ERROR_NULL, string_create("activation function is null."), NULL);
+        }
+        else
+        {
+            error = tensor_logsoftmax(x, y, activation_function->softmax->axis);
+        }
+        break;
     default:
         error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown activation function %d.", (int) activation_function_type), NULL);
         break;
@@ -105,11 +125,20 @@ static nw_error_t *activation_forward(activation_t *activation, tensor_t *x, ten
         return ERROR(ERROR_FORWARD, string_create("failed to apply activation function."), error);
     }
 
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
     return error;
 }
 
 static nw_error_t *linear_forward(linear_t *linear, tensor_t *x, tensor_t **y)
 {
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_LINEAR("linear", linear);
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
     CHECK_NULL_ARGUMENT(linear, "linear");
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -142,6 +171,10 @@ static nw_error_t *linear_forward(linear_t *linear, tensor_t *x, tensor_t **y)
         goto cleanup;
     }
 
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
 cleanup:
 
     if (!(x_i->requires_gradient || bias->requires_gradient))
@@ -159,6 +192,11 @@ cleanup:
 
 static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
 {
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_BLOCK("block", block);
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
     CHECK_NULL_ARGUMENT(block, "block");
     CHECK_NULL_ARGUMENT(block->layers, "block->layers");
     CHECK_NULL_ARGUMENT(x, "x");
@@ -206,15 +244,25 @@ static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
         }
 
         x = feature_map;
+        feature_map = NULL;
     }
 
-    *y = feature_map;
+    *y = x;
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
 
     return error;
 }
 
 nw_error_t *model_forward(model_t *model, tensor_t *x, tensor_t **y)
 {
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_MODEL("model", model);
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
     CHECK_NULL_ARGUMENT(model, "model");
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -226,6 +274,10 @@ nw_error_t *model_forward(model_t *model, tensor_t *x, tensor_t **y)
     {
         return ERROR(ERROR_FORWARD, string_create("failed forward pass"), error);
     }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
 
     return error;
 }
@@ -404,6 +456,8 @@ string_t activation_function_type_string(activation_function_type_t activation_f
         return "ACTIVATION_SIGMOID";
     case ACTIVATION_SOFTMAX:
         return "ACTIVATION_SOFTMAX";
+    case ACTIVATION_LOGSOFTMAX:
+        return "ACTIVATION_LOGSOFTMAX";
     default:
         return "UNKNOWN_ACTIVATION_FUNCTION_TYPE";
     }
@@ -451,7 +505,7 @@ nw_error_t *dropout_create(dropout_t **dropout, float32_t probability)
 
     if (probability < 0 || probability > 1)
     {
-        free(dropout);
+        free(*dropout);
         return ERROR(ERROR_DROPOUT, string_create("Dropout probability has to be between 0 and 1, but got %f", probability), NULL);
     }
     (*dropout)->probability = probability;
@@ -467,10 +521,12 @@ void dropout_destroy(dropout_t *dropout)
     }
 }
 
-nw_error_t *block_create(block_t **block, layer_t **layers, uint64_t depth)
+nw_error_t *block_create(block_t **block, uint64_t depth, ...)
 {
     CHECK_NULL_ARGUMENT(block, "block");
-    CHECK_NULL_ARGUMENT(layers, "layers");
+    
+    va_list valist;
+    va_start(valist, depth);
 
     *block = (block_t *) malloc(sizeof(block_t));
     if (!*block)
@@ -482,14 +538,16 @@ nw_error_t *block_create(block_t **block, layer_t **layers, uint64_t depth)
     (*block)->layers = (layer_t **) malloc(depth * sizeof(layer_t *));
     if (!(*block)->layers)
     {
-        free(block);
+        free(*block);
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(depth * sizeof(layer_t *))), NULL);
     }
 
     for (uint64_t i = 0; i < depth; ++i)
     {
-        (*block)->layers[i] = layers[i];
+        (*block)->layers[i] = (layer_t *) va_arg(valist, layer_t *);
     }
+
+    va_end(valist);
 
     return NULL;
 }
@@ -551,6 +609,7 @@ nw_error_t *activation_function_create(activation_function_t **activation_functi
     case ACTIVATION_SIGMOID:
         return NULL;
     case ACTIVATION_SOFTMAX:
+    case ACTIVATION_LOGSOFTMAX:
         (*activation_function)->softmax = (softmax_t *) type_activation_function;
         break;
     default:
@@ -653,14 +712,13 @@ nw_error_t *sigmoid_activation_create(activation_t **activation)
     return error;
 }
 
-nw_error_t *softmax_activation_create(activation_t **activation, uint64_t axis)
+static nw_error_t *softmax_activation_type_create(activation_t **activation, uint64_t axis, activation_function_type_t activation_function_type)
 {
     CHECK_NULL_ARGUMENT(activation, "activation");
 
     nw_error_t *error = NULL;
     softmax_t *softmax = NULL;
     activation_function_t *activation_function = NULL;
-    activation_function_type_t activation_function_type = ACTIVATION_SOFTMAX;
 
     error = softmax_create(&softmax, axis);
     if (error)
@@ -680,6 +738,36 @@ nw_error_t *softmax_activation_create(activation_t **activation, uint64_t axis)
     {
         activation_function_destroy(activation_function, activation_function_type);
         return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *softmax_activation_create(activation_t **activation, uint64_t axis)
+{
+    CHECK_NULL_ARGUMENT(activation, "activation");
+
+    nw_error_t *error = NULL;
+
+    error = softmax_activation_type_create(activation, axis, ACTIVATION_SOFTMAX);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create softmax activation."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *logsoftmax_activation_create(activation_t **activation, uint64_t axis)
+{
+    CHECK_NULL_ARGUMENT(activation, "activation");
+
+    nw_error_t *error = NULL;
+
+    error = softmax_activation_type_create(activation, axis, ACTIVATION_LOGSOFTMAX);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create softmax activation."), error);
     }
 
     return error;

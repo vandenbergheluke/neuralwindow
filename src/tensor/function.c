@@ -198,7 +198,7 @@ nw_error_t *apply_function_binary(binary_operation_type_t binary_operation_type,
 
 cleanup:
 
-    if (!(x_broadcasted->requires_gradient || y_broadcasted->requires_gradient) || no_gradient)
+    if (!(x->requires_gradient || y->requires_gradient) || no_gradient)
     {
         if (x != x_broadcasted)
         {
