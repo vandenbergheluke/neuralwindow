@@ -47,10 +47,6 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type, const tensor_t *y_true, c
         return ERROR(ERROR_EXPONENTIAL, string_create("failed to exponentiate tensor."), error);
     }
 
-    // PRINTLN_TEMP_TENSOR("probabilities", probabilities);
-    // PRINTLN_TEMP_TENSOR("y_true", y_true);
-
-
     switch (dataset_type)
     {
     case TRAIN:
