@@ -55,6 +55,8 @@ void setup(void)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
+                    returned_tensors[i][j][k][z] = NULL;
+
                     switch ((datatype_t) j)
                     {
                     case FLOAT32:

@@ -10,19 +10,679 @@ extern "C"
 }
 #include <test_helper.h>
 
-#define CASES 5
+
+#define BINARY_ELEMENTWISE_CASES_0_0 9
+#define BINARY_ELEMENTWISE_CASES_1_0 15
+#define BINARY_ELEMENTWISE_CASES_2_0 25
+#define BINARY_ELEMENTWISE_CASES_3_0 61
+#define BINARY_ELEMENTWISE_CASES_4_0 125
+#define BINARY_ELEMENTWISE_CASES BINARY_ELEMENTWISE_CASES_0_0 + \
+                                 BINARY_ELEMENTWISE_CASES_1_0 + \
+                                 BINARY_ELEMENTWISE_CASES_2_0 + \
+                                 BINARY_ELEMENTWISE_CASES_3_0 + \
+                                 BINARY_ELEMENTWISE_CASES_4_0
+
+std::vector<int64_t> binary_elementwise_shapes_x[BINARY_ELEMENTWISE_CASES] = {
+    // Cases 0.0
+    {},
+    {},
+    {1},
+    {1},
+    {1},
+    {2},
+    {2},
+    {},
+    {2},
+    // Cases 1.0
+    {},
+    {1},
+    {1, 1},
+    {2},
+    {1, 2},
+    {3, 1},
+    {3, 2},
+    {3, 2},
+    {3, 2},
+    {3, 2},
+    {3, 2},
+    {3, 2},
+    {3, 2},
+    {3, 1},
+    {1, 2},
+    // Cases 2.0
+    {3, 2, 1},
+    {1, 2, 3},
+    {},
+    {1},
+    {3},
+    {2, 3},
+    {1, 2, 3},
+    {1, 2, 3},
+    {1, 2, 3},
+    {1, 2, 3},
+    {1, 1, 1},
+    {1, 2, 1},
+    {1, 1, 3},
+    {4, 1, 1},
+    {4, 1, 3},
+    {1, 2, 3},
+    {4, 2, 1},
+    {4, 2, 3},
+    {4, 2, 3},
+    {4, 2, 3},
+    {4, 2, 3},
+    {4, 2, 3},
+    {4, 2, 3},
+    {4, 2, 3},
+    {4, 2, 3},
+    // Cases 3.0
+    {},
+    {1},
+    {2},
+    {1, 1},
+    {1, 2},
+    {3, 1},
+    {3, 2},
+    {1, 1, 1},
+    {4, 1, 1},
+    {1, 3, 1},
+    {1, 1, 2},
+    {4, 3, 1},
+    {4, 1, 2},
+    {1, 3, 2},
+    {4, 3, 2},
+    {1, 1, 1, 1},
+    {5, 1, 1, 1},
+    {1, 4, 1, 1},
+    {1, 1, 3, 1},
+    {1, 1, 1, 2},
+    {5, 4, 1, 1},
+    {5, 1, 3, 1},
+    {5, 1, 1, 2},
+    {1, 4, 3, 1},
+    {1, 4, 1, 2},
+    {1, 1, 3, 2},
+    {5, 4, 3, 1},
+    {5, 4, 1, 2},
+    {5, 1, 3, 2},
+    {1, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    // Cases 4.0
+    {},
+    {1},
+    {2},
+    {1, 1},
+    {1, 2},
+    {3, 1},
+    {3, 2},
+    {1, 1, 1},
+    {4, 1, 1},
+    {1, 3, 1},
+    {1, 1, 2},
+    {4, 3, 1},
+    {4, 1, 2},
+    {1, 3, 2},
+    {4, 3, 2},
+    {1, 1, 1, 1},
+    {5, 1, 1, 1},
+    {1, 4, 1, 1},
+    {1, 1, 3, 1},
+    {1, 1, 1, 2},
+    {5, 4, 1, 1},
+    {5, 1, 3, 1},
+    {5, 1, 1, 2},
+    {1, 4, 3, 1},
+    {1, 4, 1, 2},
+    {1, 1, 3, 2},
+    {5, 4, 3, 1},
+    {5, 4, 1, 2},
+    {5, 1, 3, 2},
+    {1, 4, 3, 2},
+    {5, 4, 3, 2},
+    {1, 1, 1, 1, 1},
+    {6, 1, 1, 1, 1},
+    {1, 5, 1, 1, 1},
+    {1, 1, 4, 1, 1},
+    {1, 1, 1, 3, 1},
+    {1, 1, 1, 1, 2},
+    {6, 5, 1, 1, 1},
+    {6, 1, 4, 1, 1},
+    {6, 1, 1, 3, 1},
+    {6, 1, 1, 1, 2},
+    {1, 5, 4, 1, 1},
+    {1, 5, 1, 3, 1},
+    {1, 5, 1, 1, 2},
+    {1, 1, 4, 3, 1},
+    {1, 1, 4, 1, 2},
+    {1, 1, 1, 3, 2},
+    {6, 5, 4, 1, 1},
+    {6, 5, 1, 3, 1},
+    {6, 5, 1, 1, 2},
+    {6, 1, 4, 3, 1},
+    {6, 1, 4, 1, 2},
+    {6, 1, 1, 3, 2},
+    {1, 5, 4, 3, 1},
+    {1, 5, 4, 1, 2},
+    {1, 5, 1, 3, 2},
+    {1, 1, 4, 3, 2},
+    {6, 5, 4, 3, 1},
+    {6, 5, 4, 1, 2},
+    {6, 5, 1, 3, 2},
+    {6, 1, 4, 3, 2},
+    {1, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+};
+
+std::vector<int64_t> binary_elementwise_shapes_y[BINARY_ELEMENTWISE_CASES] = {
+    // Cases 0.0
+    {},
+    {1},
+    {},
+    {1},
+    {2},
+    {1},
+    {},
+    {2},
+    {2},
+    // Cases 1.0
+    {3, 2},
+    {3, 2},
+    {3, 2},
+    {3, 2},
+    {3, 2},
+    {3, 2},
+    {},
+    {1},
+    {1, 1},
+    {2},
+    {1, 2},
+    {3, 1},
+    {3, 2},
+    {1, 2},
+    {3, 1},
+    // Cases 2.0
+    {1, 2, 3},
+    {3, 2, 1},
+    {1, 2, 3},
+    {1, 2, 3},
+    {1, 2, 3},
+    {1, 2, 3},
+    {},
+    {1},
+    {3},
+    {2, 3},
+    {4, 2, 3},
+    {4, 2, 3},
+    {4, 2, 3},
+    {4, 2, 3},
+    {4, 2, 3},
+    {4, 2, 3},
+    {4, 2, 3},
+    {1, 1, 1},
+    {1, 2, 1},
+    {1, 1, 3},
+    {4, 1, 1},
+    {4, 1, 3},
+    {1, 2, 3},
+    {4, 2, 1},
+    {4, 2, 3},
+    // Cases 3.0
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {5, 4, 3, 2},
+    {},
+    {1},
+    {2},
+    {1, 1},
+    {1, 2},
+    {3, 1},
+    {3, 2},
+    {1, 1, 1},
+    {4, 1, 1},
+    {1, 3, 1},
+    {1, 1, 2},
+    {4, 3, 1},
+    {4, 1, 2},
+    {1, 3, 2},
+    {4, 3, 2},
+    {1, 1, 1, 1},
+    {5, 1, 1, 1},
+    {1, 4, 1, 1},
+    {1, 1, 3, 1},
+    {1, 1, 1, 2},
+    {5, 4, 1, 1},
+    {5, 1, 3, 1},
+    {5, 1, 1, 2},
+    {1, 4, 3, 1},
+    {1, 4, 1, 2},
+    {1, 1, 3, 2},
+    {5, 4, 3, 1},
+    {5, 4, 1, 2},
+    {5, 1, 3, 2},
+    {1, 4, 3, 2},
+    {5, 4, 3, 2},
+    // Cases 4.0
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+    {},
+    {1},
+    {2},
+    {1, 1},
+    {1, 2},
+    {3, 1},
+    {3, 2},
+    {1, 1, 1},
+    {4, 1, 1},
+    {1, 3, 1},
+    {1, 1, 2},
+    {4, 3, 1},
+    {4, 1, 2},
+    {1, 3, 2},
+    {4, 3, 2},
+    {1, 1, 1, 1},
+    {5, 1, 1, 1},
+    {1, 4, 1, 1},
+    {1, 1, 3, 1},
+    {1, 1, 1, 2},
+    {5, 4, 1, 1},
+    {5, 1, 3, 1},
+    {5, 1, 1, 2},
+    {1, 4, 3, 1},
+    {1, 4, 1, 2},
+    {1, 1, 3, 2},
+    {5, 4, 3, 1},
+    {5, 4, 1, 2},
+    {5, 1, 3, 2},
+    {1, 4, 3, 2},
+    {5, 4, 3, 2},
+    {1, 1, 1, 1, 1},
+    {6, 1, 1, 1, 1},
+    {1, 5, 1, 1, 1},
+    {1, 1, 4, 1, 1},
+    {1, 1, 1, 3, 1},
+    {1, 1, 1, 1, 2},
+    {6, 5, 1, 1, 1},
+    {6, 1, 4, 1, 1},
+    {6, 1, 1, 3, 1},
+    {6, 1, 1, 1, 2},
+    {1, 5, 4, 1, 1},
+    {1, 5, 1, 3, 1},
+    {1, 5, 1, 1, 2},
+    {1, 1, 4, 3, 1},
+    {1, 1, 4, 1, 2},
+    {1, 1, 1, 3, 2},
+    {6, 5, 4, 1, 1},
+    {6, 5, 1, 3, 1},
+    {6, 5, 1, 1, 2},
+    {6, 1, 4, 3, 1},
+    {6, 1, 4, 1, 2},
+    {6, 1, 1, 3, 2},
+    {1, 5, 4, 3, 1},
+    {1, 5, 4, 1, 2},
+    {1, 5, 1, 3, 2},
+    {1, 1, 4, 3, 2},
+    {6, 5, 4, 3, 1},
+    {6, 5, 4, 1, 2},
+    {6, 5, 1, 3, 2},
+    {6, 1, 4, 3, 2},
+    {1, 5, 4, 3, 2},
+    {6, 5, 4, 3, 2},
+};
+
+#define MATRIX_MULTIPLICATION_CASES_0_0 6
+#define MATRIX_MULTIPLICATION_CASES_1_0 14
+#define MATRIX_MULTIPLICATION_CASES_2_0 16
+#define MATRIX_MULTIPLICATION_CASES_3_0 34
+#define MATRIX_MULTIPLICATION_CASES MATRIX_MULTIPLICATION_CASES_0_0 + \
+                                    MATRIX_MULTIPLICATION_CASES_1_0 + \
+                                    MATRIX_MULTIPLICATION_CASES_2_0 + \
+                                    MATRIX_MULTIPLICATION_CASES_3_0
+
+
+std::vector<int64_t> matrix_multiplication_shapes_x[MATRIX_MULTIPLICATION_CASES] = {
+    // Cases 0.0
+    {1, 1},
+    {2, 1},
+    {1, 2},
+    {2, 2},
+    {2, 2},
+    {2, 1},
+    // Cases 1.0
+    {1, 1, 1},
+    {1, 1},
+    {1, 1, 1},
+    {1, 1, 2},
+    {1, 2, 1},
+    {1, 2},
+    {2, 1},
+    {1, 1, 2},
+    {1, 2, 1},
+    {4, 2, 5},
+    {1, 2, 5},
+    {4, 2, 5},
+    {2, 5},
+    {4, 2, 5},
+    // Cases 2.0
+    {1, 1, 1, 1},
+    {1, 1, 1},
+    {1, 1},
+    {1, 1, 1, 1},
+    {1, 1, 1, 1},
+    {6, 5, 3, 2},
+    {1, 5, 3, 2},
+    {6, 5, 3, 2},
+    {1, 1, 3, 2},
+    {6, 5, 3, 2},
+    {5, 3, 2},
+    {6, 5, 3, 2},
+    {1, 3, 2},
+    {6, 5, 3, 2},
+    {3, 2},
+    {6, 5, 3, 2},
+    // Cases 3.0
+    {1, 1, 1, 1, 1},
+    {1, 1, 1, 1},
+    {1, 1, 1},
+    {1, 1},
+    {1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1},
+    {2, 5, 3, 6, 4},
+    {1, 5, 3, 6, 4},
+    {2, 1, 3, 6, 4},
+    {2, 5, 1, 6, 4},
+    {1, 5, 1, 6, 4},
+    {1, 1, 3, 6, 4},
+    {1, 1, 1, 6, 4},
+    {5, 3, 6, 4},
+    {1, 3, 6, 4},
+    {5, 1, 6, 4},
+    {1, 1, 6, 4},
+    {3, 6, 4},
+    {1, 6, 4},
+    {6, 4},
+    {2, 5, 3, 6, 4},
+    {2, 5, 3, 6, 4},
+    {2, 5, 3, 6, 4},
+    {2, 5, 3, 6, 4},
+    {2, 5, 3, 6, 4},
+    {2, 5, 3, 6, 4},
+    {2, 5, 3, 6, 4},
+    {2, 5, 3, 6, 4},
+    {2, 5, 3, 6, 4},
+    {2, 5, 3, 6, 4},
+    {2, 5, 3, 6, 4},
+    {2, 5, 3, 6, 4},
+    {2, 5, 3, 6, 4},
+};
+
+std::vector<int64_t> matrix_multiplication_shapes_y[MATRIX_MULTIPLICATION_CASES] = {
+    // Cases 0.0
+    {1, 1},
+    {1, 2},
+    {2, 1},
+    {2, 2},
+    {2, 1},
+    {1, 2},
+    // Cases 1.0
+    {1, 1, 1},
+    {1, 1, 1},
+    {1, 1},
+    {1, 2, 1},
+    {1, 1, 2},
+    {1, 2, 1},
+    {1, 1, 2},
+    {2, 1},
+    {1, 2},
+    {4, 5, 3},
+    {4, 5, 3},
+    {1, 5, 3},
+    {4, 5, 3},
+    {5, 3},
+    // Cases 2.0
+    {1, 1, 1, 1},
+    {1, 1, 1, 1},
+    {1, 1, 1, 1},
+    {1, 1, 1},
+    {1, 1},
+    {6, 5, 2, 6},
+    {6, 5, 2, 6},
+    {1, 5, 2, 6},
+    {6, 5, 2, 6},
+    {1, 1, 2, 6},
+    {6, 5, 2, 6},
+    {5, 2, 6},
+    {6, 5, 2, 6},
+    {1, 2, 6},
+    {6, 5, 2, 6},
+    {2, 6},
+    // Cases 3.0
+    {1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1},
+    {1, 1, 1, 1},
+    {1, 1, 1},
+    {1, 1},
+    {2, 5, 3, 4, 7},
+    {2, 5, 3, 4, 7},
+    {2, 5, 3, 4, 7},
+    {2, 5, 3, 4, 7},
+    {2, 5, 3, 4, 7},
+    {2, 5, 3, 4, 7},
+    {2, 5, 3, 4, 7},
+    {2, 5, 3, 4, 7},
+    {2, 5, 3, 4, 7},
+    {2, 5, 3, 4, 7},
+    {2, 5, 3, 4, 7},
+    {2, 5, 3, 4, 7},
+    {2, 5, 3, 4, 7},
+    {2, 5, 3, 4, 7},
+    {1, 5, 3, 4, 7},
+    {2, 1, 3, 4, 7},
+    {2, 5, 1, 4, 7},
+    {1, 5, 1, 4, 7},
+    {1, 1, 3, 4, 7},
+    {1, 1, 1, 4, 7},
+    {5, 3, 4, 7},
+    {1, 3, 4, 7},
+    {5, 1, 4, 7},
+    {1, 1, 4, 7},
+    {3, 4, 7},
+    {1, 4, 7},
+    {4, 7},
+};
 
 nw_error_t *error = NULL;
 
-tensor_t *tensors_x[RUNTIMES][DATATYPES][CASES];
-tensor_t *tensors_y[RUNTIMES][DATATYPES][CASES];
-tensor_t *returned_tensors[RUNTIMES][DATATYPES][CASES];
-tensor_t *expected_tensors[RUNTIMES][DATATYPES][CASES];
-tensor_t *expected_gradients_x[RUNTIMES][DATATYPES][CASES];
-tensor_t *expected_gradients_y[RUNTIMES][DATATYPES][CASES];
+std::vector<tensor_t *> tensors_x[RUNTIMES][DATATYPES];
+std::vector<tensor_t *> tensors_y[RUNTIMES][DATATYPES];
+std::vector<tensor_t *> returned_tensors[RUNTIMES][DATATYPES];
+std::vector<tensor_t *> expected_tensors[RUNTIMES][DATATYPES];
+std::vector<tensor_t *> expected_gradients_x[RUNTIMES][DATATYPES];
+std::vector<tensor_t *> expected_gradients_y[RUNTIMES][DATATYPES];
 
-torch::Tensor torch_tensors_x[RUNTIMES][DATATYPES][CASES];
-torch::Tensor torch_tensors_y[RUNTIMES][DATATYPES][CASES];
+std::vector<torch::Tensor> torch_tensors_x[RUNTIMES][DATATYPES];
+std::vector<torch::Tensor> torch_tensors_y[RUNTIMES][DATATYPES];
 
 typedef enum binary_operation_class_t
 {
@@ -37,48 +697,67 @@ typedef enum tensor_binary_operation_type_t
     TENSOR_MULTIPLICATION,
     TENSOR_DIVISION,
     TENSOR_POWER,
-    TENSOR_MATRIX_MULTIPLICATION
+    TENSOR_MATRIX_MULTIPLICATION,
+    TENSOR_COMPARE_EQUAL,
+    TENSOR_COMPARE_GREATER,
 } tensor_reduction_operation_type_t;
 
-std::vector<int64_t> binary_elementwise_shapes_x[CASES] = {
-    {1},
-    {3},
-    {5, 1, 3, 1},
-    {4, 2},
-    {3, 2, 1},
-};
+int cases(binary_operation_class_t binary_operation_class)
+{
+    switch(binary_operation_class)
+    {
+    case MATRIX_MULTIPLICATION_CLASS:
+        return MATRIX_MULTIPLICATION_CASES;
+    case BINARY_ELEMENTWISE_CLASS:
+        return BINARY_ELEMENTWISE_CASES;
+    default:
+        return 0;
+    }
+}
 
-std::vector<int64_t> matrix_multiplication_shapes_x[CASES] = {
-    {4, 1},
-    {4, 5},
-    {2, 4, 5},
-    {1, 2, 2, 3, 5},
-    {1, 2, 2, 9, 2},
-};
+std::vector<int64_t> shapes_x(binary_operation_class_t binary_operation_class, int i)
+{
+    switch(binary_operation_class)
+    {
+    case MATRIX_MULTIPLICATION_CLASS:
+        return matrix_multiplication_shapes_x[i];
+    case BINARY_ELEMENTWISE_CLASS:
+        return binary_elementwise_shapes_x[i];
+    default:
+        return std::vector<int64_t>{};
+    }
+}
 
-std::vector<int64_t> binary_elementwise_shapes_y[CASES] = {
-    {10},
-    {4, 3},
-    {5, 2, 3, 3},
-    {4, 2},
-    {1, 2, 3},
-};
-
-std::vector<int64_t> matrix_multiplication_shapes_y[CASES] = {
-    {1, 4},
-    {5, 4},
-    {5, 4},
-    {5, 7},
-    {1, 2, 2, 2},
-};
+std::vector<int64_t> shapes_y(binary_operation_class_t binary_operation_class, int i)
+{
+    switch(binary_operation_class)
+    {
+    case MATRIX_MULTIPLICATION_CLASS:
+        return matrix_multiplication_shapes_y[i];
+    case BINARY_ELEMENTWISE_CLASS:
+        return binary_elementwise_shapes_y[i];
+    default:
+        return std::vector<int64_t>{};
+    }
+}
 
 void setup(binary_operation_class_t binary_operation_class)
 {
-    for (int i = 0; i < RUNTIMES; i++)
+    const int CASES = cases(binary_operation_class);
+    for (int i = 0; i < RUNTIMES; ++i)
     {
         runtime_create_context((runtime_t) i);
-        for (int j = 0; j < DATATYPES; j++)
+        for (int j = 0; j < DATATYPES; ++j)
         {
+            tensors_x[i][j] = std::vector<tensor_t *>(CASES);
+            tensors_y[i][j] = std::vector<tensor_t *>(CASES);
+            returned_tensors[i][j] = std::vector<tensor_t *>(CASES);
+            expected_tensors[i][j] = std::vector<tensor_t *>(CASES);
+            expected_gradients_x[i][j] = std::vector<tensor_t *>(CASES);
+            expected_gradients_y[i][j] = std::vector<tensor_t *>(CASES);
+            torch_tensors_x[i][j] = std::vector<torch::Tensor>(CASES);
+            torch_tensors_y[i][j] = std::vector<torch::Tensor>(CASES);
+
             for (int k = 0; k < CASES; ++k)
             {
                 tensors_x[i][j][k] = NULL;
@@ -87,32 +766,25 @@ void setup(binary_operation_class_t binary_operation_class)
                 expected_tensors[i][j][k] = NULL;
                 expected_gradients_x[i][j][k] = NULL;
                 expected_gradients_y[i][j][k] = NULL;
-            }
 
-            for (int k = 0; k < CASES; ++k)
-            {
-                std::vector<int64_t> shape_x = (binary_operation_class == MATRIX_MULTIPLICATION_CLASS) ?
-                                               matrix_multiplication_shapes_x[k] : binary_elementwise_shapes_x[k];
-                std::vector<int64_t> shape_y = (binary_operation_class == MATRIX_MULTIPLICATION_CLASS) ?
-                                               matrix_multiplication_shapes_y[k] : binary_elementwise_shapes_y[k];
                 switch ((datatype_t) j)
                 {
                 case FLOAT32:
-                    torch_tensors_x[i][j][k] = torch::randn(shape_x,
+                    torch_tensors_x[i][j][k] = torch::randn(shapes_x(binary_operation_class, k),
                                                             torch::TensorOptions()
                                                             .dtype(torch::kFloat32)
                                                             .requires_grad(true));
-                    torch_tensors_y[i][j][k] = torch::randn(shape_y,
+                    torch_tensors_y[i][j][k] = torch::randn(shapes_y(binary_operation_class, k),
                                                             torch::TensorOptions().
                                                             dtype(torch::kFloat32).
                                                             requires_grad(true));
                     break;
                 case FLOAT64:
-                    torch_tensors_x[i][j][k] = torch::randn(shape_x,
+                    torch_tensors_x[i][j][k] = torch::randn(shapes_x(binary_operation_class, k),
                                                             torch::TensorOptions().
                                                             dtype(torch::kFloat64).
                                                             requires_grad(true));
-                    torch_tensors_y[i][j][k] = torch::randn(shape_y,
+                    torch_tensors_y[i][j][k] = torch::randn(shapes_y(binary_operation_class, k),
                                                             torch::TensorOptions().
                                                             dtype(torch::kFloat64).
                                                             requires_grad(true));
@@ -140,8 +812,9 @@ void setup_matrix_multiplication(void)
     setup(MATRIX_MULTIPLICATION_CLASS);
 }
 
-void teardown(void)
+void teardown(binary_operation_class_t binary_operation_class)
 {
+    const int CASES = cases(binary_operation_class);
     for (int i = 0; i < RUNTIMES; i++)
     {
         runtime_destroy_context((runtime_t) i);
@@ -162,8 +835,21 @@ void teardown(void)
     error_destroy(error);
 }
 
-void test_binary(tensor_binary_operation_type_t tensor_binary_operation_type)
+void teardown_binary_elementwise(void)
 {
+    teardown(BINARY_ELEMENTWISE_CLASS);
+}
+
+void teardown_matrix_multiplication(void)
+{
+    teardown(MATRIX_MULTIPLICATION_CLASS);
+}
+
+void test_binary(binary_operation_class_t binary_operation_class,
+                 tensor_binary_operation_type_t tensor_binary_operation_type,
+                 bool_t test_gradient)
+{
+    const int CASES = cases(binary_operation_class);
     for (int i = 0; i < RUNTIMES; i++)
     {
         for (int j = 0; j < DATATYPES; j++)
@@ -192,10 +878,15 @@ void test_binary(tensor_binary_operation_type_t tensor_binary_operation_type)
                 case TENSOR_MATRIX_MULTIPLICATION:
                     expected_tensor = torch::matmul(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]);
                     break;
+                case TENSOR_COMPARE_EQUAL:
+                    expected_tensor = torch::isclose(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k], 1e-6, 1e-9);
+                    break;
+                case TENSOR_COMPARE_GREATER:
+                    expected_tensor = torch::gt(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]);
+                    break;
                 default:
                     ck_abort_msg("unsupported binary operation type.");
                 }
-                expected_tensor.sum().backward();
 
                 expected_tensors[i][j][k] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
 
@@ -219,6 +910,12 @@ void test_binary(tensor_binary_operation_type_t tensor_binary_operation_type)
                 case TENSOR_MATRIX_MULTIPLICATION:
                     error = tensor_matrix_multiplication(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
                     break;
+                case TENSOR_COMPARE_EQUAL:
+                    error = tensor_compare_equal(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
+                    break;
+                case TENSOR_COMPARE_GREATER:
+                    error = tensor_compare_greater(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
+                    break;
                 default:
                     ck_abort_msg("unsupported binary operation type.");
                 }
@@ -226,6 +923,13 @@ void test_binary(tensor_binary_operation_type_t tensor_binary_operation_type)
 
                 ck_assert_tensor_equiv(returned_tensors[i][j][k], expected_tensors[i][j][k]);
 
+                if (!test_gradient)
+                {
+                    tensor_destroy(returned_tensors[i][j][k]);
+                    continue;
+                }
+
+                expected_tensor.sum().backward();
                 expected_gradients_x[i][j][k] = torch_to_tensor(torch_tensors_x[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
                 expected_gradients_y[i][j][k] = torch_to_tensor(torch_tensors_y[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
 
@@ -244,37 +948,49 @@ void test_binary(tensor_binary_operation_type_t tensor_binary_operation_type)
 
 START_TEST(test_addition)
 {
-    test_binary(TENSOR_ADDITION);
+    test_binary(BINARY_ELEMENTWISE_CLASS, TENSOR_ADDITION, true);
 }
 END_TEST
 
 START_TEST(test_subtraction)
 {
-    test_binary(TENSOR_SUBTRACTION);
+    test_binary(BINARY_ELEMENTWISE_CLASS, TENSOR_SUBTRACTION, true);
 }
 END_TEST
 
 START_TEST(test_multiplication)
 {
-    test_binary(TENSOR_MULTIPLICATION);
+    test_binary(BINARY_ELEMENTWISE_CLASS, TENSOR_MULTIPLICATION, true);
 }
 END_TEST
 
 START_TEST(test_division)
 {
-    test_binary(TENSOR_DIVISION);
+    test_binary(BINARY_ELEMENTWISE_CLASS, TENSOR_DIVISION, true);
 }
 END_TEST
 
 START_TEST(test_power)
 {
-    test_binary(TENSOR_POWER);
+    test_binary(BINARY_ELEMENTWISE_CLASS, TENSOR_POWER, true);
+}
+END_TEST
+
+START_TEST(test_compare_equal)
+{
+    test_binary(BINARY_ELEMENTWISE_CLASS, TENSOR_COMPARE_EQUAL, false);
+}
+END_TEST
+
+START_TEST(test_compare_greater)
+{
+    test_binary(BINARY_ELEMENTWISE_CLASS, TENSOR_COMPARE_GREATER, false);
 }
 END_TEST
 
 START_TEST(test_matrix_multiplication)
 {
-    test_binary(TENSOR_MATRIX_MULTIPLICATION);
+    test_binary(MATRIX_MULTIPLICATION_CLASS, TENSOR_MATRIX_MULTIPLICATION, true);
 }
 END_TEST
 
@@ -287,15 +1003,17 @@ Suite *make_binary_suite(void)
     s = suite_create("Test Binary Tensor Suite");
 
     tc_binary_elementwise = tcase_create("Test Binary Elementwise Case");
-    tcase_add_checked_fixture(tc_binary_elementwise, setup_binary_elementwise, teardown);
+    tcase_add_checked_fixture(tc_binary_elementwise, setup_binary_elementwise, teardown_binary_elementwise);
     tcase_add_test(tc_binary_elementwise, test_addition);
     tcase_add_test(tc_binary_elementwise, test_subtraction);
     tcase_add_test(tc_binary_elementwise, test_multiplication);
     tcase_add_test(tc_binary_elementwise, test_division);
     tcase_add_test(tc_binary_elementwise, test_power);
+    tcase_add_test(tc_binary_elementwise, test_compare_equal);
+    tcase_add_test(tc_binary_elementwise, test_compare_greater);
 
     tc_matrix_multiplication = tcase_create("Test Matrix Multiplication Case");
-    tcase_add_checked_fixture(tc_matrix_multiplication, setup_matrix_multiplication, teardown);
+    tcase_add_checked_fixture(tc_matrix_multiplication, setup_matrix_multiplication, teardown_matrix_multiplication);
     tcase_add_test(tc_matrix_multiplication, test_matrix_multiplication);
 
     suite_add_tcase(s, tc_binary_elementwise);

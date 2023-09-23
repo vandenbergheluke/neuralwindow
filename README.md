@@ -81,7 +81,9 @@ sudo cp /var/cuda-repo-ubuntu2204-12-2-local/cuda-*-keyring.gpg /usr/share/keyri
 sudo apt-get -y install cuda
 export PATH=/usr/local/cuda-12.2/bin${PATH:+:${PATH}}
 ```
+
 Install CUDA WSL (Optional)
+
 ```bash
 sudo apt-key del 7fa2af80
 wget https://developer.download.nvidia.com/compute/cuda/repos/wsl-ubuntu/x86_64/cuda-wsl-ubuntu.pin
@@ -178,4 +180,25 @@ To generate the documentation pages run the following command from the project r
 
 ```bash
 doxygen Doxyfile
+```
+
+## Datasets
+
+Create a data folder in the project directory.
+
+```bash
+mkdir data && cd data
+```
+
+Download and unzip MNIST
+
+```bash
+wget --no-check-certificate http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz
+wget --no-check-certificate http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz
+wget --no-check-certificate http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz
+wget --no-check-certificate http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz
+gzip -f -d train-images-idx3-ubyte.gz
+gzip -f -d train-labels-idx1-ubyte.gz 
+gzip -f -d t10k-images-idx3-ubyte.gz
+gzip -f -d t10k-labels-idx1-ubyte.gz
 ```

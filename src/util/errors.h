@@ -9,7 +9,11 @@
 #include <stdio.h>
 #include <datatype.h>
 
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+
 #ifdef DEBUG
+#define MAX_DATA 10
 #define PRINT_DEBUG_NEWLINE do {\
     fprintf(stderr, "\n");\
 } while(0)
@@ -29,7 +33,7 @@
 } while(0)
 
 #define PRINT_DEBUG_BOOLEAN(boolean) do {\
-    fprintf(stderr, "%s", boolean ? "true" : "false");\
+    fprintf(stderr, "%s", (boolean) ? "true" : "false");\
 } while(0)
 
 #define PRINTLN_DEBUG_BOOLEAN(msg, boolean) do {\
@@ -47,7 +51,7 @@
 } while(0)
 
 #define PRINT_DEBUG_UINT64_ARRAY(array, length) do {\
-    if (array == NULL)\
+    if (!(array))\
     {\
         fprintf(stderr, "NULL");\
     }\
@@ -58,11 +62,11 @@
         {\
             if (!i)\
             {\
-                fprintf(stderr, "%lu", array[i]);\
+                fprintf(stderr, "%lu", (array)[i]);\
             }\
             else\
             {\
-                fprintf(stderr, ", %lu", array[i]);\
+                fprintf(stderr, ", %lu", (array)[i]);\
             }\
         }\
         fprintf(stderr, ")");\
@@ -71,79 +75,84 @@
 
 #define PRINTLN_DEBUG_UINT64_ARRAY(msg, array, length) do {\
     fprintf(stderr, "%s ", msg);\
-    PRINT_DEBUG_UINT64_ARRAY(array, length);\
+    PRINT_DEBUG_UINT64_ARRAY((array), length);\
     PRINT_DEBUG_NEWLINE;\
 } while(0)
 
 #define PRINT_DEBUG_VIEW(view) do {\
-    if (!view)\
+    if (!(view))\
     {\
         fprintf(stderr, "NULL");\
     }\
     else\
     {\
-        fprintf(stderr, "(offset: %lu", view->offset);\
-        fprintf(stderr, ", rank: %lu", view->rank);\
+        fprintf(stderr, "(offset: %lu", (view)->offset);\
+        fprintf(stderr, ", rank: %lu", (view)->rank);\
         fprintf(stderr, ", shape: ");\
-        PRINT_DEBUG_UINT64_ARRAY(view->shape, view->rank);\
+        PRINT_DEBUG_UINT64_ARRAY((view)->shape, (view)->rank);\
         fprintf(stderr, ", strides: ");\
-        PRINT_DEBUG_UINT64_ARRAY(view->strides, view->rank);\
+        PRINT_DEBUG_UINT64_ARRAY((view)->strides, (view)->rank);\
         fprintf(stderr, ")");\
     }\
 } while(0)
  
 #define PRINTLN_DEBUG_VIEW(msg, view) do {\
     fprintf(stderr, "%s ", msg);\
-    PRINT_DEBUG_VIEW(view);\
+    PRINT_DEBUG_VIEW((view));\
     PRINT_DEBUG_NEWLINE;\
 } while(0)
 
 #define PRINT_DEBUG_STORAGE(storage) do {\
-    if (!storage)\
+    if (!(storage))\
     {\
         fprintf(stderr, "NULL");\
     }\
     else\
     {\
-        fprintf(stderr, "(runtime: %s", runtime_string(storage->runtime));\
-        fprintf(stderr, ", datatype: %s", datatype_string(storage->datatype));\
-        fprintf(stderr, ", n: %lu", storage->n);\
-        fprintf(stderr, ", reference_count: %lu", storage->reference_count);\
+        fprintf(stderr, "(runtime: %s", runtime_string((storage)->runtime));\
+        fprintf(stderr, ", datatype: %s", datatype_string((storage)->datatype));\
+        fprintf(stderr, ", n: %lu", (storage)->n);\
+        fprintf(stderr, ", reference_count: %lu", (storage)->reference_count);\
         fprintf(stderr, ", data: ");\
-        if (!storage->data)\
+        if (!(storage)->data)\
         {\
             fprintf(stderr, "NULL");\
         }\
         else\
         {\
             fprintf(stderr, "(");\
-            for (uint64_t i = 0; i < storage->n; ++i)\
+            uint64_t n = MIN((storage)->n, MAX_DATA);\
+            for (uint64_t j = 0; j < n; ++j)\
             {\
-                switch(storage->datatype)\
+                switch((storage)->datatype)\
                 {\
                 case FLOAT32:\
-                    if (!i)\
+                    if (!j)\
                     {\
-                        fprintf(stderr, "%f", ((float *) storage->data)[i]);\
+                        fprintf(stderr, "%f", ((float *) (storage)->data)[j]);\
                     }\
                     else\
                     {\
-                        fprintf(stderr, ", %f", ((float *) storage->data)[i]);\
+                        fprintf(stderr, ", %f", ((float *) (storage)->data)[j]);\
                     }\
                     break;\
                 case FLOAT64:\
-                    if (!i)\
+                    if (!j)\
                     {\
-                        fprintf(stderr, "%lf", ((double *) storage->data)[i]);\
+                        fprintf(stderr, "%lf", ((double *) (storage)->data)[j]);\
                     }\
                     else\
                     {\
-                        fprintf(stderr, ", %lf", ((double *) storage->data)[i]);\
+                        fprintf(stderr, ", %lf", ((double *) (storage)->data)[j]);\
                     }\
                     break;\
                 default:\
                     break;\
                 }\
+            }\
+            if (n != (storage)->n)\
+            {\
+                fprintf(stderr, ", ...");\
             }\
             fprintf(stderr, ")");\
         }\
@@ -153,133 +162,133 @@
  
 #define PRINTLN_DEBUG_STORAGE(msg, storage) do {\
     fprintf(stderr, "%s ", msg);\
-    PRINT_DEBUG_STORAGE(storage);\
+    PRINT_DEBUG_STORAGE((storage));\
     PRINT_DEBUG_NEWLINE;\
 } while(0)
 
 #define PRINT_DEBUG_BUFFER(buffer) do {\
-    if (!buffer)\
+    if (!(buffer))\
     {\
         fprintf(stderr, "NULL");\
     }\
     else\
     {\
         fprintf(stderr, "(view: ");\
-        PRINT_DEBUG_VIEW(buffer->view);\
+        PRINT_DEBUG_VIEW((buffer)->view);\
         fprintf(stderr, ", storage: ");\
-        PRINT_DEBUG_STORAGE(buffer->storage);\
+        PRINT_DEBUG_STORAGE((buffer)->storage);\
         fprintf(stderr, ")");\
     }\
 } while(0)
 
 #define PRINTLN_DEBUG_BUFFER(msg, buffer) do {\
     fprintf(stderr, "%s ", msg);\
-    PRINT_DEBUG_BUFFER(buffer);\
+    PRINT_DEBUG_BUFFER((buffer));\
     PRINT_DEBUG_NEWLINE;\
 } while(0)
 
 #define PRINT_DEBUG_FUNCTION(function) do {\
-    if (!function)\
+    if (!(function))\
     {\
         fprintf(stderr, "NULL");\
     }\
     else\
     {\
-        fprintf(stderr, "(operation_type: %s", operation_type_string(function->operation_type));\
+        fprintf(stderr, "(operation_type: %s", operation_type_string((function)->operation_type));\
         fprintf(stderr, ", operation: ");\
-        switch(function->operation_type)\
+        switch((function)->operation_type)\
         {\
         case UNARY_OPERATION:\
-            fprintf(stderr, "%s", unary_operation_type_string(function->operation->unary_operation->operation_type));\
-            if (!function->operation->unary_operation->x)\
+            fprintf(stderr, "%s", unary_operation_type_string((function)->operation->unary_operation->operation_type));\
+            if (!(function)->operation->unary_operation->x)\
             {\
                 fprintf(stderr, ", x: NULL");\
             }\
             else\
             {\
-                fprintf(stderr, ", x: (id: %lu)", function->operation->unary_operation->x->id);\
+                fprintf(stderr, ", x: (id: %lu)", (function)->operation->unary_operation->x->id);\
             }\
-            if (!function->operation->unary_operation->result)\
+            if (!(function)->operation->unary_operation->result)\
             {\
                 fprintf(stderr, ", result: NULL");\
             }\
             else\
             {\
-                fprintf(stderr, ", result: (id: %lu)", function->operation->unary_operation->result->id);\
+                fprintf(stderr, ", result: (id: %lu)", (function)->operation->unary_operation->result->id);\
             }\
             break;\
         case BINARY_OPERATION:\
-            fprintf(stderr, "%s", binary_operation_type_string(function->operation->binary_operation->operation_type));\
-            if (!function->operation->binary_operation->x)\
+            fprintf(stderr, "%s", binary_operation_type_string((function)->operation->binary_operation->operation_type));\
+            if (!(function)->operation->binary_operation->x)\
             {\
                 fprintf(stderr, ", x: NULL");\
             }\
             else\
             {\
-                fprintf(stderr, ", x: (id: %lu)", function->operation->binary_operation->x->id);\
+                fprintf(stderr, ", x: (id: %lu)", (function)->operation->binary_operation->x->id);\
             }\
-            if (!function->operation->binary_operation->y)\
+            if (!(function)->operation->binary_operation->y)\
             {\
                 fprintf(stderr, ", y: NULL");\
             }\
             else\
             {\
-                fprintf(stderr, ", y: (id: %lu)", function->operation->binary_operation->y->id);\
+                fprintf(stderr, ", y: (id: %lu)", (function)->operation->binary_operation->y->id);\
             }\
-            if (!function->operation->binary_operation->result)\
+            if (!(function)->operation->binary_operation->result)\
             {\
                 fprintf(stderr, ", result: NULL");\
             }\
             else\
             {\
-                fprintf(stderr, ", result: (id: %lu)", function->operation->binary_operation->result->id);\
+                fprintf(stderr, ", result: (id: %lu)", (function)->operation->binary_operation->result->id);\
             }\
             break;\
         case REDUCTION_OPERATION:\
-            fprintf(stderr, "%s", reduction_operation_type_string(function->operation->reduction_operation->operation_type));\
-            if (!function->operation->reduction_operation->x)\
+            fprintf(stderr, "%s", reduction_operation_type_string((function)->operation->reduction_operation->operation_type));\
+            if (!(function)->operation->reduction_operation->x)\
             {\
                 fprintf(stderr, ", x: NULL");\
             }\
             else\
             {\
-                fprintf(stderr, ", x: (id: %lu)", function->operation->reduction_operation->x->id);\
+                fprintf(stderr, ", x: (id: %lu)", (function)->operation->reduction_operation->x->id);\
             }\
-            if (!function->operation->reduction_operation->result)\
+            if (!(function)->operation->reduction_operation->result)\
             {\
                 fprintf(stderr, ", result: NULL");\
             }\
             else\
             {\
-                fprintf(stderr, ", result: (id: %lu)", function->operation->reduction_operation->result->id);\
+                fprintf(stderr, ", result: (id: %lu)", (function)->operation->reduction_operation->result->id);\
             }\
             fprintf(stderr, ", axis: ");\
-            PRINT_DEBUG_UINT64_ARRAY(function->operation->reduction_operation->axis,\
-                                     function->operation->reduction_operation->length);\
+            PRINT_DEBUG_UINT64_ARRAY((function)->operation->reduction_operation->axis,\
+                                     (function)->operation->reduction_operation->length);\
             fprintf(stderr, ", keep_dimension: ");\
-            PRINT_DEBUG_BOOLEAN(function->operation->reduction_operation->keep_dimension);\
+            PRINT_DEBUG_BOOLEAN((function)->operation->reduction_operation->keep_dimension);\
             break;\
         case STRUCTURE_OPERATION:\
-            fprintf(stderr, "%s", structure_operation_type_string(function->operation->structure_operation->operation_type));\
-            if (!function->operation->structure_operation->x)\
+            fprintf(stderr, "%s", structure_operation_type_string((function)->operation->structure_operation->operation_type));\
+            if (!(function)->operation->structure_operation->x)\
             {\
                 fprintf(stderr, ", x: NULL");\
             }\
             else\
             {\
-                fprintf(stderr, ", x: (id: %lu)", function->operation->structure_operation->x->id);\
+                fprintf(stderr, ", x: (id: %lu)", (function)->operation->structure_operation->x->id);\
             }\
-            if (!function->operation->structure_operation->result)\
+            if (!(function)->operation->structure_operation->result)\
             {\
                 fprintf(stderr, ", result: NULL");\
             }\
             else\
             {\
-                fprintf(stderr, ", result: (id: %lu)", function->operation->structure_operation->result->id);\
+                fprintf(stderr, ", result: (id: %lu)", (function)->operation->structure_operation->result->id);\
             }\
             fprintf(stderr, ", arguments: ");\
-            PRINT_DEBUG_UINT64_ARRAY(function->operation->structure_operation->arguments,\
-                                     function->operation->structure_operation->length);\
+            PRINT_DEBUG_UINT64_ARRAY((function)->operation->structure_operation->arguments,\
+                                     (function)->operation->structure_operation->length);\
         default:\
             break;\
         }\
@@ -289,12 +298,12 @@
 
 #define PRINTLN_DEBUG_FUNCTION(msg, function) do {\
     fprintf(stderr, "%s ", msg);\
-    PRINT_DEBUG_FUNCTION(function);\
+    PRINT_DEBUG_FUNCTION((function));\
     PRINT_DEBUG_NEWLINE;\
 } while(0)
 
 #define PRINT_DEBUG_TENSOR(tensor) do {\
-    if (!tensor)\
+    if (!(tensor))\
     {\
         fprintf(stderr, "NULL");\
     }\
@@ -321,7 +330,274 @@
 
 #define PRINTLN_DEBUG_TENSOR(msg, tensor) do {\
     fprintf(stderr, "%s ", msg);\
-    PRINT_DEBUG_TENSOR(tensor);\
+    PRINT_DEBUG_TENSOR((tensor));\
+    PRINT_DEBUG_NEWLINE;\
+} while(0)
+
+#define PRINT_DEBUG_SOFTMAX(softmax) do {\
+    if (!(softmax))\
+    {\
+        fprintf(stderr, "NULL");\
+    }\
+    else\
+    {\
+        fprintf(stderr, "(");\
+        fprintf(stderr, "axis: %lu", (softmax)->axis);\
+        fprintf(stderr, ")");\
+    }\
+} while(0)
+
+#define PRINTLN_DEBUG_SOFTMAX(msg, softmax) do {\
+    fprintf(stderr, "%s ", msg);\
+    PRINT_DEBUG_SOFTMAX(softmax);\
+    PRINT_DEBUG_NEWLINE;\
+} while(0)
+
+#define PRINT_DEBUG_ACTIVATION(activation) do {\
+    if (!(activation))\
+    {\
+        fprintf(stderr, "NULL");\
+    }\
+    else\
+    {\
+        fprintf(stderr, "(");\
+        fprintf(stderr, "activation_function_type: %s", activation_function_type_string((activation)->activation_function_type));\
+        fprintf(stderr, ", activation_function: ");\
+        if (!(activation)->activation_function)\
+        {\
+            fprintf(stderr, "NULL");\
+        }\
+        else\
+        {\
+            fprintf(stderr, "(");\
+            switch ((activation)->activation_function_type)\
+            {\
+            case ACTIVATION_SOFTMAX:\
+            case ACTIVATION_LOGSOFTMAX:\
+                fprintf(stderr, "softmax: ");\
+                PRINT_DEBUG_SOFTMAX((activation)->activation_function->softmax);\
+                break;\
+            default:\
+                break;\
+            }\
+            fprintf(stderr, ")");\
+        }\
+        fprintf(stderr, ")");\
+    }\
+} while(0)
+
+#define PRINTLN_DEBUG_ACTIVATION(msg, activation) do {\
+    fprintf(stderr, "%s ", msg);\
+    PRINT_DEBUG_ACTIVATION(activation);\
+    PRINT_DEBUG_NEWLINE;\
+} while(0)
+
+#define PRINT_DEBUG_LINEAR(linear) do {\
+    if (!(linear))\
+    {\
+        fprintf(stderr, "NULL");\
+    }\
+    else\
+    {\
+        fprintf(stderr, "(");\
+        fprintf(stderr, "weights: ");\
+        PRINT_DEBUG_TENSOR((linear)->weights);\
+        fprintf(stderr, ", bias: ");\
+        PRINT_DEBUG_TENSOR((linear)->bias);\
+        fprintf(stderr, ", activation: ");\
+        PRINT_DEBUG_ACTIVATION((linear)->activation);\
+        fprintf(stderr, ")");\
+    }\
+} while(0)
+
+#define PRINTLN_DEBUG_LINEAR(msg, linear) do {\
+    fprintf(stderr, "%s ", msg);\
+    PRINT_DEBUG_LINEAR(linear);\
+    PRINT_DEBUG_NEWLINE;\
+} while(0)
+
+#define PRINT_DEBUG_DROPOUT(dropout) do {\
+    if (!(dropout))\
+    {\
+        fprintf(stderr, "NULL");\
+    }\
+    else\
+    {\
+        fprintf(stderr, "(");\
+        fprintf(stderr, "probability: %f", (dropout)->probability);\
+        fprintf(stderr, ")");\
+    }\
+} while(0)
+
+#define PRINTLN_DEBUG_DROPOUT(msg, dropout) do {\
+    fprintf(stderr, "%s ", msg);\
+    PRINT_DEBUG_DROPOUT(dropout);\
+    PRINT_DEBUG_NEWLINE;\
+} while(0)
+
+#define PRINT_DEBUG_LAYER(layer) do {\
+    if (!(layer))\
+    {\
+        fprintf(stderr, "NULL");\
+    }\
+    else\
+    {\
+        fprintf(stderr, "(");\
+        fprintf(stderr, "transform_type: %s", transform_type_string((layer)->transform_type));\
+        fprintf(stderr, ", transform: ");\
+        if (!(layer)->transform)\
+        {\
+            fprintf(stderr, "NULL");\
+        }\
+        else\
+        {\
+            switch ((layer)->transform_type)\
+            {\
+            case LINEAR:\
+                PRINT_DEBUG_LINEAR((layer)->transform->linear);\
+                break;\
+            case DROPOUT:\
+                PRINT_DEBUG_DROPOUT((layer)->transform->dropout);\
+                break;\
+            case BLOCK:\
+                fprintf(stderr, "(");\
+                if (!(layer)->transform->block)\
+                {\
+                    fprintf(stderr, "NULL");\
+                }\
+                else\
+                {\
+                    fprintf(stderr, "depth: %lu", (layer)->transform->block->depth);\
+                }\
+                fprintf(stderr, ")");\
+                break;\
+            default:\
+                break;\
+            }\
+        }\
+        fprintf(stderr, ")");\
+    }\
+} while(0)
+
+#define PRINTLN_DEBUG_LAYER(msg, layer) do {\
+    fprintf(stderr, "%s ", msg);\
+    PRINT_DEBUG_LAYER(layer);\
+    PRINT_DEBUG_NEWLINE;\
+} while(0)
+
+#define PRINT_DEBUG_BLOCK(block) do {\
+    if (!(block))\
+    {\
+        fprintf(stderr, "NULL");\
+    }\
+    else\
+    {\
+        fprintf(stderr, "(");\
+        fprintf(stderr, "depth: %lu", (block)->depth);\
+        fprintf(stderr, ", layers: ");\
+        if (!(block)->layers)\
+        {\
+            fprintf(stderr, "NULL");\
+        }\
+        else\
+        {\
+            fprintf(stderr, "(");\
+            for (uint64_t k = 0; k < (block)->depth; ++k)\
+            {\
+                if (k)\
+                {\
+                    fprintf(stderr, ", ");\
+                }\
+                PRINT_DEBUG_LAYER(((block)->layers)[k]);\
+            }\
+            fprintf(stderr, ")");\
+        }\
+        fprintf(stderr, ")");\
+    }\
+} while(0)
+
+#define PRINTLN_DEBUG_BLOCK(msg, block) do {\
+    fprintf(stderr, "%s ", msg);\
+    PRINT_DEBUG_BLOCK(block);\
+    PRINT_DEBUG_NEWLINE;\
+} while(0)
+
+#define PRINT_DEBUG_MODEL(model) do {\
+    if (!(model))\
+    {\
+        fprintf(stderr, "NULL");\
+    }\
+    else\
+    {\
+        fprintf(stderr, "(");\
+        fprintf(stderr, "block: ");\
+        PRINT_DEBUG_BLOCK((model)->block);\
+        fprintf(stderr, ")");\
+    }\
+} while(0)
+
+#define PRINTLN_DEBUG_MODEL(msg, model) do {\
+    fprintf(stderr, "%s ", msg);\
+    PRINT_DEBUG_MODEL(model);\
+    PRINT_DEBUG_NEWLINE;\
+} while(0)
+
+#define PRINT_DEBUG_STOCHASTIC_GRADIENT_DESCENT(stochastic_gradient_descent) do {\
+    if (!(stochastic_gradient_descent))\
+    {\
+        fprintf(stderr, "NULL");\
+    }\
+    else\
+    {\
+        fprintf(stderr, "(");\
+        fprintf(stderr, "learning_rate: %f", (stochastic_gradient_descent)->learning_rate);\
+        fprintf(stderr, ", momentum: %f", (stochastic_gradient_descent)->momentum);\
+        fprintf(stderr, ", dampening: %f", (stochastic_gradient_descent)->dampening);\
+        fprintf(stderr, ", weight_decay: %f", (stochastic_gradient_descent)->weight_decay);\
+        fprintf(stderr, ", nesterov: ");\
+        PRINT_DEBUG_BOOLEAN((stochastic_gradient_descent)->nesterov);\
+        fprintf(stderr, ")");\
+    }\
+} while(0)
+
+#define PRINTLN_DEBUG_STOCHASTIC_GRADIENT_DESCENT(msg, stochastic_gradient_descent) do {\
+    fprintf(stderr, "%s ", msg);\
+    PRINT_DEBUG_STOCHASTIC_GRADIENT_DESCENT(stochastic_gradient_descent);\
+    PRINT_DEBUG_NEWLINE;\
+} while(0)
+
+#define PRINT_DEBUG_OPTIMIZER(optimizer) do {\
+    if (!(optimizer))\
+    {\
+        fprintf(stderr, "NULL");\
+    }\
+    else\
+    {\
+        fprintf(stderr, "(");\
+        fprintf(stderr, "algorithm_type: %s", algorithm_type_string((optimizer)->algorithm_type));\
+        fprintf(stderr, ", algorithm: ");\
+        if (!(optimizer)->algorithm)\
+        {\
+            fprintf(stderr, "NULL");\
+        }\
+        else\
+        {\
+            switch ((optimizer)->algorithm_type)\
+            {\
+            case STOCASTIC_GRADIENT_DESCENT:\
+                PRINT_DEBUG_STOCHASTIC_GRADIENT_DESCENT((optimizer)->algorithm->stochastic_gradient_descent);\
+                break;\
+            default:\
+                break;\
+            }\
+        }\
+        fprintf(stderr, ")");\
+    }\
+} while(0)
+
+#define PRINTLN_DEBUG_OPTIMIZER(msg, optimizer) do {\
+    fprintf(stderr, "%s ", msg);\
+    PRINT_DEBUG_OPTIMIZER(optimizer);\
     PRINT_DEBUG_NEWLINE;\
 } while(0)
 
@@ -345,6 +621,23 @@
 #define PRINT_DEBUG_NEWLINE
 #define PRINT_DEBUG_BOOLEAN(boolean)
 #define PRINTLN_DEBUG_BOOLEAN(msg, boolean)
+#define PRINTLN_DEBUG_SOFTMAX(msg, softmax)
+#define PRINT_DEBUG_ACTIVATION(activation)
+#define PRINTLN_DEBUG_ACTIVATION(msg, activation)
+#define PRINT_DEBUG_LINEAR(linear)
+#define PRINTLN_DEBUG_LINEAR(msg, linear)
+#define PRINT_DEBUG_DROPOUT(dropout)
+#define PRINTLN_DEBUG_DROPOUT(msg, dropout)
+#define PRINT_DEBUG_LAYER(layer)
+#define PRINTLN_DEBUG_LAYER(msg, layer)
+#define PRINT_DEBUG_BLOCK(block)
+#define PRINTLN_DEBUG_BLOCK(msg, block)
+#define PRINT_DEBUG_MODEL(model)
+#define PRINTLN_DEBUG_MODEL(msg, model)
+#define PRINT_DEBUG_STOCHASTIC_GRADIENT_DESCENT(stochastic_gradient_descent)
+#define PRINTLN_DEBUG_STOCHASTIC_GRADIENT_DESCENT(msg, stochastic_gradient_descent)
+#define PRINT_DEBUG_OPTIMIZER(optimizer)
+#define PRINTLN_DEBUG_OPTIMIZER(msg, optimizer)
 #endif
 
 typedef enum nw_error_type_t
@@ -403,7 +696,27 @@ typedef enum nw_error_type_t
     ERROR_UNARY,
     ERROR_SIGMOID,
     ERROR_PUSH,
+    ERROR_TRANSPOSE,
+    ERROR_SOFTMAX,
+    ERROR_MEAN,
+    ERROR_FILE,
+    ERROR_SETUP,
+    ERROR_TEARDOWN,
+    ERROR_LOAD,
+    ERROR_CRITERION,
+    ERROR_METRICS,
+    ERROR_STEP,
+    ERROR_RESET,
+    ERROR_TRAIN,
+    ERROR_VALID,
+    ERROR_TEST,
+    ERROR_UNKNOWN_ALGORITHM,
+    ERROR_GAIN,
+    ERROR_UPDATE,
+    ERROR_REQUIRES_GRADIENT,
+    ERROR_ACTIVATION_TYPE,
     ERROR_DROPOUT,
+    ERROR_DATASET_TYPE,
 } nw_error_type_t;
 
 typedef struct nw_error_t

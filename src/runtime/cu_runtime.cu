@@ -9,7 +9,7 @@ extern "C" {
     #include <cu_runtime.h>
 }
 
-#define EPSILON 0.00001
+#define EPSILON 1e-7
 
 static cublasHandle_t handle = NULL;
 
@@ -646,17 +646,23 @@ extern "C" void cu_power(datatype_t datatype, uint64_t n, const void *x_data, ui
 
 extern "C" static void cu_compare_equal_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
+    float32_t x, y;
     for (int i = 0; i < n; ++i)
     {
-        z_data[i * z_stride] = fabsf(x_data[i * x_stride] - y_data[i * y_stride]) < EPSILON ? (float32_t) 1.0 : (float32_t) 0.0;
+        x = x_data[i * x_stride];
+        y = y_data[i * y_stride];
+        z_data[i * z_stride] = fabsf(x - y) < EPSILON ? (float32_t) 1.0 : (float32_t) 0.0;
     }
 }
 
 extern "C" static void cu_compare_equal_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
+    float64_t x, y;
     for (int i = 0; i < n; ++i)
     {
-        z_data[i * z_stride] = fabs(x_data[i * x_stride] - y_data[i * y_stride]) < EPSILON ? (float64_t) 1.0 : (float64_t) 0.0;
+        x = x_data[i * x_stride];
+        y = y_data[i * y_stride];
+        z_data[i * z_stride] = fabs(x - y) < EPSILON ? (float64_t) 1.0 : (float64_t) 0.0;
     }
 }
 

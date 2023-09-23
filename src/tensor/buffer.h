@@ -74,7 +74,7 @@ typedef enum runtime_reduction_type_t
     RUNTIME_MAXIMUM
 } runtime_reduction_type_t;
 
-nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, uint64_t n, void *data);
+nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, uint64_t n, void *data, bool_t copy);
 void storage_destroy(storage_t *storage);
 nw_error_t *runtime_malloc(storage_t *storage);
 void runtime_free(storage_t *storage);
@@ -92,7 +92,6 @@ nw_error_t *runtime_sine(buffer_t *x, buffer_t *result);
 nw_error_t *runtime_cosine(buffer_t *x, buffer_t *result);
 nw_error_t *runtime_square_root(buffer_t *x, buffer_t *result);
 nw_error_t *runtime_reciprocal(buffer_t *x, buffer_t *result);
-nw_error_t *runtime_copy(buffer_t *x, buffer_t *result);
 nw_error_t *runtime_contiguous(buffer_t *x, buffer_t *result);
 nw_error_t *runtime_negation(buffer_t *x, buffer_t *result);
 nw_error_t *runtime_rectified_linear(buffer_t *x, buffer_t *result);
@@ -107,6 +106,11 @@ nw_error_t *runtime_compare_greater(buffer_t *x_buffer, buffer_t *y_buffer, buff
 nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
 nw_error_t *runtime_summation(buffer_t *x, uint64_t *axis, uint64_t length, buffer_t *result, bool_t keep_dimension);
 nw_error_t *runtime_maximum(buffer_t *x, uint64_t *axis, uint64_t length, buffer_t *result, bool_t keep_dimension);
+
+// Initialization
 nw_error_t *runtime_init_zeroes(buffer_t *buffer);
 nw_error_t *runtime_init_ones(buffer_t *buffer);
+nw_error_t *runtime_init_arange(buffer_t *buffer, int64_t start, int64_t stop, int64_t step);
+nw_error_t *runtime_init_uniform(buffer_t *buffer, void *lower_bound, void *upper_bound);
+nw_error_t *runtime_init_normal(buffer_t *buffer, void *mean, void *standard_deviation);
 #endif

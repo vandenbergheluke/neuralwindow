@@ -20,7 +20,12 @@ set(
     "${UTIL_DIR}/stack.c"
     "${RUNTIME_DIR}/mkl_runtime.c"
     "${RUNTIME_DIR}/openblas_runtime.c"
+    "${NN_DIR}/cost.c"
+    "${NN_DIR}/init.c"
     "${NN_DIR}/layer.c"
+    "${NN_DIR}/metric.c"
+    "${NN_DIR}/optimizer.c"
+    "${NN_DIR}/train.c"
 )
 
 set(
@@ -44,7 +49,12 @@ set(
     "${UTIL_DIR}/stack.h"
     "${RUNTIME_DIR}/mkl_runtime.h"
     "${RUNTIME_DIR}/openblas_runtime.h"
+    "${NN_DIR}/cost.h"
+    "${NN_DIR}/init.h"
     "${NN_DIR}/layer.h"
+    "${NN_DIR}/metric.h"
+    "${NN_DIR}/optimizer.h"
+    "${NN_DIR}/train.h"
 )
 
 set(

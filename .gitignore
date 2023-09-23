@@ -62,3 +62,6 @@ docs/
 
 # Torch
 libtorch*
+
+# Data
+data/

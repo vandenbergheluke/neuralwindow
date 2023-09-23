@@ -5,6 +5,7 @@
 
 #include <buffer.h>
 #include <view.h>
+#include <random.h>
 #ifndef CPU_ONLY
 #include <cu_runtime.h>
 #endif
@@ -12,7 +13,7 @@
 #include <openblas_runtime.h>
 #include <string.h>
 
-nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, uint64_t n, void *data)
+nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, uint64_t n, void *data, bool_t copy)
 {
     CHECK_NULL_ARGUMENT(storage, "storage");
 
@@ -35,19 +36,28 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
     (*storage)->n = n;
     (*storage)->reference_count = 0;
 
-    nw_error_t *error = runtime_malloc(*storage);
-    if (error)
+    if (copy)
     {
-        free(*storage);
-        return ERROR(ERROR_MEMORY_ALLOCATION,
-                     string_create("failed to allocate buffer data for runtime %s and datatype %s.",
-                     runtime_string(runtime), datatype_string(datatype)), error);
+        nw_error_t *error = runtime_malloc(*storage);
+        if (error)
+        {
+            free(*storage);
+            return ERROR(ERROR_MEMORY_ALLOCATION,
+                         string_create("failed to allocate buffer data for runtime %s and datatype %s.",
+                         runtime_string(runtime), datatype_string(datatype)), error);
+        }
+
+        if (data)
+        {
+            memcpy((*storage)->data, data, (*storage)->n * datatype_size(datatype));
+        }
+
+    }
+    else
+    {
+        (*storage)->data = data;
     }
 
-    if (data)
-    {
-        memcpy((*storage)->data, data, (*storage)->n * datatype_size(datatype));
-    }
 
     return NULL;
 }
@@ -90,7 +100,7 @@ nw_error_t *buffer_create(buffer_t **buffer, view_t *view, storage_t *storage, b
 
     if (copy)
     {
-        error = storage_create(&(*buffer)->storage, storage->runtime, storage->datatype, storage->n, storage->data);
+        error = storage_create(&(*buffer)->storage, storage->runtime, storage->datatype, storage->n, storage->data, copy);
         if (error)
         {
             return ERROR(ERROR_CREATE, string_create("failed to create storage copy."), error);
@@ -143,7 +153,7 @@ nw_error_t *buffer_create_empty(buffer_t **buffer,
         return ERROR(ERROR_N, string_create("failed to obtain storage size."), error);
     }
 
-    error = storage_create(&storage, runtime, datatype, n, NULL);
+    error = storage_create(&storage, runtime, datatype, n, NULL, true);
     if (error)
     {
         view_destroy(view);
@@ -1689,6 +1699,103 @@ nw_error_t *runtime_init_ones(buffer_t *buffer)
             break;
         case FLOAT64:
             ((float64_t *) data)[i] = (float64_t) 1.0;
+            break;
+        default:
+            return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        }
+    }
+
+    return NULL;
+}
+
+// Assumes tensor is contiguous
+nw_error_t *runtime_init_arange(buffer_t *buffer, int64_t start, int64_t stop, int64_t step)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
+    CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
+
+    uint64_t interval = (stop - start) / step;
+
+    if (interval != buffer->storage->n)
+    {
+        return ERROR(ERROR_N, string_create("size of buffer does not match size of interval."), NULL);
+    }
+
+    void *data = buffer->storage->data;
+    datatype_t datatype = buffer->storage->datatype;
+
+    int64_t value = start;
+    for (uint64_t i = 0; i < interval; ++i)
+    {
+        switch (datatype)
+        {
+        case FLOAT32:
+            ((float32_t *) data)[i] = (float32_t) value;
+            break;
+        case FLOAT64:
+            ((float64_t *) data)[i] = (float64_t) value;
+            break;
+        default:
+            return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        }
+        value += step;
+    }
+
+    return NULL;
+}
+
+nw_error_t *runtime_init_uniform(buffer_t *buffer, void *lower_bound, void *upper_bound)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
+    CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
+    CHECK_NULL_ARGUMENT(lower_bound, "lower_bound");
+    CHECK_NULL_ARGUMENT(upper_bound, "upper_bound");
+
+    void *data = buffer->storage->data;
+    uint64_t n = buffer->storage->n;
+    datatype_t datatype = buffer->storage->datatype;
+
+    for (uint64_t i = 0; i < n; ++i)
+    {
+        switch (datatype)
+        {
+        case FLOAT32:
+            ((float32_t *) data)[i] = uniformf(*(float32_t *) lower_bound, *(float32_t *) upper_bound);
+            break;
+        case FLOAT64:
+            ((float64_t *) data)[i] = uniform(*(float64_t *) lower_bound, *(float64_t *) upper_bound);
+            break;
+        default:
+            return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        }
+    }
+
+    return NULL;
+}
+
+nw_error_t *runtime_init_normal(buffer_t *buffer, void *mean, void *standard_deviation)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
+    CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
+    CHECK_NULL_ARGUMENT(mean, "mean");
+    CHECK_NULL_ARGUMENT(standard_deviation, "standard_deviation");
+
+    void *data = buffer->storage->data;
+    uint64_t n = buffer->storage->n;
+    datatype_t datatype = buffer->storage->datatype;
+
+    for (uint64_t i = 0; i < n; ++i)
+    {
+        switch (datatype)
+        {
+        case FLOAT32:
+            ((float32_t *) data)[i] = normalf(*(float32_t *) mean, *(float32_t *) standard_deviation);
+            break;
+        case FLOAT64:
+            ((float64_t *) data)[i] = normal(*(float64_t *) mean, *(float64_t *) standard_deviation);
             break;
         default:
             return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);

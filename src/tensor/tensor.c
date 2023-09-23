@@ -10,6 +10,9 @@
 #include <buffer.h>
 #include <view.h>
 #include <string.h>
+#include <math.h>
+
+bool_t no_gradient = false;
 
 /**
  * @brief Dynamically memory allocate and initialize a tensor.
@@ -62,6 +65,67 @@ void tensor_destroy(tensor_t *tensor)
         function_destroy(tensor->context);
         free(tensor);
     }
+}
+
+void with_no_gradient(bool_t flag)
+{
+    static uint64_t previous = 0;
+
+    if (flag)
+    {
+        ++previous;
+        no_gradient = true;
+    }
+    else
+    {
+        if (previous)
+        {
+            --previous; 
+            if (!previous)
+            {
+                no_gradient = false;
+            }
+        }
+    }
+}
+
+nw_error_t *tensor_from_data(tensor_t **x, void *data, runtime_t runtime, datatype_t datatype, 
+                             uint64_t rank, uint64_t *shape, bool_t copy, bool_t requires_gradient)
+{
+    nw_error_t *error = NULL;
+    storage_t *storage = NULL;
+    view_t *view = NULL;
+    buffer_t *buffer = NULL;
+
+    error = storage_create(&storage, runtime, datatype, shape_size(shape, rank), data, copy);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create storage."), error);
+    }
+
+    error = view_create(&view, 0, rank, shape, NULL);
+    if (error)
+    {
+        storage_destroy(storage);
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    error = buffer_create(&buffer, view, storage, false);
+    if (error)
+    {
+        view_destroy(view);
+        storage_destroy(storage);
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    error = tensor_create(x, buffer, NULL, NULL, requires_gradient);
+    if (error)
+    {
+        buffer_destroy(buffer);
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    return error;
 }
 
 nw_error_t *tensor_broadcast(const tensor_t *x_original,
@@ -356,12 +420,15 @@ nw_error_t *tensor_compare_equal(const tensor_t *x, const tensor_t *y, tensor_t 
     CHECK_NULL_ARGUMENT(z, "z");
 
     nw_error_t *error = NULL;
+    with_no_gradient(true);
 
     error = apply_function_binary(COMPARE_EQUAL, x, y, z);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to compare equal tensors."), error);
     }
+
+    with_no_gradient(false);
 
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("x", x);
@@ -384,12 +451,15 @@ nw_error_t *tensor_compare_greater(const tensor_t *x, const tensor_t *y, tensor_
     CHECK_NULL_ARGUMENT(z, "z");
 
     nw_error_t *error = NULL;
+    with_no_gradient(true);
 
     error = apply_function_binary(COMPARE_GREATER, x, y, z);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to compare greater tensors."), error);
     }
+
+    with_no_gradient(false);
 
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("x", x);
@@ -480,7 +550,7 @@ nw_error_t *tensor_matrix_multiplication(const tensor_t *x, const tensor_t *y, t
 
 cleanup:
 
-    if (!(x->requires_gradient || y->requires_gradient))
+    if (!(x->requires_gradient || y->requires_gradient) || no_gradient)
     {
         if (x_contiguous != x_broadcasted)
         {
@@ -493,12 +563,12 @@ cleanup:
         }
     }
 
-    if (x != x_contiguous && !(x->requires_gradient))
+    if (x != x_contiguous && (!(x->requires_gradient) || no_gradient))
     {
         tensor_destroy(x_contiguous);
     }
 
-    if (y != y_contiguous && !(y->requires_gradient))
+    if (y != y_contiguous && (!(y->requires_gradient) || no_gradient))
     {
         tensor_destroy(y_contiguous);
     }
@@ -562,6 +632,174 @@ nw_error_t *tensor_maximum(const tensor_t *x, tensor_t **y, const uint64_t *axis
     return error;
 }
 
+nw_error_t *tensor_item(tensor_t *x, void *value)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->storage, "x->buffer->storage");
+    CHECK_NULL_ARGUMENT(x->buffer->storage->data, "x->buffer->storage->data");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(value, "value");
+
+    if (x->buffer->view->rank)
+    {
+        return ERROR(ERROR_RANK_CONFLICT, string_create("tensor must be rank zero."), NULL);
+    }
+
+    switch (x->buffer->storage->datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) value = *(float32_t *) x->buffer->storage->data;
+        break;
+    case FLOAT64:
+        *(float64_t *) value = *(float64_t *) x->buffer->storage->data;
+        break;
+    default:
+        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) x->buffer->storage->datatype), NULL);
+    }
+
+    return NULL;
+}
+
+nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t axis, bool_t keep_dimension)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTF_DEBUG("axis: %lu\n", axis);
+    PRINTLN_DEBUG_BOOLEAN("keep_dimension", keep_dimension);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->storage, "x->buffer->storage");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(x->buffer->view->shape, "x->buffer->view->shape");
+    CHECK_NULL_ARGUMENT(y, "y");
+    nw_error_t *error = NULL;
+    uint64_t *shape = x->buffer->view->shape;
+    uint64_t rank = x->buffer->view->rank;
+
+    if ((!rank && axis) || (rank && axis >= rank))
+    {
+        return ERROR(ERROR_AXIS, string_create("axis out of range of tensor."), NULL);
+    }
+
+    with_no_gradient(true);
+    float32_t dimension_float32;
+    float64_t dimension_float64;
+    runtime_t runtime = x->buffer->storage->runtime;
+    datatype_t datatype = x->buffer->storage->datatype;
+    uint64_t dimension = (rank) ? shape[axis] : 1;
+    uint64_t new_rank = rank - axis;
+    uint64_t new_shape [new_rank];
+    uint64_t *reduce_axis = (rank) ? ((uint64_t[]) {axis}) : ((uint64_t[]){});
+    uint64_t reduce_rank = (rank) ? 1 : 0;
+    tensor_t *x_i = NULL;
+    tensor_t *x_j = NULL;
+    tensor_t *x_k = NULL;
+    tensor_t *x_l = NULL;
+    tensor_t *x_m = NULL;
+    tensor_t *x_n = NULL;
+    tensor_t *x_o = NULL;
+
+    if (new_rank)
+    {
+        new_shape[0] = dimension;
+        for (uint64_t i = 1; i < new_rank; ++i)
+        {
+            new_shape[i] = (uint64_t) 1;
+        }
+    }
+
+    error = tensor_maximum(x, &x_i, reduce_axis, reduce_rank, true);
+    if (error)
+    {
+        error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_compare_equal(x_i, x, &x_j);
+    if (error)
+    {
+        error = ERROR(ERROR_COMPARE_EQUAL, string_create("failed to compare equal tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_arange(&x_k, (int64_t) dimension, (int64_t) 0, (int64_t) -1, runtime, datatype, false);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_reshape(x_k, &x_l, new_shape, new_rank);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(x_j, x_l, &x_m);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_maximum(x_m, &x_n, reduce_axis, reduce_rank, keep_dimension);
+    if (error)
+    {
+        error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
+        goto cleanup;
+    }
+    
+    switch (datatype)
+    {
+    case FLOAT32:
+        dimension_float32 = (float32_t) dimension;
+        error = tensor_constant_float32(dimension_float32, &x_o, runtime);
+        break;
+    case FLOAT64:
+        dimension_float64 = (float64_t) dimension;
+        error = tensor_constant_float64(dimension_float64, &x_o, runtime);
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        break;
+    }
+
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+    
+    error = tensor_subtraction(x_o, x_n, y);
+    if (error)
+    {
+        error = ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    with_no_gradient(false);
+    tensor_destroy(x_i);
+    tensor_destroy(x_j);
+    tensor_destroy(x_k);
+    tensor_destroy(x_l);
+    tensor_destroy(x_m);
+    tensor_destroy(x_n);
+    tensor_destroy(x_o);
+
+    return error;
+}
+
 inline uint64_t tensor_number_of_elements(const tensor_t *x)
 {
     return (x && x->buffer && x->buffer->view) ? shape_size(x->buffer->view->shape, x->buffer->view->rank) : 0;
@@ -583,7 +821,7 @@ nw_error_t *tensor_constant(void *constant, datatype_t datatype, runtime_t runti
         return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
     }
 
-    error = storage_create(&storage, runtime, datatype, 1, constant);
+    error = storage_create(&storage, runtime, datatype, 1, constant, true);
     if (error)
     {
         view_destroy(view);
@@ -701,7 +939,7 @@ nw_error_t *tensor_mean(const tensor_t *x, tensor_t **y, const uint64_t *axis, u
 
 cleanup:
 
-    if (!x_i->requires_gradient)
+    if (!x_i->requires_gradient || no_gradient)
     {
         tensor_destroy(x_i);
     }
@@ -710,9 +948,175 @@ cleanup:
     return error;
 }
 
+static nw_error_t *softmax(const tensor_t *x, tensor_t **y_max, tensor_t **y_num, tensor_t **y_den, uint64_t axis)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTF_DEBUG("axis %lu\n", axis);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(y_max, "y_max");
+    CHECK_NULL_ARGUMENT(y_num, "y_num");
+    CHECK_NULL_ARGUMENT(y_den, "y_den");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_i = NULL;
+    uint64_t rank = x->buffer->view->rank;
+    uint64_t *reduce_axis = (rank) ? ((uint64_t[]) {axis}) : ((uint64_t[]){});
+    uint64_t reduce_rank = (rank) ? 1 : 0;
+
+    error = tensor_maximum(x, &x_i, reduce_axis, reduce_rank, true);
+    if (error)
+    {
+        error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_subtraction(x, x_i, y_max);
+    if (error)
+    {
+        error = ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_exponential(*y_max, y_num);
+    if (error)
+    {
+        error = ERROR(ERROR_EXPONENTIAL, string_create("failed to exponentiate tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_summation(*y_num, y_den, reduce_axis, reduce_rank, true);
+    if (error)
+    {
+        error = ERROR(ERROR_SUMMATION, string_create("failed to sum tensor."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y_max", *y_max);
+    PRINTLN_DEBUG_TENSOR("y_num", *y_num);
+    PRINTLN_DEBUG_TENSOR("y_den", *y_den);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    if (!x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(x_i);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_softmax(const tensor_t *x, tensor_t **y, uint64_t axis)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTF_DEBUG("axis %lu\n", axis);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_i = NULL;
+    tensor_t *x_j = NULL;
+    tensor_t *x_k = NULL;
+
+    error = softmax(x, &x_i, &x_j, &x_k, axis);
+    if (error)
+    {
+        error = ERROR(ERROR_SOFTMAX, string_create("failed to softmax tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_division(x_j, x_k, y);
+    if (error)
+    {
+        error = ERROR(ERROR_DIVISION, string_create("failed to divide tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    if (!x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(x_i);
+        tensor_destroy(x_j);
+        tensor_destroy(x_k);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_logsoftmax(const tensor_t *x, tensor_t **y, uint64_t axis)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTF_DEBUG("axis %lu\n", axis);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_i = NULL;
+    tensor_t *x_j = NULL;
+    tensor_t *x_k = NULL;
+    tensor_t *x_l = NULL;
+
+    error = softmax(x, &x_i, &x_j, &x_k, axis);
+    if (error)
+    {
+        error = ERROR(ERROR_SOFTMAX, string_create("failed to softmax tensor."), error);
+        goto cleanup;
+    }
+    
+    error = tensor_logarithm(x_k, &x_l);
+    if (error)
+    {
+        error = ERROR(ERROR_LOGARITHM, string_create("failed to log tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_subtraction(x_i, x_l, y);
+    if (error)
+    {
+        error = ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    if (!x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(x_i);
+        tensor_destroy(x_j);
+        tensor_destroy(x_k);
+        tensor_destroy(x_l);
+    }
+
+    return error;
+}
+
 bool_t tensor_is_contiguous(const tensor_t *x)
 {
-    return !(!x || !x->buffer || !x->buffer->view) &&
+    return x && x->buffer && x->buffer->view &&
            is_contiguous(x->buffer->view->shape, x->buffer->view->rank, 
                          x->buffer->view->strides, x->buffer->view->offset);
 }
@@ -752,7 +1156,7 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const uint64_t *shap
 
 cleanup:
 
-    if (x != x_contiguous && !x->requires_gradient)
+    if (x != x_contiguous && (!x->requires_gradient || no_gradient))
     {
         tensor_destroy(x_contiguous);
     }
@@ -774,6 +1178,51 @@ nw_error_t *tensor_permute(const tensor_t *x, tensor_t **y, uint64_t *axis, uint
     nw_error_t *error = NULL;
 
     error = apply_function_structure(PERMUTE_OPERATION, x, axis, length, y);
+    if (error)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+    return error;
+}
+
+bool_t tensor_shapes_equal(const tensor_t *x, const tensor_t *y)
+{
+    return x && y && x->buffer && y->buffer && x->buffer->view && y->buffer->view &&
+           shapes_equal(x->buffer->view->shape, x->buffer->view->rank,
+                        y->buffer->view->shape, y->buffer->view->rank);
+}
+
+nw_error_t *tensor_transpose(const tensor_t *x, tensor_t **y, uint64_t axis1, uint64_t axis2)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTF_DEBUG("(axis1: %lu, axis2: %lu)\n", axis1, axis2);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+
+    uint64_t rank = x->buffer->view->rank;
+    uint64_t axis[rank];
+    for (uint64_t i = 0; i < rank; ++i)
+    {
+        axis[i] = i;
+    }
+    uint64_t temp = axis[axis2];
+    axis[axis2] = axis[axis1];
+    axis[axis1] = temp;
+
+    error = apply_function_structure(PERMUTE_OPERATION, x, axis, rank, y);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
@@ -1069,6 +1518,10 @@ nw_error_t *tensor_rectified_linear(const tensor_t *x, tensor_t **y)
 
 static nw_error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *tensors)
 {
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("tensor", tensor);
+    PRINT_DEBUG_NEWLINE;
+
     CHECK_NULL_ARGUMENT(tensor, "tensor");
     CHECK_NULL_ARGUMENT(visited, "visited");
     CHECK_NULL_ARGUMENT(tensors, "tensors");
@@ -1169,6 +1622,35 @@ cleanup:
     return error;
 }
 
+nw_error_t *tensor_arange(tensor_t **x, int64_t start, int64_t stop, int64_t step, runtime_t runtime, datatype_t datatype, bool_t requires_gradient)
+{
+    nw_error_t *error = NULL;
+    uint64_t interval = (stop - start) / step;
+    buffer_t *buffer = NULL;
+
+    error = buffer_create_empty(&buffer, (uint64_t[]) {interval}, NULL, 1, runtime, datatype);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    error = runtime_init_arange(buffer, start, stop, step);
+    if (error)
+    {
+        buffer_destroy(buffer);
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize buffer."), error);
+    }
+
+    error = tensor_create(x, buffer, NULL, NULL, requires_gradient);
+    if (error)
+    {
+        buffer_destroy(buffer);
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    return error;
+}
+
 nw_error_t *tensor_zeroes_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t preserve_memory_format)
 {
     CHECK_NULL_ARGUMENT(x, "x");
@@ -1215,6 +1697,293 @@ nw_error_t *tensor_ones_like(const tensor_t *x, tensor_t **y, bool_t requires_gr
     return error;
 }
 
+nw_error_t *tensor_create_zeroes(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                                 runtime_t runtime, datatype_t datatype, bool_t requires_gradient)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    error = runtime_init_zeroes((*x)->buffer);
+    if (error)
+    {
+        tensor_destroy(*x);
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tensor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_create_ones(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                               runtime_t runtime, datatype_t datatype, bool_t requires_gradient)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    error = runtime_init_ones((*x)->buffer);
+    if (error)
+    {
+        tensor_destroy(*x);
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tensor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_create_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                                  runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
+                                  void *lower_bound, void *upper_bound)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NULL_ARGUMENT(lower_bound, "lower_bound");
+    CHECK_NULL_ARGUMENT(upper_bound, "upper_bound");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    error = runtime_init_uniform((*x)->buffer, lower_bound, upper_bound);
+    if (error)
+    {
+        tensor_destroy(*x);
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tensor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_create_normal(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                                 runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
+                                 void *mean, void *standard_deviation)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(mean, "mean");
+    CHECK_NULL_ARGUMENT(standard_deviation, "standard_deviation");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    error = runtime_init_normal((*x)->buffer, mean, standard_deviation);
+    if (error)
+    {
+        tensor_destroy(*x);
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tensor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_create_kaiming_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                                          runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
+                                          void *gain, void *fan)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NULL_ARGUMENT(gain, "gain");
+    CHECK_NULL_ARGUMENT(fan, "fan");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    float32_t lower_bound_float32, upper_bound_float32;
+    float64_t lower_bound_float64, upper_bound_float64;
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        upper_bound_float32 = *(float32_t *) gain * sqrtf(3.0 / *(float32_t *) fan);
+        lower_bound_float32 = -upper_bound_float32;
+        error = runtime_init_uniform((*x)->buffer, &lower_bound_float32, &upper_bound_float32);
+        break;
+    case FLOAT64:
+        upper_bound_float64 = *(float64_t *) gain * sqrt(3.0 / *(float64_t *) fan);
+        lower_bound_float64 = -upper_bound_float64;
+        error = runtime_init_uniform((*x)->buffer, &lower_bound_float64, &upper_bound_float64);
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        break;
+    }
+
+    if (error)
+    {
+        tensor_destroy(*x);
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tenssor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_create_kaiming_normal(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                                         runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
+                                         void *gain, void *fan)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NULL_ARGUMENT(gain, "gain");
+    CHECK_NULL_ARGUMENT(fan, "fan");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    float32_t mean_float32, standard_deviation_float32;
+    float64_t mean_float64, standard_deviation_float64;
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        mean_float32 = (float32_t) 0.0;
+        standard_deviation_float32 = *(float32_t *) gain / sqrtf(*(float32_t *) fan);
+        error = runtime_init_normal((*x)->buffer, (void *) &mean_float32, (void *) &standard_deviation_float32);
+        break;
+    case FLOAT64:
+        mean_float64 = (float64_t) 0.0;
+        standard_deviation_float64 = *(float64_t *) gain / sqrt(*(float64_t *) fan);
+        error = runtime_init_uniform((*x)->buffer, (void *) &mean_float64, (void *) &standard_deviation_float64);
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        break;
+    }
+
+    if (error)
+    {
+        tensor_destroy(*x);
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tenssor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_create_glorot_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                                         runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
+                                         void *gain, void *fan_in, void *fan_out)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NULL_ARGUMENT(gain, "gain");
+    CHECK_NULL_ARGUMENT(fan_in, "fan_in");
+    CHECK_NULL_ARGUMENT(fan_out, "fan_out");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    float32_t lower_bound_float32, upper_bound_float32;
+    float64_t lower_bound_float64, upper_bound_float64;
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        upper_bound_float32 = *(float32_t *) gain * sqrtf(6.0 / (*(float32_t *) fan_in + *(float32_t *) fan_out));
+        lower_bound_float32 = -upper_bound_float32;
+        error = runtime_init_uniform((*x)->buffer, &lower_bound_float32, &upper_bound_float32);
+        break;
+    case FLOAT64:
+        upper_bound_float64 = *(float64_t *) gain * sqrt(6.0 / (*(float64_t *) fan_in + *(float64_t *) fan_out));
+        lower_bound_float64 = -upper_bound_float64;
+        error = runtime_init_uniform((*x)->buffer, &lower_bound_float64, &upper_bound_float64);
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        break;
+    }
+
+    if (error)
+    {
+        tensor_destroy(*x);
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tenssor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_create_glorot_normal(tensor_t **x, const uint64_t *shape, uint64_t rank,
+                                        runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
+                                        void *gain, void *fan_in, void *fan_out)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NULL_ARGUMENT(gain, "gain");
+    CHECK_NULL_ARGUMENT(fan_in, "fan_in");
+    CHECK_NULL_ARGUMENT(fan_in, "fan_in");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    float32_t mean_float32, standard_deviation_float32;
+    float64_t mean_float64, standard_deviation_float64;
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        mean_float32 = (float32_t) 0.0;
+        standard_deviation_float32 = *(float32_t *) gain * sqrtf(2.0 / (*(float32_t *) fan_in + *(float32_t *) fan_out));
+        error = runtime_init_normal((*x)->buffer, (void *) &mean_float32, (void *) &standard_deviation_float32);
+        break;
+    case FLOAT64:
+        mean_float64 = (float64_t) 0.0;
+        standard_deviation_float64 = *(float64_t *) gain * sqrt(2.0 / (*(float64_t *) fan_in + *(float64_t *) fan_out));
+        error = runtime_init_normal((*x)->buffer, (void *) &mean_float64, (void *) &standard_deviation_float64);
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        break;
+    }
+
+    if (error)
+    {
+        tensor_destroy(*x);
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tenssor."), error);
+    }
+
+    return error;
+}
+
 nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t preserve_memory_format)
 {
     CHECK_NULL_ARGUMENT(x, "x");
@@ -1241,7 +2010,7 @@ nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_g
         return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
     }
 
-    error = storage_create(&storage, runtime, datatype, n, NULL);
+    error = storage_create(&storage, runtime, datatype, n, NULL, true);
     if (error)
     {
         view_destroy(view);
@@ -1273,36 +2042,11 @@ nw_error_t *tensor_create_empty(const uint64_t *shape, const uint64_t *strides, 
     CHECK_NULL_ARGUMENT(shape, "shape");
 
     nw_error_t *error = NULL;
-    view_t *view = NULL;
-    storage_t *storage = NULL;
     buffer_t *buffer = NULL;
-    uint64_t n = 0;
 
-    error = view_create(&view, 0, rank, shape, strides);
+    error = buffer_create_empty(&buffer, shape, strides, rank, runtime, datatype);
     if (error)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
-    }
-
-    error = n_from_shape_and_strides(view->shape, view->strides, view->rank, &n);
-    if (error)
-    {
-        view_destroy(view);
-        return ERROR(ERROR_N, string_create("failed to obtain storage size."), error);
-    }
-
-    error = storage_create(&storage, runtime, datatype, n, NULL);
-    if (error)
-    {
-        view_destroy(view);
-        return ERROR(ERROR_CREATE, string_create("failed to create storage."), error);
-    }
-
-    error = buffer_create(&buffer, view, storage, false);
-    if (error)
-    {
-        view_destroy(view);
-        storage_destroy(storage);
         return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
     }
 

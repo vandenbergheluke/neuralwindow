@@ -9,6 +9,8 @@
 #include <buffer.h>
 #include <string.h>
 
+extern bool_t no_gradient;
+
 /**
  * @brief The function constructor.
  * @param function The address of the pointer to the function being instantiated.
@@ -196,7 +198,7 @@ nw_error_t *apply_function_binary(binary_operation_type_t binary_operation_type,
 
 cleanup:
 
-    if (!(x_broadcasted->requires_gradient || y_broadcasted->requires_gradient))
+    if (!(x->requires_gradient || y->requires_gradient) || no_gradient)
     {
         if (x != x_broadcasted)
         {
@@ -349,7 +351,7 @@ nw_error_t *function_forward(function_t *function, tensor_t **result)
 
     if (*result)
     {
-        if ((*result)->requires_gradient)
+        if ((*result)->requires_gradient && !no_gradient)
         {
             (*result)->context = function;
         }
@@ -1453,10 +1455,13 @@ nw_error_t *unary_operation_forward(unary_operation_t *unary_operation, tensor_t
     tensor_t *x = unary_operation->x;
     unary_operation_type_t operation_type = unary_operation->operation_type;
 
-    error = tensor_empty_like(x, result, x->requires_gradient, false);    
-    if (error)
+    if (!*result)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        error = tensor_empty_like(x, result, x->requires_gradient, false);    
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        }
     }
 
     switch (operation_type)
@@ -2113,7 +2118,6 @@ static nw_error_t *matrix_multiplication_operation_forward(tensor_t *x, tensor_t
         return ERROR(ERROR_MATRIX_MULTIPLICATION, string_create("failed to run matrix multiplication operation."), error);
     }
 
-
     return error;
 }
 
@@ -2122,9 +2126,10 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
-    CHECK_NULL_ARGUMENT(gradient->buffer, "gradient->buffer");
-    CHECK_NULL_ARGUMENT(gradient->buffer->view, "gradient->buffe->view");
-    CHECK_NULL_ARGUMENT(gradient->buffer->view->shape, "gradient->buffe->view->shape");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(y->buffer, "y->buffer");
+    CHECK_NULL_ARGUMENT(y->buffer->view, "y->buffer->view");
 
     nw_error_t *error = NULL;
     tensor_t *x_gradient = NULL;
@@ -2134,19 +2139,10 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
     tensor_t *y_gradient_i = NULL;
     tensor_t *y_gradient_j = NULL;
 
-    // Transpose
-    uint64_t rank = gradient->buffer->view->rank;
-    uint64_t axis[rank];
-    for (uint64_t i = 0; i < rank; ++i)
-    {
-        axis[i] = i;
-    }
-    uint64_t temp = axis[rank - 1];
-    axis[rank - 1] = axis[rank - 2];
-    axis[rank - 2] = temp;
-
     if (x->requires_gradient)
     {
+        uint64_t rank = y->buffer->view->rank;
+
         error = tensor_as_tensor(y, &x_gradient_j, false);
         if (error)
         {
@@ -2154,10 +2150,10 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
             goto cleanup;
         }
 
-        error = tensor_permute(x_gradient_j, &x_gradient_i, axis, rank);
+        error = tensor_transpose(x_gradient_j, &x_gradient_i, rank - 2, rank - 1);
         if (error)
         {
-            error = ERROR(ERROR_PERMUTE, string_create("failed to permute tensor"), error);
+            error = ERROR(ERROR_TRANSPOSE, string_create("failed to transpose tensor"), error);
             goto cleanup;
         }
 
@@ -2178,6 +2174,8 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
 
     if (y->requires_gradient)
     {
+        uint64_t rank = x->buffer->view->rank;
+
         error = tensor_as_tensor(x, &y_gradient_j, false);
         if (error)
         {
@@ -2185,10 +2183,10 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
             goto cleanup;
         }
 
-        error = tensor_permute(y_gradient_j, &y_gradient_i, axis, rank);
+        error = tensor_transpose(y_gradient_j, &y_gradient_i, rank - 2, rank - 1);
         if (error)
         {
-            error = ERROR(ERROR_PERMUTE, string_create("failed to permute tensor"), error);
+            error = ERROR(ERROR_TRANSPOSE, string_create("failed to transpose tensor"), error);
             goto cleanup;
         }
 
@@ -2302,39 +2300,42 @@ nw_error_t *binary_operation_forward(binary_operation_t *binary_operation, tenso
         runtime = x_runtime;
     }
 
-    if (operation_type != MATRIX_MULTIPLICATION_OPERATION)
+    if (!*result)
     {
-        if (!shapes_equal(x_shape, x_rank, y_shape, y_rank))
+        if (operation_type != MATRIX_MULTIPLICATION_OPERATION)
         {
-            return ERROR(ERROR_SHAPE_CONFLICT, string_create("incompatible tensor shapes."), NULL);
+            if (!tensor_shapes_equal(x, y))
+            {
+                return ERROR(ERROR_SHAPE_CONFLICT, string_create("incompatible tensor shapes."), NULL);
+            }
+            else
+            {
+                shape = x_shape;
+                rank = x_rank;
+            }
+
+            error = tensor_create_empty(shape, NULL, rank, result, requires_gradient, runtime, datatype);    
+            if (error)
+            {
+                return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            }
         }
         else
         {
-            shape = x_shape;
-            rank = x_rank;
-        }
+            uint64_t rank = MAX(x_rank, y_rank);
+            uint64_t shape[rank];
 
-        error = tensor_create_empty(shape, NULL, rank, result, requires_gradient, runtime, datatype);    
-        if (error)
-        {
-            return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-        }
-    }
-    else
-    {
-        uint64_t rank = MAX(x_rank, y_rank);
-        uint64_t shape[rank];
+            error = matrix_multiplication_shape(x_shape, y_shape, shape, rank);
+            if (error)
+            {
+                return ERROR(ERROR_SHAPE_CONFLICT, string_create("incompatible shapes for matrix multiplication."), error);
+            }
 
-        error = matrix_multiplication_shape(x_shape, y_shape, shape, rank);
-        if (error)
-        {
-            return ERROR(ERROR_SHAPE_CONFLICT, string_create("incompatible shapes for matrix multiplication."), error);
-        }
-
-        error = tensor_create_empty(shape, NULL, rank, result, requires_gradient, runtime, datatype);
-        if (error)
-        {
-            return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            error = tensor_create_empty(shape, NULL, rank, result, requires_gradient, runtime, datatype);
+            if (error)
+            {
+                return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            }
         }
     }
 
@@ -2777,38 +2778,49 @@ nw_error_t *reduction_operation_forward(reduction_operation_t *reduction_operati
         return ERROR(ERROR_RANK_CONFLICT, string_create("reduction axis length greater than rank of tensor."), NULL);
     }
 
-    error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, axis, length, keep_dimension);
-    if (error)
+    if (!rank)
     {
-        return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
+        error = tensor_as_tensor(x, result, x->requires_gradient);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create tensor"), error);
+        }
     }
-
-    error = tensor_create_empty(reduced_shape, reduced_strides, reduced_rank, result, requires_gradient, runtime, datatype);
-    if (error)
+    else
     {
-        return ERROR(ERROR_CREATE, string_create("failed to reduce tensor."), error);
-    }
+        error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, axis, length, keep_dimension);
+        if (error)
+        {
+            return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
+        }
 
-    switch (operation_type)
-    {
-    case SUMMATION_OPERATION:
-        error = summation_operation_forward(x, axis, length, *result, keep_dimension);
-        break;
-    case MAXIMUM_OPERATION:
-        error = maximum_operation_forward(x, axis, length, *result, keep_dimension);
-        break;
-    default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
-        break;
-    }
+        error = tensor_create_empty(reduced_shape, reduced_strides, reduced_rank, result, requires_gradient, runtime, datatype);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to reduce tensor."), error);
+        }
 
-    if (error)
-    {
-        tensor_destroy(*result);
-        *result = NULL;
-        return ERROR(ERROR_FORWARD,
-                     string_create("failed to execute reduction operation forward pass of type %s.",
-                     reduction_operation_type_string(operation_type)), error);
+        switch (operation_type)
+        {
+        case SUMMATION_OPERATION:
+            error = summation_operation_forward(x, axis, length, *result, keep_dimension);
+            break;
+        case MAXIMUM_OPERATION:
+            error = maximum_operation_forward(x, axis, length, *result, keep_dimension);
+            break;
+        default:
+            error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+            break;
+        }
+
+        if (error)
+        {
+            tensor_destroy(*result);
+            *result = NULL;
+            return ERROR(ERROR_FORWARD,
+                         string_create("failed to execute reduction operation forward pass of type %s.",
+                         reduction_operation_type_string(operation_type)), error);
+        }
     }
 
     reduction_operation->result = *result;

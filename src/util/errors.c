@@ -135,8 +135,48 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_SIGMOID";
     case ERROR_PUSH:
         return "ERROR_PUSH";
+    case ERROR_TRANSPOSE:
+        return "ERROR_TRANSPOSE";
+    case ERROR_SOFTMAX:
+        return "ERROR_SOFTMAX";
+    case ERROR_MEAN:
+        return "ERROR_MEAN";
+    case ERROR_FILE:
+        return "ERROR_FILE";
+    case ERROR_SETUP:
+        return "ERROR_SETUP";
+    case ERROR_TEARDOWN:
+        return "ERROR_TEARDOWN";
+    case ERROR_LOAD:
+        return "ERROR_LOAD";
+    case ERROR_CRITERION:
+        return "ERROR_CRITERION";
+    case ERROR_METRICS:
+        return "ERROR_METRICS";
+    case ERROR_STEP:
+        return "ERROR_STEP";
+    case ERROR_RESET:
+        return "ERROR_RESET";
+    case ERROR_TRAIN:
+        return "ERROR_TRAIN";
+    case ERROR_VALID:
+        return "ERROR_VALID";
+    case ERROR_TEST:
+        return "ERROR_TEST";
+    case ERROR_UNKNOWN_ALGORITHM:
+        return "ERROR_UNKNOWN_ALGORITHM";
+    case ERROR_GAIN:
+        return "ERROR_GAIN";
+    case ERROR_UPDATE:
+        return "ERROR_UPDATE";
+    case ERROR_REQUIRES_GRADIENT:
+        return "ERROR_REQUIRES_GRADIENT";
+    case ERROR_ACTIVATION_TYPE:
+        return "ERROR_ACTIVATION_TYPE";
     case ERROR_DROPOUT:
         return "ERROR_DROPOUT";
+    case ERROR_DATASET_TYPE:
+        return "ERROR_DATASET_TYPE";
     default:
         return "ERROR";
     }

@@ -7,6 +7,7 @@ extern "C"
 #include <buffer.h>
 #include <tensor.h>
 #include <function.h>
+#include <cost.h>
 }
 #include <test_helper.h>
 
@@ -16,6 +17,7 @@ extern "C"
 nw_error_t *error;
 
 tensor_t *input[RUNTIMES][DATATYPES][CASES];
+tensor_t *output[RUNTIMES][DATATYPES][CASES];
 tensor_t *cost[RUNTIMES][DATATYPES][CASES];
 tensor_t *weights[RUNTIMES][DATATYPES][CASES][LAYERS];
 tensor_t *bias[RUNTIMES][DATATYPES][CASES][LAYERS];
@@ -28,10 +30,15 @@ tensor_t *expected_gradients_weights[RUNTIMES][DATATYPES][CASES][LAYERS];
 tensor_t *expected_gradients_bias[RUNTIMES][DATATYPES][CASES][LAYERS];
 
 torch::Tensor torch_input[RUNTIMES][DATATYPES][CASES];
+torch::Tensor torch_output[RUNTIMES][DATATYPES][CASES];
 torch::Tensor torch_weights[RUNTIMES][DATATYPES][CASES][LAYERS];
 torch::Tensor torch_bias[RUNTIMES][DATATYPES][CASES][LAYERS];
 
 std::vector<int64_t> input_shape[CASES] = {
+    {5, 10},
+};
+
+std::vector<int64_t> output_shape[CASES] = {
     {5, 10},
 };
 
@@ -41,7 +48,7 @@ std::vector<int64_t> weight_shapes[CASES][LAYERS] = {
         {11, 12},
         {12, 11},
         {11, 10},
-        {10, 1},
+        {10, 10},
     },
 };
 
@@ -51,7 +58,7 @@ std::vector<int64_t> bias_shapes[CASES][LAYERS] = {
         {12},
         {11},
         {10},
-        {1},
+        {10},
     },
 };
 
@@ -65,7 +72,40 @@ void setup(void)
             for (int k = 0; k < CASES; ++k)
             {
                 input[i][j][k] = NULL;
+                output[i][j][k] = NULL;
                 cost[i][j][k] = NULL;
+
+                switch ((datatype_t) j)
+                {
+                case FLOAT32:
+                    torch_input[i][j][k] = torch::randn(input_shape[k],
+                                                    torch::TensorOptions()
+                                                    .dtype(torch::kFloat32)
+                                                    .requires_grad(false));
+                    torch_output[i][j][k] = torch::randint(0, 2, output_shape[k],
+                                                           torch::TensorOptions()
+                                                          .dtype(torch::kFloat32)
+                                                         .requires_grad(false));
+                    break;
+                case FLOAT64:
+                    torch_input[i][j][k] = torch::randn(input_shape[k],
+                                                    torch::TensorOptions()
+                                                    .dtype(torch::kFloat64)
+                                                    .requires_grad(false));
+                    torch_output[i][j][k] = torch::randint(0, 2, output_shape[k],
+                                                           torch::TensorOptions()
+                                                          .dtype(torch::kFloat64)
+                                                         .requires_grad(false));
+                    break;
+                default:
+                    ck_abort_msg("unknown datatype.");
+                }
+
+                input[i][j][k] = torch_to_tensor(torch_input[i][j][k], (runtime_t) i, (datatype_t) j);
+                output[i][j][k] = torch_to_tensor(torch_output[i][j][k], (runtime_t) i, (datatype_t) j);
+
+                ck_assert_ptr_null(error);
+
                 for (int l = 0; l < LAYERS; ++l)
                 {
                     returned_tensors[i][j][k][l] = NULL;
@@ -76,35 +116,7 @@ void setup(void)
                     bias[i][j][k][l] = NULL;
                     expected_gradients_weights[i][j][k][l] = NULL;
                     expected_gradients_bias[i][j][k][l] = NULL;
-                }
-            }
 
-            for (int k = 0; k < CASES; ++k)
-            {
-                switch ((datatype_t) j)
-                {
-                case FLOAT32:
-                    torch_input[i][j][k] = torch::randn(input_shape[k],
-                                                    torch::TensorOptions()
-                                                    .dtype(torch::kFloat32)
-                                                    .requires_grad(false));
-                    break;
-                case FLOAT64:
-                    torch_input[i][j][k] = torch::randn(input_shape[k],
-                                                    torch::TensorOptions()
-                                                    .dtype(torch::kFloat64)
-                                                    .requires_grad(false));
-                    break;
-                default:
-                    ck_abort_msg("unknown datatype.");
-                }
-
-                input[i][j][k] = torch_to_tensor(torch_input[i][j][k], (runtime_t) i, (datatype_t) j);
-
-                ck_assert_ptr_null(error);
-
-                for (int l = 0; l < LAYERS; ++l)
-                {
                     switch ((datatype_t) j)
                     {
                     case FLOAT32:
@@ -151,6 +163,7 @@ void teardown(void)
             for (int k = 0; k < CASES; k++)
             {
                 tensor_destroy(input[i][j][k]);
+                tensor_destroy(output[i][j][k]);
                 for (int l = 0; l < LAYERS; l++)
                 {
                     tensor_destroy(expected_tensors[i][j][k][l]);
@@ -183,7 +196,7 @@ START_TEST(test_feed_forward_neural_network)
                     expected_tensor = torch::add(expected_tensor, torch_bias[i][j][k][l]);
                     if (l == LAYERS - 1)
                     {
-                        expected_tensor = torch::sigmoid(expected_tensor);
+                        expected_tensor = torch::log_softmax(expected_tensor, -1);
                     }
                     else
                     {
@@ -204,7 +217,7 @@ START_TEST(test_feed_forward_neural_network)
 
                     if (l == LAYERS - 1)
                     {
-                        error = tensor_sigmoid(returned_tensors_j[i][j][k][l], &returned_tensors[i][j][k][l]);
+                        error = tensor_logsoftmax(returned_tensors_j[i][j][k][l], &returned_tensors[i][j][k][l], returned_tensors_j[i][j][k][l]->buffer->view->rank - 1);
                     }
                     else
                     {
@@ -214,13 +227,12 @@ START_TEST(test_feed_forward_neural_network)
                     
                     expected_tensors[i][j][k][l] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
 
-                    ck_assert_tensor_equiv(returned_tensors[i][j][k][l], 
-                                           expected_tensors[i][j][k][l]);
+                    ck_assert_tensor_equiv(returned_tensors[i][j][k][l], expected_tensors[i][j][k][l]);
                 }
                 
                 // Backward Propogation
-                expected_tensor.mean().backward();
-                error = tensor_mean(returned_tensors[i][j][k][LAYERS - 1], &cost[i][j][k], NULL, 0, false);
+                torch::neg(torch::mean(torch::sum(torch::mul(expected_tensor, torch_output[i][j][k]), -1))).backward();
+                error = negative_log_likelihood(output[i][j][k], returned_tensors[i][j][k][LAYERS - 1], &cost[i][j][k]);
                 ck_assert_ptr_null(error);
                 error = tensor_backward(cost[i][j][k], NULL);
                 ck_assert_ptr_null(error);
