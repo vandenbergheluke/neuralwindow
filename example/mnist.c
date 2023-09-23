@@ -18,7 +18,8 @@ typedef struct mnist_dataset_t
     uint64_t height;
     uint64_t width;
     uint64_t number_of_labels;
-    uint64_t offset;
+    uint64_t image_offset;
+    uint64_t label_offset;
 } mnist_dataset_t;
 
 static uint32_t uint32_big_endian(uint8_t *buffer)
@@ -31,7 +32,7 @@ static uint32_t uint32_big_endian(uint8_t *buffer)
     return value;
 }
 
-nw_error_t *mnist_metrics(dataset_type_t dataset_type, const tensor_t *y_pred, const tensor_t *y_true)
+nw_error_t *mnist_metrics(dataset_type_t dataset_type, const tensor_t *y_true, const tensor_t *y_pred)
 {
     CHECK_NULL_ARGUMENT(y_pred, "y_pred");
     CHECK_NULL_ARGUMENT(y_true, "y_true");
@@ -46,16 +47,20 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type, const tensor_t *y_pred, c
         return ERROR(ERROR_EXPONENTIAL, string_create("failed to exponentiate tensor."), error);
     }
 
+    // PRINTLN_TEMP_TENSOR("probabilities", probabilities);
+    // PRINTLN_TEMP_TENSOR("y_true", y_true);
+
+
     switch (dataset_type)
     {
     case TRAIN:
-        error = multiclass_accuracy(y_pred, y_true, &accuracy);
+        error = multiclass_accuracy(probabilities, y_true, &accuracy);
         break;
     case VALID:
-        error = multiclass_accuracy(y_pred, y_true, &accuracy);
+        error = multiclass_accuracy(probabilities, y_true, &accuracy);
         break;
     case TEST:
-        error = multiclass_accuracy(y_pred, y_true, &accuracy);
+        error = multiclass_accuracy(probabilities, y_true, &accuracy);
         break;
     default:
         error = ERROR(ERROR_DATASET_TYPE, string_create("unknown dataset type %d.", dataset_type), NULL);
@@ -128,7 +133,8 @@ nw_error_t *mnist_setup(void *arguments)
     mnist_dataset->width = (uint64_t) uint32_big_endian(buffer);
 
     mnist_dataset->number_of_labels = 10;
-    mnist_dataset->offset = 16;
+    mnist_dataset->image_offset = 16;
+    mnist_dataset->label_offset = 8;
 
     return error;
 }
@@ -166,7 +172,6 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
     mnist_dataset_t *mnist_dataset = (mnist_dataset_t *) arguments;
     uint64_t number_of_pixels = mnist_dataset->height * mnist_dataset->width;
     uint64_t number_of_labels = mnist_dataset->number_of_labels;
-    uint64_t images_offset = mnist_dataset->offset;
     uint64_t batch_size = batch->batch_size;
     uint64_t m = batch_size * number_of_labels;
     uint64_t n = batch_size * number_of_pixels;
@@ -191,7 +196,13 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
         return ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
     }
 
-    status = fseek(mnist_dataset->images_file, images_offset + index * number_of_pixels , SEEK_SET);
+    status = fseek(mnist_dataset->images_file, mnist_dataset->image_offset + index * number_of_pixels , SEEK_SET);
+    if (status)
+    {
+        return ERROR(ERROR_FILE, string_create("failed to move to offset in file."), NULL);
+    }
+
+    status = fseek(mnist_dataset->labels_file, mnist_dataset->label_offset + index , SEEK_SET);
     if (status)
     {
         return ERROR(ERROR_FILE, string_create("failed to move to offset in file."), NULL);
@@ -208,10 +219,10 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
         switch (datatype)
         {
         case FLOAT32:
-            ((float32_t *) data)[i] = (float32_t) *file_buffer;
+            ((float32_t *) data)[i] = (float32_t) *file_buffer / (float64_t) 255.0;
             break;
         case FLOAT64:
-            ((float64_t *) data)[i] = (float64_t) *file_buffer;
+            ((float64_t *) data)[i] = (float64_t) *file_buffer / (float64_t) 255.0;
             break;
         default:
             return ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
@@ -385,19 +396,19 @@ int main(void)
     };
 
     nw_error_t *error = NULL;
-    uint64_t epochs = 2;
+    uint64_t epochs = 1000;
     model_t *model = NULL;
     runtime_t runtime = OPENBLAS_RUNTIME;
     datatype_t datatype = FLOAT32;
     uint64_t number_of_samples = 60000;
     batch_t *batch = NULL;
-    uint64_t batch_size = 8;
+    uint64_t batch_size = 128;
     bool_t shuffle = true;
     float32_t train_split = 0.7;
     float32_t valid_split = 0.2;
     float32_t test_split = 0.1;
     optimizer_t *optimizer = NULL;
-    float32_t learning_rate = 0.001;
+    float32_t learning_rate = 0.0001;
 
     error = batch_create(&batch, batch_size, datatype, runtime);
     if (error)

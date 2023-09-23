@@ -57,16 +57,24 @@ nw_error_t *multiclass_accuracy(const tensor_t *y_pred, const tensor_t *y_true, 
     nw_error_t *error = NULL;
     tensor_t *y_i = NULL;
     tensor_t *y_j = NULL;
+    tensor_t *y_k = NULL;
     uint64_t rank = y_pred->buffer->view->rank;
 
-    error = tensor_argument_maximum(y_pred, &y_i, rank - 1, true);
+    error = tensor_argument_maximum(y_pred, &y_i, rank - 1, false);
     if (error)
     {
         error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
         goto cleanup;
     }
 
-    error = tensor_compare_equal(y_i, y_true, &y_j);
+    error = tensor_argument_maximum(y_true, &y_k, rank - 1, false);
+    if (error)
+    {
+        error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_compare_equal(y_i, y_k, &y_j);
     if (error)
     {
         error = ERROR(ERROR_COMPARE_EQUAL, string_create("failed to compare equal tensors."), error);
@@ -86,6 +94,7 @@ cleanup:
     {
         tensor_destroy(y_i);
         tensor_destroy(y_j);
+        tensor_destroy(y_k);
     }
 
     return error;

@@ -77,10 +77,10 @@ nw_error_t *fit(uint64_t epochs,
 
     for (uint64_t i = 0; i < epochs; ++i)
     {
-        LOG("%lu / %lu epochs ", i + 1, epochs);
+        LOG("%lu / %lu epochs \n", i + 1, epochs);
         for (uint64_t j = 0; j < train_iterations; ++j)
         {
-            LOG("%s: %lu / %lu iterations ", dataset_type_string(TRAIN), j + 1, train_iterations);
+            LOG("%s: %lu / %lu iterations \n", dataset_type_string(TRAIN), j + 1, train_iterations);
 
             error = (*dataloader)(indicies[j] * batch->batch_size, batch, arguments);
             if (error)
@@ -101,6 +101,7 @@ nw_error_t *fit(uint64_t epochs,
             }
 
             LOG_SCALAR_TENSOR("cost", cost);
+            LOG_NEWLINE;
 
             with_no_gradient(true);
             error = (*metrics)(TRAIN, batch->y, y_pred);
@@ -128,8 +129,6 @@ nw_error_t *fit(uint64_t epochs,
             batch->y = NULL;
             y_pred = NULL;
             cost = NULL;
-            
-            LOG_NEWLINE;
         }
 
         with_no_gradient(true);
@@ -139,7 +138,7 @@ nw_error_t *fit(uint64_t epochs,
 
         for (uint64_t j = start; j < end; ++j)
         {
-            LOG("%s: %lu / %lu iterations ", dataset_type_string(VALID), j - start + 1, end - start);
+            LOG("%s: %lu / %lu iterations \n", dataset_type_string(VALID), j - start + 1, end - start);
 
             error = (*dataloader)(indicies[j] * batch->batch_size, batch, arguments);
             if (error)
@@ -160,14 +159,13 @@ nw_error_t *fit(uint64_t epochs,
             }
 
             LOG_SCALAR_TENSOR("cost", cost);
+            LOG_NEWLINE;
 
             error = (*metrics)(VALID, batch->y, y_pred);
             if (error)
             {
                 return ERROR(ERROR_METRICS, string_create("failed to compute metrics."), error);
             }
-
-            LOG_NEWLINE;
 
             tensor_destroy(batch->x);
             tensor_destroy(batch->y);
