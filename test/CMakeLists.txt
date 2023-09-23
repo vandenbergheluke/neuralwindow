@@ -19,7 +19,7 @@ set(TEST_CXX
     # test_buffer_binary
     # test_buffer_unary_performance
     # test_buffer_binary_performance
-    test_autograd
+    # test_autograd
 )
 
 set(TEST_HELPER

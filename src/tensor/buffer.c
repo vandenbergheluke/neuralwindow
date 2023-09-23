@@ -36,19 +36,28 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
     (*storage)->n = n;
     (*storage)->reference_count = 0;
 
-    nw_error_t *error = runtime_malloc(*storage);
-    if (error)
+    if (copy)
     {
-        free(*storage);
-        return ERROR(ERROR_MEMORY_ALLOCATION,
-                     string_create("failed to allocate buffer data for runtime %s and datatype %s.",
-                     runtime_string(runtime), datatype_string(datatype)), error);
+        nw_error_t *error = runtime_malloc(*storage);
+        if (error)
+        {
+            free(*storage);
+            return ERROR(ERROR_MEMORY_ALLOCATION,
+                         string_create("failed to allocate buffer data for runtime %s and datatype %s.",
+                         runtime_string(runtime), datatype_string(datatype)), error);
+        }
+
+        if (data)
+        {
+            memcpy((*storage)->data, data, (*storage)->n * datatype_size(datatype));
+        }
+
+    }
+    else
+    {
+        (*storage)->data = data;
     }
 
-    if (data && copy)
-    {
-        memcpy((*storage)->data, data, (*storage)->n * datatype_size(datatype));
-    }
 
     return NULL;
 }

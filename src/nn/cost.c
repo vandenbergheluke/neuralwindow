@@ -4,6 +4,8 @@
 #include <view.h>
 #include <cost.h>
 
+extern bool_t no_gradient;
+
 nw_error_t *categorical_cross_entropy(const tensor_t *y_true, const tensor_t *y_prediction, tensor_t **cost)
 {
     PRINTLN_DEBUG_LOCATION("input");
@@ -72,7 +74,7 @@ nw_error_t *categorical_cross_entropy(const tensor_t *y_true, const tensor_t *y_
 
 cleanup:
 
-    if (!y_prediction->requires_gradient)
+    if (!y_prediction->requires_gradient || no_gradient)
     {
         tensor_destroy(cost_i);
         tensor_destroy(cost_j);
@@ -143,7 +145,7 @@ nw_error_t *negative_log_likelihood(const tensor_t *y_true, const tensor_t *y_pr
 
 cleanup:
 
-    if (!y_prediction->requires_gradient)
+    if (!y_prediction->requires_gradient || no_gradient)
     {
         tensor_destroy(cost_j);
         tensor_destroy(cost_k);

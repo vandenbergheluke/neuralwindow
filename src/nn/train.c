@@ -102,11 +102,13 @@ nw_error_t *fit(uint64_t epochs,
 
             LOG_SCALAR_TENSOR("cost", cost);
 
+            with_no_gradient(true);
             error = (*metrics)(TRAIN, batch->y, y_pred);
             if (error)
             {
                 return ERROR(ERROR_METRICS, string_create("failed to compute metrics."), error);
             }
+            with_no_gradient(false);
 
             error = tensor_backward(cost, NULL);
             if (error)
@@ -119,6 +121,13 @@ nw_error_t *fit(uint64_t epochs,
             {
                 return ERROR(ERROR_STEP, string_create("failed to update weights."), error);
             }
+
+            tensor_destroy(batch->x);
+            tensor_destroy(batch->y);
+            batch->x = NULL;
+            batch->y = NULL;
+            y_pred = NULL;
+            cost = NULL;
             
             LOG_NEWLINE;
         }
@@ -159,6 +168,15 @@ nw_error_t *fit(uint64_t epochs,
             }
 
             LOG_NEWLINE;
+
+            tensor_destroy(batch->x);
+            tensor_destroy(batch->y);
+            tensor_destroy(y_pred);
+            tensor_destroy(cost);
+            batch->x = NULL;
+            batch->y = NULL;
+            y_pred = NULL;
+            cost = NULL;
         }
 
         with_no_gradient(false);
@@ -200,6 +218,15 @@ nw_error_t *fit(uint64_t epochs,
         }
          
         LOG_NEWLINE;
+
+        tensor_destroy(batch->x);
+        tensor_destroy(batch->y);
+        tensor_destroy(y_pred);
+        tensor_destroy(cost);
+        batch->x = NULL;
+        batch->y = NULL;
+        y_pred = NULL;
+        cost = NULL;
     }
 
     with_no_gradient(false);

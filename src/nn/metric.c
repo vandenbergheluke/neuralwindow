@@ -3,6 +3,8 @@
 #include <tensor.h>
 #include <metric.h>
 
+extern bool_t no_gradient;
+
 nw_error_t *binary_accuracy(const tensor_t *y_pred, const tensor_t *y_true, const tensor_t *threshold, tensor_t **accuracy)
 {
     CHECK_NULL_ARGUMENT(y_pred, "y_pred");
@@ -37,8 +39,11 @@ nw_error_t *binary_accuracy(const tensor_t *y_pred, const tensor_t *y_true, cons
 
 cleanup:
 
-    tensor_destroy(y_i);
-    tensor_destroy(y_j);
+    if (!y_pred->requires_gradient || no_gradient)
+    {
+        tensor_destroy(y_i);
+        tensor_destroy(y_j);
+    }
 
     return error;
 }
@@ -77,8 +82,11 @@ nw_error_t *multiclass_accuracy(const tensor_t *y_pred, const tensor_t *y_true, 
 
 cleanup:
 
-    tensor_destroy(y_i);
-    tensor_destroy(y_j);
+    if (!y_pred->requires_gradient || no_gradient)
+    {
+        tensor_destroy(y_i);
+        tensor_destroy(y_j);
+    }
 
     return error;
 }

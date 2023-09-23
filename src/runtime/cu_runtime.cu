@@ -651,7 +651,7 @@ extern "C" static void cu_compare_equal_float32(int n, const float32_t *x_data, 
     {
         x = x_data[i * x_stride];
         y = y_data[i * y_stride];
-        z_data[i * z_stride] = fabsf(x - y) < EPSILON * (fabsf(x) + fabsf(y)) ? (float32_t) 1.0 : (float32_t) 0.0;
+        z_data[i * z_stride] = fabsf(x - y) < EPSILON ? (float32_t) 1.0 : (float32_t) 0.0;
     }
 }
 
@@ -662,7 +662,7 @@ extern "C" static void cu_compare_equal_float64(int n, const float64_t *x_data, 
     {
         x = x_data[i * x_stride];
         y = y_data[i * y_stride];
-        z_data[i * z_stride] = fabs(x - y) < EPSILON * (fabs(x) + fabs(y)) ? (float64_t) 1.0 : (float64_t) 0.0;
+        z_data[i * z_stride] = fabs(x - y) < EPSILON ? (float64_t) 1.0 : (float64_t) 0.0;
     }
 }
 

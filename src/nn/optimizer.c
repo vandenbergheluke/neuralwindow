@@ -50,6 +50,8 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
     with_no_gradient(false);
 
     tensor_destroy(parameters->gradient);
+    tensor_destroy(learning_rate);
+    tensor_destroy(parameter_update);
     parameters->gradient = NULL;
 
     PRINTLN_DEBUG_LOCATION("output");

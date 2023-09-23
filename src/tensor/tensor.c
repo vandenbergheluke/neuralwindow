@@ -550,7 +550,7 @@ nw_error_t *tensor_matrix_multiplication(const tensor_t *x, const tensor_t *y, t
 
 cleanup:
 
-    if (!(x->requires_gradient || y->requires_gradient))
+    if (!(x->requires_gradient || y->requires_gradient) || no_gradient)
     {
         if (x_contiguous != x_broadcasted)
         {
@@ -563,12 +563,12 @@ cleanup:
         }
     }
 
-    if (x != x_contiguous && !(x->requires_gradient))
+    if (x != x_contiguous && (!(x->requires_gradient) || no_gradient))
     {
         tensor_destroy(x_contiguous);
     }
 
-    if (y != y_contiguous && !(y->requires_gradient))
+    if (y != y_contiguous && (!(y->requires_gradient) || no_gradient))
     {
         tensor_destroy(y_contiguous);
     }
@@ -939,7 +939,7 @@ nw_error_t *tensor_mean(const tensor_t *x, tensor_t **y, const uint64_t *axis, u
 
 cleanup:
 
-    if (!x_i->requires_gradient)
+    if (!x_i->requires_gradient || no_gradient)
     {
         tensor_destroy(x_i);
     }
@@ -1005,7 +1005,7 @@ static nw_error_t *softmax(const tensor_t *x, tensor_t **y_max, tensor_t **y_num
 
 cleanup:
 
-    if (!x->requires_gradient)
+    if (!x->requires_gradient || no_gradient)
     {
         tensor_destroy(x_i);
     }
@@ -1049,7 +1049,7 @@ nw_error_t *tensor_softmax(const tensor_t *x, tensor_t **y, uint64_t axis)
 
 cleanup:
 
-    if (!x->requires_gradient)
+    if (!x->requires_gradient || no_gradient)
     {
         tensor_destroy(x_i);
         tensor_destroy(x_j);
@@ -1103,7 +1103,7 @@ nw_error_t *tensor_logsoftmax(const tensor_t *x, tensor_t **y, uint64_t axis)
 
 cleanup:
 
-    if (!x->requires_gradient)
+    if (!x->requires_gradient || no_gradient)
     {
         tensor_destroy(x_i);
         tensor_destroy(x_j);
@@ -1156,7 +1156,7 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const uint64_t *shap
 
 cleanup:
 
-    if (x != x_contiguous && !x->requires_gradient)
+    if (x != x_contiguous && (!x->requires_gradient || no_gradient))
     {
         tensor_destroy(x_contiguous);
     }

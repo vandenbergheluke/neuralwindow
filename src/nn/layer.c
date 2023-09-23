@@ -7,6 +7,8 @@
 #include <math.h>
 #include <string.h>
 
+extern bool_t no_gradient;
+
 nw_error_t *linear_layer_create(layer_t **layer, 
                                 uint64_t in_features,
                                 uint64_t out_features,
@@ -177,12 +179,12 @@ static nw_error_t *linear_forward(linear_t *linear, tensor_t *x, tensor_t **y)
 
 cleanup:
 
-    if (!(x_i->requires_gradient || bias->requires_gradient))
+    if (!(x_i->requires_gradient || bias->requires_gradient) || no_gradient)
     {
         tensor_destroy(x_j);
     }
 
-    if (!(x->requires_gradient || weights->requires_gradient))
+    if (!(x->requires_gradient || weights->requires_gradient) || no_gradient)
     {
         tensor_destroy(x_i);
     }
@@ -238,7 +240,7 @@ static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
             return ERROR(ERROR_FORWARD, string_create("failed forward pass."), error);
         }
 
-        if (i > 0 && !feature_map->requires_gradient)
+        if (i > 0 && (!feature_map->requires_gradient || no_gradient))
         {
             tensor_destroy(x);
         }
@@ -627,6 +629,7 @@ void activation_function_destroy(activation_function_t *activation_function, act
         switch (activation_function_type)
         {
         case ACTIVATION_SOFTMAX:
+        case ACTIVATION_LOGSOFTMAX:
             softmax_destroy(activation_function->softmax);
             break;
         default:

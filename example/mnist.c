@@ -185,7 +185,7 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
         break;
     case FLOAT64:
         data = (void *) malloc(sizeof(float64_t) * n);
-        labels = (void *) malloc(sizeof(float32_t) * m);
+        labels = (void *) malloc(sizeof(float64_t) * m);
         break;
     default:
         return ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
@@ -231,10 +231,10 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
             switch (datatype)
             {
             case FLOAT32:
-                ((float32_t *) labels)[i] = ((uint8_t) j == *file_buffer) ? (float32_t) 1.0 : (float32_t) 0.0;
+                ((float32_t *) labels)[i * number_of_labels + j] = ((uint8_t) j == *file_buffer) ? (float32_t) 1.0 : (float32_t) 0.0;
                 break;
             case FLOAT64:
-                ((float64_t *) labels)[i] = ((uint8_t) j == *file_buffer) ? (float64_t) 1.0 : (float64_t) 0.0;
+                ((float64_t *) labels)[i * number_of_labels + j] = ((uint8_t) j == *file_buffer) ? (float64_t) 1.0 : (float64_t) 0.0;
                 break;
             default:
                 return ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
@@ -248,7 +248,7 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
-    error = tensor_from_data(&batch->y, data, runtime, datatype, 2, (uint64_t[]) {batch_size, number_of_labels}, copy, false);
+    error = tensor_from_data(&batch->y, labels, runtime, datatype, 2, (uint64_t[]) {batch_size, number_of_labels}, copy, false);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);

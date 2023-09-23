@@ -75,7 +75,7 @@ void init_destroy(init_t *init, init_type_t init_type)
         {
         case ZEROES:
         case ONES:
-            return;
+            break;
         case UNIFORM:
             uniform_init_destroy(init->uniform_init);
             break;
