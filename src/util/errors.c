@@ -177,6 +177,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_DROPOUT";
     case ERROR_DATASET_TYPE:
         return "ERROR_DATASET_TYPE";
+    case ERROR_GRAPH:
+        return "ERROR_GRAPH";
     default:
         return "ERROR";
     }

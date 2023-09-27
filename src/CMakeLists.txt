@@ -18,6 +18,7 @@ set(
     "${UTIL_DIR}/queue.c"
     "${UTIL_DIR}/random.c"
     "${UTIL_DIR}/stack.c"
+    "${UTIL_DIR}/graph.c"
     "${RUNTIME_DIR}/mkl_runtime.c"
     "${RUNTIME_DIR}/openblas_runtime.c"
     "${NN_DIR}/cost.c"
@@ -47,6 +48,7 @@ set(
     "${UTIL_DIR}/queue.h"
     "${UTIL_DIR}/random.h"
     "${UTIL_DIR}/stack.h"
+    "${UTIL_DIR}/graph.h"
     "${RUNTIME_DIR}/mkl_runtime.h"
     "${RUNTIME_DIR}/openblas_runtime.h"
     "${NN_DIR}/cost.h"
@@ -74,6 +76,10 @@ set(
     cublas
 )
 
+set(
+    GRAPH_LIBRARIES
+    cgraph
+)
 
 if (NOT DEFINED ENV{CPU_ONLY})
     add_library(${PROJECT_NAME} STATIC ${SOURCE} ${SOURCE_CUDA})
@@ -86,6 +92,11 @@ else()
     target_link_libraries(${TEST} ${PROJECT_NAME} ${CPU_LIBRARIES})
     set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${HEADERS}")
 endif()
+
+if (DEFINED ENV{GRAPH})
+    target_link_libraries(${PROJECT_NAME} ${GRAPH_LIBRARIES})
+endif()
+
 target_include_directories(${PROJECT_NAME} PUBLIC ${TENSOR_DIR} ${UTIL_DIR} ${RUNTIME_DIR} ${MKL_DIR} ${NN_DIR} ${INCLUDE_DIR})
 install(
     TARGETS ${PROJECT_NAME}

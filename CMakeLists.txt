@@ -36,6 +36,15 @@ if (DEFINED ENV{DEBUG})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG")
 endif()
 
+if (DEFINED ENV{GRAPH})
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DGRAPH")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGRAPH")
+    find_program(GRAPHVIZ dot)
+    if (NOT GRAPHVIZ)
+        message(FATAL_ERROR "Could not find Graphviz.")
+    endif()
+endif()
+
 list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")
 
 add_subdirectory(${SRC_DIR})

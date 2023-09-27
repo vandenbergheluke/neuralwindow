@@ -8,6 +8,7 @@
 #include <view.h>
 #include <buffer.h>
 #include <string.h>
+#include <graph.h>
 
 extern bool_t no_gradient;
 
@@ -351,6 +352,43 @@ nw_error_t *function_forward(function_t *function, tensor_t **result)
 
     if (*result)
     {
+        #ifdef GRAPH
+            switch(operation_type)
+            {
+                case UNARY_OPERATION:
+                    error = graph_unary_operation(operation->unary_operation->x,
+                                                *result,
+                                                unary_operation_type_string(operation->unary_operation->operation_type));                      
+                    break;
+                case BINARY_OPERATION:
+                    error = graph_binary_operation(operation->binary_operation->x, 
+                                                operation->binary_operation->y,
+                                                *result,
+                                                binary_operation_type_string(operation->binary_operation->operation_type));
+                    break;
+                case REDUCTION_OPERATION:
+                    error = graph_unary_operation(operation->reduction_operation->x,
+                                                    *result,
+                                                    reduction_operation_type_string(operation->reduction_operation->operation_type));
+                    break;
+                case STRUCTURE_OPERATION:
+                    error = graph_unary_operation(operation->structure_operation->x,
+                                                    *result,
+                                                    structure_operation_type_string(operation->structure_operation->operation_type));
+                    break;
+                default:
+                    error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+                    break;
+            }
+
+            if (error)
+            {
+                return ERROR(ERROR_GRAPH,
+                            string_create("failed to add operation to graph %s.", 
+                            operation_type_string(operation_type)), error);
+            }
+        #endif
+
         if ((*result)->requires_gradient && !no_gradient)
         {
             (*result)->context = function;
