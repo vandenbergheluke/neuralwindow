@@ -1619,10 +1619,10 @@ string_t binary_operation_type_string(binary_operation_type_t binary_operation_t
         return "POWER_OPERATION";
     case MATRIX_MULTIPLICATION_OPERATION:
         return "MATRIX_MULTIPLICATION_OPERATION";
-    case COMPARE_EQUAL:
-        return "COMPARE_EQUAL";
-    case COMPARE_GREATER:
-        return "COMPARE_GREATER";
+    case COMPARE_EQUAL_OPERATION:
+        return "COMPARE_EQUAL_OPERATION";
+    case COMPARE_GREATER_OPERATION:
+        return "COMPARE_GREATER_OPERATION";
     default:
         return "UKNOWN_OPERATION";
     }
@@ -2359,10 +2359,10 @@ nw_error_t *binary_operation_forward(binary_operation_t *binary_operation, tenso
     case MATRIX_MULTIPLICATION_OPERATION:
         error = matrix_multiplication_operation_forward(x, y, *result);
         break;
-    case COMPARE_EQUAL:
+    case COMPARE_EQUAL_OPERATION:
         error = compare_equal_operation_forward(x, y, *result);
         break;
-    case COMPARE_GREATER:
+    case COMPARE_GREATER_OPERATION:
         error = compare_greater_operation_forward(x, y, *result);
         break;
     default:
@@ -3570,6 +3570,134 @@ nw_error_t *structure_operation_backward(structure_operation_t *structure_operat
                      string_create("failed to execute structure operation backward pass of type %s.",
                      structure_operation_type_string(operation_type)), error);
     }
+
+    return error;
+}
+
+
+static nw_error_t *empty_operation_forward(const uint64_t *shape,
+                                           uint64_t rank,
+                                           const uint64_t *strides,
+                                           runtime_t runtime,
+                                           datatype_t datatype,
+                                           tensor_t *result)
+{
+    nw_error_t *error = NULL;
+
+    error = runtime_maximum(x->buffer, axis, length, result->buffer, keep_dimension);
+    if (error)
+    {
+        return ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
+    }
+
+    return error;
+
+cleanup:
+
+    view_destroy(view);
+    storage_destroy(storage);
+
+    return error;
+}
+
+static nw_error_t *zeroes_operation_forward(const uint64_t *shape,
+                                            uint64_t rank,
+                                            uint64_t offset,
+                                            const uint64_t *strides,
+                                            runtime_t runtime,
+                                            datatype_t datatype,
+                                            uint64_t n,
+                                            tensor_t *result)
+{
+    nw_error_t *error = NULL;
+    view_t *view = NULL;
+    storage_t *storage = NULL;
+
+    error = view_create(&view, offset, rank, shape, strides);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+        goto cleanup;
+    }
+
+    error = storage_create(&storage, runtime, datatype, n, NULL, true);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create storage."), error);
+        goto cleanup;
+    }
+
+    error = buffer_create(&result->buffer, view, storage, false);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    view_destroy(view);
+    storage_destroy(storage);
+
+    return error;
+}
+
+nw_error_t *creation_operation_forward(creation_operation_t *creation_operation, tensor_t **result)
+{
+    CHECK_NULL_ARGUMENT(creation_operation, "creation_operation");
+
+    nw_error_t *error = NULL;
+    void **arguments = creation_operation->arguments;
+    uint64_t length = creation_operation->length;
+    creation_operation_type_t operation_type = creation_operation->operation_type;
+    uint64_t *shape = creation_operation->shape;
+    uint64_t rank = creation_operation->rank;
+    uint64_t offset = creation_operation->offset;
+    uint64_t *strides = creation_operation->strides;
+    runtime_t runtime = creation_operation->runtime;
+    datatype_t datatype = creation_operation->datatype;
+    uint64_t n = creation_operation->n;
+    bool_t requires_gradient = creation_operation->requires_gradient;
+
+    error = tensor_create(result, NULL, NULL, NULL, requires_gradient);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    switch (operation_type)
+    {
+    case EMPTY_OPERATION:
+        error = empty_operation_forward(shape, rank, offset, strides, runtime, datatype, n, *result);
+        break;
+    case ZEROES_OPERATION:
+        error = zeroes_operation_forward(shape, rank, offset, strides, runtime, datatype, n, *result);
+        break;
+    case ONES_OPERATION:
+        break;
+    case UNIFORM_OPERATION:
+        break;
+    case NORMAL_OPERATION:
+        break;
+    case ARANGE_OPERATION:
+        break;
+    default:
+        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        break;
+    }
+
+    if (error)
+    {
+        tensor_destroy(*result);
+        *result = NULL;
+        return ERROR(ERROR_FORWARD,
+                     string_create("failed to execute creation operation forward pass of type %s.",
+                     creation_operation_type_string(operation_type)), error);
+    }
+
+    creation_operation->result = *result;
 
     return error;
 }

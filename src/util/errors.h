@@ -717,6 +717,7 @@ typedef enum nw_error_type_t
     ERROR_ACTIVATION_TYPE,
     ERROR_DROPOUT,
     ERROR_DATASET_TYPE,
+    ERROR_ARGUMENTS,
 } nw_error_type_t;
 
 typedef struct nw_error_t

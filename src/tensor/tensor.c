@@ -422,7 +422,7 @@ nw_error_t *tensor_compare_equal(const tensor_t *x, const tensor_t *y, tensor_t 
     nw_error_t *error = NULL;
     with_no_gradient(true);
 
-    error = apply_function_binary(COMPARE_EQUAL, x, y, z);
+    error = apply_function_binary(COMPARE_EQUAL_OPERATION, x, y, z);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to compare equal tensors."), error);
@@ -453,7 +453,7 @@ nw_error_t *tensor_compare_greater(const tensor_t *x, const tensor_t *y, tensor_
     nw_error_t *error = NULL;
     with_no_gradient(true);
 
-    error = apply_function_binary(COMPARE_GREATER, x, y, z);
+    error = apply_function_binary(COMPARE_GREATER_OPERATION, x, y, z);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to compare greater tensors."), error);

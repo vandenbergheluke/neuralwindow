@@ -125,52 +125,6 @@ void buffer_destroy(buffer_t *buffer)
     }
 }
 
-nw_error_t *buffer_create_empty(buffer_t **buffer,
-                                const uint64_t *shape,
-                                const uint64_t *strides,
-                                uint64_t rank,
-                                runtime_t runtime,
-                                datatype_t datatype)
-{
-    CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-
-    nw_error_t *error = NULL;
-    view_t *view = NULL;
-    storage_t *storage = NULL;
-    uint64_t n;
-
-    error = view_create(&view, 0, rank, shape, strides);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
-    }
-
-    error = n_from_shape_and_strides(view->shape, view->strides, view->rank, &n);
-    if (error)
-    {
-        view_destroy(view);
-        return ERROR(ERROR_N, string_create("failed to obtain storage size."), error);
-    }
-
-    error = storage_create(&storage, runtime, datatype, n, NULL, true);
-    if (error)
-    {
-        view_destroy(view);
-        return ERROR(ERROR_CREATE, string_create("failed to create storage."), error);
-    }
-
-    error = buffer_create(buffer, view, storage, false);
-    if (error)
-    {
-        view_destroy(view);
-        storage_destroy(storage);
-        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-    }
-
-    return error;
-}
-
 nw_error_t *runtime_create_context(runtime_t runtime)
 {
     nw_error_t *error;
@@ -1804,3 +1758,160 @@ nw_error_t *runtime_init_normal(buffer_t *buffer, void *mean, void *standard_dev
 
     return NULL;
 }
+
+static nw_error_t *runtime_create_empty(buffer_t **buffer,
+                                        const uint64_t *shape,
+                                        uint64_t rank,
+                                        runtime_t runtime,
+                                        datatype_t datatype)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    nw_error_t *error = NULL;
+    view_t *view = NULL;
+    storage_t *storage = NULL;
+    uint64_t n = 0;
+
+    error = view_create(&view, 0, rank, shape, NULL);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+        goto cleanup;
+    }
+
+    error = n_from_shape_and_strides(view->shape, view->strides, view->rank, &n);
+    if (error)
+    {
+        error = ERROR(ERROR_N, string_create("failed to obtain storage size."), error);
+        goto cleanup;
+    }
+
+    error = storage_create(&storage, runtime, datatype, n, NULL, true);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create storage."), error);
+        goto cleanup;
+    }
+
+    error = buffer_create(buffer, view, storage, false);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    view_destroy(view);
+    storage_destroy(storage);
+
+    return error;
+}
+
+static nw_error_t *runtime_create(buffer_t **buffer,
+                                  runtime_creation_type_t runtime_creation_type,
+                                  const uint64_t *shape,
+                                  uint64_t rank,
+                                  runtime_t runtime,
+                                  datatype_t datatype,
+                                  void **arguments,
+                                  uint64_t length)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    if (length)
+    {
+        CHECK_NULL_ARGUMENT(arguments, arguments);
+    }
+
+    nw_error_t *error = NULL;
+    *buffer = NULL;
+
+    error = runtime_create_empty(buffer, shape, rank, runtime, datatype);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create empty buffer."), error);
+        goto cleanup;
+    }
+
+    switch (runtime_creation_type)
+    {
+    case RUNTIME_EMPTY:
+        break;
+    case RUNTIME_ZEROES:
+        error = runtime_init_zeroes(*buffer);
+        break;
+    case RUNTIME_ONES:
+        error = runtime_init_ones(*buffer);
+        break;
+    case RUNTIME_UNIFORM:
+        if (length == 2)
+        {
+            error = runtime_init_uniform(*buffer, arguments[0], arguments[1]);
+        }
+        else
+        {
+            error = ERROR(ERROR_ARGUMENTS, string_create("invalid number of arguments."), NULL);
+        }
+        break;
+    case RUNTIME_NORMAL:
+        if (length == 2)
+        {
+            error = runtime_init_normal(*buffer, arguments[0], arguments[1]);
+        }
+        else
+        {
+            error = ERROR(ERROR_ARGUMENTS, string_create("invalid number of arguments."), NULL);
+        }
+        break;
+    case RUNTIME_ARANGE:
+        if (length == 3)
+        {
+            error = runtime_init_arange(*buffer, arguments[0], arguments[1], arguments[2]);
+        }
+        else
+        {
+            error = ERROR(ERROR_ARGUMENTS, string_create("invalid number of arguments."), NULL);
+        }
+        break;
+    default:
+        error = ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime creation operation."), NULL);
+        break;
+    }
+
+    if (error)
+    {
+        error = ERROR(ERROR_INITIALIZATION, string_create("failed to initialize buffer."), error);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    buffer_destroy(*buffer);
+
+    return error;
+}
+
+static nw_error_t *runtime_empty(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype)
+{
+
+}
+
+nw_error_t *runtime_zeroes(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype)
+{
+
+}
+
+nw_error_t *runtime_ones(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype)
+{
+
+}
+
+nw_error_t *runtime_uniform(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);
+nw_error_t *runtime_normal(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);
+nw_error_t *runtime_arange(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);

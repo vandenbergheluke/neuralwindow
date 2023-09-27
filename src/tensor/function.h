@@ -50,8 +50,8 @@ typedef enum binary_operation_type_t
     DIVISION_OPERATION,
     POWER_OPERATION,
     MATRIX_MULTIPLICATION_OPERATION,
-    COMPARE_EQUAL,
-    COMPARE_GREATER,
+    COMPARE_EQUAL_OPERATION,
+    COMPARE_GREATER_OPERATION,
 } binary_operation_type_t;
 
 typedef struct binary_operation_t
@@ -110,7 +110,7 @@ typedef enum structure_operation_type_t
     PERMUTE_OPERATION,
     RESHAPE_OPERATION,
     SLICE_OPERATION,
-    PADDING_OPERATION
+    PADDING_OPERATION,
 } structure_operation_type_t;
 
 typedef struct structure_operation_t
@@ -137,13 +137,54 @@ nw_error_t *apply_function_structure(structure_operation_type_t structure_operat
                                      tensor_t **result);
 string_t structure_operation_type_string(structure_operation_type_t structure_operation_type);
 
+// Creation Operation
+typedef enum creation_operation_type_t
+{
+    EMPTY_OPERATION,
+    ZEROES_OPERATION,
+    ONES_OPERATION,
+    UNIFORM_OPERATION,
+    NORMAL_OPERATION,
+    ARANGE_OPERATION,
+} creation_operation_type_t;
+
+typedef struct creation_operation_t
+{
+    tensor_t *x;
+    tensor_t *result;
+    void **arguments;
+    uint64_t length;
+    uint64_t *shape;
+    uint64_t rank;
+    uint64_t offset;
+    uint64_t *strides;
+    runtime_t runtime;
+    datatype_t datatype;
+    uint64_t n;
+    bool_t requires_gradient;
+    creation_operation_type_t operation_type;
+} creation_operation_t;
+
+nw_error_t *creation_operation_create(creation_operation_t **creation_operation,
+                                      creation_operation_type_t creation_operation_type,
+                                      const uint64_t *arguments,
+                                      uint64_t length);
+void creation_operation_destroy(creation_operation_t *creation_operation);
+nw_error_t *creation_operation_forward(creation_operation_t *creation_operation, tensor_t **result);
+nw_error_t *apply_function_creation(creation_operation_type_t creation_operation_type,
+                                    const uint64_t *arguments,
+                                    uint64_t length,
+                                    tensor_t **result);
+string_t creation_operation_type_string(creation_operation_type_t creation_operation_type);
+
 // Operation
 typedef enum operation_type_t
 {
     UNARY_OPERATION,
     BINARY_OPERATION,
     REDUCTION_OPERATION,
-    STRUCTURE_OPERATION
+    STRUCTURE_OPERATION,
+    CREATION_OPERATION,
 } operation_type_t;
 
 typedef union operation_t
@@ -152,6 +193,7 @@ typedef union operation_t
     binary_operation_t *binary_operation;
     reduction_operation_t *reduction_operation;
     structure_operation_t *structure_operation;
+    creation_operation_t *creation_operation;
 } operation_t;
 
 nw_error_t *operation_create(operation_t **operation, operation_type_t operation_type, void *type_operation);
