@@ -8,11 +8,10 @@ extern "C"
 #include <function.h>
 #include <graph.h>
 }
+#include <test_helper.h>
 #include <torch/torch.h>
 
-#ifdef GRAPH
-
-#define CASES 4
+#define CASES 6
 
 tensor_t *torch_to_tensor(torch::Tensor torch_tensor, runtime_t runtime, datatype_t datatype);
 
@@ -68,84 +67,55 @@ void teardown(void)
 
 void test_graph(void)
 {
+    //logarith on x
     for (int i = 0; i < CASES; ++i)
     {
         error = tensor_rectified_linear(tensors_x[i], &tensors_x_output[i]);
+        ck_assert_ptr_null(error);
+
         error = tensor_exponential(tensors_y[i], &tensors_y_output[i]);
+        ck_assert_ptr_null(error);
+
         error = tensor_addition(tensors_x_output[i], tensors_y_output[i], &returned_tensors[i]);
-
-        if (error)
-        {
-            error_print(error);
-        }
+        ck_assert_ptr_null(error);
     }
 }
 
-
-tensor_t *torch_to_tensor(torch::Tensor torch_tensor, runtime_t runtime, datatype_t datatype)
+START_TEST(test_null_errors)
 {
-    nw_error_t *error;
-    view_t *view;
-    storage_t *storage;
-    buffer_t *buffer;
-    tensor_t *tensor;
+    test_graph();
+}
+END_TEST
 
-    switch (datatype)
-    {
-    case FLOAT32:
-        torch_tensor = torch_tensor.to(torch::kFloat32);
-        break;
-    case FLOAT64:
-        torch_tensor = torch_tensor.to(torch::kFloat64);
-        break;
-    default:
-        return NULL;
-    }
+Suite *make_graph_suite(void)
+{
+    Suite *s;
+    TCase *tc_graph;
 
-    error = view_create(&view, 
-                        (uint64_t) torch_tensor.storage_offset(),
-                        (uint64_t) torch_tensor.ndimension(),
-                        (uint64_t *) torch_tensor.sizes().data(),
-                        (uint64_t *) torch_tensor.strides().data());
-    if (error)
-    {
-        error_print(error);
-    }
+    s = suite_create("Test Graph Suite");
 
-    error = storage_create(&storage,
-                           runtime,
-                           datatype,
-                           (uint64_t) torch_tensor.storage().nbytes() /
-                           (uint64_t) datatype_size(datatype),
-                           (void *) torch_tensor.data_ptr(),
-                           true);
-    if (error)
-    {
-        error_print(error);
-    }
+    tc_graph = tcase_create("Graph Case");
+    tcase_add_checked_fixture(tc_graph, setup, teardown);
+    tcase_add_test(tc_graph, test_null_errors);
 
-    error = buffer_create(&buffer, view, storage, false);
-    if (error)
-    {
-        error_print(error);
-    }
+    suite_add_tcase(s, tc_graph);
 
-    error = tensor_create(&tensor, buffer, NULL, NULL, (bool_t) torch_tensor.requires_grad());
-    if (error)
-    {
-        error_print(error);
-    }
-
-    return tensor;
+    return s;
 }
 
-#endif
 int main(void)
 {
-    #ifdef GRAPH
-        setup();
-        test_graph();
-        teardown(); 
-    #endif  
-}
+    // Set seed
+    torch::manual_seed(SEED);
 
+    int number_failed;
+    SRunner *sr;
+
+    sr = srunner_create(make_graph_suite());
+    srunner_set_fork_status(sr, CK_NOFORK);
+    srunner_run_all(sr, CK_VERBOSE);
+
+    number_failed = srunner_ntests_failed(sr);
+    srunner_free(sr);
+    return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE; 
+}

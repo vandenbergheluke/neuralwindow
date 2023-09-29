@@ -352,7 +352,10 @@ nw_error_t *function_forward(function_t *function, tensor_t **result)
 
     if (*result)
     {
-        #ifdef GRAPH
+        char_t* graph_var = getenv("GRAPH");
+
+        if (graph_var)
+        {
             switch(operation_type)
             {
                 case UNARY_OPERATION:
@@ -387,7 +390,7 @@ nw_error_t *function_forward(function_t *function, tensor_t **result)
                             string_create("failed to add operation to graph %s.", 
                             operation_type_string(operation_type)), error);
             }
-        #endif
+        }
 
         if ((*result)->requires_gradient && !no_gradient)
         {

@@ -20,12 +20,6 @@ typedef struct graph_node_t
     uint64_t graph_id;
 } graph_node_t;
 
-typedef enum node_type
-{
-    OPERATION,
-    TENSOR
-} node_type;
-
 nw_error_t *initialize_graph();
 void destroy_graph();
 uint64_t get_graph_id(uint64_t tensor_id);

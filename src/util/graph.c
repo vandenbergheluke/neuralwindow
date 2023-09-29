@@ -27,11 +27,8 @@ nw_error_t *initialize_graph()
 }
 
 void destroy_graph()
-{
-    FILE *fp = fopen("graph.dot", "w");
-    agwrite(graph, fp);
-    fclose(fp);
-    agclose(graph);
+{    
+    agfree(graph, NULL);
     stack_destroy(stack);
 }
 
