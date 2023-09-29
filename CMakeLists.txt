@@ -36,9 +36,6 @@ if (DEFINED ENV{DEBUG})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG")
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DGRAPH")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGRAPH")
-
 find_program(GRAPHVIZ dot)
 if (NOT GRAPHVIZ)
     message(FATAL_ERROR "Could not find Graphviz.")
