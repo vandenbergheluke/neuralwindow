@@ -289,6 +289,13 @@
             fprintf(stderr, ", arguments: ");\
             PRINT_DEBUG_UINT64_ARRAY((function)->operation->structure_operation->arguments,\
                                      (function)->operation->structure_operation->length);\
+            break;\
+        case CREATION_OPERATION:\
+            fprintf(stderr, "%s", creation_operation_type_string((function)->operation->creation_operation->operation_type));\
+            fprintf(stderr, ", shape: ");\
+            PRINT_DEBUG_UINT64_ARRAY((function)->operation->creation_operation->shape,\
+                                     (function)->operation->creation_operation->rank);\
+            break;\
         default:\
             break;\
         }\
@@ -542,30 +549,6 @@
     PRINT_DEBUG_NEWLINE;\
 } while(0)
 
-#define PRINT_DEBUG_STOCHASTIC_GRADIENT_DESCENT(stochastic_gradient_descent) do {\
-    if (!(stochastic_gradient_descent))\
-    {\
-        fprintf(stderr, "NULL");\
-    }\
-    else\
-    {\
-        fprintf(stderr, "(");\
-        fprintf(stderr, "learning_rate: %f", (stochastic_gradient_descent)->learning_rate);\
-        fprintf(stderr, ", momentum: %f", (stochastic_gradient_descent)->momentum);\
-        fprintf(stderr, ", dampening: %f", (stochastic_gradient_descent)->dampening);\
-        fprintf(stderr, ", weight_decay: %f", (stochastic_gradient_descent)->weight_decay);\
-        fprintf(stderr, ", nesterov: ");\
-        PRINT_DEBUG_BOOLEAN((stochastic_gradient_descent)->nesterov);\
-        fprintf(stderr, ")");\
-    }\
-} while(0)
-
-#define PRINTLN_DEBUG_STOCHASTIC_GRADIENT_DESCENT(msg, stochastic_gradient_descent) do {\
-    fprintf(stderr, "%s ", msg);\
-    PRINT_DEBUG_STOCHASTIC_GRADIENT_DESCENT(stochastic_gradient_descent);\
-    PRINT_DEBUG_NEWLINE;\
-} while(0)
-
 #define PRINT_DEBUG_OPTIMIZER(optimizer) do {\
     if (!(optimizer))\
     {\
@@ -575,22 +558,6 @@
     {\
         fprintf(stderr, "(");\
         fprintf(stderr, "algorithm_type: %s", algorithm_type_string((optimizer)->algorithm_type));\
-        fprintf(stderr, ", algorithm: ");\
-        if (!(optimizer)->algorithm)\
-        {\
-            fprintf(stderr, "NULL");\
-        }\
-        else\
-        {\
-            switch ((optimizer)->algorithm_type)\
-            {\
-            case STOCASTIC_GRADIENT_DESCENT:\
-                PRINT_DEBUG_STOCHASTIC_GRADIENT_DESCENT((optimizer)->algorithm->stochastic_gradient_descent);\
-                break;\
-            default:\
-                break;\
-            }\
-        }\
         fprintf(stderr, ")");\
     }\
 } while(0)
@@ -634,8 +601,6 @@
 #define PRINTLN_DEBUG_BLOCK(msg, block)
 #define PRINT_DEBUG_MODEL(model)
 #define PRINTLN_DEBUG_MODEL(msg, model)
-#define PRINT_DEBUG_STOCHASTIC_GRADIENT_DESCENT(stochastic_gradient_descent)
-#define PRINTLN_DEBUG_STOCHASTIC_GRADIENT_DESCENT(msg, stochastic_gradient_descent)
 #define PRINT_DEBUG_OPTIMIZER(optimizer)
 #define PRINTLN_DEBUG_OPTIMIZER(msg, optimizer)
 #endif
@@ -717,6 +682,8 @@ typedef enum nw_error_type_t
     ERROR_ACTIVATION_TYPE,
     ERROR_DROPOUT,
     ERROR_DATASET_TYPE,
+    ERROR_ARGUMENTS,
+    ERROR_ITEM,
 } nw_error_type_t;
 
 typedef struct nw_error_t

@@ -72,7 +72,7 @@ nw_error_t *fit(uint64_t epochs,
                 nw_error_t *(*teardown)(void *),
                 nw_error_t *(*dataloader)(uint64_t, batch_t *, void *),
                 nw_error_t *(*criterion)(const tensor_t *, const tensor_t *, tensor_t **),
-                nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *));
+                nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *, const tensor_t *, uint64_t, uint64_t, uint64_t, uint64_t));
 
 nw_error_t *batch_create(batch_t **batch, uint64_t batch_size, datatype_t datatype, runtime_t runtime);
 void batch_destroy(batch_t *batch);

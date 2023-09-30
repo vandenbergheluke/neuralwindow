@@ -7,11 +7,6 @@
 
 nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer, tensor_t *parameters)
 {
-    PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_STOCHASTIC_GRADIENT_DESCENT("optimizer", optimizer);
-    PRINTLN_DEBUG_TENSOR("parameters", parameters);
-    PRINT_DEBUG_NEWLINE;
-
     CHECK_NULL_ARGUMENT(optimizer, "optimizer");
     CHECK_NULL_ARGUMENT(parameters, "parameters");
 
@@ -21,16 +16,10 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
     datatype_t datatype = parameters->buffer->storage->datatype;
     runtime_t runtime = parameters->buffer->storage->runtime;
 
-    switch (datatype)
+    error = tensor_constant(optimizer->learning_rate, datatype, runtime, false, false, &learning_rate);
+    if (error)
     {
-    case FLOAT32:
-        error = tensor_constant_float32((float32_t) optimizer->learning_rate, &learning_rate, runtime);
-        break;
-    case FLOAT64:
-        error = tensor_constant_float64((float64_t) optimizer->learning_rate, &learning_rate, runtime);
-        break;
-    default:
-        return ERROR(ERROR_DATATYPE, string_create("unsupported datatype %d.", (int) datatype), error);
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
     with_no_gradient(true);
@@ -53,11 +42,6 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
     tensor_destroy(learning_rate);
     tensor_destroy(parameter_update);
     parameters->gradient = NULL;
-
-    PRINTLN_DEBUG_LOCATION("output");
-    PRINTLN_DEBUG_TENSOR("parameters", parameters);
-    PRINTLN_DEBUG_TENSOR("parameters->gradient", parameters->gradient);
-    PRINT_DEBUG_NEWLINE;
 
     return error;
 }
@@ -148,33 +132,97 @@ nw_error_t *optimizer_step(optimizer_t *optimizer, model_t *model)
 }
 
 nw_error_t *stochastic_gradient_descent_create(stochastic_gradient_descent_t **stochastic_gradient_descent,
-                                               float32_t learning_rate,
-                                               float32_t momentum,
-                                               float32_t dampening,
-                                               float32_t weight_decay,
+                                               datatype_t datatype,
+                                               void *learning_rate,
+                                               void *momentum,
+                                               void *dampening,
+                                               void *weight_decay,
                                                bool_t nesterov)
 {
     CHECK_NULL_ARGUMENT(stochastic_gradient_descent, "stochastic_gradient_descent");
 
+    nw_error_t *error = NULL;
+
+    *stochastic_gradient_descent = NULL;
     *stochastic_gradient_descent = (stochastic_gradient_descent_t *) malloc(sizeof(stochastic_gradient_descent_t));
     if (!*stochastic_gradient_descent)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(stochastic_gradient_descent_t)), NULL);
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(stochastic_gradient_descent_t)), NULL);
+        goto cleanup;
     }
 
-    (*stochastic_gradient_descent)->learning_rate = learning_rate;
-    (*stochastic_gradient_descent)->momentum = momentum;
-    (*stochastic_gradient_descent)->dampening = dampening;
-    (*stochastic_gradient_descent)->weight_decay = weight_decay;
+    (*stochastic_gradient_descent)->datatype = datatype;
+    (*stochastic_gradient_descent)->learning_rate = NULL;
+    (*stochastic_gradient_descent)->momentum = NULL;
+    (*stochastic_gradient_descent)->dampening = NULL;
+    (*stochastic_gradient_descent)->weight_decay = NULL;
     (*stochastic_gradient_descent)->nesterov = nesterov;
+    size_t size = datatype_size(datatype);
 
-    return NULL;
+    (*stochastic_gradient_descent)->learning_rate = (void *) malloc(size);
+    if (!(*stochastic_gradient_descent)->learning_rate)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu.", size), NULL);
+        goto cleanup;
+    }
+
+    (*stochastic_gradient_descent)->momentum = (void *) malloc(size);
+    if (!(*stochastic_gradient_descent)->momentum)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu.", size), NULL);
+        goto cleanup;
+    }
+
+    (*stochastic_gradient_descent)->dampening = (void *) malloc(size);
+    if (!(*stochastic_gradient_descent)->dampening)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu.", size), NULL);
+        goto cleanup;
+    }
+
+    (*stochastic_gradient_descent)->weight_decay = (void *) malloc(size);
+    if (!(*stochastic_gradient_descent)->weight_decay)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu.", size), NULL);
+        goto cleanup;
+    }
+    
+    switch (datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) (*stochastic_gradient_descent)->learning_rate = *(float32_t *) learning_rate;
+        *(float32_t *) (*stochastic_gradient_descent)->momentum = *(float32_t *) momentum;
+        *(float32_t *) (*stochastic_gradient_descent)->dampening = *(float32_t *) dampening;
+        *(float32_t *) (*stochastic_gradient_descent)->weight_decay = *(float32_t *) weight_decay;
+        break;
+    case FLOAT64:
+        *(float64_t *) (*stochastic_gradient_descent)->learning_rate = *(float64_t *) learning_rate;
+        *(float64_t *) (*stochastic_gradient_descent)->momentum = *(float64_t *) momentum;
+        *(float64_t *) (*stochastic_gradient_descent)->dampening = *(float64_t *) dampening;
+        *(float64_t *) (*stochastic_gradient_descent)->weight_decay = *(float64_t *) weight_decay;
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    stochastic_gradient_descent_destroy(*stochastic_gradient_descent);
+
+    return error;
 }
 
 void stochastic_gradient_descent_destroy(stochastic_gradient_descent_t *stochastic_gradient_descent)
 {
     if (stochastic_gradient_descent)
     {
+        free(stochastic_gradient_descent->learning_rate);
+        free(stochastic_gradient_descent->momentum);
+        free(stochastic_gradient_descent->dampening);
+        free(stochastic_gradient_descent->weight_decay);
         free(stochastic_gradient_descent);
     }
 }
@@ -257,10 +305,11 @@ string_t algorithm_type_string(algorithm_type_t algorithm_type)
 }
 
 nw_error_t *optimizer_stochastic_gradient_descent_create(optimizer_t **optimizer,
-                                                         float32_t learning_rate,
-                                                         float32_t momentum,
-                                                         float32_t dampening,
-                                                         float32_t weight_decay,
+                                                         datatype_t datatype,
+                                                         void *learning_rate,
+                                                         void *momentum,
+                                                         void *dampening,
+                                                         void *weight_decay,
                                                          bool_t nesterov)
 {
     CHECK_NULL_ARGUMENT(optimizer, "optimizer");
@@ -270,12 +319,7 @@ nw_error_t *optimizer_stochastic_gradient_descent_create(optimizer_t **optimizer
     algorithm_t *algorithm = NULL;
     algorithm_type_t algorithm_type = STOCASTIC_GRADIENT_DESCENT;
 
-    error = stochastic_gradient_descent_create(&stochastic_gradient_descent,
-                                               learning_rate,
-                                               momentum,
-                                               dampening,
-                                               weight_decay,
-                                               nesterov);
+    error = stochastic_gradient_descent_create(&stochastic_gradient_descent, datatype, learning_rate, momentum, dampening, weight_decay, nesterov);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create stochastic gradient descent instance."), error);

@@ -454,7 +454,7 @@ void test_unary(tensor_unary_type_t tensor_unary_type)
                 expected_gradients[i][j][k] = torch_to_tensor(torch_tensors[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
 
                 // Back prop
-                tensor_t *cost;
+                tensor_t *cost = NULL;
                 error = tensor_summation(returned_tensors[i][j][k], &cost, NULL, 0, false);
                 ck_assert_ptr_null(error);
                 error = tensor_backward(cost, NULL);

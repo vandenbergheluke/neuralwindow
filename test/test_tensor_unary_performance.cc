@@ -92,7 +92,10 @@ void teardown(void)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    tensor_destroy(tensors[i][j][k][z]);
+                    if (tensors[i][j][k][z] != returned_tensors[i][j][k][z])
+                    {
+                        tensor_destroy(tensors[i][j][k][z]);
+                    }
                     tensor_destroy(returned_tensors[i][j][k][z]);
                 }
             }

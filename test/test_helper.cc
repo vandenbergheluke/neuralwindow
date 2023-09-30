@@ -12,11 +12,11 @@ extern "C"
 
 tensor_t *torch_to_tensor(torch::Tensor torch_tensor, runtime_t runtime, datatype_t datatype)
 {
-    nw_error_t *error;
-    view_t *view;
-    storage_t *storage;
-    buffer_t *buffer;
-    tensor_t *tensor;
+    nw_error_t *error = NULL;
+    view_t *view = NULL;
+    storage_t *storage = NULL;
+    buffer_t *buffer = NULL;
+    tensor_t *tensor = NULL;
 
     switch (datatype)
     {
@@ -61,7 +61,7 @@ tensor_t *torch_to_tensor(torch::Tensor torch_tensor, runtime_t runtime, datatyp
     }
     ck_assert_ptr_null(error);
 
-    error = tensor_create(&tensor, buffer, NULL, NULL, (bool_t) torch_tensor.requires_grad());
+    error = tensor_create(&tensor, buffer, NULL, NULL, (bool_t) torch_tensor.requires_grad(), true);
     if (error)
     {
         error_print(error);
