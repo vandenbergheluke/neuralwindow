@@ -31,7 +31,7 @@ jobs:
     - name: Install Valgrind
       run: sudo apt-get install -y valgrind
     - name: Install Graphviz
-      run: sudo apt-get install -y graphviz
+      run: sudo apt-get install -y dot
     - name: Install Libtorch
       run: |
         sudo wget https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-2.0.1%2Bcpu.zip
@@ -41,11 +41,6 @@ jobs:
     - name: Setup Build Directory
       working-directory: ${{github.workspace}}
       run: mkdir build
-    - name: CPU Build 1
-      working-directory: ${{github.workspace}}/build
-      run: |
-        CPU_ONLY=1 cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
-        make
     - name: GPU Build
       working-directory: ${{github.workspace}}/build
       run: |
