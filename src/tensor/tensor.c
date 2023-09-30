@@ -29,7 +29,7 @@ bool_t no_gradient = false;
  *         Error if no sufficient memory could be dynamically allocate for the tensor.
  *         NULL if tensor was created successfully.
  */
-nw_error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *context, tensor_t *gradient, bool_t requires_gradient)
+nw_error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *context, tensor_t *gradient, bool_t requires_gradient, bool_t persist)
 {
     CHECK_NULL_ARGUMENT(tensor, "tensor");
 
@@ -46,6 +46,7 @@ nw_error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *conte
     (*tensor)->context = context;
     (*tensor)->gradient = gradient;
     (*tensor)->requires_gradient = requires_gradient;
+    (*tensor)->persist = persist;
 
     return NULL;
 }
@@ -89,49 +90,26 @@ void with_no_gradient(bool_t flag)
     }
 }
 
-nw_error_t *tensor_from_data(tensor_t **x, void *data, runtime_t runtime, datatype_t datatype, 
-                             uint64_t rank, uint64_t *shape, bool_t copy, bool_t requires_gradient)
+nw_error_t *tensor_from_data(tensor_t **x, void *data, runtime_t runtime, datatype_t datatype, uint64_t rank, const uint64_t *shape, 
+                             const uint64_t *strides, uint64_t offset, bool_t copy, bool_t requires_gradient, bool_t persist)
 {
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(data, "data");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
     nw_error_t *error = NULL;
-    storage_t *storage = NULL;
-    view_t *view = NULL;
-    buffer_t *buffer = NULL;
 
-    error = storage_create(&storage, runtime, datatype, shape_size(shape, rank), data, copy);
+    creation_operation_type_t operation_type = (copy) ? COPY_OPERATION : FROM_OPERATION;
+    error = apply_function_creation(operation_type, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, NULL, 0, data, x);
     if (error)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create storage."), error);
-    }
-
-    error = view_create(&view, 0, rank, shape, NULL);
-    if (error)
-    {
-        storage_destroy(storage);
-        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
-    }
-
-    error = buffer_create(&buffer, view, storage, false);
-    if (error)
-    {
-        view_destroy(view);
-        storage_destroy(storage);
-        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-    }
-
-    error = tensor_create(x, buffer, NULL, NULL, requires_gradient);
-    if (error)
-    {
-        buffer_destroy(buffer);
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
     return error;
 }
 
-nw_error_t *tensor_broadcast(const tensor_t *x_original,
-                             const tensor_t *y_original,
-                             tensor_t **x_broadcasted,
-                             tensor_t **y_broadcasted)
+nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_original, tensor_t **x_broadcasted, tensor_t **y_broadcasted)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x_original", x_original);
@@ -275,16 +253,22 @@ nw_error_t *tensor_expand(const tensor_t *x, const uint64_t *shape, uint64_t len
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
     CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
-    CHECK_NULL_ARGUMENT(x->buffer->view->shape, "x->buffer->view->shape");
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
     nw_error_t *error = NULL;
 
-    error = apply_function_structure(EXPAND_OPERATION, x, shape, length, y);
-    if (error)
+    if (shapes_equal(x->buffer->view->shape, x->buffer->view->rank, shape, length))
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to expand tensor."), error);
+        *y = (tensor_t *) x;
+    }
+    else
+    {
+        error = apply_function_structure(EXPAND_OPERATION, x, shape, length, y);
+        if (error)
+        {
+            return ERROR(ERROR_FORWARD, string_create("failed to expand tensor."), error);
+        }
     }
 
     PRINTLN_DEBUG_LOCATION("output");
@@ -685,15 +669,18 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t ax
     }
 
     with_no_gradient(true);
-    float32_t dimension_float32;
-    float64_t dimension_float64;
     runtime_t runtime = x->buffer->storage->runtime;
     datatype_t datatype = x->buffer->storage->datatype;
     uint64_t dimension = (rank) ? shape[axis] : 1;
     uint64_t new_rank = rank - axis;
-    uint64_t new_shape [new_rank];
+    uint64_t new_shape[new_rank];
     uint64_t *reduce_axis = (rank) ? ((uint64_t[]) {axis}) : ((uint64_t[]){});
     uint64_t reduce_rank = (rank) ? 1 : 0;
+    size_t size = datatype_size(datatype);
+    void *value = NULL;
+    void *start = NULL;
+    void *stop = NULL;
+    void *step = NULL;
     tensor_t *x_i = NULL;
     tensor_t *x_j = NULL;
     tensor_t *x_k = NULL;
@@ -701,6 +688,53 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t ax
     tensor_t *x_m = NULL;
     tensor_t *x_n = NULL;
     tensor_t *x_o = NULL;
+
+    value = (void *) malloc(size);
+    if (!value)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    start = (void *) malloc(size);
+    if (!start)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    stop = (void *) malloc(size);
+    if (!stop)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    step = (void *) malloc(size);
+    if (!step)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+    
+    switch (datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) value = (float32_t) dimension;
+        *(float32_t *) start = (float32_t) dimension;
+        *(float32_t *) stop = (float32_t) 0;
+        *(float32_t *) step = (float32_t) -1;
+        break;
+    case FLOAT64:
+        *(float64_t *) value = (float64_t) dimension;
+        *(float64_t *) start = (float64_t) dimension;
+        *(float64_t *) stop = (float64_t) 0;
+        *(float64_t *) step = (float64_t) -1;
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        goto cleanup;
+    }
 
     if (new_rank)
     {
@@ -725,7 +759,7 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t ax
         goto cleanup;
     }
 
-    error = tensor_arange(&x_k, (int64_t) dimension, (int64_t) 0, (int64_t) -1, runtime, datatype, false);
+    error = tensor_arange(&x_k, start, stop, step, runtime, datatype, false, false);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -752,22 +786,8 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t ax
         error = ERROR(ERROR_MAXIMUM, string_create("failed to get maximum of tensor."), error);
         goto cleanup;
     }
-    
-    switch (datatype)
-    {
-    case FLOAT32:
-        dimension_float32 = (float32_t) dimension;
-        error = tensor_constant_float32(dimension_float32, &x_o, runtime);
-        break;
-    case FLOAT64:
-        dimension_float64 = (float64_t) dimension;
-        error = tensor_constant_float64(dimension_float64, &x_o, runtime);
-        break;
-    default:
-        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
-        break;
-    }
 
+    error = tensor_constant(value, datatype, runtime, false, false, &x_o);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -789,11 +809,24 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t ax
 cleanup:
 
     with_no_gradient(false);
-    tensor_destroy(x_i);
+    free(value);
+    free(start);
+    free(stop);
+    free(step);
+    if (x != x_i)
+    {
+        tensor_destroy(x_i);
+    }
     tensor_destroy(x_j);
-    tensor_destroy(x_k);
+    if (x_k != x_l)
+    {
+        tensor_destroy(x_k);
+    }
     tensor_destroy(x_l);
-    tensor_destroy(x_m);
+    if (x_m != x_n)
+    {
+        tensor_destroy(x_m);
+    }
     tensor_destroy(x_n);
     tensor_destroy(x_o);
 
@@ -805,72 +838,17 @@ inline uint64_t tensor_number_of_elements(const tensor_t *x)
     return (x && x->buffer && x->buffer->view) ? shape_size(x->buffer->view->shape, x->buffer->view->rank) : 0;
 }
 
-nw_error_t *tensor_constant(void *constant, datatype_t datatype, runtime_t runtime, tensor_t **x)
+nw_error_t *tensor_constant(void *constant, datatype_t datatype, runtime_t runtime, bool_t requires_gradient, bool_t persist, tensor_t **x)
 {
     CHECK_NULL_ARGUMENT(constant, "constant");
     CHECK_NULL_ARGUMENT(x, "x");
 
     nw_error_t *error = NULL;
-    view_t *view = NULL;
-    storage_t *storage = NULL;
-    buffer_t *buffer = NULL;
 
-    error = view_create(&view, 0, 0, (uint64_t[]){}, (uint64_t[]){});
+    error = tensor_from_data(x, constant, runtime, datatype, 0, (uint64_t[]){}, NULL, 0, true, requires_gradient, persist);
     if (error)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
-    }
-
-    error = storage_create(&storage, runtime, datatype, 1, constant, true);
-    if (error)
-    {
-        view_destroy(view);
-        return ERROR(ERROR_CREATE, string_create("failed to create storage."), error);
-    }
-
-    error = buffer_create(&buffer, view, storage, false);
-    if (error)
-    {
-        view_destroy(view);
-        storage_destroy(storage);
-        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-    }
-
-    error = tensor_create(x, buffer, NULL, NULL, false);
-    if (error)
-    {
-        buffer_destroy(buffer);
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *tensor_constant_float32(float32_t constant, tensor_t **x, runtime_t runtime)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-
-    nw_error_t *error = NULL;
-
-    error = tensor_constant(&constant, FLOAT32, runtime, x);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create scalar tensor."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *tensor_constant_float64(float64_t constant, tensor_t **x, runtime_t runtime)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-
-    nw_error_t *error = NULL;
-
-    error = tensor_constant(&constant, FLOAT64, runtime, x);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create scalar tensor."), error);
     }
 
     return error;
@@ -890,10 +868,19 @@ nw_error_t *tensor_mean(const tensor_t *x, tensor_t **y, const uint64_t *axis, u
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
+    void *value = NULL;
     tensor_t *x_i = NULL;
     tensor_t *x_j = NULL;
     runtime_t runtime = x->buffer->storage->runtime;
     datatype_t datatype = x->buffer->storage->datatype;
+    size_t size = datatype_size(datatype);
+
+    value = (void *) malloc(size);
+    if (!value)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
 
     error = tensor_summation(x, &x_i, axis, length, keep_dimension);
     if (error)
@@ -905,20 +892,17 @@ nw_error_t *tensor_mean(const tensor_t *x, tensor_t **y, const uint64_t *axis, u
     switch (datatype)
     {
     case FLOAT32:
-        error = tensor_constant_float32((float32_t) tensor_number_of_elements(x_i) / 
-                                        (float32_t) tensor_number_of_elements(x), 
-                                        &x_j, runtime);
+        *(float32_t *) value = (float32_t) tensor_number_of_elements(x_i) / (float32_t) tensor_number_of_elements(x);
         break;
     case FLOAT64:
-        error = tensor_constant_float64((float64_t) tensor_number_of_elements(x_i) / 
-                                        (float64_t) tensor_number_of_elements(x), 
-                                        &x_j, runtime);
+        *(float64_t *) value = (float64_t) tensor_number_of_elements(x_i) / (float64_t) tensor_number_of_elements(x);
         break;
     default:
         error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
-        break;
+        goto cleanup;
     }
 
+    error = tensor_constant(value, datatype, runtime, x->requires_gradient, false, &x_j);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create scalar tensor."), error);
@@ -939,11 +923,15 @@ nw_error_t *tensor_mean(const tensor_t *x, tensor_t **y, const uint64_t *axis, u
 
 cleanup:
 
+    free(value);
     if (!x_i->requires_gradient || no_gradient)
     {
-        tensor_destroy(x_i);
+        if (x_i != x)
+        {
+            tensor_destroy(x_i);
+        }
+        tensor_destroy(x_j);
     }
-    tensor_destroy(x_j);
 
     return error;
 }
@@ -1007,7 +995,10 @@ cleanup:
 
     if (!x->requires_gradient || no_gradient)
     {
-        tensor_destroy(x_i);
+        if (x != x_i)
+        {
+            tensor_destroy(x_i);
+        }
     }
 
     return error;
@@ -1052,7 +1043,10 @@ cleanup:
     if (!x->requires_gradient || no_gradient)
     {
         tensor_destroy(x_i);
-        tensor_destroy(x_j);
+        if (x_j != x_k)
+        {
+            tensor_destroy(x_j);
+        }
         tensor_destroy(x_k);
     }
 
@@ -1134,20 +1128,28 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const uint64_t *shap
 
     nw_error_t *error = NULL;
     tensor_t *x_contiguous = NULL;
-
-    error = tensor_contiguous(x, &x_contiguous);
-    if (error)
+    if (shapes_equal(x->buffer->view->shape, x->buffer->view->rank, shape, length))
     {
-        error = ERROR(ERROR_CONTIGUOUS, string_create("failed to make tensor contiguous."), error);
-        goto cleanup;
+        *y = (tensor_t *) x;
+    }
+    else
+    {
+        error = tensor_contiguous(x, &x_contiguous);
+        if (error)
+        {
+            error = ERROR(ERROR_CONTIGUOUS, string_create("failed to make tensor contiguous."), error);
+            goto cleanup;
+        }
+
+        error = apply_function_structure(RESHAPE_OPERATION, x_contiguous, shape, length, y);
+        if (error)
+        {
+            error = ERROR(ERROR_FORWARD, string_create("failed to reshape tensor."), error);
+            goto cleanup;
+        }
     }
 
-    error = apply_function_structure(RESHAPE_OPERATION, x_contiguous, shape, length, y);
-    if (error)
-    {
-        error = ERROR(ERROR_FORWARD, string_create("failed to reshape tensor."), error);
-        goto cleanup;
-    }
+
 
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
@@ -1301,10 +1303,17 @@ nw_error_t *tensor_contiguous(const tensor_t *x, tensor_t **y)
 
     nw_error_t *error = NULL;
 
-    error = apply_function_unary(CONTIGUOUS_OPERATION, x, y);
-    if (error)
+    if (tensor_is_contiguous(x))
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
+        *y = (tensor_t *) x;
+    }
+    else
+    {
+        error = apply_function_unary(CONTIGUOUS_OPERATION, x, y);
+        if (error)
+        {
+            return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
+        }
     }
     
     PRINTLN_DEBUG_LOCATION("output");
@@ -1586,9 +1595,11 @@ static nw_error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *t
                 error = ERROR(ERROR_NULL, string_create("operation is null."), NULL);
             }
             break;
+        case CREATION_OPERATION:
+            // Leaf node
+            break;
         default:
-            error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, 
-                          string_create("unknown operation type %d.", (int) operation_type), NULL);
+            error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
             break;
         }
 
@@ -1622,369 +1633,49 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_arange(tensor_t **x, int64_t start, int64_t stop, int64_t step, runtime_t runtime, datatype_t datatype, bool_t requires_gradient)
+nw_error_t *tensor_arange(tensor_t **x, void *start, void *stop, void *step, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist)
 {
-    nw_error_t *error = NULL;
-    uint64_t interval = (stop - start) / step;
-    buffer_t *buffer = NULL;
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", *x);
 
-    error = buffer_create_empty(&buffer, (uint64_t[]) {interval}, NULL, 1, runtime, datatype);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-    }
-
-    error = runtime_init_arange(buffer, start, stop, step);
-    if (error)
-    {
-        buffer_destroy(buffer);
-        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize buffer."), error);
-    }
-
-    error = tensor_create(x, buffer, NULL, NULL, requires_gradient);
-    if (error)
-    {
-        buffer_destroy(buffer);
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *tensor_zeroes_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t preserve_memory_format)
-{
     CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(start, "start");
+    CHECK_NULL_ARGUMENT(stop, "stop");
+    CHECK_NULL_ARGUMENT(step, "step");
 
     nw_error_t *error = NULL;
-
-    error = tensor_empty_like(x, y, requires_gradient, preserve_memory_format);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create empty tensor."), error);
-    }
-
-    error = runtime_init_zeroes((*y)->buffer);
-    if (error)
-    {
-        tensor_destroy(*y);
-        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tensor with zeroes."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *tensor_ones_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t preserve_memory_format)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
-
-    nw_error_t *error = NULL;
-
-    error = tensor_empty_like(x, y, requires_gradient, preserve_memory_format);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create empty tensor."), error);
-    }
-
-    error = runtime_init_ones((*y)->buffer);
-    if (error)
-    {
-        tensor_destroy(*y);
-        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tensor with ones."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *tensor_create_zeroes(tensor_t **x, const uint64_t *shape, uint64_t rank,
-                                 runtime_t runtime, datatype_t datatype, bool_t requires_gradient)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-
-    nw_error_t *error = NULL;
-
-    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    error = runtime_init_zeroes((*x)->buffer);
-    if (error)
-    {
-        tensor_destroy(*x);
-        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tensor."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *tensor_create_ones(tensor_t **x, const uint64_t *shape, uint64_t rank,
-                               runtime_t runtime, datatype_t datatype, bool_t requires_gradient)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-
-    nw_error_t *error = NULL;
-
-    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    error = runtime_init_ones((*x)->buffer);
-    if (error)
-    {
-        tensor_destroy(*x);
-        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tensor."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *tensor_create_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank,
-                                  runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
-                                  void *lower_bound, void *upper_bound)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-    CHECK_NULL_ARGUMENT(lower_bound, "lower_bound");
-    CHECK_NULL_ARGUMENT(upper_bound, "upper_bound");
-
-    nw_error_t *error = NULL;
-
-    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    error = runtime_init_uniform((*x)->buffer, lower_bound, upper_bound);
-    if (error)
-    {
-        tensor_destroy(*x);
-        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tensor."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *tensor_create_normal(tensor_t **x, const uint64_t *shape, uint64_t rank,
-                                 runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
-                                 void *mean, void *standard_deviation)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(mean, "mean");
-    CHECK_NULL_ARGUMENT(standard_deviation, "standard_deviation");
-
-    nw_error_t *error = NULL;
-
-    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    error = runtime_init_normal((*x)->buffer, mean, standard_deviation);
-    if (error)
-    {
-        tensor_destroy(*x);
-        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tensor."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *tensor_create_kaiming_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank,
-                                          runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
-                                          void *gain, void *fan)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-    CHECK_NULL_ARGUMENT(gain, "gain");
-    CHECK_NULL_ARGUMENT(fan, "fan");
-
-    nw_error_t *error = NULL;
-
-    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    float32_t lower_bound_float32, upper_bound_float32;
-    float64_t lower_bound_float64, upper_bound_float64;
-
+    uint64_t offset = 0;
+    uint64_t *strides = NULL;
+    uint64_t rank = 1;
+    uint64_t shape[rank];
+    const void *arguments[] = {start, stop, step};
+    uint64_t length = 3;
+    
     switch (datatype)
     {
     case FLOAT32:
-        upper_bound_float32 = *(float32_t *) gain * sqrtf(3.0 / *(float32_t *) fan);
-        lower_bound_float32 = -upper_bound_float32;
-        error = runtime_init_uniform((*x)->buffer, &lower_bound_float32, &upper_bound_float32);
+        *shape = (uint64_t) ((*(float32_t *) stop - *(float32_t *) start) / *(float32_t *) step);
         break;
     case FLOAT64:
-        upper_bound_float64 = *(float64_t *) gain * sqrt(3.0 / *(float64_t *) fan);
-        lower_bound_float64 = -upper_bound_float64;
-        error = runtime_init_uniform((*x)->buffer, &lower_bound_float64, &upper_bound_float64);
+        *shape = (uint64_t) ((*(float64_t *) stop - *(float64_t *) start) / *(float64_t *) step);
         break;
     default:
-        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
-        break;
-    }
+        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+    } 
 
-    if (error)
-    {
-        tensor_destroy(*x);
-        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tenssor."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *tensor_create_kaiming_normal(tensor_t **x, const uint64_t *shape, uint64_t rank,
-                                         runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
-                                         void *gain, void *fan)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-    CHECK_NULL_ARGUMENT(gain, "gain");
-    CHECK_NULL_ARGUMENT(fan, "fan");
-
-    nw_error_t *error = NULL;
-
-    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
+    error = apply_function_creation(ARANGE_OPERATION, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, arguments, length, NULL, x);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
-    float32_t mean_float32, standard_deviation_float32;
-    float64_t mean_float64, standard_deviation_float64;
-
-    switch (datatype)
-    {
-    case FLOAT32:
-        mean_float32 = (float32_t) 0.0;
-        standard_deviation_float32 = *(float32_t *) gain / sqrtf(*(float32_t *) fan);
-        error = runtime_init_normal((*x)->buffer, (void *) &mean_float32, (void *) &standard_deviation_float32);
-        break;
-    case FLOAT64:
-        mean_float64 = (float64_t) 0.0;
-        standard_deviation_float64 = *(float64_t *) gain / sqrt(*(float64_t *) fan);
-        error = runtime_init_uniform((*x)->buffer, (void *) &mean_float64, (void *) &standard_deviation_float64);
-        break;
-    default:
-        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
-        break;
-    }
-
-    if (error)
-    {
-        tensor_destroy(*x);
-        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tenssor."), error);
-    }
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", *x);
 
     return error;
 }
 
-nw_error_t *tensor_create_glorot_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank,
-                                         runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
-                                         void *gain, void *fan_in, void *fan_out)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-    CHECK_NULL_ARGUMENT(gain, "gain");
-    CHECK_NULL_ARGUMENT(fan_in, "fan_in");
-    CHECK_NULL_ARGUMENT(fan_out, "fan_out");
-
-    nw_error_t *error = NULL;
-
-    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    float32_t lower_bound_float32, upper_bound_float32;
-    float64_t lower_bound_float64, upper_bound_float64;
-
-    switch (datatype)
-    {
-    case FLOAT32:
-        upper_bound_float32 = *(float32_t *) gain * sqrtf(6.0 / (*(float32_t *) fan_in + *(float32_t *) fan_out));
-        lower_bound_float32 = -upper_bound_float32;
-        error = runtime_init_uniform((*x)->buffer, &lower_bound_float32, &upper_bound_float32);
-        break;
-    case FLOAT64:
-        upper_bound_float64 = *(float64_t *) gain * sqrt(6.0 / (*(float64_t *) fan_in + *(float64_t *) fan_out));
-        lower_bound_float64 = -upper_bound_float64;
-        error = runtime_init_uniform((*x)->buffer, &lower_bound_float64, &upper_bound_float64);
-        break;
-    default:
-        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
-        break;
-    }
-
-    if (error)
-    {
-        tensor_destroy(*x);
-        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tenssor."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *tensor_create_glorot_normal(tensor_t **x, const uint64_t *shape, uint64_t rank,
-                                        runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
-                                        void *gain, void *fan_in, void *fan_out)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-    CHECK_NULL_ARGUMENT(gain, "gain");
-    CHECK_NULL_ARGUMENT(fan_in, "fan_in");
-    CHECK_NULL_ARGUMENT(fan_in, "fan_in");
-
-    nw_error_t *error = NULL;
-
-    error = tensor_create_empty(shape, NULL, rank, x, requires_gradient, runtime, datatype);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    float32_t mean_float32, standard_deviation_float32;
-    float64_t mean_float64, standard_deviation_float64;
-
-    switch (datatype)
-    {
-    case FLOAT32:
-        mean_float32 = (float32_t) 0.0;
-        standard_deviation_float32 = *(float32_t *) gain * sqrtf(2.0 / (*(float32_t *) fan_in + *(float32_t *) fan_out));
-        error = runtime_init_normal((*x)->buffer, (void *) &mean_float32, (void *) &standard_deviation_float32);
-        break;
-    case FLOAT64:
-        mean_float64 = (float64_t) 0.0;
-        standard_deviation_float64 = *(float64_t *) gain * sqrt(2.0 / (*(float64_t *) fan_in + *(float64_t *) fan_out));
-        error = runtime_init_normal((*x)->buffer, (void *) &mean_float64, (void *) &standard_deviation_float64);
-        break;
-    default:
-        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
-        break;
-    }
-
-    if (error)
-    {
-        tensor_destroy(*x);
-        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize tenssor."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t preserve_memory_format)
+nw_error_t *tensor_zeroes_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t persist, bool_t preserve_memory_format)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -1993,67 +1684,391 @@ nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_g
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
-    view_t *view = NULL;
-    storage_t *storage = NULL;
-    buffer_t *buffer = NULL;
+    uint64_t *shape = x->buffer->view->shape;
+    uint64_t rank = x->buffer->view->rank;
+    uint64_t *strides = (preserve_memory_format) ? x->buffer->view->strides : NULL;
+    uint64_t offset = (preserve_memory_format) ? x->buffer->view->offset : 0;
     datatype_t datatype = x->buffer->storage->datatype;
     runtime_t runtime = x->buffer->storage->runtime;
-    uint64_t rank = x->buffer->view->rank;
-    uint64_t *shape = x->buffer->view->shape;
-    uint64_t offset = preserve_memory_format ? x->buffer->view->offset : 0;
-    uint64_t *strides = preserve_memory_format ? x->buffer->view->strides : NULL;
-    uint64_t n = preserve_memory_format ? x->buffer->storage->n : shape_size(shape, rank);
 
-    error = view_create(&view, offset, rank, shape, strides);
+    error = tensor_create_zeroes(y, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist);
     if (error)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
-    }
-
-    error = storage_create(&storage, runtime, datatype, n, NULL, true);
-    if (error)
-    {
-        view_destroy(view);
-        return ERROR(ERROR_CREATE, string_create("failed to create storage."), error);
-    }
-
-    error = buffer_create(&buffer, view, storage, false);
-    if (error)
-    {
-        view_destroy(view);
-        storage_destroy(storage);
-        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-    }
-
-    error = tensor_create(y, buffer, NULL, NULL, requires_gradient);
-    if (error)
-    {
-        buffer_destroy(buffer);
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
     return error;
 }
 
-nw_error_t *tensor_create_empty(const uint64_t *shape, const uint64_t *strides, uint64_t rank, tensor_t **y, 
-                                bool_t requires_gradient, runtime_t runtime, datatype_t datatype)
+nw_error_t *tensor_ones_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t persist, bool_t preserve_memory_format)
 {
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(x->buffer->storage, "x->buffer->storage");
     CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    uint64_t *shape = x->buffer->view->shape;
+    uint64_t rank = x->buffer->view->rank;
+    uint64_t *strides = (preserve_memory_format) ? x->buffer->view->strides : NULL;
+    uint64_t offset = (preserve_memory_format) ? x->buffer->view->offset : 0;
+    datatype_t datatype = x->buffer->storage->datatype;
+    runtime_t runtime = x->buffer->storage->runtime;
+
+    error = tensor_create_ones(y, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_create_zeroes(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime,
+                                 datatype_t datatype, bool_t requires_gradient, bool_t persist)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
     nw_error_t *error = NULL;
-    buffer_t *buffer = NULL;
 
-    error = buffer_create_empty(&buffer, shape, strides, rank, runtime, datatype);
+    error = apply_function_creation(ZEROES_OPERATION, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, NULL, 0, NULL, x);
     if (error)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
-    error = tensor_create(y, buffer, NULL, NULL, requires_gradient);
+    return error;
+}
+
+nw_error_t *tensor_create_ones(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, 
+                               runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    nw_error_t *error = NULL;
+
+    error = apply_function_creation(ONES_OPERATION, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, NULL, 0, NULL, x);
     if (error)
     {
-        buffer_destroy(buffer);
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_create_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime,
+                                  datatype_t datatype, bool_t requires_gradient, bool_t persist, void *lower_bound, void *upper_bound)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NULL_ARGUMENT(lower_bound, "lower_bound");
+    CHECK_NULL_ARGUMENT(upper_bound, "upper_bound");
+
+    nw_error_t *error = NULL;
+    const void *arguments[] = {lower_bound, upper_bound};
+    uint64_t length = 2;
+
+    error = apply_function_creation(UNIFORM_OPERATION, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, arguments, length, NULL, x);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_create_normal(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime,
+                                 datatype_t datatype, bool_t requires_gradient, bool_t persist, void *mean, void *standard_deviation)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NULL_ARGUMENT(mean, "mean");
+    CHECK_NULL_ARGUMENT(standard_deviation, "standard_deviation");
+
+    nw_error_t *error = NULL;
+    const void *arguments[] = {mean, standard_deviation};
+    uint64_t length = 2;
+
+    error = apply_function_creation(NORMAL_OPERATION, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, arguments, length, NULL, x);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_create_kaiming_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime,
+                                          datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NULL_ARGUMENT(gain, "gain");
+    CHECK_NULL_ARGUMENT(fan, "fan");
+
+    nw_error_t *error = NULL;
+    void *lower_bound = NULL;
+    void *upper_bound = NULL;
+    size_t size = datatype_size(datatype);
+
+    lower_bound = (void *) malloc(size);
+    if (!lower_bound)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    upper_bound = (void *) malloc(size);
+    if (!upper_bound)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) upper_bound = *(float32_t *) gain * sqrtf(3.0 / *(float32_t *) fan);
+        *(float32_t *) lower_bound = -*(float32_t *) upper_bound;
+        break;
+    case FLOAT64:
+        *(float64_t *) upper_bound = *(float64_t *) gain * sqrtf(3.0 / *(float64_t *) fan);
+        *(float64_t *) lower_bound = -*(float64_t *) upper_bound;
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_create_uniform(x, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, lower_bound, upper_bound);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+cleanup:
+
+    free(upper_bound);
+    free(lower_bound);
+
+    return error;
+}
+
+nw_error_t *tensor_create_kaiming_normal(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime,
+                                         datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NULL_ARGUMENT(gain, "gain");
+    CHECK_NULL_ARGUMENT(fan, "fan");
+
+    nw_error_t *error = NULL;
+    void *mean = NULL;
+    void *standard_deviation = NULL;
+    size_t size = datatype_size(datatype);
+
+    mean = (void *) malloc(size);
+    if (!mean)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    standard_deviation = (void *) malloc(size);
+    if (!standard_deviation)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        
+        *(float32_t *) standard_deviation = *(float32_t *) gain / sqrtf(*(float32_t *) fan);
+        *(float32_t *) mean = (float32_t) 0.0;
+        break;
+    case FLOAT64:
+        *(float64_t *) standard_deviation = *(float64_t *) gain / sqrt(*(float64_t *) fan);
+        *(float64_t *) mean = (float64_t) 0.0;
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_create_normal(x, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, mean, standard_deviation);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+cleanup:
+
+    free(mean);
+    free(standard_deviation);
+
+    return error;
+}
+
+nw_error_t *tensor_create_glorot_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime,
+                                         datatype_t datatype, bool_t requires_gradient, bool_t perist, void *gain, void *fan_in, void *fan_out)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NULL_ARGUMENT(gain, "gain");
+    CHECK_NULL_ARGUMENT(fan_in, "fan_in");
+    CHECK_NULL_ARGUMENT(fan_out, "fan_out");
+
+    nw_error_t *error = NULL;
+    void *lower_bound = NULL;
+    void *upper_bound = NULL;
+    size_t size = datatype_size(datatype);
+
+    lower_bound = (void *) malloc(size);
+    if (!lower_bound)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    upper_bound = (void *) malloc(size);
+    if (!upper_bound)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) upper_bound = *(float32_t *) gain * sqrtf(6.0 / (*(float32_t *) fan_in + *(float32_t *) fan_out));
+        *(float32_t *) lower_bound = -*(float32_t *) upper_bound;
+        break;
+    case FLOAT64:
+        *(float64_t *) upper_bound =  *(float64_t *) gain * sqrt(6.0 / (*(float64_t *) fan_in + *(float64_t *) fan_out));
+        *(float64_t *) lower_bound = -*(float64_t *) upper_bound;
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_create_uniform(x, shape, rank, strides, offset, runtime, datatype, requires_gradient, perist, lower_bound, upper_bound);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+cleanup:
+
+    free(upper_bound);
+    free(lower_bound);
+
+    return error;
+}
+
+nw_error_t *tensor_create_glorot_normal(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime,
+                                        datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan_in, void *fan_out)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NULL_ARGUMENT(gain, "gain");
+    CHECK_NULL_ARGUMENT(fan_in, "fan_in");
+    CHECK_NULL_ARGUMENT(fan_out, "fan_out");
+
+    nw_error_t *error = NULL;
+    void *mean = NULL;
+    void *standard_deviation = NULL;
+
+    size_t size = datatype_size(datatype);
+
+    mean = (void *) malloc(size);
+    if (!mean)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    standard_deviation = (void *) malloc(size);
+    if (!standard_deviation)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) standard_deviation = *(float32_t *) gain * sqrtf(2.0 / (*(float32_t *) fan_in + *(float32_t *) fan_out));
+        *(float32_t *) mean = (float32_t) 0.0;
+        break;
+    case FLOAT64:
+        *(float64_t *) standard_deviation = *(float64_t *) gain * sqrt(2.0 / (*(float64_t *) fan_in + *(float64_t *) fan_out));
+        *(float64_t *) mean = (float64_t) 0.0;
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_create_normal(x, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, mean, standard_deviation);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+cleanup:
+
+    free(mean);
+    free(standard_deviation);
+
+    return error;
+}
+
+nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t persist, bool_t preserve_memory_format)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(x->buffer->storage, "x->buffer->storage");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    uint64_t *shape = x->buffer->view->shape;
+    uint64_t rank = x->buffer->view->rank;
+    uint64_t *strides = (preserve_memory_format) ? x->buffer->view->strides : NULL;
+    uint64_t offset = (preserve_memory_format) ? x->buffer->view->offset : 0;
+    datatype_t datatype = x->buffer->storage->datatype;
+    runtime_t runtime = x->buffer->storage->runtime;
+
+    error = tensor_create_empty(y, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_create_empty(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, 
+                                runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    nw_error_t *error = NULL;
+
+    error = apply_function_creation(EMPTY_OPERATION, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, NULL, 0, NULL, x);
+    if (error)
+    {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
@@ -2072,6 +2087,7 @@ nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
     PRINTLN_DEBUG_TENSOR("gradient", gradient);
     PRINT_DEBUG_NEWLINE;
 
+    with_no_gradient(true);
     nw_error_t *error = NULL;
     stack_t *tensors = NULL;
     map_t *visited = NULL;
@@ -2084,7 +2100,7 @@ nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
             return ERROR(ERROR_RANK_CONFLICT, string_create("gradient only implicitly created for scalars"), NULL);
         }
 
-        error = tensor_ones_like(x, &x->gradient, false, false);
+        error = tensor_ones_like(x, &x->gradient, false, false, false);
         if (error)
         {
             return ERROR(ERROR_CREATE, string_create("failed to create tensor of ones."), error);
@@ -2132,7 +2148,7 @@ nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
 
         }
 
-        if (y->context || !y->requires_gradient)
+        if (!y->persist)
         {
             tensor_destroy(y);
         }
@@ -2142,41 +2158,26 @@ cleanup:
 
     map_destroy(visited);
     stack_destroy(tensors);
+    with_no_gradient(false);
     
     return error;
 }
 
-nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y, bool_t requires_gradient)
+nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y)
 {
     CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
-    view_t *view = NULL;
-    buffer_t *buffer = NULL;
 
-    error = view_copy(x->buffer->view, &view);
-    if (error)
-    {
-        return ERROR(ERROR_COPY, string_create("failed to copy view."), error);
-    }
-
-    error = buffer_create(&buffer, view, x->buffer->storage, false);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-    }
-
-    error = tensor_create(y, buffer, NULL, NULL, requires_gradient);
+    error = apply_function_unary(AS_OPERATION, x, y);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
-    return NULL;
+    return error;
 }
-
 
 nw_error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient)
 {
@@ -2192,7 +2193,7 @@ nw_error_t *tensor_accumulate_gradient(tensor_t *x, tensor_t *gradient)
 
     if (!x->gradient)
     {
-        error = tensor_as_tensor(gradient, &(x->gradient), gradient->requires_gradient);
+        error = tensor_as_tensor(gradient, &(x->gradient));
         if (error)
         {
             return ERROR(ERROR_CREATE, string_create("failed create tensor."), error);

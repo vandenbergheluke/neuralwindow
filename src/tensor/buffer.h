@@ -82,6 +82,8 @@ typedef enum runtime_creation_type_t
     RUNTIME_UNIFORM,
     RUNTIME_NORMAL,
     RUNTIME_ARANGE,
+    RUNTIME_FROM,
+    RUNTIME_COPY,
 } runtime_creation_type_t;
 
 nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, uint64_t n, void *data, bool_t copy);
@@ -113,11 +115,12 @@ nw_error_t *runtime_compare_greater(buffer_t *x_buffer, buffer_t *y_buffer, buff
 nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
 nw_error_t *runtime_summation(buffer_t *x, uint64_t *axis, uint64_t length, buffer_t *result, bool_t keep_dimension);
 nw_error_t *runtime_maximum(buffer_t *x, uint64_t *axis, uint64_t length, buffer_t *result, bool_t keep_dimension);
-
-nw_error_t *runtime_empty(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype);
-nw_error_t *runtime_zeroes(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype);
-nw_error_t *runtime_ones(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype);
-nw_error_t *runtime_uniform(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);
-nw_error_t *runtime_normal(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);
-nw_error_t *runtime_arange(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);
+nw_error_t *runtime_empty(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime, datatype_t datatype);
+nw_error_t *runtime_zeroes(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime, datatype_t datatype);
+nw_error_t *runtime_ones(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime, datatype_t datatype);
+nw_error_t *runtime_uniform(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);
+nw_error_t *runtime_normal(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);
+nw_error_t *runtime_arange(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);
+nw_error_t *runtime_from(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, const runtime_t runtime, datatype_t datatype, void *data);
+nw_error_t *runtime_copy(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, const runtime_t runtime, datatype_t datatype, void *data);
 #endif

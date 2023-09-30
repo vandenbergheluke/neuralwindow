@@ -1517,6 +1517,7 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
 
         uint64_t *shape = x->view->shape;
         uint64_t *strides = x->view->strides;
+        uint64_t offset = x->view->offset;
         uint64_t rank = x->view->rank;
         uint64_t reduced_shape[reduced_rank];
         uint64_t reduced_strides[reduced_rank];
@@ -1529,7 +1530,7 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
 
         if (i + 1 < length)
         {
-            error = buffer_create_empty(&intermediate_buffer, reduced_shape, reduced_strides, reduced_rank, runtime, datatype);
+            error = runtime_empty(&intermediate_buffer, reduced_shape, reduced_rank, reduced_strides, offset, runtime, datatype);
             if (error)
             {
                 return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
@@ -1606,7 +1607,7 @@ string_t runtime_string(runtime_t runtime)
     }
 }
 
-nw_error_t *runtime_init_zeroes(buffer_t *buffer)
+static nw_error_t *runtime_init_zeroes(buffer_t *buffer)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
@@ -1634,7 +1635,7 @@ nw_error_t *runtime_init_zeroes(buffer_t *buffer)
     return NULL;
 }
 
-nw_error_t *runtime_init_ones(buffer_t *buffer)
+static nw_error_t *runtime_init_ones(buffer_t *buffer)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
@@ -1662,44 +1663,72 @@ nw_error_t *runtime_init_ones(buffer_t *buffer)
     return NULL;
 }
 
-// Assumes tensor is contiguous
-nw_error_t *runtime_init_arange(buffer_t *buffer, int64_t start, int64_t stop, int64_t step)
+static nw_error_t *runtime_init_arange(buffer_t *buffer, void *start, void *stop, void *step)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
     CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
 
-    uint64_t interval = (stop - start) / step;
+    uint64_t interval = 0;
+    nw_error_t *error = NULL;
+    void *value = NULL;
+    void *data = buffer->storage->data;
+    datatype_t datatype = buffer->storage->datatype;
+    size_t size = datatype_size(datatype);
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        interval = (uint64_t) ((*(float32_t *) stop - *(float32_t *) start) / *(float32_t *) step);
+        break;
+    case FLOAT64:
+        interval = (uint64_t) ((*(float64_t *) stop - *(float64_t *) start) / *(float64_t *) step);
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+        goto cleanup;
+    }
+
+    value = (void *) malloc(size);
+    if (!value)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+    memcpy(value, start, size);
 
     if (interval != buffer->storage->n)
     {
-        return ERROR(ERROR_N, string_create("size of buffer does not match size of interval."), NULL);
+        error = ERROR(ERROR_N, string_create("size of buffer %lu does not match size of interval %lu.", buffer->storage->n, interval), NULL);
+        goto cleanup;
     }
 
-    void *data = buffer->storage->data;
-    datatype_t datatype = buffer->storage->datatype;
-
-    int64_t value = start;
     for (uint64_t i = 0; i < interval; ++i)
     {
         switch (datatype)
         {
         case FLOAT32:
-            ((float32_t *) data)[i] = (float32_t) value;
+            ((float32_t *) data)[i] = *(float32_t *) value;
+            *(float32_t *) value += *(float32_t *) step;
             break;
         case FLOAT64:
-            ((float64_t *) data)[i] = (float64_t) value;
+            ((float64_t *) data)[i] = *(float64_t *) value;
+            *(float64_t *) value += *(float64_t *) step;
             break;
         default:
-            return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+            error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+            goto cleanup;
         }
-        value += step;
     }
 
-    return NULL;
+cleanup:
+
+    free(value);
+
+    return error;
 }
 
-nw_error_t *runtime_init_uniform(buffer_t *buffer, void *lower_bound, void *upper_bound)
+static nw_error_t *runtime_init_uniform(buffer_t *buffer, void *lower_bound, void *upper_bound)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
@@ -1729,7 +1758,7 @@ nw_error_t *runtime_init_uniform(buffer_t *buffer, void *lower_bound, void *uppe
     return NULL;
 }
 
-nw_error_t *runtime_init_normal(buffer_t *buffer, void *mean, void *standard_deviation)
+static nw_error_t *runtime_init_normal(buffer_t *buffer, void *mean, void *standard_deviation)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
@@ -1762,6 +1791,8 @@ nw_error_t *runtime_init_normal(buffer_t *buffer, void *mean, void *standard_dev
 static nw_error_t *runtime_create_empty(buffer_t **buffer,
                                         const uint64_t *shape,
                                         uint64_t rank,
+                                        const uint64_t *strides,
+                                        uint64_t offset,
                                         runtime_t runtime,
                                         datatype_t datatype)
 {
@@ -1773,7 +1804,7 @@ static nw_error_t *runtime_create_empty(buffer_t **buffer,
     storage_t *storage = NULL;
     uint64_t n = 0;
 
-    error = view_create(&view, 0, rank, shape, NULL);
+    error = view_create(&view, offset, rank, shape, strides);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create view."), error);
@@ -1811,10 +1842,69 @@ cleanup:
     return error;
 }
 
+static nw_error_t *runtime_create_nonempty(buffer_t **buffer,
+                                           const uint64_t *shape,
+                                           uint64_t rank,
+                                           const uint64_t *strides,
+                                           uint64_t offset,
+                                           runtime_t runtime,
+                                           datatype_t datatype,
+                                           void *data,
+                                           bool_t copy)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    nw_error_t *error = NULL;
+    view_t *view = NULL;
+    storage_t *storage = NULL;
+    uint64_t n = 0;
+
+    error = view_create(&view, offset, rank, shape, strides);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+        goto cleanup;
+    }
+
+    error = n_from_shape_and_strides(view->shape, view->strides, view->rank, &n);
+    if (error)
+    {
+        error = ERROR(ERROR_N, string_create("failed to obtain storage size."), error);
+        goto cleanup;
+    }
+
+    error = storage_create(&storage, runtime, datatype, n, data, copy);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create storage."), error);
+        goto cleanup;
+    }
+
+    error = buffer_create(buffer, view, storage, false);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    view_destroy(view);
+    storage_destroy(storage);
+
+    return error;
+}
+
+
 static nw_error_t *runtime_create(buffer_t **buffer,
                                   runtime_creation_type_t runtime_creation_type,
                                   const uint64_t *shape,
                                   uint64_t rank,
+                                  const uint64_t *strides,
+                                  uint64_t offset,
                                   runtime_t runtime,
                                   datatype_t datatype,
                                   void **arguments,
@@ -1824,18 +1914,19 @@ static nw_error_t *runtime_create(buffer_t **buffer,
     CHECK_NULL_ARGUMENT(shape, "shape");
     if (length)
     {
-        CHECK_NULL_ARGUMENT(arguments, arguments);
+        CHECK_NULL_ARGUMENT(arguments, "arguments");
     }
 
     nw_error_t *error = NULL;
     *buffer = NULL;
 
-    error = runtime_create_empty(buffer, shape, rank, runtime, datatype);
+    error = runtime_create_empty(buffer, shape, rank, strides, offset, runtime, datatype);
     if (error)
     {
-        error = ERROR(ERROR_CREATE, string_create("failed to create empty buffer."), error);
+        error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
         goto cleanup;
     }
+
 
     switch (runtime_creation_type)
     {
@@ -1897,21 +1988,186 @@ cleanup:
     return error;
 }
 
-static nw_error_t *runtime_empty(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype)
+nw_error_t *runtime_empty(buffer_t **buffer,
+                          const uint64_t *shape,
+                          uint64_t rank,
+                          const uint64_t *strides,
+                          uint64_t offset,
+                          runtime_t runtime,
+                          datatype_t datatype)
 {
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(shape, "shape");
 
+    nw_error_t *error = NULL;
+
+    error = runtime_create(buffer, RUNTIME_EMPTY, shape, rank, strides, offset, runtime, datatype, NULL, 0);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    return error;
 }
 
-nw_error_t *runtime_zeroes(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype)
+nw_error_t *runtime_zeroes(buffer_t **buffer,
+                           const uint64_t *shape,
+                           uint64_t rank,
+                           const uint64_t *strides,
+                           uint64_t offset,
+                           runtime_t runtime,
+                           datatype_t datatype)
 {
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(shape, "shape");
 
+    nw_error_t *error = NULL;
+
+    error = runtime_create(buffer, RUNTIME_ZEROES, shape, rank, strides, offset, runtime, datatype, NULL, 0);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    return error;
 }
 
-nw_error_t *runtime_ones(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype)
+nw_error_t *runtime_ones(buffer_t **buffer,
+                         const uint64_t *shape,
+                         uint64_t rank,
+                         const uint64_t *strides,
+                         uint64_t offset,
+                         runtime_t runtime,
+                         datatype_t datatype)
 {
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(shape, "shape");
 
+    nw_error_t *error = NULL;
+
+    error = runtime_create(buffer, RUNTIME_ONES, shape, rank, strides, offset, runtime, datatype, NULL, 0);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    return error;
 }
 
-nw_error_t *runtime_uniform(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);
-nw_error_t *runtime_normal(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);
-nw_error_t *runtime_arange(buffer_t **buffer, const uint64_t *shape, uint64_t rank, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);
+nw_error_t *runtime_uniform(buffer_t **buffer,
+                            const uint64_t *shape,
+                            uint64_t rank,
+                            const uint64_t *strides,
+                            uint64_t offset,
+                            runtime_t runtime,
+                            datatype_t datatype,
+                            void **arguments,
+                            uint64_t length)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    nw_error_t *error = NULL;
+
+    error = runtime_create(buffer, RUNTIME_UNIFORM, shape, rank, strides, offset, runtime, datatype, arguments, length);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *runtime_normal(buffer_t **buffer,
+                           const uint64_t *shape,
+                           uint64_t rank,
+                           const uint64_t *strides,
+                           uint64_t offset,
+                           const runtime_t runtime,
+                           datatype_t datatype,
+                           void **arguments,
+                           uint64_t length)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    nw_error_t *error = NULL;
+
+    error = runtime_create(buffer, RUNTIME_NORMAL, shape, rank, strides, offset, runtime, datatype, arguments, length);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *runtime_arange(buffer_t **buffer,
+                           const uint64_t *shape,
+                           uint64_t rank,
+                           const uint64_t *strides,
+                           uint64_t offset,
+                           const runtime_t runtime,
+                           datatype_t datatype,
+                           void **arguments,
+                           uint64_t length)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    nw_error_t *error = NULL;
+
+    error = runtime_create(buffer, RUNTIME_ARANGE, shape, rank, strides, offset, runtime, datatype, arguments, length);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *runtime_from(buffer_t **buffer,
+                         const uint64_t *shape,
+                         uint64_t rank,
+                         const uint64_t *strides,
+                         uint64_t offset,
+                         const runtime_t runtime,
+                         datatype_t datatype,
+                         void *data)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    nw_error_t *error = NULL;
+
+    error = runtime_create_nonempty(buffer, shape, rank, strides, offset, runtime, datatype, data, false);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *runtime_copy(buffer_t **buffer,
+                         const uint64_t *shape,
+                         uint64_t rank,
+                         const uint64_t *strides,
+                         uint64_t offset,
+                         const runtime_t runtime,
+                         datatype_t datatype,
+                         void *data)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    nw_error_t *error = NULL;
+
+    error = runtime_create_nonempty(buffer, shape, rank, strides, offset, runtime, datatype, data, true);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    }
+
+    return error;
+}

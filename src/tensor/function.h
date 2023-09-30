@@ -8,6 +8,7 @@
 
 #include <datatype.h>
 #include <errors.h>
+#include <buffer.h>
 
 // Forward declarations
 typedef struct tensor_t tensor_t;
@@ -25,6 +26,7 @@ typedef enum unary_operation_type_t
     NEGATION_OPERATION,
     RECTIFIED_LINEAR_OPERATION,
     SIGMOID_OPERATION,
+    AS_OPERATION,
 } unary_operation_type_t;
 
 typedef struct unary_operation_t
@@ -146,34 +148,54 @@ typedef enum creation_operation_type_t
     UNIFORM_OPERATION,
     NORMAL_OPERATION,
     ARANGE_OPERATION,
+    FROM_OPERATION,
+    COPY_OPERATION,
 } creation_operation_type_t;
 
 typedef struct creation_operation_t
 {
-    tensor_t *x;
+    creation_operation_type_t operation_type;
     tensor_t *result;
-    void **arguments;
-    uint64_t length;
     uint64_t *shape;
     uint64_t rank;
-    uint64_t offset;
     uint64_t *strides;
+    uint64_t offset;
     runtime_t runtime;
     datatype_t datatype;
-    uint64_t n;
     bool_t requires_gradient;
-    creation_operation_type_t operation_type;
+    bool_t persist;
+    void **arguments;
+    uint64_t length;
+    void *data;
 } creation_operation_t;
 
 nw_error_t *creation_operation_create(creation_operation_t **creation_operation,
                                       creation_operation_type_t creation_operation_type,
-                                      const uint64_t *arguments,
-                                      uint64_t length);
+                                      const uint64_t *shape,
+                                      uint64_t rank,
+                                      const uint64_t *strides,
+                                      uint64_t offset,
+                                      runtime_t runtime,
+                                      datatype_t datatype,
+                                      bool_t requires_gradient,
+                                      bool_t persist,
+                                      const void **arguments,
+                                      uint64_t length,
+                                      void *data);
 void creation_operation_destroy(creation_operation_t *creation_operation);
 nw_error_t *creation_operation_forward(creation_operation_t *creation_operation, tensor_t **result);
 nw_error_t *apply_function_creation(creation_operation_type_t creation_operation_type,
-                                    const uint64_t *arguments,
+                                    const uint64_t *shape,
+                                    uint64_t rank,
+                                    const uint64_t *strides,
+                                    uint64_t offset,
+                                    runtime_t runtime,
+                                    datatype_t datatype,
+                                    bool_t requires_gradient,
+                                    bool_t persist,
+                                    const void **arguments,
                                     uint64_t length,
+                                    void *data,
                                     tensor_t **result);
 string_t creation_operation_type_string(creation_operation_type_t creation_operation_type);
 
