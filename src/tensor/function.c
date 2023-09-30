@@ -8,7 +8,6 @@
 #include <view.h>
 #include <buffer.h>
 #include <string.h>
-#include <graph.h>
 
 extern bool_t no_gradient;
 
@@ -356,6 +355,8 @@ nw_error_t *function_forward(function_t *function, tensor_t **result)
 
         if (graph_var)
         {
+            #include <graph.h>
+            
             switch(operation_type)
             {
                 case UNARY_OPERATION:
