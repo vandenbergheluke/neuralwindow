@@ -93,10 +93,6 @@ else()
     set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${HEADERS}")
 endif()
 
-if (DEFINED ENV{GRAPH})
-    target_link_libraries(${PROJECT_NAME} ${GRAPH_LIBRARIES})
-endif()
-
 target_include_directories(${PROJECT_NAME} PUBLIC ${TENSOR_DIR} ${UTIL_DIR} ${RUNTIME_DIR} ${MKL_DIR} ${NN_DIR} ${INCLUDE_DIR})
 install(
     TARGETS ${PROJECT_NAME}
