@@ -68,6 +68,7 @@ void setup(void)
                     }
 
                     tensors[i][j][k][z] = torch_to_tensor(torch_tensors[i][j][k][z], (runtime_t) i, (datatype_t) j);
+                    returned_tensors[i][j][k][z] = NULL;
                 }
             }
         }
