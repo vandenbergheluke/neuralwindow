@@ -8,6 +8,7 @@
 #include <train.h>
 #include <optimizer.h>
 #include <metric.h>
+#include <measure.h>
 
 typedef struct mnist_dataset_t
 {
@@ -46,6 +47,7 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
     CHECK_NULL_ARGUMENT(y_true, "cost");
     static void *accuracy_data = NULL;
     static void *cost_data = NULL;
+    static uint64_t time = 0; 
     tensor_t *total_accuracy = NULL;
     tensor_t *total_cost = NULL;
     tensor_t *mean_accuracy = NULL;
@@ -101,6 +103,8 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
             error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
             goto cleanup;
         }
+
+        time = get_time_nanoseconds();
     }
 
     error = tensor_item(accuracy, accuracy_data + (iteration - 1) * datatype_size(datatype));
@@ -153,6 +157,7 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
         LOG("Dataset %s - %lu/%lu Epochs", dataset_type_string(dataset_type), epoch, epochs);
         LOG_SCALAR_TENSOR(" - Cost", mean_cost);
         LOG_SCALAR_TENSOR("- Accuracy", mean_accuracy);
+        LOG("- Time: %lfs", (float64_t) (get_time_nanoseconds() - time) * (float64_t) 1e-9);
         LOG_NEWLINE;
     }
 
@@ -507,7 +512,7 @@ int main(void)
     };
 
     nw_error_t *error = NULL;
-    uint64_t epochs = 1000;
+    uint64_t epochs = 200;
     model_t *model = NULL;
     runtime_t runtime = OPENBLAS_RUNTIME;
     datatype_t datatype = FLOAT32;
