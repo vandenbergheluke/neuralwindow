@@ -353,7 +353,7 @@ nw_error_t *function_forward(function_t *function, tensor_t **result)
     {
         char_t* graph_var = getenv("GRAPH");
 
-        if (graph_var)
+        if (graph_var && strcmp(graph_var, "1") == 0)
         {
             #include <graph.h>
             

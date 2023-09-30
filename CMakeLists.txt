@@ -53,6 +53,11 @@ if (NOT GENHTML)
     message(FATAL_ERROR "Could not find genhtml.")
 endif()
 
+find_program(GRAPHVIZ dot)
+if (NOT GRAPHVIZ)
+    message(FATAL_ERROR "Could not find Graphviz.")
+endif()
+
 add_custom_target(report
     COMMAND mkdir -p ${REPORT_DIR}
     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${TEST_DIR}
