@@ -933,7 +933,7 @@ void test_binary(binary_operation_class_t binary_operation_class,
                 expected_gradients_x[i][j][k] = torch_to_tensor(torch_tensors_x[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
                 expected_gradients_y[i][j][k] = torch_to_tensor(torch_tensors_y[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
 
-                tensor_t *cost;
+                tensor_t *cost = NULL;
                 error = tensor_summation(returned_tensors[i][j][k], &cost, NULL, 0, false);
                 ck_assert_ptr_null(error);
                 error = tensor_backward(cost, NULL);

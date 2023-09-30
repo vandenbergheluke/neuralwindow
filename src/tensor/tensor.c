@@ -93,6 +93,18 @@ void with_no_gradient(bool_t flag)
 nw_error_t *tensor_from_data(tensor_t **x, void *data, runtime_t runtime, datatype_t datatype, uint64_t rank, const uint64_t *shape, 
                              const uint64_t *strides, uint64_t offset, bool_t copy, bool_t requires_gradient, bool_t persist)
 {
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", *x);
+    PRINTLN_DEBUG_UINT64_ARRAY("shape", shape, rank);
+    PRINTLN_DEBUG_UINT64_ARRAY("strides", strides, rank);
+    PRINTLN_DEBUG_BOOLEAN("copy", copy);
+    PRINTLN_DEBUG_BOOLEAN("requires_gradient", requires_gradient);
+    PRINTLN_DEBUG_BOOLEAN("persist", persist);
+    PRINTF_DEBUG("offset %lu\n", offset);
+    PRINTF_DEBUG("runtime %s\n", runtime_string(runtime));
+    PRINTF_DEBUG("datatype %s\n", datatype_string(datatype));
+    PRINT_DEBUG_NEWLINE;
+
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(data, "data");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -105,6 +117,10 @@ nw_error_t *tensor_from_data(tensor_t **x, void *data, runtime_t runtime, dataty
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", *x);
+    PRINT_DEBUG_NEWLINE;
 
     return error;
 }
@@ -189,8 +205,7 @@ nw_error_t *tensor_broadcast_matrix_multiplication(const tensor_t *x_original,
     uint64_t x_broadcasted_shape[broadcasted_rank];
     uint64_t y_broadcasted_shape[broadcasted_rank];
 
-    error = matrix_multiplication_broadcast_shapes(x_shape, x_rank, y_shape, y_rank,
-                                                   x_broadcasted_shape, y_broadcasted_shape, broadcasted_rank);
+    error = matrix_multiplication_broadcast_shapes(x_shape, x_rank, y_shape, y_rank, x_broadcasted_shape, y_broadcasted_shape, broadcasted_rank);
     if (error)
     {
         return ERROR(ERROR_BROADCAST, string_create("failed to broadcast tensor shapes."), error);
@@ -495,8 +510,6 @@ nw_error_t *tensor_matrix_multiplication(const tensor_t *x, const tensor_t *y, t
     nw_error_t *error = NULL;
     tensor_t *x_contiguous = NULL;
     tensor_t *y_contiguous = NULL;
-    tensor_t *x_broadcasted = NULL;
-    tensor_t *y_broadcasted = NULL;
 
     error = tensor_contiguous(x, &x_contiguous);
     if (error)
@@ -512,14 +525,7 @@ nw_error_t *tensor_matrix_multiplication(const tensor_t *x, const tensor_t *y, t
         goto cleanup;
     }
 
-    error = tensor_broadcast_matrix_multiplication(x_contiguous, y_contiguous, &x_broadcasted, &y_broadcasted);
-    if (error)
-    {
-        error = ERROR(ERROR_BROADCAST, string_create("failed to broadcast tensors."), error);
-        goto cleanup;
-    } 
-
-    error = apply_function_binary(MATRIX_MULTIPLICATION_OPERATION, x_broadcasted, y_broadcasted, z);
+    error = apply_function_binary(MATRIX_MULTIPLICATION_OPERATION, x_contiguous, y_contiguous, z);
     if (error)
     {
         error = ERROR(ERROR_FORWARD, string_create("failed to matrix multiply tensors."), error);
@@ -533,19 +539,6 @@ nw_error_t *tensor_matrix_multiplication(const tensor_t *x, const tensor_t *y, t
     PRINT_DEBUG_NEWLINE;
 
 cleanup:
-
-    if (!(x->requires_gradient || y->requires_gradient) || no_gradient)
-    {
-        if (x_contiguous != x_broadcasted)
-        {
-            tensor_destroy(x_broadcasted);
-        }
-
-        if (y_contiguous != y_broadcasted)
-        {
-            tensor_destroy(y_broadcasted);
-        }
-    }
 
     if (x != x_contiguous && (!(x->requires_gradient) || no_gradient))
     {
@@ -616,7 +609,7 @@ nw_error_t *tensor_maximum(const tensor_t *x, tensor_t **y, const uint64_t *axis
     return error;
 }
 
-nw_error_t *tensor_item(tensor_t *x, void *value)
+nw_error_t *tensor_item(const tensor_t *x, void *value)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -2035,6 +2028,14 @@ cleanup:
 
 nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t persist, bool_t preserve_memory_format)
 {
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINTLN_DEBUG_BOOLEAN("preserve_memory_format", preserve_memory_format);
+    PRINTLN_DEBUG_BOOLEAN("requires_gradient", requires_gradient);
+    PRINTLN_DEBUG_BOOLEAN("persist", persist);
+    PRINT_DEBUG_NEWLINE;
+
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
     CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
@@ -2055,12 +2056,28 @@ nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_g
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
     return error;
 }
 
 nw_error_t *tensor_create_empty(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, 
                                 runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist)
 {
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", *x);
+    PRINTLN_DEBUG_UINT64_ARRAY("shape", shape, rank);
+    PRINTLN_DEBUG_UINT64_ARRAY("strides", strides, rank);
+    PRINTLN_DEBUG_BOOLEAN("requires_gradient", requires_gradient);
+    PRINTLN_DEBUG_BOOLEAN("persist", persist);
+    PRINTF_DEBUG("offset %lu\n", offset);
+    PRINTF_DEBUG("runtime %s\n", runtime_string(runtime));
+    PRINTF_DEBUG("datatype %s\n", datatype_string(datatype));
+    PRINT_DEBUG_NEWLINE;
+
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
@@ -2071,6 +2088,10 @@ nw_error_t *tensor_create_empty(tensor_t **x, const uint64_t *shape, uint64_t ra
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", *x);
+    PRINT_DEBUG_NEWLINE;
 
     return error;
 }

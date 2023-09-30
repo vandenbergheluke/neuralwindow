@@ -46,7 +46,7 @@ nw_error_t *tensor_create_kaiming_uniform(tensor_t **x, const uint64_t *shape, u
 nw_error_t *tensor_create_kaiming_normal(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan);
 nw_error_t *tensor_create_glorot_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan_in, void *fan_out);
 nw_error_t *tensor_create_glorot_normal(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset,runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan_in, void *fan_out);
-nw_error_t *tensor_item(tensor_t *x, void *value);
+nw_error_t *tensor_item(const tensor_t *x, void *value);
 
 // Structure Operations
 nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_original, tensor_t **x_broadcasted, tensor_t **y_broadcasted);

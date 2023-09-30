@@ -172,17 +172,17 @@ nw_error_t *apply_function_binary(binary_operation_type_t binary_operation_type,
     if (binary_operation_type != MATRIX_MULTIPLICATION_OPERATION)
     {
         error = tensor_broadcast(x, y, &x_broadcasted, &y_broadcasted);
-        if (error)
-        {
-            error = ERROR(ERROR_BROADCAST, string_create("failed to broadcast tensors."), error);
-            goto cleanup;
-        }
     }
     else
     {
-        x_broadcasted = (tensor_t *) x;
-        y_broadcasted = (tensor_t *) y;
+        error = tensor_broadcast_matrix_multiplication(x, y, &x_broadcasted, &y_broadcasted);
     }
+
+    if (error)
+    {
+        error = ERROR(ERROR_BROADCAST, string_create("failed to broadcast tensors."), error);
+        goto cleanup;
+    } 
 
     error = binary_operation_create(&binary_operation, binary_operation_type, x_broadcasted, y_broadcasted);
     if (error)
@@ -1395,7 +1395,10 @@ cleanup:
 
     free(value);
     tensor_destroy(x_gradient);
-    tensor_destroy(x_gradient_i);
+    if (x_gradient_i != x_gradient_k)
+    {
+        tensor_destroy(x_gradient_i);
+    }
     tensor_destroy(x_gradient_j);
     tensor_destroy(x_gradient_k);
 
@@ -2257,10 +2260,10 @@ nw_error_t *binary_operation_forward(binary_operation_t *binary_operation, tenso
     tensor_t *y = binary_operation->y;
     uint64_t *x_shape = x->buffer->view->shape;
     uint64_t *y_shape = y->buffer->view->shape;
-    uint64_t *shape;
     uint64_t x_rank = x->buffer->view->rank;
     uint64_t y_rank = y->buffer->view->rank;
-    uint64_t rank;
+    uint64_t rank = MAX(x_rank, y_rank);
+    uint64_t shape[rank];
     datatype_t x_datatype = x->buffer->storage->datatype;
     datatype_t y_datatype = y->buffer->storage->datatype;
     datatype_t datatype;
@@ -2298,34 +2301,26 @@ nw_error_t *binary_operation_forward(binary_operation_t *binary_operation, tenso
             }
             else
             {
-                shape = x_shape;
-                rank = x_rank;
+                memcpy(shape, x_shape, rank * sizeof(uint64_t));
             }
 
-            error = tensor_create_empty(result, shape, rank, NULL, 0, runtime, datatype, requires_gradient, false);    
-            if (error)
-            {
-                return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-            }
         }
         else
         {
-            uint64_t rank = MAX(x_rank, y_rank);
-            uint64_t shape[rank];
-
             error = matrix_multiplication_shape(x_shape, y_shape, shape, rank);
             if (error)
             {
                 return ERROR(ERROR_SHAPE_CONFLICT, string_create("incompatible shapes for matrix multiplication."), error);
             }
+        }
 
-            error = tensor_create_empty(result, shape, rank, NULL, 0, runtime, datatype, requires_gradient, false);
-            if (error)
-            {
-                return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-            }
+        error = tensor_create_empty(result, shape, rank, NULL, 0, runtime, datatype, requires_gradient, false);    
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
         }
     }
+
 
     switch (operation_type)
     {

@@ -179,6 +179,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_DATASET_TYPE";
     case ERROR_ARGUMENTS:
         return "ERROR_ARGUMENTS";
+    case ERROR_ITEM:
+        return "ERROR_ITEM";
     default:
         return "ERROR";
     }

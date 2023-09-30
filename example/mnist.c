@@ -32,19 +32,35 @@ static uint32_t uint32_big_endian(uint8_t *buffer)
     return value;
 }
 
-nw_error_t *mnist_metrics(dataset_type_t dataset_type, const tensor_t *y_true, const tensor_t *y_pred)
+nw_error_t *mnist_metrics(dataset_type_t dataset_type, 
+                          const tensor_t *y_true,
+                          const tensor_t *y_pred,
+                          const tensor_t *cost,
+                          uint64_t epoch,
+                          uint64_t epochs,
+                          uint64_t iteration,
+                          uint64_t iterations)
 {
     CHECK_NULL_ARGUMENT(y_pred, "y_pred");
     CHECK_NULL_ARGUMENT(y_true, "y_true");
-    
+    CHECK_NULL_ARGUMENT(y_true, "cost");
+    static void *accuracy_data = NULL;
+    static void *cost_data = NULL;
+    tensor_t *total_accuracy = NULL;
+    tensor_t *total_cost = NULL;
+    tensor_t *mean_accuracy = NULL;
+    tensor_t *mean_cost = NULL;
     nw_error_t *error = NULL;
     tensor_t *accuracy = NULL;
     tensor_t *probabilities = NULL;
+    runtime_t runtime = cost->buffer->storage->runtime;
+    datatype_t datatype = cost->buffer->storage->datatype;
 
     error = tensor_exponential(y_pred, &probabilities);
     if (error)
     {
-        return ERROR(ERROR_EXPONENTIAL, string_create("failed to exponentiate tensor."), error);
+        error = ERROR(ERROR_EXPONENTIAL, string_create("failed to exponentiate tensor."), error);
+        goto cleanup;
     }
 
     switch (dataset_type)
@@ -65,13 +81,89 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type, const tensor_t *y_true, c
 
     if (error)
     {
-        return ERROR(ERROR_METRICS, string_create("failed to compute metrics."), error);
+        error = ERROR(ERROR_METRICS, string_create("failed to compute metrics."), error);
+        goto cleanup;
     }
 
-    LOG_SCALAR_TENSOR("accuracy", accuracy);
+    if (!(iteration - 1))
+    {
+        size_t size = iterations * datatype_size(datatype);
+        accuracy_data = (void *) malloc(size);
+        if (!accuracy_data)
+        {
+            error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+            goto cleanup;
+        }
+
+        cost_data = (void *) malloc(size);
+        if (!cost_data)
+        {
+            error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+            goto cleanup;
+        }
+    }
+
+    error = tensor_item(accuracy, accuracy_data + (iteration - 1) * datatype_size(datatype));
+    if (error)
+    {
+        error = ERROR(ERROR_ITEM, string_create("failed to get tensor item."), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_item(cost, cost_data + (iteration - 1) * datatype_size(datatype));
+    if (error)
+    {
+        error = ERROR(ERROR_ITEM, string_create("failed to get tensor item."), NULL);
+        goto cleanup;
+    }
+
+    if (iteration == iterations)
+    {
+        uint64_t shape[] = {iterations};
+        uint64_t rank = 1;
+        
+        error = tensor_from_data(&total_accuracy, accuracy_data, runtime, datatype, rank, shape, NULL, 0, false, false, false);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            goto cleanup;
+        }
+
+        error = tensor_from_data(&total_cost, cost_data, runtime, datatype, rank, shape, NULL, 0, false, false, false);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            goto cleanup;
+        }
+
+        error = tensor_mean(total_accuracy, &mean_accuracy, NULL, 0, false);
+        if (error)
+        {
+            error = ERROR(ERROR_DIVISION, string_create("failed to get mean of tensor."), error);
+            goto cleanup;
+        }
+
+        error = tensor_mean(total_cost, &mean_cost, NULL, 0, false);
+        if (error)
+        {
+            error = ERROR(ERROR_DIVISION, string_create("failed to get mean of tensor."), error);
+            goto cleanup;
+        }
+
+        LOG("Dataset %s - %lu/%lu Epochs", dataset_type_string(dataset_type), epoch, epochs);
+        LOG_SCALAR_TENSOR(" - Cost", mean_cost);
+        LOG_SCALAR_TENSOR("- Accuracy", mean_accuracy);
+        LOG_NEWLINE;
+    }
+
+cleanup:
 
     tensor_destroy(accuracy);
     tensor_destroy(probabilities);
+    tensor_destroy(mean_accuracy);
+    tensor_destroy(mean_cost);
+    tensor_destroy(total_accuracy);
+    tensor_destroy(total_cost);
 
     return error;
 }
@@ -260,6 +352,12 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
+    if (copy)
+    {
+        free(data);
+        free(labels);
+    }
+
     return error;
 }
 
@@ -367,6 +465,8 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
     
 cleanup:
 
+    free(mean);
+    free(standard_deviation);
     parameter_init_destroy(weight_init);
     parameter_init_destroy(bias_init);
     if (!error)

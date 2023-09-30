@@ -488,7 +488,7 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type, bool_t test_g
                     // Back prop
                     expected_tensor.sum().backward();
                     expected_gradient[i][j][k][l] = torch_to_tensor(torch_tensors[i][j][k][l].grad(), (runtime_t) i, (datatype_t) j);
-                    tensor_t *cost;
+                    tensor_t *cost = NULL;
                     error = tensor_summation(returned_tensors[i][j][k][l], &cost, NULL, 0, false);
                     ck_assert_ptr_null(error);
                     error = tensor_backward(cost, NULL);
@@ -546,12 +546,12 @@ Suite *make_reduction_suite(void)
 
     tc_reduction = tcase_create("Test Reduction Tensor Case");
     tcase_add_checked_fixture(tc_reduction, setup, teardown);
-    // tcase_add_test(tc_reduction, test_summation);
-    // tcase_add_test(tc_reduction, test_maximum);
+    tcase_add_test(tc_reduction, test_summation);
+    tcase_add_test(tc_reduction, test_maximum);
     tcase_add_test(tc_reduction, test_mean);
-    // tcase_add_test(tc_reduction, test_softmax);
-    // tcase_add_test(tc_reduction, test_logsoftmax);
-    // tcase_add_test(tc_reduction, test_argument_maximum);
+    tcase_add_test(tc_reduction, test_softmax);
+    tcase_add_test(tc_reduction, test_logsoftmax);
+    tcase_add_test(tc_reduction, test_argument_maximum);
 
     suite_add_tcase(s, tc_reduction);
 

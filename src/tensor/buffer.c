@@ -1061,9 +1061,7 @@ static void runtime_matrix_multiplication_execute(runtime_t runtime,
     }
 }
 
-nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer,
-                                          buffer_t *y_buffer,
-                                          buffer_t *z_buffer)
+nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
 {
     CHECK_NULL_ARGUMENT(x_buffer, "x_buffer");
     CHECK_NULL_ARGUMENT(y_buffer, "y_buffer");
@@ -1093,12 +1091,8 @@ nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer,
     uint64_t m = x_buffer->view->shape[x_buffer->view->rank - 2];
     uint64_t k = x_buffer->view->shape[x_buffer->view->rank - 1];
     uint64_t n = y_buffer->view->shape[y_buffer->view->rank - 1];
-    bool_t x_transpose = x_buffer->view->shape[x_buffer->view->rank - 2] == 
-                         x_buffer->view->strides[x_buffer->view->rank - 1] && 
-                         x_buffer->view->strides[x_buffer->view->rank - 2] == 1; 
-    bool_t y_transpose = y_buffer->view->shape[y_buffer->view->rank - 2] == 
-                         y_buffer->view->strides[y_buffer->view->rank - 1] && 
-                         y_buffer->view->strides[y_buffer->view->rank - 2] == 1;  
+    bool_t x_transpose = false; 
+    bool_t y_transpose = false;  
     uint64_t x_offset;
     uint64_t y_offset;
     uint64_t z_offset;
