@@ -1,5 +1,8 @@
 #include <iostream>
+#include <vector>
 #include <tuple>
+#include <string>
+#include <ccplot.h>
 extern "C"
 {
 #include <buffer.h>
@@ -12,9 +15,11 @@ extern "C"
 }
 #include <test_helper.h>
 
-#define CASES 5
+#define UT_SAVE_EXT "png"
 
-#define MEASUREMENT_ITERS 15
+#define CASES 7
+
+#define MEASUREMENT_ITERS 30
 
 nw_error_t *error;
 
@@ -29,8 +34,10 @@ torch::Device device_cpu(torch::kCPU);
 std::vector<int64_t> shapes[CASES] = {
     {1,   1},
     {2,   2},
-    {3,   3},
+    {4,   4},
+    {8,   8},
     {32,  32},
+    {64,  64},
     {128, 128},
 };
 
@@ -96,20 +103,19 @@ void teardown(void)
     error_destroy(error);
 }
 
-void print_heuristics(float64_t torch_time_mkl, float64_t torch_time_cuda,
-        float64_t nw_time_mkl, float64_t nw_time_openblas,
-        float64_t nw_time_cuda)
+void plot_heuristics(std::string t, std::string save_path, float64_t* x, int x_n,
+        float64_t* y, int y_n)
 {
-    printf("MKL:\n");
-    printf("PyTorch performance (nsec): %0.2lf\n", torch_time_mkl);
-    printf("NW performance (nsec): %0.2lf\n", nw_time_mkl);
-    printf("Fraction (NW nsec/Pytorch nsec): %0.3lf\n", nw_time_mkl / torch_time_mkl);
-    printf("OpenBLAS:\n");
-    printf("NW performance (nsec): %0.2lf\n", nw_time_openblas);
-    printf("CUDA:\n");
-    // printf("PyTorch performance (nsec): %0.2lf\n", torch_time_cuda);
-    printf("NW performance (nsec): %0.2lf\n\n", nw_time_cuda);
-    // printf("Fraction (NW nsec/Pytorch nsec): %0.3lf\n\n", nw_time_cuda / torch_time_cuda);
+    error = plot(x, x_n, y, y_n, NULL);
+    ck_assert_ptr_null(error);
+    error = title(t.c_str());
+    ck_assert_ptr_null(error);
+    error = save(save_path.c_str());
+    ck_assert_ptr_null(error);
+
+    // Clear the figure
+    error = clf();
+    ck_assert_ptr_null(error);
 }
 
 void print_heuristics(float64_t torch_time_mkl, float64_t torch_flops_mkl,
@@ -130,18 +136,28 @@ void print_heuristics(float64_t torch_time_mkl, float64_t torch_flops_mkl,
     // printf("Fraction (NW nsec/Pytorch nsec): %0.3lf\n\n", nw_time_cuda / torch_time_cuda);
 }
 
-void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
+void performance_test(std::string op_name,
+        std::function<torch::Tensor(torch::Tensor)> torch_op,
         std::function<nw_error_t *(buffer_t *, buffer_t *)> nw_op)
 {
+    float64_t torch_time_arr_mkl[CASES];
+    float64_t torch_time_arr_cuda[CASES];
+
+    float64_t nw_time_arr_mkl[CASES];
+    float64_t nw_time_arr_openblas[CASES];
+    float64_t nw_time_arr_cuda[CASES];
+
+    // TODO: Figure out a smart way to manage dims.
+    float64_t x[CASES];
+
     uint32_t total_runs = DATATYPES * MEASUREMENT_ITERS;
     
     for (int k = 0; k < CASES; ++k)
     {
         float64_t torch_time_mkl = 0, torch_time_cuda = 0;
         float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
-        uint64_t n = shapes[k][0];
 
-        printf("Dimensions (%lu, %lu):\n", n, n);
+        uint64_t n = shapes[k][0];
 
         for (int i = 0; i < RUNTIMES; ++i)
         {
@@ -196,9 +212,43 @@ void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
             }
         }
 
-        print_heuristics(torch_time_mkl, torch_time_cuda, nw_time_mkl,
-                nw_time_openblas, nw_time_cuda);
+        torch_time_arr_mkl[k] = torch_time_mkl;
+
+        torch_time_arr_cuda[k] = torch_time_cuda;
+
+        nw_time_arr_openblas[k] = nw_time_openblas;
+
+        nw_time_arr_mkl[k] = nw_time_mkl;
+
+        nw_time_arr_cuda[k] = nw_time_cuda;
+
+        x[k] = n;
     }
+
+    plot_heuristics("Torch MKL Completion Time - " + op_name
+            + " - Time (nsec) by Square Matrix Width",
+            "img/" + op_name + "/torch_mkl_time." + UT_SAVE_EXT, x, CASES,
+            torch_time_arr_mkl, CASES);
+
+    plot_heuristics("Torch CUDA Completion Time - " + op_name
+            + " - Time (nsec) by Square Matrix Width",
+            "img/" + op_name + "/torch_cuda_time." + UT_SAVE_EXT, x, CASES,
+            torch_time_arr_cuda, CASES);
+
+    plot_heuristics("NW OpenBLAS Completion Time - " + op_name
+            + " - Time (nsec) by Square Matrix Width",
+            "img/" + op_name + "/nw_openblas_time." + UT_SAVE_EXT, x, CASES,
+            nw_time_arr_openblas, CASES);
+
+    plot_heuristics("NW MKL Completion Time - " + op_name
+            + " - Time (nsec) by Square Matrix Width",
+            "img/" + op_name + "/nw_mkl_time." + UT_SAVE_EXT, x, CASES,
+            nw_time_arr_mkl, CASES);
+
+    plot_heuristics("NW CUDA Completion Time - " + op_name
+            + " - Time (nsec) by Square Matrix Width",
+            "img/" + op_name + "/nw_cuda_time." + UT_SAVE_EXT, x, CASES,
+            nw_time_arr_cuda, CASES);
 }
 
 void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
@@ -284,36 +334,35 @@ void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
 
 START_TEST(test_exponential_computational_performance)
 {
-    printf("--------------------   Exponential   ---------------------\n");
-    performance_test(AS_LAMBDA(torch::exp), AS_LAMBDA(runtime_exponential));
+    performance_test("Exponential", AS_LAMBDA(torch::exp),
+            AS_LAMBDA(runtime_exponential));
 }
 END_TEST
 
 START_TEST(test_logarithm_computational_performance)
 {
-    printf("---------------------   Logarithm   ----------------------\n");
-    performance_test(AS_LAMBDA(torch::log), AS_LAMBDA(runtime_logarithm));
+    performance_test("Logarithm", AS_LAMBDA(torch::log),
+            AS_LAMBDA(runtime_logarithm));
 }
 END_TEST
 
 START_TEST(test_sine_computational_performance)
 {
-    printf("------------------------   Sine   ------------------------\n");
-    performance_test(AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
+    performance_test("Sine", AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
 }
 END_TEST
 
 START_TEST(test_cosine_computational_performance)
 {
-    printf("-----------------------   Cosine   -----------------------\n");
-    performance_test(AS_LAMBDA(torch::cos), AS_LAMBDA(runtime_cosine));
+    performance_test("Cosine", AS_LAMBDA(torch::cos),
+            AS_LAMBDA(runtime_cosine));
 }
 END_TEST
 
 START_TEST(test_square_root_computational_performance)
 {
-    printf("--------------------   Square Root   ---------------------\n");
-    performance_test(AS_LAMBDA(torch::sqrt), AS_LAMBDA(runtime_square_root));
+    performance_test("Square_Root", AS_LAMBDA(torch::sqrt),
+            AS_LAMBDA(runtime_square_root));
 }
 END_TEST
 
@@ -327,15 +376,15 @@ END_TEST
 
 START_TEST(test_contiguous_computational_performance)
 {
-    printf("---------------------   Contiguous   ---------------------\n");
-    performance_test(AS_MEMBER_LAMBDA(torch::Tensor::contiguous), AS_LAMBDA(runtime_contiguous));
+    performance_test("Contiguous", AS_MEMBER_LAMBDA(torch::Tensor::contiguous),
+            AS_LAMBDA(runtime_contiguous));
 }
 END_TEST
 
 START_TEST(test_negation_computational_performance)
 {
-    printf("----------------------   Negation   ----------------------\n");
-    performance_test(AS_LAMBDA(torch::neg), AS_LAMBDA(runtime_negation));
+    performance_test("Negation", AS_LAMBDA(torch::neg),
+            AS_LAMBDA(runtime_negation));
 }
 END_TEST
 
