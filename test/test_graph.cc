@@ -45,7 +45,10 @@ void setup(void)
             torch_tensors_y[i] = torch::randn(shapes[0], torch::TensorOptions().dtype(torch::kFloat64));
 
             tensors_x[i] = torch_to_tensor(torch_tensors_x[i], MKL_RUNTIME, FLOAT64);
+            tensors_x_output[i] = torch_to_tensor(torch_tensors_x[i], MKL_RUNTIME, FLOAT64);
             tensors_y[i] = torch_to_tensor(torch_tensors_y[i], MKL_RUNTIME, FLOAT64);
+            tensors_y_output[i] = torch_to_tensor(torch_tensors_y[i], MKL_RUNTIME, FLOAT64);
+            returned_tensors[i] = torch_to_tensor(torch_tensors_x[i], MKL_RUNTIME, FLOAT64);
     }
 }
 
