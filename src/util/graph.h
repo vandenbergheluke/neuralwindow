@@ -12,7 +12,7 @@
 #include <buffer.h>
 #include <view.h>
 #include <element.h>
-#include <graphviz/cgraph.h>
+#include <cgraph.h>
 
 typedef struct graph_node_t
 {
