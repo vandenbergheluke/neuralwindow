@@ -11,6 +11,8 @@ set(SRC_DIR src)
 set(EXAMPLE_DIR example)
 set(REPORT_DIR lcov)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake_add/)
+
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 14)
@@ -42,6 +44,8 @@ add_subdirectory(${SRC_DIR})
 add_subdirectory(${EXAMPLE_DIR})
 enable_testing()
 add_subdirectory(${TEST_DIR})
+
+find_package(MathGL2 REQUIRED)
 
 find_program(LCOV lcov)
 if (NOT LCOV)
