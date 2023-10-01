@@ -3,7 +3,7 @@ set(TENSOR_DIR "tensor")
 set(RUNTIME_DIR "runtime")
 set(NN_DIR "nn")
 set(MKL_DIR "/usr/include/mkl")
-set(GRAPHVIZ "/usr/include/graphviz")
+set(GRAPHVIZ "/usr/bin/dot")
 
 set(
     SOURCE 
