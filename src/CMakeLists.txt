@@ -3,7 +3,7 @@ set(TENSOR_DIR "tensor")
 set(RUNTIME_DIR "runtime")
 set(NN_DIR "nn")
 set(MKL_DIR "/usr/include/mkl")
-set(Graphviz_DIR "/usr/include/graphviz")
+set(GRAPHVIZ_DIR "/usr/include/graphviz")
 
 set(
     SOURCE 
@@ -94,7 +94,7 @@ else()
     set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${HEADERS}")
 endif()
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${TENSOR_DIR} ${UTIL_DIR} ${RUNTIME_DIR} ${MKL_DIR} ${NN_DIR} ${INCLUDE_DIR} ${Graphviz_DIR})
+target_include_directories(${PROJECT_NAME} PUBLIC ${TENSOR_DIR} ${UTIL_DIR} ${RUNTIME_DIR} ${MKL_DIR} ${NN_DIR} ${INCLUDE_DIR} ${GRAPHVIZ_DIR})
 install(
     TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION bin
