@@ -42,7 +42,10 @@ cleanup:
     if (!y_pred->requires_gradient || no_gradient)
     {
         tensor_destroy(y_i);
-        tensor_destroy(y_j);
+        if (y_j != *accuracy)
+        {
+            tensor_destroy(y_j);
+        }
     }
 
     return error;
@@ -92,9 +95,20 @@ cleanup:
 
     if (!y_pred->requires_gradient || no_gradient)
     {
-        tensor_destroy(y_i);
-        tensor_destroy(y_j);
-        tensor_destroy(y_k);
+        if (y_j != *accuracy)
+        {
+            tensor_destroy(y_j);
+        }
+
+        if (y_pred != y_i)
+        {
+            tensor_destroy(y_i);
+        }
+
+        if (y_true != y_k)
+        {
+            tensor_destroy(y_k);
+        }
     }
 
     return error;

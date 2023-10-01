@@ -46,7 +46,7 @@ nw_error_t *fit(uint64_t epochs,
                 nw_error_t *(*teardown)(void *),
                 nw_error_t *(*dataloader)(uint64_t, batch_t *, void *),
                 nw_error_t *(*criterion)(const tensor_t *, const tensor_t *, tensor_t **),
-                nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *))
+                nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *, const tensor_t *, uint64_t, uint64_t, uint64_t, uint64_t))
 {
     nw_error_t *error = NULL;
 
@@ -77,11 +77,8 @@ nw_error_t *fit(uint64_t epochs,
 
     for (uint64_t i = 0; i < epochs; ++i)
     {
-        LOG("%lu / %lu epochs \n", i + 1, epochs);
         for (uint64_t j = 0; j < train_iterations; ++j)
         {
-            LOG("%s: %lu / %lu iterations \n", dataset_type_string(TRAIN), j + 1, train_iterations);
-
             error = (*dataloader)(indicies[j] * batch->batch_size, batch, arguments);
             if (error)
             {
@@ -100,11 +97,8 @@ nw_error_t *fit(uint64_t epochs,
                 return ERROR(ERROR_CRITERION, string_create("failed model forward pass."), error);
             }
 
-            LOG_SCALAR_TENSOR("cost", cost);
-            LOG_NEWLINE;
-
             with_no_gradient(true);
-            error = (*metrics)(TRAIN, batch->y, y_pred);
+            error = (*metrics)(TRAIN, batch->y, y_pred, cost, i + 1, epochs, j + 1, train_iterations);
             if (error)
             {
                 return ERROR(ERROR_METRICS, string_create("failed to compute metrics."), error);
@@ -138,8 +132,6 @@ nw_error_t *fit(uint64_t epochs,
 
         for (uint64_t j = start; j < end; ++j)
         {
-            LOG("%s: %lu / %lu iterations \n", dataset_type_string(VALID), j - start + 1, end - start);
-
             error = (*dataloader)(indicies[j] * batch->batch_size, batch, arguments);
             if (error)
             {
@@ -158,10 +150,7 @@ nw_error_t *fit(uint64_t epochs,
                 return ERROR(ERROR_CRITERION, string_create("failed model forward pass."), error);
             }
 
-            LOG_SCALAR_TENSOR("cost", cost);
-            LOG_NEWLINE;
-
-            error = (*metrics)(VALID, batch->y, y_pred);
+            error = (*metrics)(VALID, batch->y, y_pred, cost, i + 1, epochs, j - train_iterations + 1, valid_iterations);
             if (error)
             {
                 return ERROR(ERROR_METRICS, string_create("failed to compute metrics."), error);
@@ -187,8 +176,6 @@ nw_error_t *fit(uint64_t epochs,
 
     for (uint64_t i = start; i < end; ++i)
     {
-        LOG("%s: %lu / %lu iterations ", dataset_type_string(TEST), i - start + 1, end - start);
-
         error = (*dataloader)(indicies[i] * batch->batch_size, batch, arguments);
         if (error)
         {
@@ -207,16 +194,12 @@ nw_error_t *fit(uint64_t epochs,
             return ERROR(ERROR_CRITERION, string_create("failed model forward pass."), error);
         }
 
-        LOG_SCALAR_TENSOR("cost", cost);
-
-        error = (*metrics)(TEST, batch->y, y_pred);
+        error = (*metrics)(TEST, batch->y, y_pred, cost, 1, 1, i - start + 1, test_iterations);
         if (error)
         {
             return ERROR(ERROR_METRICS, string_create("failed to compute metrics."), error);
         }
          
-        LOG_NEWLINE;
-
         tensor_destroy(batch->x);
         tensor_destroy(batch->y);
         tensor_destroy(y_pred);
