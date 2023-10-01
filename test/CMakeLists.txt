@@ -1,6 +1,8 @@
 find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
+find_package(MathGL2 REQUIRED)
+
 set(TEST_C
     test_map
     test_queue
@@ -17,7 +19,7 @@ set(TEST_CXX
     test_buffer_reduction
     test_buffer_unary
     test_buffer_binary
-    #test_buffer_unary_performance
+    test_buffer_unary_performance
     test_buffer_binary_performance
     test_autograd
 )
@@ -37,9 +39,10 @@ foreach(TEST ${TESTS})
     elseif(${TEST} IN_LIST TEST_C)
         add_executable(${TEST} "${TEST}.c" "${TEST_HELPER}.cc")
     endif()
-    target_include_directories(${TEST} PUBLIC "." ${MathGL_INCLUDE_DIRS})
+    message(MATHGL2_INCLUDE_DIRS=${MATHGL2_INCLUDE_DIRS})
+    target_include_directories(${TEST} PUBLIC "." ${MATHGL2_INCLUDE_DIRS})
     set_target_properties(${TEST} PROPERTIES PUBLIC_HEADER "${TEST_HELPER}.h")
-    target_link_libraries(${TEST} ${PROJECT_NAME} check subunit m "${TORCH_LIBRARIES}" ${MathGL_LIBRARIES})
+    target_link_libraries(${TEST} ${PROJECT_NAME} check subunit m "${TORCH_LIBRARIES}" ${MATHGL_LIBRARIES})
     add_test(NAME ${TEST} COMMAND ${TEST} WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${TEST_DIR})
     # add_custom_target("valgrind_${TEST}" COMMAND valgrind --leak-check=full  --show-reachable=yes --error-limit=no --gen-suppressions=all --log-file=../suppressions.log --suppressions=../../suppressions.supp $<TARGET_FILE:${TEST}> DEPENDS ${TEST})
     add_custom_target("valgrind_${TEST}" COMMAND valgrind --leak-check=full  --show-reachable=yes --error-limit=no --suppressions=../../suppressions.supp $<TARGET_FILE:${TEST}> DEPENDS ${TEST})

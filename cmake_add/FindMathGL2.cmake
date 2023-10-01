@@ -1,3 +1,7 @@
+# NOTE: This file is from the MathGL project for an older version of MathGL
+# (I'm using v8.0.1). Needs to be replaced with something geared for the new
+# version.
+#
 # - FindMathGL2.cmake
 # This module can be used to find MathGL v.2.* and several of its optional components.
 #
@@ -51,9 +55,12 @@ FIND_LIBRARY(MATHGL2_LIBRARY
 		DOC "The MathGL v.2.* include directory")
 
 GET_FILENAME_COMPONENT(MATHGL2_LIBRARY_DIR ${MATHGL2_LIBRARY} PATH)
+MESSAGE(STATUS "MathGL2 Library Dir -- ${MATHGL2_LIBRARY_DIR}")
 
 SET(MATHGL2_LIBRARIES ${MATHGL2_LIBRARY})
 SET(MATHGL2_INCLUDE_DIRS ${MATHGL2_INCLUDE_DIR})
+MESSAGE(STATUS "MathGL2 Include Dir -- ${MATHGL2_INCLUDE_DIR}")
+MESSAGE(STATUS "MathGL2 Include Dirs -- ${MATHGL2_INCLUDE_DIRS}")
 
 IF(MATHGL2_INCLUDE_DIR)
 	SET(_CONFIG_FILE_PATH "${MATHGL2_INCLUDE_DIR}/mgl2/config.h")
@@ -62,15 +69,12 @@ IF(MATHGL2_INCLUDE_DIR)
 		FILE(STRINGS "${_CONFIG_FILE_PATH}"
             MATHGL2_VERSION_STRING REGEX "[#define MGL_VER2.*]")
 		IF(MATHGL2_VERSION_STRING)
-            MESSAGE(STATUS "Find MathGL version l65 -- ${MATHGL2_VERSION_STRING}")
 			STRING(REGEX
 				REPLACE "#define MGL_VER2" ""
 				MATHGL2_VERSION_STRING ${MATHGL2_VERSION_STRING})
-            MESSAGE(STATUS "Find MathGL version l69 -- ${MATHGL2_VERSION_STRING}")
 			STRING(REGEX
 				REPLACE "//.*" ""
 				MATHGL2_VERSION_STRING ${MATHGL2_VERSION_STRING})
-            MESSAGE(STATUS "Find MathGL version l73 -- ${MATHGL2_VERSION_STRING}")
 			STRING(STRIP ${MATHGL2_VERSION_STRING} MATHGL2_VERSION_STRING)
 			SET(MATHGL2_VERSION_STRING 2.${MATHGL2_VERSION_STRING})
 #			MESSAGE(STATUS "Find MathGL version -- ${MATHGL2_VERSION_STRING}")

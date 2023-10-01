@@ -45,8 +45,6 @@ add_subdirectory(${EXAMPLE_DIR})
 enable_testing()
 add_subdirectory(${TEST_DIR})
 
-find_package(MathGL2 REQUIRED)
-
 find_program(LCOV lcov)
 if (NOT LCOV)
     message(FATAL_ERROR "Could not find lcov.")

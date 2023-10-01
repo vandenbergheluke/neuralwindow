@@ -2,7 +2,9 @@
 #include <vector>
 #include <tuple>
 #include <string>
-#include <ccplot.h>
+
+#include <mgl2/mgl.h>
+
 extern "C"
 {
 #include <buffer.h>
@@ -13,9 +15,8 @@ extern "C"
 #include <measure.h>
 #include <check.h>
 }
-#include <test_helper.h>
 
-#define UT_SAVE_EXT "png"
+#include <test_helper.h>
 
 #define CASES 7
 
@@ -106,16 +107,26 @@ void teardown(void)
 void plot_heuristics(std::string t, std::string save_path, float64_t* x, int x_n,
         float64_t* y, int y_n)
 {
-    error = plot(x, x_n, y, y_n, NULL);
-    ck_assert_ptr_null(error);
-    error = title(t.c_str());
-    ck_assert_ptr_null(error);
-    error = save(save_path.c_str());
-    ck_assert_ptr_null(error);
+    mglGraph graph;
 
-    // Clear the figure
-    error = clf();
-    ck_assert_ptr_null(error);
+    mglData x_mgl;
+    mglData y_mgl;
+
+    x_mgl.Link(x, x_n);
+    y_mgl.Link(y, y_n);
+
+    graph.SubPlot(2,2,0);
+    graph.Title(t.c_str());
+    graph.Axis();
+    graph.Label('y', "Time (nsec)", 0);
+    graph.Label('x', "Square Matrix Width", 0);
+    graph.Grid();
+    graph.Plot(x_mgl, y_mgl, "e");
+    graph.Box();
+
+    // Line graph formatting
+
+    graph.WritePNG(save_path.c_str());
 }
 
 void print_heuristics(float64_t torch_time_mkl, float64_t torch_flops_mkl,
@@ -227,27 +238,27 @@ void performance_test(std::string op_name,
 
     plot_heuristics("Torch MKL Completion Time - " + op_name
             + " - Time (nsec) by Square Matrix Width",
-            "img/" + op_name + "/torch_mkl_time." + UT_SAVE_EXT, x, CASES,
+            "img/" + op_name + "/torch_mkl_time.png", x, CASES,
             torch_time_arr_mkl, CASES);
 
     plot_heuristics("Torch CUDA Completion Time - " + op_name
             + " - Time (nsec) by Square Matrix Width",
-            "img/" + op_name + "/torch_cuda_time." + UT_SAVE_EXT, x, CASES,
+            "img/" + op_name + "/torch_cuda_time.png", x, CASES,
             torch_time_arr_cuda, CASES);
 
     plot_heuristics("NW OpenBLAS Completion Time - " + op_name
             + " - Time (nsec) by Square Matrix Width",
-            "img/" + op_name + "/nw_openblas_time." + UT_SAVE_EXT, x, CASES,
+            "img/" + op_name + "/nw_openblas_time.png", x, CASES,
             nw_time_arr_openblas, CASES);
 
     plot_heuristics("NW MKL Completion Time - " + op_name
             + " - Time (nsec) by Square Matrix Width",
-            "img/" + op_name + "/nw_mkl_time." + UT_SAVE_EXT, x, CASES,
+            "img/" + op_name + "/nw_mkl_time.png", x, CASES,
             nw_time_arr_mkl, CASES);
 
     plot_heuristics("NW CUDA Completion Time - " + op_name
             + " - Time (nsec) by Square Matrix Width",
-            "img/" + op_name + "/nw_cuda_time." + UT_SAVE_EXT, x, CASES,
+            "img/" + op_name + "/nw_cuda_time.png", x, CASES,
             nw_time_arr_cuda, CASES);
 }
 
