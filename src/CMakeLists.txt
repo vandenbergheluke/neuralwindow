@@ -58,6 +58,7 @@ set(
     "${NN_DIR}/metric.h"
     "${NN_DIR}/optimizer.h"
     "${NN_DIR}/train.h"
+    "${GRAPHVIZ_DIR}/cgraph.h"
 )
 
 set(
