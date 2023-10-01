@@ -1264,7 +1264,6 @@ nw_error_t *slice_offset(const uint64_t *original_strides,
                      (unsigned long) original_rank, (unsigned long) length), NULL);
     }
 
-    *offset = 0;
     for (uint64_t i = 0; i < length; i += 2)
     {
         *offset += original_strides[i / 2] * arguments[i];

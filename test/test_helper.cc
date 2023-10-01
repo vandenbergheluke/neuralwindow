@@ -41,6 +41,7 @@ tensor_t *torch_to_tensor(torch::Tensor torch_tensor, runtime_t runtime, datatyp
     }
     ck_assert_ptr_null(error);
 
+    printf("%lu %lu\n", (uint64_t) torch_tensor.storage().nbytes() / (uint64_t) datatype_size(datatype), (uint64_t) torch_tensor.storage_offset());
     error = storage_create(&storage,
                            runtime,
                            datatype,

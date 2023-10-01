@@ -127,20 +127,20 @@ To build neuralwindow run
 ```bash
 mkdir build
 cd build
-cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
+cmake ..
 make
 ```
 
 To build and test without CUDA define enviroment variable `CPU_ONLY=1`.
 
 ```bash
-CPU_ONLY=1 cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
+CPU_ONLY=1 cmake ..
 ```
 
 Display Debug information by defining the enviroment variable `DEBUG=1`.
 
 ```bash
-DEBUG=1 cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
+DEBUG=1 cmake ..
 ```
 
 ## Test
