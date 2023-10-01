@@ -58,7 +58,9 @@ if (NOT GRAPHVIZ)
     message(FATAL_ERROR "Could not find Graphviz.")
 endif()
 
-include(FindGraphViz.cmake)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+find_package(GraphViz REQUIRED)
+
 
 add_custom_target(report
     COMMAND mkdir -p ${REPORT_DIR}
