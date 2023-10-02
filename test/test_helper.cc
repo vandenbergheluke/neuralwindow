@@ -47,7 +47,7 @@ tensor_t *torch_to_tensor(torch::Tensor torch_tensor, runtime_t runtime, datatyp
                            datatype,
                            (uint64_t) torch_tensor.storage().nbytes() /
                            (uint64_t) datatype_size(datatype),
-                           (void *) torch_tensor.data_ptr(),
+                           (void *) torch_tensor.storage().data_ptr().get(),
                            true);
     if (error)
     {

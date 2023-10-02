@@ -4,14 +4,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 set(TEST_C
     # test_map
     # test_queue
-    # test_view
+    test_view
 )
 
 set(TEST_CXX
     # test_tensor_reduction
     # test_tensor_unary
     # test_tensor_binary
-    test_tensor_structure
+    # test_tensor_structure
     # test_tensor_unary_performance
     # test_tensor_binary_performance
     # test_buffer_reduction_performance

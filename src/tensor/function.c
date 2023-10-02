@@ -3164,7 +3164,7 @@ static nw_error_t *slice_operation_forward(tensor_t *x, uint64_t *arguments, uin
     nw_error_t *error = NULL;
     view_t *view = NULL;
     uint64_t offset = x->buffer->view->offset;
-    uint64_t rank = x->buffer->view->offset;
+    uint64_t rank = x->buffer->view->rank;
     uint64_t *shape = x->buffer->view->shape;
     uint64_t *strides = x->buffer->view->strides;
     uint64_t sliced_shape[rank];
@@ -3176,7 +3176,7 @@ static nw_error_t *slice_operation_forward(tensor_t *x, uint64_t *arguments, uin
         return ERROR(ERROR_SLICE, string_create("failed to compute slice offset." ), NULL);
     }
 
-    error = slice_shape(shape, rank, sliced_shape, length, arguments, length);
+    error = slice_shape(shape, rank, sliced_shape, rank, arguments, length);
     if (shape == NULL)
     {
         return ERROR(ERROR_SLICE, string_create("failed to compute slice shape." ), NULL);
