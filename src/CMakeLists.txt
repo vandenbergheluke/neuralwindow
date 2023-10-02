@@ -76,6 +76,9 @@ set(
     cublas
 )
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+find_package(GraphViz REQUIRED)
+
 if (NOT DEFINED ENV{CPU_ONLY})
     add_library(${PROJECT_NAME} STATIC ${SOURCE} ${SOURCE_CUDA})
     set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
