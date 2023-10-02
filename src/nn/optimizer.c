@@ -54,7 +54,7 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
 
     nw_error_t *error = NULL;
 
-    for (uint64_t i = 0; i < block->depth; ++i)
+    for (int64_t i = 0; i < block->depth; ++i)
     {
         layer_t *layer = block->layers[i];
         if (!layer)

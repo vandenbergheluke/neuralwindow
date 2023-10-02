@@ -37,7 +37,7 @@
  *         Error if a dimension in shape is 0.
  *         NULL if view was successfully dynamically memory allocated and initialized.
  */
-nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uint64_t *shape, const uint64_t *strides)
+nw_error_t *view_create(view_t **view, int64_t offset, int64_t rank, const int64_t *shape, const int64_t *strides)
 {
     CHECK_NULL_ARGUMENT(view, "view");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -45,11 +45,11 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
     if (rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("rank %lu must be less or equal to %d.",
-                     (unsigned long) rank, (int) MAX_RANK), NULL);
+                     string_create("rank %ld must be less or equal to %d.",
+                     rank, (int) MAX_RANK), NULL);
     }
 
-    for (uint64_t i = 0; i < rank; ++i)
+    for (int64_t i = 0; i < rank; ++i)
     {
         if (!shape[i])
         {
@@ -63,9 +63,7 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
     *view = (view_t *) malloc((size_t) sizeof(view_t));
     if (!*view)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION,
-                     string_create("failed to allocate view of size %lu.",
-                     (unsigned long) sizeof(view_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view of size %zu.", sizeof(view_t)), NULL);
     } 
 
     // Initialize
@@ -75,26 +73,22 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
     // Dynamically allocate memory for shape
 
     // If rank is 0, this should return a reference to a block of memory of size 0.
-    (*view)->shape = (uint64_t *) malloc((size_t) (rank * sizeof(uint64_t)));
+    (*view)->shape = (int64_t *) malloc((size_t) (rank * sizeof(int64_t)));
     if (!(*view)->shape)
     {
         free(*view);
-        return ERROR(ERROR_MEMORY_ALLOCATION,
-                     string_create("failed to allocate view->shape of size %lu.",
-                     (unsigned long) (rank * sizeof(uint64_t))), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view->shape of size %zu.", (size_t) (rank * sizeof(int64_t))), NULL);
     }
 
     // Dynamically allocate memory for strides.
 
     // If rank is 0, this should return a reference to a block of memory of size 0.
-    (*view)->strides = (uint64_t *) malloc((size_t) (rank * sizeof(uint64_t)));
+    (*view)->strides = (int64_t *) malloc((size_t) (rank * sizeof(int64_t)));
     if (!(*view)->strides)
     {
         free(*view);
         free((*view)->shape);
-        return ERROR(ERROR_MEMORY_ALLOCATION,
-                     string_create("failed to allocate view->strides of size %lu.",
-                     (unsigned long) (rank * sizeof(uint64_t))), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view->strides of size %zu.", (size_t) (rank * sizeof(int64_t))), NULL);
     }
 
     // Copy
@@ -107,14 +101,14 @@ nw_error_t *view_create(view_t **view, uint64_t offset, uint64_t rank, const uin
 
     // Initialize Shape
     memcpy((void *) ((*view)->shape), 
-           (const void *) shape, (size_t) (rank * sizeof(uint64_t)));
+           (const void *) shape, (size_t) (rank * sizeof(int64_t)));
 
     // Initialize Strides
     if (strides)
     {
         memcpy((void *) ((*view)->strides), 
                (const void *) strides,
-               (size_t) (rank * sizeof(uint64_t)));
+               (size_t) (rank * sizeof(int64_t)));
     }
     else
     {
@@ -178,14 +172,14 @@ nw_error_t *view_copy(const view_t *source_view, view_t **destination_view)
  *         false is returned. If error occured while computing contiguous tensor
  *         strides false is also returned.
  */
-bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset)
+bool_t is_contiguous(const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset)
 {
     if (!shape || !strides || rank > MAX_RANK || offset)
     {
         return false;
     }
 
-    uint64_t contiguous_strides[rank];    
+    int64_t contiguous_strides[rank];    
     nw_error_t *error = strides_from_shape(contiguous_strides, shape, rank);
     if (error)
     {
@@ -193,7 +187,7 @@ bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strid
         return false;
     }
 
-    for (uint64_t i = 0; i < rank; ++i)
+    for (int64_t i = 0; i < rank; ++i)
     {
         if (strides[i] != contiguous_strides[i] && shape[i] != 1)
         {
@@ -222,12 +216,12 @@ bool_t is_contiguous(const uint64_t *shape, uint64_t rank, const uint64_t *strid
  *         NULL if dimensions of the tensor were successfully permuted to the 
  *         new order specified by axis.
  */
-nw_error_t *permute(const uint64_t *original_shape,
-                    const uint64_t *original_strides, 
-                    uint64_t *permuted_shape,
-                    uint64_t *permuted_strides,
-                    const uint64_t *axis,
-                    uint64_t length)
+nw_error_t *permute(const int64_t *original_shape,
+                    const int64_t *original_strides, 
+                    int64_t *permuted_shape,
+                    int64_t *permuted_strides,
+                    const int64_t *axis,
+                    int64_t length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(original_strides, "original_strides");
@@ -239,14 +233,14 @@ nw_error_t *permute(const uint64_t *original_shape,
     if (length > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("axis length %lu must be less than or equal to %d.",
-                     (unsigned long) length, (int) MAX_RANK),
+                     string_create("axis length %ld must be less than or equal to %d.",
+                     length, (int) MAX_RANK),
                      NULL);
     }
     
-    for (uint64_t i = 0; i < length; ++i)
+    for (int64_t i = 0; i < length; ++i)
     {
-        uint64_t dimension = axis[i];
+        int64_t dimension = axis[i];
         if (dimension < length)
         {
             if (!original_shape[dimension])
@@ -262,8 +256,8 @@ nw_error_t *permute(const uint64_t *original_shape,
         else
         {
             return ERROR(ERROR_PERMUTE,
-                         string_create("axis dimension %lu out of range of length %lu.", 
-                         (unsigned long) dimension, (unsigned long) length), NULL);
+                         string_create("axis dimension %ld out of range of length %ld.", 
+                         dimension, length), NULL);
         }
     }
     
@@ -272,8 +266,8 @@ nw_error_t *permute(const uint64_t *original_shape,
 
 typedef struct pair_t
 {
-    uint64_t index;
-    uint64_t value;
+    int64_t index;
+    int64_t value;
 } pair_t;
     
 static int compare(const void *a, const void *b)
@@ -305,7 +299,7 @@ static int compare(const void *a, const void *b)
  *         Error if not all dimension indices in `axis` are unique.
  *         NULL if `reverse_axis` was successfully acquired.
  */
-nw_error_t *reverse_permute(const uint64_t *axis, uint64_t rank, uint64_t *reverse_axis)
+nw_error_t *reverse_permute(const int64_t *axis, int64_t rank, int64_t *reverse_axis)
 {
     CHECK_NULL_ARGUMENT(axis, "axis");
     CHECK_NULL_ARGUMENT(reverse_axis, "reverse_axis");
@@ -314,26 +308,24 @@ nw_error_t *reverse_permute(const uint64_t *axis, uint64_t rank, uint64_t *rever
     if (rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("rank %lu must be less than or equal to %d.",
-                     (unsigned long) rank, (int) MAX_RANK), NULL);
+                     string_create("rank %ld must be less than or equal to %d.",
+                     rank, (int) MAX_RANK), NULL);
     }
 
     pair_t *new_axis = (pair_t *) malloc((size_t) (rank * sizeof(pair_t)));
     if (!new_axis)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION,
-                     string_create("failed to allocate new axis of size %lu bytes.",
-                     (unsigned long) (rank * sizeof(pair_t))), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate new axis of size %zu bytes.", (size_t) (rank * sizeof(pair_t))), NULL);
     }
 
-    for (uint64_t i = 0; i < rank; ++i)
+    for (int64_t i = 0; i < rank; ++i)
     {
         if (axis[i] >= rank)
         {
             free(new_axis);
             return ERROR(ERROR_RANK_CONFLICT,
-                         string_create("dimension index %lu cannot be greater or equal to rank %lu",
-                         (unsigned long) axis[i], (unsigned long) rank),
+                         string_create("dimension index %ld cannot be greater or equal to rank %ld",
+                         axis[i], rank),
                          NULL);
         }
 
@@ -343,7 +335,7 @@ nw_error_t *reverse_permute(const uint64_t *axis, uint64_t rank, uint64_t *rever
 
     qsort((void *) new_axis, (size_t) rank, sizeof(pair_t), compare);
 
-    for (uint64_t i = 0; i < rank; ++i)
+    for (int64_t i = 0; i < rank; ++i)
     {
         reverse_axis[i] = new_axis[i].index;
     }
@@ -378,14 +370,14 @@ nw_error_t *reverse_permute(const uint64_t *axis, uint64_t rank, uint64_t *rever
  *         Error if not all dimension indices in `axis` are unique.
  *         NULL if the shape and strides were recovered successfully.
  */
-nw_error_t *reduce_recover_dimensions(const uint64_t *reduced_shape,
-                                      uint64_t reduced_rank, 
-                                      const uint64_t *reduced_strides,
-                                      uint64_t *recovered_shape, 
-                                      uint64_t recovered_rank,
-                                      uint64_t *recovered_strides,
-                                      const uint64_t *axis,
-                                      uint64_t rank)
+nw_error_t *reduce_recover_dimensions(const int64_t *reduced_shape,
+                                      int64_t reduced_rank, 
+                                      const int64_t *reduced_strides,
+                                      int64_t *recovered_shape, 
+                                      int64_t recovered_rank,
+                                      int64_t *recovered_strides,
+                                      const int64_t *axis,
+                                      int64_t rank)
 {
     CHECK_NULL_ARGUMENT(reduced_shape, "reduced_shape");
     CHECK_NULL_ARGUMENT(reduced_strides, "reduced_strides");
@@ -397,35 +389,35 @@ nw_error_t *reduce_recover_dimensions(const uint64_t *reduced_shape,
     if (recovered_rank != reduced_rank + rank)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("conflicting ranks with reduced rank %lu, recovered rank %lu and axis length %lu.",
-                     (unsigned long) reduced_rank, (unsigned long) recovered_rank, (unsigned long) rank),
+                     string_create("conflicting ranks with reduced rank %ld, recovered rank %ld and axis length %ld.",
+                     reduced_rank, recovered_rank, rank),
                      NULL);
     }
 
     if (reduced_rank > MAX_RANK || recovered_rank > MAX_RANK || rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("reduced rank %lu, recovered rank %lu and axis length %lu must be less than or equal to %d.",
-                     (unsigned long) reduced_rank, (unsigned long) recovered_rank, (unsigned long) rank, (int) MAX_RANK),
+                     string_create("reduced rank %ld, recovered rank %ld and axis length %ld must be less than or equal to %d.",
+                     reduced_rank, recovered_rank, rank, (int) MAX_RANK),
                      NULL);
     }
 
-    for (uint64_t i = 0; i < rank; ++i)
+    for (int64_t i = 0; i < rank; ++i)
     {
         if (axis[i] >= recovered_rank)
         {
             return ERROR(ERROR_RANK_CONFLICT,
-                         string_create("recovered rank %lu must be greater than the axis dimension index %lu.",
-                         (unsigned long) recovered_rank, (unsigned long) axis[i]),
+                         string_create("recovered rank %ld must be greater than the axis dimension index %ld.",
+                         recovered_rank, axis[i]),
                          NULL);
         }
     }
 
-    uint64_t k = 0;
-    for (uint64_t i = 0; i < recovered_rank; ++i)
+    int64_t k = 0;
+    for (int64_t i = 0; i < recovered_rank; ++i)
     {
         bool_t reduced = false;
-        for (uint64_t j = 0; j < rank; ++j)
+        for (int64_t j = 0; j < rank; ++j)
         {
             if (axis[j] == i)
             {
@@ -441,8 +433,8 @@ nw_error_t *reduce_recover_dimensions(const uint64_t *reduced_shape,
             if (k >= reduced_rank)
             {
                 return ERROR(ERROR_RANK_CONFLICT,
-                             string_create("error index %lu out of range of reduced rank %lu.",
-                             (unsigned long) k, (unsigned long) reduced_rank),
+                             string_create("error index %ld out of range of reduced rank %ld.",
+                             k, reduced_rank),
                              NULL);
             }
 
@@ -483,14 +475,14 @@ nw_error_t *reduce_recover_dimensions(const uint64_t *reduced_shape,
  *         Error if not all dimension indices in `axis` are unique.
  *         NULL if reduced shape and strides were successfully computed.
  */
-nw_error_t *reduce(const uint64_t *original_shape,
-                   uint64_t original_rank,
-                   const uint64_t *original_strides, 
-                   uint64_t *reduced_shape,
-                   uint64_t reduced_rank,
-                   uint64_t *reduced_strides,
-                   const uint64_t *axis,
-                   uint64_t rank,
+nw_error_t *reduce(const int64_t *original_shape,
+                   int64_t original_rank,
+                   const int64_t *original_strides, 
+                   int64_t *reduced_shape,
+                   int64_t reduced_rank,
+                   int64_t *reduced_strides,
+                   const int64_t *axis,
+                   int64_t rank,
                    bool_t keep_dimensions)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
@@ -503,33 +495,33 @@ nw_error_t *reduce(const uint64_t *original_shape,
     if (rank > original_rank || original_rank > MAX_RANK || reduced_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("original rank %lu, reduced rank %lu and axis length %lu must be less than or equal to %d and rank <= original rank.",
-                     (unsigned long) original_rank, (unsigned long) reduced_rank, (unsigned long) rank, (int) MAX_RANK),
+                     string_create("original rank %ld, reduced rank %ld and axis length %ld must be less than or equal to %d and rank <= original rank.",
+                     original_rank, reduced_rank, rank, (int) MAX_RANK),
                      NULL);
     }
 
     if (keep_dimensions && original_rank != reduced_rank)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("conflicting ranks with original rank %lu and reduced rank %lu.",
-                     (unsigned long) original_rank, (unsigned long) reduced_rank), NULL);
+                     string_create("conflicting ranks with original rank %ld and reduced rank %ld.",
+                     original_rank, reduced_rank), NULL);
     }
 
     if (!keep_dimensions && reduced_rank != original_rank - rank)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("conflicting ranks with expected reduced rank %lu and reduced rank %lu.", 
-                     (unsigned long) (original_rank - rank), (unsigned long) reduced_rank), NULL);
+                     string_create("conflicting ranks with expected reduced rank %ld and reduced rank %ld.", 
+                     (original_rank - rank), reduced_rank), NULL);
     }
 
 
-    for (uint64_t i = 0; i < rank; ++i)
+    for (int64_t i = 0; i < rank; ++i)
     {
         if (axis[i] >= original_rank)
         {
             return ERROR(ERROR_RANK_CONFLICT,
-                         string_create("original rank %lu must be greater than axis dimension index %lu.",
-                         (unsigned long) original_rank, (unsigned long) axis[i]),
+                         string_create("original rank %ld must be greater than axis dimension index %ld.",
+                         original_rank, axis[i]),
                          NULL);
         }
     }
@@ -539,13 +531,13 @@ nw_error_t *reduce(const uint64_t *original_shape,
         return NULL;
     }
 
-    uint64_t k = reduced_rank - 1;
-    uint64_t stride = 1;
+    int64_t k = reduced_rank - 1;
+    int64_t stride = 1;
 
-    for (uint64_t i = original_rank - 1; ; i--)
+    for (int64_t i = original_rank - 1; ; i--)
     {
         bool_t reduce_dimension = false;
-        for (uint64_t j = 0; j < rank; ++j)
+        for (int64_t j = 0; j < rank; ++j)
         {
             if (axis[j] == i)
             {
@@ -604,7 +596,7 @@ nw_error_t *reduce(const uint64_t *original_shape,
  *         Error if `rank` greater than max rank.
  *         NULL if `n` is computed successfully.
  */
-nw_error_t *n_from_shape_and_strides(const uint64_t *shape, const uint64_t *strides, uint64_t rank, uint64_t *n)
+nw_error_t *n_from_shape_and_strides(const int64_t *shape, const int64_t *strides, int64_t rank, int64_t *n)
 {
     CHECK_NULL_ARGUMENT(shape, "shape");
     CHECK_NULL_ARGUMENT(strides, "strides");
@@ -613,8 +605,8 @@ nw_error_t *n_from_shape_and_strides(const uint64_t *shape, const uint64_t *stri
     if (rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("rank %lu must be less than or equal to %d.",
-                     (unsigned long) rank, (int) MAX_RANK),
+                     string_create("rank %ld must be less than or equal to %d.",
+                     rank, (int) MAX_RANK),
                      NULL);
     }
 
@@ -624,7 +616,7 @@ nw_error_t *n_from_shape_and_strides(const uint64_t *shape, const uint64_t *stri
         ++(*n);
     }
 
-    for (uint64_t i = 0; i < rank; ++i)
+    for (int64_t i = 0; i < rank; ++i)
     {
         if (!strides[i])
         {
@@ -654,14 +646,14 @@ nw_error_t *n_from_shape_and_strides(const uint64_t *shape, const uint64_t *stri
  * @return False if either shapes are NULL, ranks are not equal, or shape dimensions at a common index are not equal. 
  *         True if ranks are equal and shape dimensions are equal.
  */
-bool_t shapes_equal(const uint64_t *x_shape, uint64_t x_rank, const uint64_t *y_shape, uint64_t y_rank)
+bool_t shapes_equal(const int64_t *x_shape, int64_t x_rank, const int64_t *y_shape, int64_t y_rank)
 {
     if (!x_shape || !y_shape || x_rank != y_rank)
     {
         return false;
     }
 
-    for (uint64_t i = 0; i < x_rank; ++i)
+    for (int64_t i = 0; i < x_rank; ++i)
     {
         if (x_shape[i] != y_shape[i])
         {
@@ -683,16 +675,16 @@ bool_t shapes_equal(const uint64_t *x_shape, uint64_t x_rank, const uint64_t *y_
  * @return The percieved number of elements in the tensor.
  *         Returns 0 if shape is NULL.
  */
-uint64_t shape_size(const uint64_t *shape, uint64_t rank)
+int64_t shape_size(const int64_t *shape, int64_t rank)
 {
-    uint64_t total = 1;
+    int64_t total = 1;
 
     if (!shape)
     {
         return total;
     }
 
-    for (uint64_t i = 0; i < rank; ++i)
+    for (int64_t i = 0; i < rank; ++i)
     {
         if (!shape[i])
         {
@@ -720,7 +712,7 @@ uint64_t shape_size(const uint64_t *shape, uint64_t rank)
  *         Error if any of the dimensions in shape are 0.
  *         NULL if the strides were successfully acquired.
  */
-nw_error_t *strides_from_shape(uint64_t *strides, const uint64_t *shape, uint64_t rank)
+nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t rank)
 {
     CHECK_NULL_ARGUMENT(strides, "strides");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -728,12 +720,12 @@ nw_error_t *strides_from_shape(uint64_t *strides, const uint64_t *shape, uint64_
     if (rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("rank %lu must be less than or equal to %d.", 
-                     (unsigned long) rank, (int) MAX_RANK),
+                     string_create("rank %ld must be less than or equal to %d.", 
+                     rank, (int) MAX_RANK),
                      NULL);
     }
 
-    for (uint64_t i = 0; i < rank; ++i)
+    for (int64_t i = 0; i < rank; ++i)
     {
         if (!shape[i])
         {
@@ -752,7 +744,7 @@ nw_error_t *strides_from_shape(uint64_t *strides, const uint64_t *shape, uint64_
         }
     }
 
-    for (uint64_t i = 0; i < rank; ++i)
+    for (int64_t i = 0; i < rank; ++i)
     {
         if (shape[i] == 1)
         {
@@ -775,12 +767,12 @@ nw_error_t *strides_from_shape(uint64_t *strides, const uint64_t *shape, uint64_
  * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
  *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
  */
-nw_error_t *broadcast_strides(const uint64_t *original_shape,
-                              uint64_t original_rank,
-                              const uint64_t *original_strides,
-                              const uint64_t *broadcasted_shape,
-                              uint64_t broadcasted_rank,
-                              uint64_t *broadcasted_strides)
+nw_error_t *broadcast_strides(const int64_t *original_shape,
+                              int64_t original_rank,
+                              const int64_t *original_strides,
+                              const int64_t *broadcasted_shape,
+                              int64_t broadcasted_rank,
+                              int64_t *broadcasted_strides)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(original_strides, "original_strides");
@@ -790,8 +782,8 @@ nw_error_t *broadcast_strides(const uint64_t *original_shape,
     if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("original rank %lu and broadcasted rank %lu must be less than or equal to %d.", 
-                     (unsigned long) original_rank, (unsigned long) broadcasted_rank, (int) MAX_RANK),
+                     string_create("original rank %ld and broadcasted rank %ld must be less than or equal to %d.", 
+                     original_rank, broadcasted_rank, (int) MAX_RANK),
                      NULL);
     }
 
@@ -802,10 +794,10 @@ nw_error_t *broadcast_strides(const uint64_t *original_shape,
                      NULL);
     }
 
-    for (uint64_t i = 1; i < broadcasted_rank + 1; ++i)
+    for (int64_t i = 1; i < broadcasted_rank + 1; ++i)
     {   
-        uint64_t original_index = original_rank - i;
-        uint64_t broadcast_index = broadcasted_rank - i;
+        int64_t original_index = original_rank - i;
+        int64_t broadcast_index = broadcasted_rank - i;
 
 
         if (i > original_rank || (original_shape[original_index] == 1))
@@ -846,12 +838,12 @@ nw_error_t *broadcast_strides(const uint64_t *original_shape,
  * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
  *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
  */
-nw_error_t *broadcast_shapes(const uint64_t *x_original_shape,
-                             uint64_t x_original_rank,
-                             const uint64_t *y_original_shape,
-                             uint64_t y_original_rank, 
-                             uint64_t *broadcasted_shape,
-                             uint64_t broadcasted_rank)
+nw_error_t *broadcast_shapes(const int64_t *x_original_shape,
+                             int64_t x_original_rank,
+                             const int64_t *y_original_shape,
+                             int64_t y_original_rank, 
+                             int64_t *broadcasted_shape,
+                             int64_t broadcasted_rank)
 {
     CHECK_NULL_ARGUMENT(x_original_shape, "x_original_shape"); 
     CHECK_NULL_ARGUMENT(y_original_shape, "y_original_shape"); 
@@ -860,24 +852,24 @@ nw_error_t *broadcast_shapes(const uint64_t *x_original_shape,
     if (x_original_rank > MAX_RANK || y_original_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("x original rank %lu and y original rank %lu must be less than or equal to %d.", 
-                     (unsigned long) x_original_rank, (unsigned long) y_original_rank, (int) MAX_RANK),
+                     string_create("x original rank %ld and y original rank %ld must be less than or equal to %d.", 
+                     x_original_rank, y_original_rank, (int) MAX_RANK),
                      NULL);
     }
 
     if (broadcasted_rank != MAX(x_original_rank, y_original_rank))
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("broadcast rank %lu must be the max rank of {%lu, %lu}.",
-                     (unsigned long) broadcasted_rank, (unsigned long) x_original_rank, (unsigned long) y_original_rank),
+                     string_create("broadcast rank %ld must be the max rank of {%ld, %ld}.",
+                     broadcasted_rank, x_original_rank, y_original_rank),
                      NULL);
     }
 
-    for (uint64_t i = 1; i < broadcasted_rank + 1; ++i)
+    for (int64_t i = 1; i < broadcasted_rank + 1; ++i)
     {
-        uint64_t x_index = x_original_rank - i;
-        uint64_t y_index = y_original_rank - i;
-        uint64_t broadcast_index = broadcasted_rank - i;
+        int64_t x_index = x_original_rank - i;
+        int64_t y_index = y_original_rank - i;
+        int64_t broadcast_index = broadcasted_rank - i;
         if (i > x_original_rank || (i <= y_original_rank && x_original_shape[x_index] == 1))
         {
             broadcasted_shape[broadcast_index] = y_original_shape[y_index];
@@ -912,13 +904,13 @@ nw_error_t *broadcast_shapes(const uint64_t *x_original_shape,
  * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
  *         See broadcasting rules at https://pytorch.org/docs/stable/generated/torch.matmul.html.
  */
-nw_error_t *matrix_multiplication_broadcast_shapes(const uint64_t *x_original_shape,
-                                                   uint64_t x_original_rank,
-                                                   const uint64_t *y_original_shape,
-                                                   uint64_t y_original_rank, 
-                                                   uint64_t *x_broadcasted_shape,
-                                                   uint64_t *y_broadcasted_shape,
-                                                   uint64_t broadcasted_rank)
+nw_error_t *matrix_multiplication_broadcast_shapes(const int64_t *x_original_shape,
+                                                   int64_t x_original_rank,
+                                                   const int64_t *y_original_shape,
+                                                   int64_t y_original_rank, 
+                                                   int64_t *x_broadcasted_shape,
+                                                   int64_t *y_broadcasted_shape,
+                                                   int64_t broadcasted_rank)
 {
     CHECK_NULL_ARGUMENT(x_original_shape, "x_original_shape"); 
     CHECK_NULL_ARGUMENT(y_original_shape, "y_original_shape"); 
@@ -931,24 +923,24 @@ nw_error_t *matrix_multiplication_broadcast_shapes(const uint64_t *x_original_sh
         y_original_rank < 2)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("x original rank %lu and y original rank %lu must be in the interval [2, %d].", 
-                     (unsigned long) x_original_rank, (unsigned long) y_original_rank, (int) MAX_RANK),
+                     string_create("x original rank %ld and y original rank %ld must be in the interval [2, %d].", 
+                     x_original_rank, y_original_rank, (int) MAX_RANK),
                      NULL);
     }
 
     if (broadcasted_rank != MAX(x_original_rank, y_original_rank))
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("broadcast rank %lu must be the max rank of {%lu, %lu}.",
-                     (unsigned long) broadcasted_rank, (unsigned long) x_original_rank, (unsigned long) y_original_rank),
+                     string_create("broadcast rank %ld must be the max rank of {%ld, %ld}.",
+                     broadcasted_rank, x_original_rank, y_original_rank),
                      NULL);
     }
 
-    for (uint64_t i = 1; i < broadcasted_rank + 1; ++i)
+    for (int64_t i = 1; i < broadcasted_rank + 1; ++i)
     {
-        uint64_t x_index = x_original_rank - i;
-        uint64_t y_index = y_original_rank - i;
-        uint64_t broadcast_index = broadcasted_rank - i;
+        int64_t x_index = x_original_rank - i;
+        int64_t y_index = y_original_rank - i;
+        int64_t broadcast_index = broadcasted_rank - i;
         if (i < 3)
         {
             x_broadcasted_shape[broadcast_index] = x_original_shape[x_index];
@@ -979,7 +971,7 @@ nw_error_t *matrix_multiplication_broadcast_shapes(const uint64_t *x_original_sh
     return NULL;
 }
 
-nw_error_t *matrix_multiplication_shape(uint64_t *x_shape, uint64_t *y_shape, uint64_t *z_shape, uint64_t rank)
+nw_error_t *matrix_multiplication_shape(int64_t *x_shape, int64_t *y_shape, int64_t *z_shape, int64_t rank)
 {
     CHECK_NULL_ARGUMENT(x_shape, "x_shape");
     CHECK_NULL_ARGUMENT(y_shape, "y_shape");
@@ -988,22 +980,22 @@ nw_error_t *matrix_multiplication_shape(uint64_t *x_shape, uint64_t *y_shape, ui
     if (rank < 2)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("rank %lu must be 2 or greater.",
-                     (unsigned long) rank),
+                     string_create("rank %ld must be 2 or greater.",
+                     rank),
                      NULL);
     }
 
     if (x_shape[rank - 1] != y_shape[rank - 2])
     {
         return ERROR(ERROR_SHAPE_CONFLICT,
-                     string_create("number of columns in x %lu not equal to number of rows in y %lu.",
-                     (unsigned long) x_shape[rank - 1], (unsigned long) y_shape[rank - 1]),
+                     string_create("number of columns in x %ld not equal to number of rows in y %ld.",
+                     x_shape[rank - 1], y_shape[rank - 1]),
                      NULL);
     }
 
-    for (uint64_t i = 1; i < rank + 1; ++i)
+    for (int64_t i = 1; i < rank + 1; ++i)
     {
-        uint64_t j = rank - i;
+        int64_t j = rank - i;
         if (i == 1)
         {
             z_shape[j] = y_shape[j];
@@ -1017,8 +1009,8 @@ nw_error_t *matrix_multiplication_shape(uint64_t *x_shape, uint64_t *y_shape, ui
             if (x_shape[j] != y_shape[j])
             {
                 return ERROR(ERROR_SHAPE_CONFLICT,
-                             string_create("dimension in x %lu not equal to dimension in y $lu.",
-                             (unsigned long) x_shape[j], (unsigned long) y_shape[j]),
+                             string_create("dimension in x %ld not equal to dimension in y $lu.",
+                             x_shape[j], y_shape[j]),
                              NULL);
             }
             else
@@ -1040,10 +1032,10 @@ nw_error_t *matrix_multiplication_shape(uint64_t *x_shape, uint64_t *y_shape, ui
  * @param broadcasted_rank 
  * @return bool_t 
  */
-bool_t is_broadcastable(const uint64_t *original_shape,
-                        uint64_t original_rank,
-                        const uint64_t *broadcasted_shape,
-                        uint64_t broadcasted_rank)
+bool_t is_broadcastable(const int64_t *original_shape,
+                        int64_t original_rank,
+                        const int64_t *broadcasted_shape,
+                        int64_t broadcasted_rank)
 {
     if (!original_shape ||
         !broadcasted_shape ||
@@ -1053,7 +1045,7 @@ bool_t is_broadcastable(const uint64_t *original_shape,
     }
 
 
-    for (uint64_t i = 1; i < broadcasted_rank + 1; ++i)
+    for (int64_t i = 1; i < broadcasted_rank + 1; ++i)
     {
         if (original_rank >= i && 
             original_shape[original_rank - i] != broadcasted_shape[broadcasted_rank - i] && 
@@ -1066,12 +1058,12 @@ bool_t is_broadcastable(const uint64_t *original_shape,
     return true;
 }
 
-nw_error_t *reduce_axis_length(const uint64_t *original_shape,
-                               uint64_t original_rank,
-                               const uint64_t *broadcasted_shape,
-                               uint64_t broadcasted_rank, 
-                               uint64_t *length_keep_dimension,
-                               uint64_t *length_remove_dimension)
+nw_error_t *reduce_axis_length(const int64_t *original_shape,
+                               int64_t original_rank,
+                               const int64_t *broadcasted_shape,
+                               int64_t broadcasted_rank, 
+                               int64_t *length_keep_dimension,
+                               int64_t *length_remove_dimension)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
@@ -1081,8 +1073,8 @@ nw_error_t *reduce_axis_length(const uint64_t *original_shape,
     if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("original rank %lu and broadcasted rank %lu must be less than or equal to %d.", 
-                     (unsigned long) original_rank, (unsigned long) broadcasted_rank, (int) MAX_RANK),
+                     string_create("original rank %ld and broadcasted rank %ld must be less than or equal to %d.", 
+                     original_rank, broadcasted_rank, (int) MAX_RANK),
                      NULL);
     }
 
@@ -1095,7 +1087,7 @@ nw_error_t *reduce_axis_length(const uint64_t *original_shape,
 
     *length_keep_dimension = 0;
     *length_remove_dimension = 0;
-    for (uint64_t i = 0; i < broadcasted_rank; ++i)
+    for (int64_t i = 0; i < broadcasted_rank; ++i)
     {
         if (original_rank >= (i + 1))
         {
@@ -1114,12 +1106,12 @@ nw_error_t *reduce_axis_length(const uint64_t *original_shape,
     return NULL;
 }
 
-nw_error_t *reduce_axis(const uint64_t *original_shape,
-                        uint64_t original_rank,
-                        const uint64_t *broadcasted_shape,
-                        uint64_t broadcasted_rank, 
-                        uint64_t *axis_keep_dimension,
-                        uint64_t *axis_remove_dimension)
+nw_error_t *reduce_axis(const int64_t *original_shape,
+                        int64_t original_rank,
+                        const int64_t *broadcasted_shape,
+                        int64_t broadcasted_rank, 
+                        int64_t *axis_keep_dimension,
+                        int64_t *axis_remove_dimension)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
@@ -1129,9 +1121,9 @@ nw_error_t *reduce_axis(const uint64_t *original_shape,
     if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("original rank %lu and broadcasted rank %lu must be less than or equal to %d.", 
-                     (unsigned long) original_rank, 
-                     (unsigned long) broadcasted_rank,
+                     string_create("original rank %ld and broadcasted rank %ld must be less than or equal to %d.", 
+                     original_rank, 
+                     broadcasted_rank,
                      (int) MAX_RANK),
                      NULL);
     }
@@ -1143,9 +1135,9 @@ nw_error_t *reduce_axis(const uint64_t *original_shape,
                      NULL);
     }
 
-    uint64_t j = 0;
-    uint64_t k = 0;
-    for (uint64_t i = 0; i < broadcasted_rank; ++i)
+    int64_t j = 0;
+    int64_t k = 0;
+    for (int64_t i = 0; i < broadcasted_rank; ++i)
     {
         if (original_rank >= (i + 1))
         {
@@ -1166,8 +1158,8 @@ nw_error_t *reduce_axis(const uint64_t *original_shape,
     return NULL;
 }
 
-bool_t is_valid_reshape(const uint64_t *original_shape, uint64_t original_rank,
-                        const uint64_t *new_shape, uint64_t new_rank)
+bool_t is_valid_reshape(const int64_t *original_shape, int64_t original_rank,
+                        const int64_t *new_shape, int64_t new_rank)
 {
     if (!original_shape || !new_shape)
     {
@@ -1177,12 +1169,12 @@ bool_t is_valid_reshape(const uint64_t *original_shape, uint64_t original_rank,
     return shape_size(original_shape, original_rank) != shape_size(new_shape, new_rank);
 }
 
-nw_error_t *slice_shape(const uint64_t *original_shape,
-                        uint64_t original_rank,
-                        uint64_t *slice_shape,
-                        uint64_t slice_rank,
-                        const uint64_t *arguments,
-                        uint64_t length)
+nw_error_t *slice_shape(const int64_t *original_shape,
+                        int64_t original_rank,
+                        int64_t *slice_shape,
+                        int64_t slice_rank,
+                        const int64_t *arguments,
+                        int64_t length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(slice_shape, "slice_shape");
@@ -1191,40 +1183,40 @@ nw_error_t *slice_shape(const uint64_t *original_shape,
     if (original_rank != slice_rank)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("conflicting ranks with original rank %lu and sliced rank %lu.", 
-                     (unsigned long) original_rank, (unsigned long) slice_rank),
+                     string_create("conflicting ranks with original rank %ld and sliced rank %ld.", 
+                     original_rank, slice_rank),
                      NULL);
     }
 
     if (original_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("rank %lu must be less than or equal to %d.", 
-                     (unsigned long) original_rank, (int) MAX_RANK),
+                     string_create("rank %ld must be less than or equal to %d.", 
+                     original_rank, (int) MAX_RANK),
                      NULL);
     }
 
     if (length % 2 != 0 || original_rank != length / 2)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("conflicting ranks with original rank %lu "
-                     "and axis length %lu which should be a multiple of 2.",
-                     (unsigned long) original_rank, (unsigned long) length),
+                     string_create("conflicting ranks with original rank %ld "
+                     "and axis length %ld which should be a multiple of 2.",
+                     original_rank, length),
                      NULL);
     }
 
-    for (uint64_t i = 0; i < original_rank; ++i)
+    for (int64_t i = 0; i < original_rank; ++i)
     {
         if (arguments[2 * i + 1] <= arguments[2 * i] ||
             arguments[2 * i] > original_shape[i] ||
             arguments[2 * i + 1] > original_shape[i])
         {
             return ERROR(ERROR_SHAPE_CONFLICT, 
-                         string_create("upperbound of slice %lu must be greater"
-                         "than lower bound %lu and bounds must be less than dimension %lu.", 
-                         (unsigned long) arguments[2 * i + 1], 
-                         (unsigned long) arguments[2 * i],
-                         (unsigned long) original_shape[i]),
+                         string_create("upperbound of slice %ld must be greater"
+                         "than lower bound %ld and bounds must be less than dimension %ld.", 
+                         arguments[2 * i + 1], 
+                         arguments[2 * i],
+                         original_shape[i]),
                          NULL);
         }
         slice_shape[i] = (arguments[2 * i + 1] - arguments[2 * i]); 
@@ -1233,11 +1225,11 @@ nw_error_t *slice_shape(const uint64_t *original_shape,
     return NULL;
 }
 
-nw_error_t *slice_offset(const uint64_t *original_strides,
-                         uint64_t original_rank,
-                         uint64_t *offset,
-                         const uint64_t *arguments,
-                         uint64_t length)
+nw_error_t *slice_offset(const int64_t *original_strides,
+                         int64_t original_rank,
+                         int64_t *offset,
+                         const int64_t *arguments,
+                         int64_t length)
 {
     CHECK_NULL_ARGUMENT(original_strides, "original_strides");
     CHECK_NULL_ARGUMENT(offset, "offset");
@@ -1246,25 +1238,25 @@ nw_error_t *slice_offset(const uint64_t *original_strides,
     if (original_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("original rank %lu must be less than or equal to %d.", 
-                     (unsigned long) original_rank, (int) MAX_RANK), NULL);
+                     string_create("original rank %ld must be less than or equal to %d.", 
+                     original_rank, (int) MAX_RANK), NULL);
     }
 
     if (length % 2 != 0)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("conflicting ranks with original rank %lu and axis length %lu which should be a multiple of 2.",
-                     (unsigned long) original_rank, (unsigned long) length), NULL);
+                     string_create("conflicting ranks with original rank %ld and axis length %ld which should be a multiple of 2.",
+                     original_rank, length), NULL);
     }
 
     if (original_rank != length / 2)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("conflict between rank %lu and length of arguments %lu.",
-                     (unsigned long) original_rank, (unsigned long) length), NULL);
+                     string_create("conflict between rank %ld and length of arguments %ld.",
+                     original_rank, length), NULL);
     }
 
-    for (uint64_t i = 0; i < length; i += 2)
+    for (int64_t i = 0; i < length; i += 2)
     {
         *offset += original_strides[i / 2] * arguments[i];
     }
@@ -1272,12 +1264,12 @@ nw_error_t *slice_offset(const uint64_t *original_strides,
     return NULL;
 }
 
-nw_error_t *reverse_slice(const uint64_t *original_shape,
-                          uint64_t original_rank,
-                          const uint64_t *arguments,
-                          uint64_t length,
-                          uint64_t *new_arguments,
-                          uint64_t new_length)
+nw_error_t *reverse_slice(const int64_t *original_shape,
+                          int64_t original_rank,
+                          const int64_t *arguments,
+                          int64_t length,
+                          int64_t *new_arguments,
+                          int64_t new_length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
@@ -1286,32 +1278,32 @@ nw_error_t *reverse_slice(const uint64_t *original_shape,
     if (new_length != length)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("length of original arguments %lu is not equal to length of new arguments %lu.", 
-                     (unsigned long) length, (unsigned long) new_length), NULL);
+                     string_create("length of original arguments %ld is not equal to length of new arguments %ld.", 
+                     length, new_length), NULL);
     }
 
     if (length % 2 != 0)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("length of original arguments %lu is not a multiple of 2.", 
-                     (unsigned long) length), NULL);
+                     string_create("length of original arguments %ld is not a multiple of 2.", 
+                     length), NULL);
     }
 
     if (original_rank != length / 2)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("conflict between rank %lu and length of arguments %lu.",
-                     (unsigned long) original_rank, (unsigned long) length), NULL);
+                     string_create("conflict between rank %ld and length of arguments %ld.",
+                     original_rank, length), NULL);
     }
 
     if (original_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("original rank %lu must be less than or equal to %d.", 
-                     (unsigned long) original_rank, (int) MAX_RANK), NULL);
+                     string_create("original rank %ld must be less than or equal to %d.", 
+                     original_rank, (int) MAX_RANK), NULL);
     }
 
-    for (uint64_t i = 0; i < new_length; i += 2)
+    for (int64_t i = 0; i < new_length; i += 2)
     {
         new_arguments[i] = arguments[i];
         new_arguments[i + 1] = original_shape[i / 2] - arguments[i + 1];
@@ -1320,12 +1312,12 @@ nw_error_t *reverse_slice(const uint64_t *original_shape,
     return NULL;
 }
 
-nw_error_t *padding(const uint64_t *original_shape,
-                    uint64_t original_rank,
-                    uint64_t *padding_shape,
-                    uint64_t padding_rank,
-                    const uint64_t *arguments,
-                    uint64_t length)
+nw_error_t *padding(const int64_t *original_shape,
+                    int64_t original_rank,
+                    int64_t *padding_shape,
+                    int64_t padding_rank,
+                    const int64_t *arguments,
+                    int64_t length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(padding_shape, "padding_shape");
@@ -1334,32 +1326,32 @@ nw_error_t *padding(const uint64_t *original_shape,
     if (original_rank != padding_rank)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("conflicting ranks with original rank %lu, padding rank %lu.", 
-                     (unsigned long) original_rank, (unsigned long) padding_rank), NULL);
+                     string_create("conflicting ranks with original rank %ld, padding rank %ld.", 
+                     original_rank, padding_rank), NULL);
     }
 
     if (length % 2 != 0)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("length of arguments %lu is not a multiple of 2.", 
-                     (unsigned long) length), NULL);
+                     string_create("length of arguments %ld is not a multiple of 2.", 
+                     length), NULL);
     }
 
     if (original_rank != length / 2)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("conflict between rank %lu and length of arguments %lu.",
-                     (unsigned long) original_rank, (unsigned long) length), NULL);
+                     string_create("conflict between rank %ld and length of arguments %ld.",
+                     original_rank, length), NULL);
     }
 
     if (original_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("original rank %lu must be less than or equal to %d.", 
-                     (unsigned long) original_rank, (int) MAX_RANK), NULL);
+                     string_create("original rank %ld must be less than or equal to %d.", 
+                     original_rank, (int) MAX_RANK), NULL);
     }
 
-    for (uint64_t i = 0; i < original_rank; ++i)
+    for (int64_t i = 0; i < original_rank; ++i)
     {
         padding_shape[i] = arguments[2 * i] + arguments[2 * i + 1] + original_shape[i]; 
     }
@@ -1367,12 +1359,12 @@ nw_error_t *padding(const uint64_t *original_shape,
     return NULL;
 }
 
-nw_error_t *reverse_padding(const uint64_t *original_shape, 
-                            uint64_t original_rank,
-                            const uint64_t *arguments,
-                            uint64_t length,
-                            uint64_t *new_arguments,
-                            uint64_t new_length)
+nw_error_t *reverse_padding(const int64_t *original_shape, 
+                            int64_t original_rank,
+                            const int64_t *arguments,
+                            int64_t length,
+                            int64_t *new_arguments,
+                            int64_t new_length)
 {
     CHECK_NULL_ARGUMENT(original_shape, "original_shape");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
@@ -1381,32 +1373,32 @@ nw_error_t *reverse_padding(const uint64_t *original_shape,
     if (new_length != length)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("length of original arguments %lu is not equal to length of new arguments %lu.", 
-                     (unsigned long) length, (unsigned long) new_length), NULL);
+                     string_create("length of original arguments %ld is not equal to length of new arguments %ld.", 
+                     length, new_length), NULL);
     }
 
     if (length % 2 != 0)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("length of original arguments %lu is not a multiple of 2.", 
-                     (unsigned long) length), NULL);
+                     string_create("length of original arguments %ld is not a multiple of 2.", 
+                     length), NULL);
     }
 
     if (original_rank != length / 2)
     {
         return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("conflict between rank %lu and length of arguments %lu.",
-                     (unsigned long) original_rank, (unsigned long) length), NULL);
+                     string_create("conflict between rank %ld and length of arguments %ld.",
+                     original_rank, length), NULL);
     }
 
     if (original_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK_CONFLICT, 
-                     string_create("original rank %lu must be less than or equal to %d.", 
-                     (unsigned long) original_rank, (int) MAX_RANK), NULL);
+                     string_create("original rank %ld must be less than or equal to %d.", 
+                     original_rank, (int) MAX_RANK), NULL);
     }
 
-    for (uint64_t i = 0; i < new_length; i += 2)
+    for (int64_t i = 0; i < new_length; i += 2)
     {
         new_arguments[i] = arguments[i];
         new_arguments[i + 1] = original_shape[i / 2] + arguments[i];

@@ -437,38 +437,38 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type, bool_t test_g
                     case TENSOR_SUMMATION:
                         error = tensor_summation(tensors[i][j][k][l], 
                                                  &returned_tensors[i][j][k][l],
-                                                 (uint64_t *) axis[k].data(),
-                                                 (uint64_t) axis[k].size(),
+                                                 (int64_t *) axis[k].data(),
+                                                 (int64_t) axis[k].size(),
                                                  (bool_t) l);
                         break;
                     case TENSOR_MAXIMUM:
                         error = tensor_maximum(tensors[i][j][k][l], 
                                                &returned_tensors[i][j][k][l],
-                                               (uint64_t *) axis[k].data(),
-                                               (uint64_t) axis[k].size(),
+                                               (int64_t *) axis[k].data(),
+                                               (int64_t) axis[k].size(),
                                                (bool_t) l);
                         break;
                     case TENSOR_MEAN:
                         error = tensor_mean(tensors[i][j][k][l], 
                                             &returned_tensors[i][j][k][l],
-                                            (uint64_t *) axis[k].data(),
-                                            (uint64_t) axis[k].size(),
+                                            (int64_t *) axis[k].data(),
+                                            (int64_t) axis[k].size(),
                                             (bool_t) l);
                         break;
                     case TENSOR_SOFTMAX:
                         error = tensor_softmax(tensors[i][j][k][l], 
                                                &returned_tensors[i][j][k][l],
-                                               (axis[k].size()) ? *(uint64_t *) axis[k].data() : (uint64_t) 0);
+                                               (axis[k].size()) ? *(int64_t *) axis[k].data() : (int64_t) 0);
                         break;
                     case TENSOR_LOGSOFTMAX:
                         error = tensor_logsoftmax(tensors[i][j][k][l], 
                                                   &returned_tensors[i][j][k][l],
-                                                  (axis[k].size()) ? *(uint64_t *) axis[k].data() : (uint64_t) 0);
+                                                  (axis[k].size()) ? *(int64_t *) axis[k].data() : (int64_t) 0);
                         break;
                     case TENSOR_ARGUMENT_MAXIMUM:
                         error = tensor_argument_maximum(tensors[i][j][k][l], 
                                                         &returned_tensors[i][j][k][l],
-                                                        (axis[k].size()) ? *(uint64_t *) axis[k].data() : (uint64_t) 0,
+                                                        (axis[k].size()) ? *(int64_t *) axis[k].data() : (int64_t) 0,
                                                         (bool_t) l);
                         break;
                     default:

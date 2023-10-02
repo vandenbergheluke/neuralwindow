@@ -137,15 +137,15 @@ void test_reduction(runtime_reduction_type_t runtime_reduction_type)
                 {
                 case RUNTIME_SUMMATION:
                     error = runtime_summation(tensors[i][j][k]->buffer,
-                                              (uint64_t *) axis[k].data(),
-                                              (uint64_t) axis[k].size(),
+                                              axis[k].data(),
+                                              (int64_t) axis[k].size(),
                                               returned_tensors[i][j][k]->buffer,
                                               keep_dimension[k]);
                     break;
                 case RUNTIME_MAXIMUM:
                     error = runtime_maximum(tensors[i][j][k]->buffer,
-                                            (uint64_t *) axis[k].data(),
-                                            (uint64_t) axis[k].size(),
+                                            axis[k].data(),
+                                            (int64_t) axis[k].size(),
                                             returned_tensors[i][j][k]->buffer,
                                             keep_dimension[k]);
                     break;

@@ -151,10 +151,10 @@ START_TEST(test_summation_computational_performance)
         float64_t torch_flops_mkl = 0, torch_flops_cuda = 0;
         float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
         float64_t nw_flops_mkl = 0, nw_flops_openblas = 0, nw_flops_cuda = 0;
-        uint64_t n = shapes[k][0];
-        uint64_t num_flop = pow(n, 2);
+        int64_t n = shapes[k][0];
+        int64_t num_flop = pow(n, 2);
 
-        printf("Dimensions (%lu, %lu), Axis Size %lu:\n", n, n, (unsigned long) axis[k].size());
+        printf("Dimensions (%ld, %ld), Axis Size %zu:\n", n, n, axis[k].size());
 
         for (int i = 0; i < RUNTIMES; ++i)
         {
@@ -164,10 +164,10 @@ START_TEST(test_summation_computational_performance)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    uint64_t torch_start, torch_end;
-                    uint64_t torch_completion_time;
-                    uint64_t nw_start, nw_end;
-                    uint64_t nw_completion_time;
+                    int64_t torch_start, torch_end;
+                    int64_t torch_completion_time;
+                    int64_t nw_start, nw_end;
+                    int64_t nw_completion_time;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch::sum(torch_tensors[i][j][k][z], axis[k], keep_dimension[k]);
@@ -177,8 +177,8 @@ START_TEST(test_summation_computational_performance)
 
                     nw_start = get_time_nanoseconds();
                     error = runtime_summation(tensors[i][j][k][z]->buffer,
-                                              (uint64_t *) axis[k].data(),
-                                              (uint64_t) axis[k].size(),
+                                              (int64_t *) axis[k].data(),
+                                              (int64_t) axis[k].size(),
                                               returned_tensors[i][j][k][z]->buffer,
                                               keep_dimension[k]);
                     nw_end = get_time_nanoseconds();
@@ -237,10 +237,10 @@ START_TEST(test_maximum_computational_performance)
         float64_t torch_flops_mkl = 0, torch_flops_cuda = 0;
         float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
         float64_t nw_flops_mkl = 0, nw_flops_openblas = 0, nw_flops_cuda = 0;
-        uint64_t n = shapes[k][0];
-        uint64_t num_flop = pow(n, 2);
+        int64_t n = shapes[k][0];
+        int64_t num_flop = pow(n, 2);
 
-        printf("Dimensions (%lu, %lu), Axis Size %lu:\n", n, n, (unsigned long) axis[k].size());
+        printf("Dimensions (%ld, %ld), Axis Size %zu:\n", n, n, axis[k].size());
 
         for (int i = 0; i < RUNTIMES; ++i)
         {
@@ -250,10 +250,10 @@ START_TEST(test_maximum_computational_performance)
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    uint64_t torch_start, torch_end;
-                    uint64_t torch_completion_time;
-                    uint64_t nw_start, nw_end;
-                    uint64_t nw_completion_time;
+                    int64_t torch_start, torch_end;
+                    int64_t torch_completion_time;
+                    int64_t nw_start, nw_end;
+                    int64_t nw_completion_time;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch::amax(torch_tensors[i][j][k][z], axis[k], keep_dimension[k]);
@@ -263,8 +263,8 @@ START_TEST(test_maximum_computational_performance)
 
                     nw_start = get_time_nanoseconds();
                     error = runtime_maximum(tensors[i][j][k][z]->buffer,
-                                            (uint64_t *) axis[k].data(),
-                                            (uint64_t) axis[k].size(),
+                                            (int64_t *) axis[k].data(),
+                                            (int64_t) axis[k].size(),
                                             returned_tensors[i][j][k][z]->buffer,
                                             keep_dimension[k]);
                     nw_end = get_time_nanoseconds();

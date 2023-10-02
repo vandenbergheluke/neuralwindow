@@ -30,10 +30,10 @@ typedef enum runtime_t
 
 typedef struct storage_t
 {
-    uint64_t reference_count;
+    int64_t reference_count;
     runtime_t runtime;
     datatype_t datatype;
-    uint64_t n;
+    int64_t n;
     void *data;
 } storage_t;
 
@@ -86,7 +86,7 @@ typedef enum runtime_creation_type_t
     RUNTIME_COPY,
 } runtime_creation_type_t;
 
-nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, uint64_t n, void *data, bool_t copy);
+nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, int64_t n, void *data, bool_t copy);
 void storage_destroy(storage_t *storage);
 nw_error_t *runtime_malloc(storage_t *storage);
 void runtime_free(storage_t *storage);
@@ -113,14 +113,14 @@ nw_error_t *runtime_power(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_bu
 nw_error_t *runtime_compare_equal(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
 nw_error_t *runtime_compare_greater(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
 nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer);
-nw_error_t *runtime_summation(buffer_t *x, uint64_t *axis, uint64_t length, buffer_t *result, bool_t keep_dimension);
-nw_error_t *runtime_maximum(buffer_t *x, uint64_t *axis, uint64_t length, buffer_t *result, bool_t keep_dimension);
-nw_error_t *runtime_empty(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime, datatype_t datatype);
-nw_error_t *runtime_zeroes(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime, datatype_t datatype);
-nw_error_t *runtime_ones(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime, datatype_t datatype);
-nw_error_t *runtime_uniform(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);
-nw_error_t *runtime_normal(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);
-nw_error_t *runtime_arange(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime, datatype_t datatype, void **arguments, uint64_t length);
-nw_error_t *runtime_from(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, const runtime_t runtime, datatype_t datatype, void *data);
-nw_error_t *runtime_copy(buffer_t **buffer, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, const runtime_t runtime, datatype_t datatype, void *data);
+nw_error_t *runtime_summation(buffer_t *x, int64_t *axis, int64_t length, buffer_t *result, bool_t keep_dimension);
+nw_error_t *runtime_maximum(buffer_t *x, int64_t *axis, int64_t length, buffer_t *result, bool_t keep_dimension);
+nw_error_t *runtime_empty(buffer_t **buffer, const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset, runtime_t runtime, datatype_t datatype);
+nw_error_t *runtime_zeroes(buffer_t **buffer, const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset, runtime_t runtime, datatype_t datatype);
+nw_error_t *runtime_ones(buffer_t **buffer, const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset, runtime_t runtime, datatype_t datatype);
+nw_error_t *runtime_uniform(buffer_t **buffer, const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset, runtime_t runtime, datatype_t datatype, void **arguments, int64_t length);
+nw_error_t *runtime_normal(buffer_t **buffer, const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset, runtime_t runtime, datatype_t datatype, void **arguments, int64_t length);
+nw_error_t *runtime_arange(buffer_t **buffer, const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset, runtime_t runtime, datatype_t datatype, void **arguments, int64_t length);
+nw_error_t *runtime_from(buffer_t **buffer, const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset, const runtime_t runtime, datatype_t datatype, void *data);
+nw_error_t *runtime_copy(buffer_t **buffer, const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset, const runtime_t runtime, datatype_t datatype, void *data);
 #endif

@@ -236,8 +236,8 @@ cleanup:
  */
 nw_error_t *apply_function_reduction(reduction_operation_type_t reduction_operation_type,
                                      const tensor_t *x,
-                                     const uint64_t *axis,
-                                     uint64_t length,
+                                     const int64_t *axis,
+                                     int64_t length,
                                      bool_t keep_dimension,
                                      tensor_t **result)
 {
@@ -247,15 +247,15 @@ nw_error_t *apply_function_reduction(reduction_operation_type_t reduction_operat
     CHECK_NULL_ARGUMENT(result, "result");
 
     nw_error_t *error = NULL;
-    uint64_t rank = x->buffer->view->rank;
-    uint64_t *shape = x->buffer->view->shape;
-    uint64_t *strides = x->buffer->view->strides;
+    int64_t rank = x->buffer->view->rank;
+    int64_t *shape = x->buffer->view->shape;
+    int64_t *strides = x->buffer->view->strides;
     reduction_operation_t *reduction_operation = NULL;
-    uint64_t reduce_length = length ? length : x->buffer->view->rank;
-    uint64_t reduce_axis[reduce_length];
-    uint64_t reduced_rank = (keep_dimension) ? rank : (rank - reduce_length); 
-    uint64_t reduced_shape[reduced_rank];
-    uint64_t reduced_strides[reduced_rank];
+    int64_t reduce_length = length ? length : x->buffer->view->rank;
+    int64_t reduce_axis[reduce_length];
+    int64_t reduced_rank = (keep_dimension) ? rank : (rank - reduce_length); 
+    int64_t reduced_shape[reduced_rank];
+    int64_t reduced_strides[reduced_rank];
 
     if (rank < reduce_length)
     {
@@ -263,7 +263,7 @@ nw_error_t *apply_function_reduction(reduction_operation_type_t reduction_operat
         goto cleanup;
     }
 
-    for (uint64_t i = 0; i < reduce_length; ++i)
+    for (int64_t i = 0; i < reduce_length; ++i)
     {
         reduce_axis[i] = (!axis || !length) ? i : axis[i];
     }
@@ -324,8 +324,8 @@ cleanup:
  */
 nw_error_t *apply_function_structure(structure_operation_type_t structure_operation_type,
                                      const tensor_t *x,
-                                     const uint64_t *arguments,
-                                     uint64_t length,
+                                     const int64_t *arguments,
+                                     int64_t length,
                                      tensor_t **result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
@@ -363,16 +363,16 @@ cleanup:
 }
 
 nw_error_t *apply_function_creation(creation_operation_type_t creation_operation_type,
-                                    const uint64_t *shape,
-                                    uint64_t rank,
-                                    const uint64_t *strides,
-                                    uint64_t offset,
+                                    const int64_t *shape,
+                                    int64_t rank,
+                                    const int64_t *strides,
+                                    int64_t offset,
                                     runtime_t runtime,
                                     datatype_t datatype,
                                     bool_t requires_gradient,
                                     bool_t persist,
                                     const void **arguments,
-                                    uint64_t length,
+                                    int64_t length,
                                     void *data,
                                     tensor_t **result)
 {
@@ -1329,8 +1329,8 @@ static nw_error_t *rectified_linear_operation_backward(tensor_t *x, tensor_t *gr
     tensor_t *x_gradient_k = NULL;
     runtime_t runtime = x->buffer->storage->runtime;
     datatype_t datatype = x->buffer->storage->datatype;
-    uint64_t *shape = x->buffer->view->shape;
-    uint64_t rank = x->buffer->view->rank;
+    int64_t *shape = x->buffer->view->shape;
+    int64_t rank = x->buffer->view->rank;
     size_t size = datatype_size(datatype);
 
     if (x->requires_gradient)
@@ -2148,7 +2148,7 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
 
     if (x->requires_gradient)
     {
-        uint64_t rank = y->buffer->view->rank;
+        int64_t rank = y->buffer->view->rank;
 
         error = tensor_transpose(y, &x_gradient_i, rank - 2, rank - 1);
         if (error)
@@ -2174,7 +2174,7 @@ nw_error_t *matrix_multiplication_operation_backward(tensor_t *x, tensor_t *y, t
 
     if (y->requires_gradient)
     {
-        uint64_t rank = x->buffer->view->rank;
+        int64_t rank = x->buffer->view->rank;
 
         error = tensor_transpose(x, &y_gradient_i, rank - 2, rank - 1);
         if (error)
@@ -2258,12 +2258,12 @@ nw_error_t *binary_operation_forward(binary_operation_t *binary_operation, tenso
     nw_error_t *error = NULL;
     tensor_t *x = binary_operation->x;
     tensor_t *y = binary_operation->y;
-    uint64_t *x_shape = x->buffer->view->shape;
-    uint64_t *y_shape = y->buffer->view->shape;
-    uint64_t x_rank = x->buffer->view->rank;
-    uint64_t y_rank = y->buffer->view->rank;
-    uint64_t rank = MAX(x_rank, y_rank);
-    uint64_t shape[rank];
+    int64_t *x_shape = x->buffer->view->shape;
+    int64_t *y_shape = y->buffer->view->shape;
+    int64_t x_rank = x->buffer->view->rank;
+    int64_t y_rank = y->buffer->view->rank;
+    int64_t rank = MAX(x_rank, y_rank);
+    int64_t shape[rank];
     datatype_t x_datatype = x->buffer->storage->datatype;
     datatype_t y_datatype = y->buffer->storage->datatype;
     datatype_t datatype;
@@ -2301,7 +2301,7 @@ nw_error_t *binary_operation_forward(binary_operation_t *binary_operation, tenso
             }
             else
             {
-                memcpy(shape, x_shape, rank * sizeof(uint64_t));
+                memcpy(shape, x_shape, rank * sizeof(int64_t));
             }
 
         }
@@ -2421,8 +2421,8 @@ nw_error_t *binary_operation_backward(binary_operation_t *binary_operation, tens
 nw_error_t *reduction_operation_create(reduction_operation_t **reduction_operation, 
                                        reduction_operation_type_t reduction_operation_type,
                                        const tensor_t *x,
-                                       const uint64_t *axis,
-                                       uint64_t length,
+                                       const int64_t *axis,
+                                       int64_t length,
                                        bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(reduction_operation, "reduction_operation");
@@ -2437,15 +2437,15 @@ nw_error_t *reduction_operation_create(reduction_operation_t **reduction_operati
                     sizeof(reduction_operation_t)), NULL);
     }
 
-    (*reduction_operation)->axis = (uint64_t *) malloc((size_t) (length * sizeof(uint64_t)));
+    (*reduction_operation)->axis = (int64_t *) malloc((size_t) (length * sizeof(int64_t)));
     if (!(*reduction_operation)->axis)
     {
         free(*reduction_operation);
         return ERROR(ERROR_MEMORY_ALLOCATION,
                      string_create("failed to allocate size %zu bytes.",
-                     (size_t) (length * sizeof(uint64_t))), NULL);
+                     (size_t) (length * sizeof(int64_t))), NULL);
     }
-    memcpy((*reduction_operation)->axis, axis, (size_t) (length * sizeof(uint64_t)));
+    memcpy((*reduction_operation)->axis, axis, (size_t) (length * sizeof(int64_t)));
 
     (*reduction_operation)->operation_type = reduction_operation_type;
     (*reduction_operation)->x = (tensor_t *) x; 
@@ -2479,7 +2479,7 @@ string_t reduction_operation_type_string(reduction_operation_type_t reduction_op
 }
 
 
-static nw_error_t *summation_operation_forward(tensor_t *x, uint64_t *axis, uint64_t length, tensor_t *result, bool_t keep_dimension)
+static nw_error_t *summation_operation_forward(tensor_t *x, int64_t *axis, int64_t length, tensor_t *result, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(axis, "axis");
@@ -2496,7 +2496,7 @@ static nw_error_t *summation_operation_forward(tensor_t *x, uint64_t *axis, uint
     return NULL; 
 }
 
-static nw_error_t *summation_operation_backward(tensor_t *x, uint64_t *axis, uint64_t length, tensor_t *gradient, bool_t keep_dimension)
+static nw_error_t *summation_operation_backward(tensor_t *x, int64_t *axis, int64_t length, tensor_t *gradient, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(axis, "axis");
@@ -2505,13 +2505,13 @@ static nw_error_t *summation_operation_backward(tensor_t *x, uint64_t *axis, uin
     nw_error_t *error = NULL;
     tensor_t *x_gradient = NULL;
     tensor_t *x_gradient_i = NULL;
-    uint64_t rank = x->buffer->view->rank;
-    uint64_t *shape = x->buffer->view->shape;
-    uint64_t recovered_shape[rank];
-    uint64_t recovered_strides[rank];
-    uint64_t reduced_rank = gradient->buffer->view->rank;
-    uint64_t *reduced_shape = gradient->buffer->view->shape;
-    uint64_t *reduced_strides = gradient->buffer->view->strides;
+    int64_t rank = x->buffer->view->rank;
+    int64_t *shape = x->buffer->view->shape;
+    int64_t recovered_shape[rank];
+    int64_t recovered_strides[rank];
+    int64_t reduced_rank = gradient->buffer->view->rank;
+    int64_t *reduced_shape = gradient->buffer->view->shape;
+    int64_t *reduced_strides = gradient->buffer->view->strides;
 
     if (x->requires_gradient)
     {
@@ -2567,7 +2567,7 @@ cleanup:
     return error; 
 }
 
-static nw_error_t *maximum_operation_forward(tensor_t *x, uint64_t *axis, uint64_t length, tensor_t *result, bool_t keep_dimension)
+static nw_error_t *maximum_operation_forward(tensor_t *x, int64_t *axis, int64_t length, tensor_t *result, bool_t keep_dimension)
 {
 
     CHECK_NULL_ARGUMENT(x, "x");
@@ -2586,7 +2586,7 @@ static nw_error_t *maximum_operation_forward(tensor_t *x, uint64_t *axis, uint64
 
 }
 
-static nw_error_t *maximum_operation_backward(tensor_t *x, uint64_t *axis, uint64_t length, tensor_t *result, tensor_t *gradient, bool_t keep_dimension)
+static nw_error_t *maximum_operation_backward(tensor_t *x, int64_t *axis, int64_t length, tensor_t *result, tensor_t *gradient, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(axis, "axis");
@@ -2601,23 +2601,23 @@ static nw_error_t *maximum_operation_backward(tensor_t *x, uint64_t *axis, uint6
     tensor_t *x_gradient_n = NULL;
     tensor_t *x_gradient_o = NULL;
     tensor_t *x_gradient_p = NULL;
-    uint64_t rank = x->buffer->view->rank;
-    uint64_t *shape = x->buffer->view->shape;
+    int64_t rank = x->buffer->view->rank;
+    int64_t *shape = x->buffer->view->shape;
 
     if (x->requires_gradient)
     {
         if (!keep_dimension)
         {
-            uint64_t recovered_result_shape[rank];
-            uint64_t recovered_result_strides[rank];
-            uint64_t recovered_gradient_shape[rank];
-            uint64_t recovered_gradient_strides[rank];
-            uint64_t reduced_result_rank = result->buffer->view->rank;
-            uint64_t *reduced_result_shape = result->buffer->view->shape;
-            uint64_t *reduced_result_strides = result->buffer->view->strides;
-            uint64_t reduced_gradient_rank = gradient->buffer->view->rank;
-            uint64_t *reduced_gradient_shape = gradient->buffer->view->shape;
-            uint64_t *reduced_gradient_strides = gradient->buffer->view->strides;
+            int64_t recovered_result_shape[rank];
+            int64_t recovered_result_strides[rank];
+            int64_t recovered_gradient_shape[rank];
+            int64_t recovered_gradient_strides[rank];
+            int64_t reduced_result_rank = result->buffer->view->rank;
+            int64_t *reduced_result_shape = result->buffer->view->shape;
+            int64_t *reduced_result_strides = result->buffer->view->strides;
+            int64_t reduced_gradient_rank = gradient->buffer->view->rank;
+            int64_t *reduced_gradient_shape = gradient->buffer->view->shape;
+            int64_t *reduced_gradient_strides = gradient->buffer->view->strides;
 
             error = reduce_recover_dimensions(reduced_result_shape, reduced_result_rank, reduced_result_strides,
                                               recovered_result_shape, rank, recovered_result_strides, axis, length);
@@ -2733,16 +2733,16 @@ nw_error_t *reduction_operation_forward(reduction_operation_t *reduction_operati
 
     nw_error_t *error = NULL;
     tensor_t *x = reduction_operation->x;
-    uint64_t rank = x->buffer->view->rank;
-    uint64_t *shape = x->buffer->view->shape;
-    uint64_t *strides = x->buffer->view->strides;
-    uint64_t *axis = reduction_operation->axis;
-    uint64_t length = reduction_operation->length;
+    int64_t rank = x->buffer->view->rank;
+    int64_t *shape = x->buffer->view->shape;
+    int64_t *strides = x->buffer->view->strides;
+    int64_t *axis = reduction_operation->axis;
+    int64_t length = reduction_operation->length;
     bool_t keep_dimension = reduction_operation->keep_dimension;
     bool_t requires_gradient = x->requires_gradient;
-    uint64_t reduced_rank = (keep_dimension) ? rank : (rank - length); 
-    uint64_t reduced_shape[reduced_rank];
-    uint64_t reduced_strides[reduced_rank];
+    int64_t reduced_rank = (keep_dimension) ? rank : (rank - length); 
+    int64_t reduced_shape[reduced_rank];
+    int64_t reduced_strides[reduced_rank];
     runtime_t runtime = x->buffer->storage->runtime;
     datatype_t datatype = x->buffer->storage->datatype;
     reduction_operation_type_t operation_type = reduction_operation->operation_type;
@@ -2799,8 +2799,8 @@ nw_error_t *reduction_operation_backward(reduction_operation_t *reduction_operat
     nw_error_t *error = NULL;
     tensor_t *x = reduction_operation->x;
     tensor_t *result = reduction_operation->result;
-    uint64_t *axis = reduction_operation->axis;
-    uint64_t length = reduction_operation->length;
+    int64_t *axis = reduction_operation->axis;
+    int64_t length = reduction_operation->length;
     bool_t keep_dimension = reduction_operation->keep_dimension;
     reduction_operation_type_t operation_type = reduction_operation->operation_type;
 
@@ -2830,8 +2830,8 @@ nw_error_t *reduction_operation_backward(reduction_operation_t *reduction_operat
 nw_error_t *structure_operation_create(structure_operation_t **structure_operation,
                                        structure_operation_type_t structure_operation_type,
                                        const tensor_t *x,
-                                       const uint64_t *arguments,
-                                       uint64_t length)
+                                       const int64_t *arguments,
+                                       int64_t length)
 {
     CHECK_NULL_ARGUMENT(structure_operation, "structure_operation");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
@@ -2843,15 +2843,15 @@ nw_error_t *structure_operation_create(structure_operation_t **structure_operati
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(structure_operation_t)), NULL);
     }
 
-    (*structure_operation)->arguments = (uint64_t *) malloc((size_t) (length * sizeof(uint64_t)));
+    (*structure_operation)->arguments = (int64_t *) malloc((size_t) (length * sizeof(int64_t)));
     if (!(*structure_operation)->arguments)
     {
         free(*structure_operation);
         return ERROR(ERROR_MEMORY_ALLOCATION,
                      string_create("failed to allocate %zu bytes.",
-                     (size_t) (length * sizeof(uint64_t))), NULL);
+                     (size_t) (length * sizeof(int64_t))), NULL);
     }
-    memcpy((*structure_operation)->arguments, arguments, (size_t) (length * sizeof(uint64_t)));
+    memcpy((*structure_operation)->arguments, arguments, (size_t) (length * sizeof(int64_t)));
 
     (*structure_operation)->operation_type = structure_operation_type;
     (*structure_operation)->x = (tensor_t *) x; 
@@ -2889,7 +2889,7 @@ string_t structure_operation_type_string(structure_operation_type_t structure_op
     }
 }
 
-static nw_error_t *expand_operation_forward(tensor_t *x, uint64_t *shape, uint64_t length, tensor_t *result)
+static nw_error_t *expand_operation_forward(tensor_t *x, int64_t *shape, int64_t length, tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -2898,7 +2898,7 @@ static nw_error_t *expand_operation_forward(tensor_t *x, uint64_t *shape, uint64
     CHECK_NULL_ARGUMENT(result, "result");
 
     nw_error_t *error = NULL;
-    uint64_t strides[length];
+    int64_t strides[length];
     view_t *view = NULL;
 
     error = broadcast_strides(x->buffer->view->shape, x->buffer->view->rank, x->buffer->view->strides, shape, length, strides);
@@ -2923,15 +2923,15 @@ static nw_error_t *expand_operation_forward(tensor_t *x, uint64_t *shape, uint64
     return error;
 }
 
-static nw_error_t *expand_operation_backward(tensor_t *x, uint64_t *shape, uint64_t length, tensor_t *gradient)
+static nw_error_t *expand_operation_backward(tensor_t *x, int64_t *shape, int64_t length, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(shape, "shape");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
 
     nw_error_t *error = NULL;
-    uint64_t length_keep_dimension = 0;
-    uint64_t length_remove_dimension = 0;
+    int64_t length_keep_dimension = 0;
+    int64_t length_remove_dimension = 0;
     tensor_t *x_gradient = NULL;
     tensor_t *x_gradient_i = NULL;
 
@@ -2944,8 +2944,8 @@ static nw_error_t *expand_operation_backward(tensor_t *x, uint64_t *shape, uint6
             goto cleanup;
         }
 
-        uint64_t axis_keep_dimension[length_keep_dimension];
-        uint64_t axis_remove_dimension[length_remove_dimension];
+        int64_t axis_keep_dimension[length_keep_dimension];
+        int64_t axis_remove_dimension[length_remove_dimension];
 
         error = reduce_axis(x->buffer->view->shape, x->buffer->view->rank, shape, length, axis_keep_dimension, axis_remove_dimension);
         if (error)
@@ -3005,7 +3005,7 @@ cleanup:
     return error;
 }
 
-static nw_error_t *permute_operation_forward(tensor_t *x, uint64_t *axis, uint64_t rank, tensor_t *result)
+static nw_error_t *permute_operation_forward(tensor_t *x, int64_t *axis, int64_t rank, tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -3014,8 +3014,8 @@ static nw_error_t *permute_operation_forward(tensor_t *x, uint64_t *axis, uint64
     CHECK_NULL_ARGUMENT(result, "result");
 
     nw_error_t *error;
-    uint64_t shape[rank];
-    uint64_t strides[rank];
+    int64_t shape[rank];
+    int64_t strides[rank];
     view_t *view;
 
     error = permute(x->buffer->view->shape, x->buffer->view->strides, shape, strides, axis, rank);
@@ -3040,14 +3040,14 @@ static nw_error_t *permute_operation_forward(tensor_t *x, uint64_t *axis, uint64
     return error;
 }
 
-static nw_error_t *permute_operation_backward(tensor_t *x, uint64_t *axis, uint64_t rank, tensor_t *gradient)
+static nw_error_t *permute_operation_backward(tensor_t *x, int64_t *axis, int64_t rank, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(axis, "axis");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
 
     nw_error_t *error = NULL;
-    uint64_t gradient_axis[rank];
+    int64_t gradient_axis[rank];
     tensor_t *x_gradient = NULL;
 
     if (x->requires_gradient)
@@ -3084,7 +3084,7 @@ cleanup:
     return error;
 }
 
-static nw_error_t *reshape_operation_forward(tensor_t *x, uint64_t *shape, uint64_t rank, tensor_t *result)
+static nw_error_t *reshape_operation_forward(tensor_t *x, int64_t *shape, int64_t rank, tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -3153,7 +3153,7 @@ cleanup:
     return error;
 }
 
-static nw_error_t *slice_operation_forward(tensor_t *x, uint64_t *arguments, uint64_t length, tensor_t *result)
+static nw_error_t *slice_operation_forward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -3163,12 +3163,12 @@ static nw_error_t *slice_operation_forward(tensor_t *x, uint64_t *arguments, uin
 
     nw_error_t *error = NULL;
     view_t *view = NULL;
-    uint64_t offset = x->buffer->view->offset;
-    uint64_t rank = x->buffer->view->rank;
-    uint64_t *shape = x->buffer->view->shape;
-    uint64_t *strides = x->buffer->view->strides;
-    uint64_t sliced_shape[rank];
-    uint64_t sliced_offset = offset;
+    int64_t offset = x->buffer->view->offset;
+    int64_t rank = x->buffer->view->rank;
+    int64_t *shape = x->buffer->view->shape;
+    int64_t *strides = x->buffer->view->strides;
+    int64_t sliced_shape[rank];
+    int64_t sliced_offset = offset;
 
     error = slice_offset(strides, rank, &sliced_offset, arguments, length);
     if (shape == NULL)
@@ -3198,7 +3198,7 @@ static nw_error_t *slice_operation_forward(tensor_t *x, uint64_t *arguments, uin
     return error;
 }
 
-static nw_error_t *slice_operation_backward(tensor_t *x, uint64_t *arguments, uint64_t length, tensor_t *gradient)
+static nw_error_t *slice_operation_backward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -3207,9 +3207,9 @@ static nw_error_t *slice_operation_backward(tensor_t *x, uint64_t *arguments, ui
 
     nw_error_t *error = NULL;
     tensor_t *x_gradient = NULL;
-    uint64_t *shape = x->buffer->view->shape;
-    uint64_t rank = x->buffer->view->rank;
-    uint64_t padding_arguments[length];
+    int64_t *shape = x->buffer->view->shape;
+    int64_t rank = x->buffer->view->rank;
+    int64_t padding_arguments[length];
 
     if (x->requires_gradient)
     {
@@ -3242,7 +3242,7 @@ cleanup:
     return error;
 }
 
-static nw_error_t *padding_operation_forward(tensor_t *x, uint64_t *arguments, uint64_t length, tensor_t *result)
+static nw_error_t *padding_operation_forward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *result)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -3252,15 +3252,15 @@ static nw_error_t *padding_operation_forward(tensor_t *x, uint64_t *arguments, u
     CHECK_NULL_ARGUMENT(result, "result");
 
     nw_error_t *error = NULL;
-    uint64_t *shape = x->buffer->view->shape;
-    uint64_t rank = x->buffer->view->rank;
-    uint64_t padding_shape[rank];
-    uint64_t sliced_shape[rank];
-    uint64_t sliced_arguments[length];
+    int64_t *shape = x->buffer->view->shape;
+    int64_t rank = x->buffer->view->rank;
+    int64_t padding_shape[rank];
+    int64_t sliced_shape[rank];
+    int64_t sliced_arguments[length];
     view_t *sliced_view = NULL;
     view_t *padded_view = NULL;
-    uint64_t offset = 0;
-    uint64_t *strides = NULL;
+    int64_t offset = 0;
+    int64_t *strides = NULL;
     datatype_t datatype = x->buffer->storage->datatype;
     runtime_t runtime = x->buffer->storage->runtime;
 
@@ -3316,7 +3316,7 @@ static nw_error_t *padding_operation_forward(tensor_t *x, uint64_t *arguments, u
     return error;
 }
 
-static nw_error_t *padding_operation_backward(tensor_t *x, uint64_t *arguments, uint64_t length, tensor_t *gradient)
+static nw_error_t *padding_operation_backward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -3326,9 +3326,9 @@ static nw_error_t *padding_operation_backward(tensor_t *x, uint64_t *arguments, 
 
     nw_error_t *error = NULL;
     tensor_t *x_gradient = NULL;
-    uint64_t *shape = x->buffer->view->shape;
-    uint64_t rank = x->buffer->view->rank;
-    uint64_t slice_arguments[length];
+    int64_t *shape = x->buffer->view->shape;
+    int64_t rank = x->buffer->view->rank;
+    int64_t slice_arguments[length];
 
     if (x->requires_gradient)
     {
@@ -3378,8 +3378,8 @@ nw_error_t *structure_operation_forward(structure_operation_t *structure_operati
 
     nw_error_t *error = NULL;
     tensor_t *x = structure_operation->x;
-    uint64_t *arguments = structure_operation->arguments;
-    uint64_t length = structure_operation->length;
+    int64_t *arguments = structure_operation->arguments;
+    int64_t length = structure_operation->length;
     structure_operation_type_t operation_type = structure_operation->operation_type;
 
     error = tensor_create(result, NULL, NULL, NULL, x->requires_gradient, false);
@@ -3441,8 +3441,8 @@ nw_error_t *structure_operation_backward(structure_operation_t *structure_operat
 
     nw_error_t *error = NULL;
     tensor_t *x = structure_operation->x;
-    uint64_t *arguments = structure_operation->arguments;
-    uint64_t length = structure_operation->length;
+    int64_t *arguments = structure_operation->arguments;
+    int64_t length = structure_operation->length;
     structure_operation_type_t operation_type = structure_operation->operation_type;
 
     switch (operation_type)
@@ -3479,16 +3479,16 @@ nw_error_t *structure_operation_backward(structure_operation_t *structure_operat
 
 nw_error_t *creation_operation_create(creation_operation_t **creation_operation,
                                       creation_operation_type_t creation_operation_type,
-                                      const uint64_t *shape,
-                                      uint64_t rank,
-                                      const uint64_t *strides,
-                                      uint64_t offset,
+                                      const int64_t *shape,
+                                      int64_t rank,
+                                      const int64_t *strides,
+                                      int64_t offset,
                                       runtime_t runtime,
                                       datatype_t datatype,
                                       bool_t requires_gradient,
                                       bool_t persist,
                                       const void **arguments,
-                                      uint64_t length,
+                                      int64_t length,
                                       void *data)
 {
     CHECK_NULL_ARGUMENT(creation_operation, "creation_operation");
@@ -3524,8 +3524,8 @@ nw_error_t *creation_operation_create(creation_operation_t **creation_operation,
 
 
     // Shape
-    size = rank * sizeof(uint64_t);
-    (*creation_operation)->shape = (uint64_t *) malloc(size);
+    size = rank * sizeof(int64_t);
+    (*creation_operation)->shape = (int64_t *) malloc(size);
     if (!(*creation_operation)->shape)
     {
         error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
@@ -3536,7 +3536,7 @@ nw_error_t *creation_operation_create(creation_operation_t **creation_operation,
     // Strides
     if (strides)
     {
-        (*creation_operation)->strides = (uint64_t *) malloc(size);
+        (*creation_operation)->strides = (int64_t *) malloc(size);
         if (!(*creation_operation)->strides)
         {
             error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
@@ -3554,14 +3554,14 @@ nw_error_t *creation_operation_create(creation_operation_t **creation_operation,
         goto cleanup;
     }
     
-    for (uint64_t i = 0; i < length; ++i)
+    for (int64_t i = 0; i < length; ++i)
     {
         (*creation_operation)->arguments[i] = NULL;
     }
 
     (*creation_operation)->length = length;
     size = datatype_size(datatype);
-    for (uint64_t i = 0; i < length; ++i)
+    for (int64_t i = 0; i < length; ++i)
     {
         (*creation_operation)->arguments[i] = (void *) malloc(size);
         if (!(*creation_operation)->arguments[i])
@@ -3598,7 +3598,7 @@ void creation_operation_destroy(creation_operation_t *creation_operation)
     {
         if (creation_operation->arguments)
         {
-            for (uint64_t i = 0; i < creation_operation->length; ++i)
+            for (int64_t i = 0; i < creation_operation->length; ++i)
             {
                 free(creation_operation->arguments[i]);
             }
@@ -3635,10 +3635,10 @@ string_t creation_operation_type_string(creation_operation_type_t creation_opera
     }
 }
 
-static nw_error_t *empty_operation_forward(const uint64_t *shape,
-                                           uint64_t rank,
-                                           const uint64_t *strides,
-                                           uint64_t offset,
+static nw_error_t *empty_operation_forward(const int64_t *shape,
+                                           int64_t rank,
+                                           const int64_t *strides,
+                                           int64_t offset,
                                            runtime_t runtime,
                                            datatype_t datatype,
                                            tensor_t *result)
@@ -3657,10 +3657,10 @@ static nw_error_t *empty_operation_forward(const uint64_t *shape,
     return error;
 }
 
-static nw_error_t *zeroes_operation_forward(const uint64_t *shape,
-                                            uint64_t rank,
-                                            const uint64_t *strides,
-                                            uint64_t offset,
+static nw_error_t *zeroes_operation_forward(const int64_t *shape,
+                                            int64_t rank,
+                                            const int64_t *strides,
+                                            int64_t offset,
                                             runtime_t runtime,
                                             datatype_t datatype,
                                             tensor_t *result)
@@ -3679,10 +3679,10 @@ static nw_error_t *zeroes_operation_forward(const uint64_t *shape,
     return error;
 }
 
-static nw_error_t *ones_operation_forward(const uint64_t *shape,
-                                          uint64_t rank,
-                                          const uint64_t *strides,
-                                          uint64_t offset,
+static nw_error_t *ones_operation_forward(const int64_t *shape,
+                                          int64_t rank,
+                                          const int64_t *strides,
+                                          int64_t offset,
                                           runtime_t runtime,
                                           datatype_t datatype,
                                           tensor_t *result)
@@ -3701,15 +3701,15 @@ static nw_error_t *ones_operation_forward(const uint64_t *shape,
     return error;
 }
 
-static nw_error_t *uniform_operation_forward(const uint64_t *shape,
-                                             uint64_t rank,
-                                             const uint64_t *strides,
-                                             uint64_t offset,
+static nw_error_t *uniform_operation_forward(const int64_t *shape,
+                                             int64_t rank,
+                                             const int64_t *strides,
+                                             int64_t offset,
                                              runtime_t runtime,
                                              datatype_t datatype,
                                              tensor_t *result,
                                              void **arguments,
-                                             uint64_t length)
+                                             int64_t length)
 {
     CHECK_NULL_ARGUMENT(shape, "shape");
     CHECK_NULL_ARGUMENT(result, "result");
@@ -3725,15 +3725,15 @@ static nw_error_t *uniform_operation_forward(const uint64_t *shape,
     return error;
 }
 
-static nw_error_t *normal_operation_forward(const uint64_t *shape,
-                                            uint64_t rank,
-                                            const uint64_t *strides,
-                                            uint64_t offset,
+static nw_error_t *normal_operation_forward(const int64_t *shape,
+                                            int64_t rank,
+                                            const int64_t *strides,
+                                            int64_t offset,
                                             runtime_t runtime,
                                             datatype_t datatype,
                                             tensor_t *result,
                                             void **arguments,
-                                            uint64_t length)
+                                            int64_t length)
 {
     CHECK_NULL_ARGUMENT(shape, "shape");
     CHECK_NULL_ARGUMENT(result, "result");
@@ -3749,15 +3749,15 @@ static nw_error_t *normal_operation_forward(const uint64_t *shape,
     return error;
 }
 
-static nw_error_t *arange_operation_forward(const uint64_t *shape,
-                                            uint64_t rank,
-                                            const uint64_t *strides,
-                                            uint64_t offset,
+static nw_error_t *arange_operation_forward(const int64_t *shape,
+                                            int64_t rank,
+                                            const int64_t *strides,
+                                            int64_t offset,
                                             runtime_t runtime,
                                             datatype_t datatype,
                                             tensor_t *result,
                                             void **arguments,
-                                            uint64_t length)
+                                            int64_t length)
 {
     CHECK_NULL_ARGUMENT(shape, "shape");
     CHECK_NULL_ARGUMENT(result, "result");
@@ -3773,10 +3773,10 @@ static nw_error_t *arange_operation_forward(const uint64_t *shape,
     return error;
 }
 
-static nw_error_t *from_operation_forward(const uint64_t *shape,
-                                          uint64_t rank,
-                                          const uint64_t *strides,
-                                          uint64_t offset,
+static nw_error_t *from_operation_forward(const int64_t *shape,
+                                          int64_t rank,
+                                          const int64_t *strides,
+                                          int64_t offset,
                                           runtime_t runtime,
                                           datatype_t datatype,
                                           tensor_t *result,
@@ -3796,10 +3796,10 @@ static nw_error_t *from_operation_forward(const uint64_t *shape,
     return error;
 }
 
-static nw_error_t *copy_operation_forward(const uint64_t *shape,
-                                          uint64_t rank,
-                                          const uint64_t *strides,
-                                          uint64_t offset,
+static nw_error_t *copy_operation_forward(const int64_t *shape,
+                                          int64_t rank,
+                                          const int64_t *strides,
+                                          int64_t offset,
                                           runtime_t runtime,
                                           datatype_t datatype,
                                           tensor_t *result,
@@ -3826,12 +3826,12 @@ nw_error_t *creation_operation_forward(creation_operation_t *creation_operation,
     nw_error_t *error = NULL;
     void *data = creation_operation->data;
     void **arguments = creation_operation->arguments;
-    uint64_t length = creation_operation->length;
+    int64_t length = creation_operation->length;
     creation_operation_type_t operation_type = creation_operation->operation_type;
-    uint64_t *shape = creation_operation->shape;
-    uint64_t rank = creation_operation->rank;
-    uint64_t *strides = creation_operation->strides;
-    uint64_t offset = creation_operation->offset;
+    int64_t *shape = creation_operation->shape;
+    int64_t rank = creation_operation->rank;
+    int64_t *strides = creation_operation->strides;
+    int64_t offset = creation_operation->offset;
     runtime_t runtime = creation_operation->runtime;
     datatype_t datatype = creation_operation->datatype;
     bool_t requires_gradient = creation_operation->requires_gradient;

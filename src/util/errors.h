@@ -50,7 +50,7 @@
     fprintf(stderr, string);\
 } while(0)
 
-#define PRINT_DEBUG_UINT64_ARRAY(array, length) do {\
+#define PRINT_DEBUG_INT64_ARRAY(array, length) do {\
     if (!(array))\
     {\
         fprintf(stderr, "NULL");\
@@ -58,24 +58,24 @@
     else\
     {\
         fprintf(stderr, "(");\
-        for (uint64_t i = 0; i < (length); ++i)\
+        for (int64_t i = 0; i < (length); ++i)\
         {\
             if (!i)\
             {\
-                fprintf(stderr, "%lu", (array)[i]);\
+                fprintf(stderr, "%ld", (array)[i]);\
             }\
             else\
             {\
-                fprintf(stderr, ", %lu", (array)[i]);\
+                fprintf(stderr, ", %ld", (array)[i]);\
             }\
         }\
         fprintf(stderr, ")");\
     }\
 } while(0)
 
-#define PRINTLN_DEBUG_UINT64_ARRAY(msg, array, length) do {\
+#define PRINTLN_DEBUG_INT64_ARRAY(msg, array, length) do {\
     fprintf(stderr, "%s ", msg);\
-    PRINT_DEBUG_UINT64_ARRAY((array), length);\
+    PRINT_DEBUG_INT64_ARRAY((array), length);\
     PRINT_DEBUG_NEWLINE;\
 } while(0)
 
@@ -86,12 +86,12 @@
     }\
     else\
     {\
-        fprintf(stderr, "(offset: %lu", (view)->offset);\
-        fprintf(stderr, ", rank: %lu", (view)->rank);\
+        fprintf(stderr, "(offset: %ld", (view)->offset);\
+        fprintf(stderr, ", rank: %ld", (view)->rank);\
         fprintf(stderr, ", shape: ");\
-        PRINT_DEBUG_UINT64_ARRAY((view)->shape, (view)->rank);\
+        PRINT_DEBUG_INT64_ARRAY((view)->shape, (view)->rank);\
         fprintf(stderr, ", strides: ");\
-        PRINT_DEBUG_UINT64_ARRAY((view)->strides, (view)->rank);\
+        PRINT_DEBUG_INT64_ARRAY((view)->strides, (view)->rank);\
         fprintf(stderr, ")");\
     }\
 } while(0)
@@ -111,8 +111,8 @@
     {\
         fprintf(stderr, "(runtime: %s", runtime_string((storage)->runtime));\
         fprintf(stderr, ", datatype: %s", datatype_string((storage)->datatype));\
-        fprintf(stderr, ", n: %lu", (storage)->n);\
-        fprintf(stderr, ", reference_count: %lu", (storage)->reference_count);\
+        fprintf(stderr, ", n: %ld", (storage)->n);\
+        fprintf(stderr, ", reference_count: %ld", (storage)->reference_count);\
         fprintf(stderr, ", data: ");\
         if (!(storage)->data)\
         {\
@@ -121,8 +121,8 @@
         else\
         {\
             fprintf(stderr, "(");\
-            uint64_t n = MIN((storage)->n, MAX_DATA);\
-            for (uint64_t j = 0; j < n; ++j)\
+            int64_t n = MIN((storage)->n, MAX_DATA);\
+            for (int64_t j = 0; j < n; ++j)\
             {\
                 switch((storage)->datatype)\
                 {\
@@ -263,7 +263,7 @@
                 fprintf(stderr, ", result: (id: %lu)", (function)->operation->reduction_operation->result->id);\
             }\
             fprintf(stderr, ", axis: ");\
-            PRINT_DEBUG_UINT64_ARRAY((function)->operation->reduction_operation->axis,\
+            PRINT_DEBUG_INT64_ARRAY((function)->operation->reduction_operation->axis,\
                                      (function)->operation->reduction_operation->length);\
             fprintf(stderr, ", keep_dimension: ");\
             PRINT_DEBUG_BOOLEAN((function)->operation->reduction_operation->keep_dimension);\
@@ -287,13 +287,13 @@
                 fprintf(stderr, ", result: (id: %lu)", (function)->operation->structure_operation->result->id);\
             }\
             fprintf(stderr, ", arguments: ");\
-            PRINT_DEBUG_UINT64_ARRAY((function)->operation->structure_operation->arguments,\
+            PRINT_DEBUG_INT64_ARRAY((function)->operation->structure_operation->arguments,\
                                      (function)->operation->structure_operation->length);\
             break;\
         case CREATION_OPERATION:\
             fprintf(stderr, "%s", creation_operation_type_string((function)->operation->creation_operation->operation_type));\
             fprintf(stderr, ", shape: ");\
-            PRINT_DEBUG_UINT64_ARRAY((function)->operation->creation_operation->shape,\
+            PRINT_DEBUG_INT64_ARRAY((function)->operation->creation_operation->shape,\
                                      (function)->operation->creation_operation->rank);\
             break;\
         default:\
@@ -349,7 +349,7 @@
     else\
     {\
         fprintf(stderr, "(");\
-        fprintf(stderr, "axis: %lu", (softmax)->axis);\
+        fprintf(stderr, "axis: %ld", (softmax)->axis);\
         fprintf(stderr, ")");\
     }\
 } while(0)
@@ -474,7 +474,7 @@
                 }\
                 else\
                 {\
-                    fprintf(stderr, "depth: %lu", (layer)->transform->block->depth);\
+                    fprintf(stderr, "depth: %ld", (layer)->transform->block->depth);\
                 }\
                 fprintf(stderr, ")");\
                 break;\
@@ -500,7 +500,7 @@
     else\
     {\
         fprintf(stderr, "(");\
-        fprintf(stderr, "depth: %lu", (block)->depth);\
+        fprintf(stderr, "depth: %ld", (block)->depth);\
         fprintf(stderr, ", layers: ");\
         if (!(block)->layers)\
         {\
@@ -509,7 +509,7 @@
         else\
         {\
             fprintf(stderr, "(");\
-            for (uint64_t k = 0; k < (block)->depth; ++k)\
+            for (int64_t k = 0; k < (block)->depth; ++k)\
             {\
                 if (k)\
                 {\
@@ -571,8 +571,8 @@
 #else
 #define PRINT_DEBUG(format, ...)
 #define PRINTF_DEBUG(format, ...)
-#define PRINT_DEBUG_UINT64_ARRAY(array, length)
-#define PRINTLN_DEBUG_UINT64_ARRAY(msg, array, length)
+#define PRINT_DEBUG_INT64_ARRAY(array, length)
+#define PRINTLN_DEBUG_INT64_ARRAY(msg, array, length)
 #define PRINT_DEBUG_VIEW(view)
 #define PRINTLN_DEBUG_VIEW(msg, view)
 #define PRINT_DEBUG_STORAGE(storage)
@@ -713,9 +713,9 @@ string_t error_type_string(nw_error_type_t error_type);
 #define CHECK_UNIQUE(array, length, string) do {\
     if (length)\
     {\
-        for (uint64_t i = 0; i < length - 1; ++i)\
+        for (int64_t i = 0; i < length - 1; ++i)\
         {\
-            for (uint64_t j = i + 1; j < length; ++j)\
+            for (int64_t j = i + 1; j < length; ++j)\
             {\
                 if (array[i] == array[j])\
                 {\

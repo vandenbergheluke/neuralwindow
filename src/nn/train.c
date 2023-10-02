@@ -5,7 +5,7 @@
 #include <optimizer.h>
 #include <random.h>
 
-nw_error_t *batch_create(batch_t **batch, uint64_t batch_size, datatype_t datatype, runtime_t runtime)
+nw_error_t *batch_create(batch_t **batch, int64_t batch_size, datatype_t datatype, runtime_t runtime)
 {
     CHECK_NULL_ARGUMENT(batch, "batch");
 
@@ -32,8 +32,8 @@ void batch_destroy(batch_t *batch)
     }
 }
 
-nw_error_t *fit(uint64_t epochs,
-                uint64_t number_of_samples,
+nw_error_t *fit(int64_t epochs,
+                int64_t number_of_samples,
                 batch_t *batch,
                 bool_t shuffle,
                 float32_t train_split,
@@ -44,9 +44,9 @@ nw_error_t *fit(uint64_t epochs,
                 void * arguments,
                 nw_error_t *(*setup)(void *),
                 nw_error_t *(*teardown)(void *),
-                nw_error_t *(*dataloader)(uint64_t, batch_t *, void *),
+                nw_error_t *(*dataloader)(int64_t, batch_t *, void *),
                 nw_error_t *(*criterion)(const tensor_t *, const tensor_t *, tensor_t **),
-                nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *, const tensor_t *, uint64_t, uint64_t, uint64_t, uint64_t))
+                nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *, const tensor_t *, int64_t, int64_t, int64_t, int64_t))
 {
     nw_error_t *error = NULL;
 
@@ -56,10 +56,10 @@ nw_error_t *fit(uint64_t epochs,
         return ERROR(ERROR_SETUP, string_create("failed to setup."), error);
     }
 
-    uint64_t iterations = number_of_samples / batch->batch_size;
-    uint64_t indicies[iterations];
+    int64_t iterations = number_of_samples / batch->batch_size;
+    int64_t indicies[iterations];
 
-    for (uint64_t i = 0; i < iterations; ++i)
+    for (int64_t i = 0; i < iterations; ++i)
     {
         indicies[i] = i;
     }
@@ -69,15 +69,15 @@ nw_error_t *fit(uint64_t epochs,
         shuffle_array(indicies, iterations);
     }
 
-    uint64_t train_iterations = (uint64_t) (train_split * (float32_t) iterations);
-    uint64_t valid_iterations = (uint64_t) (valid_split * (float32_t) iterations);
-    uint64_t test_iterations = (uint64_t) (test_split * (float32_t) iterations);
+    int64_t train_iterations = (int64_t) (train_split * (float32_t) iterations);
+    int64_t valid_iterations = (int64_t) (valid_split * (float32_t) iterations);
+    int64_t test_iterations = (int64_t) (test_split * (float32_t) iterations);
     tensor_t *y_pred = NULL;
     tensor_t *cost = NULL;
 
-    for (uint64_t i = 0; i < epochs; ++i)
+    for (int64_t i = 0; i < epochs; ++i)
     {
-        for (uint64_t j = 0; j < train_iterations; ++j)
+        for (int64_t j = 0; j < train_iterations; ++j)
         {
             error = (*dataloader)(indicies[j] * batch->batch_size, batch, arguments);
             if (error)
@@ -127,10 +127,10 @@ nw_error_t *fit(uint64_t epochs,
 
         with_no_gradient(true);
 
-        uint64_t start = train_iterations;
-        uint64_t end = valid_iterations + train_iterations;
+        int64_t start = train_iterations;
+        int64_t end = valid_iterations + train_iterations;
 
-        for (uint64_t j = start; j < end; ++j)
+        for (int64_t j = start; j < end; ++j)
         {
             error = (*dataloader)(indicies[j] * batch->batch_size, batch, arguments);
             if (error)
@@ -169,12 +169,12 @@ nw_error_t *fit(uint64_t epochs,
         with_no_gradient(false);
     }
 
-    uint64_t start = train_iterations + valid_iterations;
-    uint64_t end = valid_iterations + train_iterations + test_iterations;
+    int64_t start = train_iterations + valid_iterations;
+    int64_t end = valid_iterations + train_iterations + test_iterations;
 
     with_no_gradient(true);
 
-    for (uint64_t i = start; i < end; ++i)
+    for (int64_t i = start; i < end; ++i)
     {
         error = (*dataloader)(indicies[i] * batch->batch_size, batch, arguments);
         if (error)

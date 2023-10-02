@@ -164,33 +164,33 @@ void test_structure(tensor_structure_type_t tensor_structure_type, std::vector<i
                 {
                 case TENSOR_EXPAND:
                     error = tensor_expand(tensors[tensor_structure_type][i][j][k], 
-                                          (uint64_t *) arguments[k].data(),
-                                          (uint64_t) arguments[k].size(),
+                                          (int64_t *) arguments[k].data(),
+                                          (int64_t) arguments[k].size(),
                                           &returned_tensors[tensor_structure_type][i][j][k]);
                     break;
                 case TENSOR_PERMUTE:
                     error = tensor_permute(tensors[tensor_structure_type][i][j][k],
                                            &returned_tensors[tensor_structure_type][i][j][k],
-                                           (uint64_t *) arguments[k].data(),
-                                           (uint64_t) arguments[k].size());
+                                           (int64_t *) arguments[k].data(),
+                                           (int64_t) arguments[k].size());
                     break;
                 case TENSOR_RESHAPE:
                     error = tensor_reshape(tensors[tensor_structure_type][i][j][k],
                                            &returned_tensors[tensor_structure_type][i][j][k],
-                                           (uint64_t *) arguments[k].data(),
-                                           (uint64_t) arguments[k].size());
+                                           (int64_t *) arguments[k].data(),
+                                           (int64_t) arguments[k].size());
                     break;
                 case TENSOR_SLICE:
                     error = tensor_slice(tensors[tensor_structure_type][i][j][k],
                                          &returned_tensors[tensor_structure_type][i][j][k],
-                                         (uint64_t *) arguments[k].data(),
-                                         (uint64_t) arguments[k].size());
+                                         (int64_t *) arguments[k].data(),
+                                         (int64_t) arguments[k].size());
                     break;
                 case TENSOR_PADDING:
                     error = tensor_padding(tensors[tensor_structure_type][i][j][k],
                                            &returned_tensors[tensor_structure_type][i][j][k],
-                                           (uint64_t *) arguments[k].data(),
-                                           (uint64_t) arguments[k].size());
+                                           (int64_t *) arguments[k].data(),
+                                           (int64_t) arguments[k].size());
                     break;
                 default:
                     ck_abort_msg("unknown structure type.");

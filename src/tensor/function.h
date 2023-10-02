@@ -82,8 +82,8 @@ typedef struct reduction_operation_t
 {
     tensor_t *x;
     tensor_t *result;
-    uint64_t *axis;
-    uint64_t length;
+    int64_t *axis;
+    int64_t length;
     bool_t keep_dimension;
     reduction_operation_type_t operation_type;
 } reduction_operation_t;
@@ -91,16 +91,16 @@ typedef struct reduction_operation_t
 nw_error_t *reduction_operation_create(reduction_operation_t **reduction_operation,
                                        reduction_operation_type_t reduction_operation_type,
                                        const tensor_t *x,
-                                       const uint64_t *axis,
-                                       uint64_t length,
+                                       const int64_t *axis,
+                                       int64_t length,
                                        bool_t keep_dimension);
 void reduction_operation_destroy(reduction_operation_t *reduction_operation);
 nw_error_t *reduction_operation_forward(reduction_operation_t *reduction_operation, tensor_t **result);
 nw_error_t *reduction_operation_backward(reduction_operation_t *reduction_operation, tensor_t *gradient);
 nw_error_t *apply_function_reduction(reduction_operation_type_t reduction_operation_type,
                                      const tensor_t *x,
-                                     const uint64_t *axis,
-                                     uint64_t length,
+                                     const int64_t *axis,
+                                     int64_t length,
                                      bool_t keep_dimension,
                                      tensor_t **result);
 string_t reduction_operation_type_string(reduction_operation_type_t reduction_operation_type);
@@ -119,23 +119,23 @@ typedef struct structure_operation_t
 {
     tensor_t *x;
     tensor_t *result;
-    uint64_t *arguments;
-    uint64_t length;
+    int64_t *arguments;
+    int64_t length;
     structure_operation_type_t operation_type;
 } structure_operation_t;
 
 nw_error_t *structure_operation_create(structure_operation_t **structure_operation,
                                        structure_operation_type_t structure_operation_type,
                                        const tensor_t *x,
-                                       const uint64_t *arguments,
-                                       uint64_t length);
+                                       const int64_t *arguments,
+                                       int64_t length);
 void structure_operation_destroy(structure_operation_t *structure_operation);
 nw_error_t *structure_operation_forward(structure_operation_t *structure_operation, tensor_t **result);
 nw_error_t *structure_operation_backward(structure_operation_t *structure_operation, tensor_t *gradient);
 nw_error_t *apply_function_structure(structure_operation_type_t structure_operation_type,
                                      const tensor_t *x,
-                                     const uint64_t *arguments,
-                                     uint64_t length,
+                                     const int64_t *arguments,
+                                     int64_t length,
                                      tensor_t **result);
 string_t structure_operation_type_string(structure_operation_type_t structure_operation_type);
 
@@ -156,45 +156,45 @@ typedef struct creation_operation_t
 {
     creation_operation_type_t operation_type;
     tensor_t *result;
-    uint64_t *shape;
-    uint64_t rank;
-    uint64_t *strides;
-    uint64_t offset;
+    int64_t *shape;
+    int64_t rank;
+    int64_t *strides;
+    int64_t offset;
     runtime_t runtime;
     datatype_t datatype;
     bool_t requires_gradient;
     bool_t persist;
     void **arguments;
-    uint64_t length;
+    int64_t length;
     void *data;
 } creation_operation_t;
 
 nw_error_t *creation_operation_create(creation_operation_t **creation_operation,
                                       creation_operation_type_t creation_operation_type,
-                                      const uint64_t *shape,
-                                      uint64_t rank,
-                                      const uint64_t *strides,
-                                      uint64_t offset,
+                                      const int64_t *shape,
+                                      int64_t rank,
+                                      const int64_t *strides,
+                                      int64_t offset,
                                       runtime_t runtime,
                                       datatype_t datatype,
                                       bool_t requires_gradient,
                                       bool_t persist,
                                       const void **arguments,
-                                      uint64_t length,
+                                      int64_t length,
                                       void *data);
 void creation_operation_destroy(creation_operation_t *creation_operation);
 nw_error_t *creation_operation_forward(creation_operation_t *creation_operation, tensor_t **result);
 nw_error_t *apply_function_creation(creation_operation_type_t creation_operation_type,
-                                    const uint64_t *shape,
-                                    uint64_t rank,
-                                    const uint64_t *strides,
-                                    uint64_t offset,
+                                    const int64_t *shape,
+                                    int64_t rank,
+                                    const int64_t *strides,
+                                    int64_t offset,
                                     runtime_t runtime,
                                     datatype_t datatype,
                                     bool_t requires_gradient,
                                     bool_t persist,
                                     const void **arguments,
-                                    uint64_t length,
+                                    int64_t length,
                                     void *data,
                                     tensor_t **result);
 string_t creation_operation_type_string(creation_operation_type_t creation_operation_type);

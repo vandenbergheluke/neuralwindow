@@ -16,11 +16,11 @@ typedef struct mnist_dataset_t
     string_t labels_path;
     FILE *images_file;
     FILE *labels_file;
-    uint64_t height;
-    uint64_t width;
-    uint64_t number_of_labels;
-    uint64_t image_offset;
-    uint64_t label_offset;
+    int64_t height;
+    int64_t width;
+    int64_t number_of_labels;
+    int64_t image_offset;
+    int64_t label_offset;
 } mnist_dataset_t;
 
 static uint32_t uint32_big_endian(uint8_t *buffer)
@@ -37,17 +37,17 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
                           const tensor_t *y_true,
                           const tensor_t *y_pred,
                           const tensor_t *cost,
-                          uint64_t epoch,
-                          uint64_t epochs,
-                          uint64_t iteration,
-                          uint64_t iterations)
+                          int64_t epoch,
+                          int64_t epochs,
+                          int64_t iteration,
+                          int64_t iterations)
 {
     CHECK_NULL_ARGUMENT(y_pred, "y_pred");
     CHECK_NULL_ARGUMENT(y_true, "y_true");
     CHECK_NULL_ARGUMENT(y_true, "cost");
     static void *accuracy_data = NULL;
     static void *cost_data = NULL;
-    static uint64_t time = 0; 
+    static int64_t time = 0; 
     tensor_t *total_accuracy = NULL;
     tensor_t *total_cost = NULL;
     tensor_t *mean_accuracy = NULL;
@@ -123,8 +123,8 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
 
     if (iteration == iterations)
     {
-        uint64_t shape[] = {iterations};
-        uint64_t rank = 1;
+        int64_t shape[] = {iterations};
+        int64_t rank = 1;
         
         error = tensor_from_data(&total_accuracy, accuracy_data, runtime, datatype, rank, shape, NULL, 0, false, false, false);
         if (error)
@@ -154,7 +154,7 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
             goto cleanup;
         }
 
-        LOG("Dataset %s - %lu/%lu Epochs", dataset_type_string(dataset_type), epoch, epochs);
+        LOG("Dataset %s - %ld/%ld Epochs", dataset_type_string(dataset_type), epoch, epochs);
         LOG_SCALAR_TENSOR(" - Cost", mean_cost);
         LOG_SCALAR_TENSOR("- Accuracy", mean_accuracy);
         LOG("- Time: %lfs", (float64_t) (get_time_nanoseconds() - time) * (float64_t) 1e-9);
@@ -215,7 +215,7 @@ nw_error_t *mnist_setup(void *arguments)
     {
         ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
     }
-    mnist_dataset->height = (uint64_t) uint32_big_endian(buffer);
+    mnist_dataset->height = (int64_t) uint32_big_endian(buffer);
 
     // Width
     read = fread(buffer, sizeof(buffer), 1, mnist_dataset->images_file);
@@ -223,7 +223,7 @@ nw_error_t *mnist_setup(void *arguments)
     {
         ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
     }
-    mnist_dataset->width = (uint64_t) uint32_big_endian(buffer);
+    mnist_dataset->width = (int64_t) uint32_big_endian(buffer);
 
     mnist_dataset->number_of_labels = 10;
     mnist_dataset->image_offset = 16;
@@ -254,7 +254,7 @@ nw_error_t *mnist_teardown(void *arguments)
     return NULL;
 }
 
-nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
+nw_error_t *mnist_dataloader(int64_t index, batch_t *batch, void *arguments)
 {
     CHECK_NULL_ARGUMENT(arguments, "arguments");
     CHECK_NULL_ARGUMENT(batch, "batch");
@@ -263,11 +263,11 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
     size_t read;
     nw_error_t *error = NULL;
     mnist_dataset_t *mnist_dataset = (mnist_dataset_t *) arguments;
-    uint64_t number_of_pixels = mnist_dataset->height * mnist_dataset->width;
-    uint64_t number_of_labels = mnist_dataset->number_of_labels;
-    uint64_t batch_size = batch->batch_size;
-    uint64_t m = batch_size * number_of_labels;
-    uint64_t n = batch_size * number_of_pixels;
+    int64_t number_of_pixels = mnist_dataset->height * mnist_dataset->width;
+    int64_t number_of_labels = mnist_dataset->number_of_labels;
+    int64_t batch_size = batch->batch_size;
+    int64_t m = batch_size * number_of_labels;
+    int64_t n = batch_size * number_of_pixels;
     void *data = NULL;
     void *labels = NULL;
     datatype_t datatype = batch->datatype;
@@ -300,7 +300,7 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
         return ERROR(ERROR_FILE, string_create("failed to move to offset in file."), NULL);
     }
 
-    for (uint64_t i = 0; i < n; ++i)
+    for (int64_t i = 0; i < n; ++i)
     {
         read = fread(file_buffer, sizeof(file_buffer), 1, mnist_dataset->images_file);
         if (!read)
@@ -321,7 +321,7 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
         }
     }
 
-    for (uint64_t i = 0; i < batch_size; ++i)
+    for (int64_t i = 0; i < batch_size; ++i)
     {
         read = fread(file_buffer, sizeof(file_buffer), 1, mnist_dataset->labels_file);
         if (!read)
@@ -329,7 +329,7 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
             return ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
         }
 
-        for (uint64_t j = 0; j < number_of_labels; ++j)
+        for (int64_t j = 0; j < number_of_labels; ++j)
         {
             switch (datatype)
             {
@@ -345,13 +345,13 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
         }
     }
 
-    error = tensor_from_data(&batch->x, data, runtime, datatype, 2, (uint64_t[]) {batch_size, number_of_pixels}, NULL, 0, copy, false, true);
+    error = tensor_from_data(&batch->x, data, runtime, datatype, 2, (int64_t[]) {batch_size, number_of_pixels}, NULL, 0, copy, false, true);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
-    error = tensor_from_data(&batch->y, labels, runtime, datatype, 2, (uint64_t[]) {batch_size, number_of_labels}, NULL, 0, copy, false, true);
+    error = tensor_from_data(&batch->y, labels, runtime, datatype, 2, (int64_t[]) {batch_size, number_of_labels}, NULL, 0, copy, false, true);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -440,7 +440,7 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         goto cleanup;
     }
 
-    error = logsoftmax_activation_create(&output_activation, (uint64_t) 1);
+    error = logsoftmax_activation_create(&output_activation, (int64_t) 1);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create softmax activation."), error);
@@ -512,13 +512,13 @@ int main(void)
     };
 
     nw_error_t *error = NULL;
-    uint64_t epochs = 200;
+    int64_t epochs = 200;
     model_t *model = NULL;
     runtime_t runtime = OPENBLAS_RUNTIME;
     datatype_t datatype = FLOAT32;
-    uint64_t number_of_samples = 60000;
+    int64_t number_of_samples = 60000;
     batch_t *batch = NULL;
-    uint64_t batch_size = 128;
+    int64_t batch_size = 128;
     bool_t shuffle = true;
     float32_t train_split = 0.7;
     float32_t valid_split = 0.2;

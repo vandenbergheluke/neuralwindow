@@ -27,7 +27,7 @@ nw_error_t *categorical_cross_entropy(const tensor_t *y_true, const tensor_t *y_
     }
 
     nw_error_t *error = NULL;
-    uint64_t rank = y_true->buffer->view->rank;
+    int64_t rank = y_true->buffer->view->rank;
     tensor_t *cost_i = NULL;
     tensor_t *cost_j = NULL;
     tensor_t *cost_k = NULL;
@@ -47,7 +47,7 @@ nw_error_t *categorical_cross_entropy(const tensor_t *y_true, const tensor_t *y_
         goto cleanup;
     }
 
-    error = tensor_summation(cost_j, &cost_k, (uint64_t[]) {rank - 1}, 1, false);
+    error = tensor_summation(cost_j, &cost_k, (int64_t[]) {rank - 1}, 1, false);
     if (error)
     {
         error = ERROR(ERROR_SUMMATION, string_create("failed to sum tensor."), error);
@@ -106,7 +106,7 @@ nw_error_t *negative_log_likelihood(const tensor_t *y_true, const tensor_t *y_pr
     }
 
     nw_error_t *error = NULL;
-    uint64_t rank = y_true->buffer->view->rank;
+    int64_t rank = y_true->buffer->view->rank;
     tensor_t *cost_j = NULL;
     tensor_t *cost_k = NULL;
     tensor_t *cost_l = NULL;
@@ -118,7 +118,7 @@ nw_error_t *negative_log_likelihood(const tensor_t *y_true, const tensor_t *y_pr
         goto cleanup;
     }
 
-    error = tensor_summation(cost_j, &cost_k, (uint64_t[]) {rank - 1}, 1, false);
+    error = tensor_summation(cost_j, &cost_k, (int64_t[]) {rank - 1}, 1, false);
     if (error)
     {
         error = ERROR(ERROR_SUMMATION, string_create("failed to sum tensor."), error);

@@ -445,8 +445,8 @@ nw_error_t *glorot_normal_parameter_init(parameter_init_t **parameter_init, void
 
 nw_error_t *initialize(tensor_t **parameters,
                        parameter_init_t *parameter_init,
-                       const uint64_t *shape,
-                       uint64_t rank,
+                       const int64_t *shape,
+                       int64_t rank,
                        runtime_t runtime,
                        datatype_t datatype,
                        bool_t requires_gradient)

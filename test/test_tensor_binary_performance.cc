@@ -161,9 +161,9 @@ void performance_test(std::function<torch::Tensor(torch::Tensor, torch::Tensor)>
     {
         float64_t torch_time_mkl = 0, torch_time_cuda = 0;
         float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
-        uint64_t n = shapes[k][0];
+        int64_t n = shapes[k][0];
 
-        printf("Dimensions (%lu, %lu):\n", n, n);
+        printf("Dimensions (%ld, %ld):\n", n, n);
 
         for (int i = 0; i < RUNTIMES; ++i)
         {
@@ -173,10 +173,10 @@ void performance_test(std::function<torch::Tensor(torch::Tensor, torch::Tensor)>
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    uint64_t torch_start, torch_end;
-                    uint64_t torch_completion_time;
-                    uint64_t nw_start, nw_end;
-                    uint64_t nw_completion_time;
+                    int64_t torch_start, torch_end;
+                    int64_t torch_completion_time;
+                    int64_t nw_start, nw_end;
+                    int64_t nw_completion_time;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch_op(torch_tensors_x[i][j][k][z], torch_tensors_y[i][j][k][z]);
@@ -223,7 +223,7 @@ void performance_test(std::function<torch::Tensor(torch::Tensor, torch::Tensor)>
 
 void performance_test(std::function<torch::Tensor(torch::Tensor, torch::Tensor)> torch_op,
         std::function<nw_error_t *(tensor_t *, tensor_t *, tensor_t **)> nw_op,
-        std::function<uint64_t(uint64_t)> flop_calc)
+        std::function<int64_t(int64_t)> flop_calc)
 {
     uint32_t total_runs = DATATYPES * MEASUREMENT_ITERS;
     
@@ -233,10 +233,10 @@ void performance_test(std::function<torch::Tensor(torch::Tensor, torch::Tensor)>
         float64_t torch_flops_mkl = 0, torch_flops_cuda = 0;
         float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
         float64_t nw_flops_mkl = 0, nw_flops_openblas = 0, nw_flops_cuda = 0;
-        uint64_t n = shapes[k][0];
-        uint64_t num_flop = flop_calc(n);
+        int64_t n = shapes[k][0];
+        int64_t num_flop = flop_calc(n);
 
-        printf("Dimensions (%lu, %lu):\n", n, n);
+        printf("Dimensions (%ld, %ld):\n", n, n);
 
         for (int i = 0; i < RUNTIMES; ++i)
         {
@@ -246,10 +246,10 @@ void performance_test(std::function<torch::Tensor(torch::Tensor, torch::Tensor)>
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    uint64_t torch_start, torch_end;
-                    uint64_t torch_completion_time;
-                    uint64_t nw_start, nw_end;
-                    uint64_t nw_completion_time;
+                    int64_t torch_start, torch_end;
+                    int64_t torch_completion_time;
+                    int64_t nw_start, nw_end;
+                    int64_t nw_completion_time;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch_op(torch_tensors_x[i][j][k][z], torch_tensors_y[i][j][k][z]);
@@ -304,7 +304,7 @@ START_TEST(test_addition_computational_performance)
 {
     printf("----------------------   Addition   ----------------------\n");
     performance_test(AS_LAMBDA(torch::add), AS_LAMBDA(tensor_addition),
-            [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+            [] (int64_t n) -> int64_t { return pow(n, 2); });
 }
 END_TEST
 
@@ -312,7 +312,7 @@ START_TEST(test_subtraction_computational_performance)
 {
     printf("--------------------   Subtraction   ---------------------\n");
     performance_test(AS_LAMBDA(torch::subtract), AS_LAMBDA(tensor_subtraction),
-            [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+            [] (int64_t n) -> int64_t { return pow(n, 2); });
 }
 END_TEST
 
@@ -320,7 +320,7 @@ START_TEST(test_multiplication_computational_performance)
 {
     printf("-------------------   Multiplication   -------------------\n");
     performance_test(AS_LAMBDA(torch::mul), AS_LAMBDA(tensor_multiplication),
-            [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+            [] (int64_t n) -> int64_t { return pow(n, 2); });
 }
 END_TEST
 
@@ -328,7 +328,7 @@ START_TEST(test_division_computational_performance)
 {
     printf("----------------------   Division   ----------------------\n");
     performance_test(AS_LAMBDA(torch::div), AS_LAMBDA(tensor_division),
-            [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+            [] (int64_t n) -> int64_t { return pow(n, 2); });
 }
 END_TEST
 
@@ -344,7 +344,7 @@ START_TEST(test_matrix_multiplication_computational_performance)
     printf("---------------   Matrix Multiplication   ----------------\n");
     performance_test(AS_LAMBDA(torch::matmul),
             AS_LAMBDA(tensor_matrix_multiplication),
-            [] (uint64_t n) -> uint64_t {
+            [] (int64_t n) -> int64_t {
             return ((2.0 / 3.0) * (float64_t) pow(n, 3))
             + (2.0 * (float64_t) pow(n, 2));
             });

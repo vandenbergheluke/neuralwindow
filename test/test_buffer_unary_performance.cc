@@ -97,8 +97,8 @@ void teardown(void)
 }
 
 void print_heuristics(float64_t torch_time_mkl, float64_t torch_time_cuda,
-        float64_t nw_time_mkl, float64_t nw_time_openblas,
-        float64_t nw_time_cuda)
+                      float64_t nw_time_mkl, float64_t nw_time_openblas,
+                      float64_t nw_time_cuda)
 {
     printf("MKL:\n");
     printf("PyTorch performance (nsec): %0.2lf\n", torch_time_mkl);
@@ -113,10 +113,10 @@ void print_heuristics(float64_t torch_time_mkl, float64_t torch_time_cuda,
 }
 
 void print_heuristics(float64_t torch_time_mkl, float64_t torch_flops_mkl,
-        float64_t torch_time_cuda, float64_t torch_flops_cuda,
-        float64_t nw_time_mkl, float64_t nw_flops_mkl,
-        float64_t nw_time_openblas, float64_t nw_flops_openblas,
-        float64_t nw_time_cuda, float64_t nw_flops_cuda)
+                      float64_t torch_time_cuda, float64_t torch_flops_cuda,
+                      float64_t nw_time_mkl, float64_t nw_flops_mkl,
+                      float64_t nw_time_openblas, float64_t nw_flops_openblas,
+                      float64_t nw_time_cuda, float64_t nw_flops_cuda)
 {
     printf("MKL:\n");
     printf("PyTorch performance: %0.2lf nsec, %0.2lf FLOPS\n", torch_time_mkl, torch_flops_mkl);
@@ -131,7 +131,7 @@ void print_heuristics(float64_t torch_time_mkl, float64_t torch_flops_mkl,
 }
 
 void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
-        std::function<nw_error_t *(buffer_t *, buffer_t *)> nw_op)
+                      std::function<nw_error_t *(buffer_t *, buffer_t *)> nw_op)
 {
     uint32_t total_runs = DATATYPES * MEASUREMENT_ITERS;
     
@@ -139,9 +139,9 @@ void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
     {
         float64_t torch_time_mkl = 0, torch_time_cuda = 0;
         float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
-        uint64_t n = shapes[k][0];
+        int64_t n = shapes[k][0];
 
-        printf("Dimensions (%lu, %lu):\n", n, n);
+        printf("Dimensions (%ld, %ld):\n", n, n);
 
         for (int i = 0; i < RUNTIMES; ++i)
         {
@@ -151,10 +151,10 @@ void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    uint64_t torch_start, torch_end;
-                    uint64_t torch_completion_time;
-                    uint64_t nw_start, nw_end;
-                    uint64_t nw_completion_time;
+                    int64_t torch_start, torch_end;
+                    int64_t torch_completion_time;
+                    int64_t nw_start, nw_end;
+                    int64_t nw_completion_time;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch_op(torch_tensors[i][j][k][z]);
@@ -203,7 +203,7 @@ void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
 
 void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
         std::function<nw_error_t *(buffer_t *, buffer_t *)> nw_op,
-        std::function<uint64_t(uint64_t)> flop_calc)
+        std::function<int64_t(int64_t)> flop_calc)
 {
     uint32_t total_runs = DATATYPES * MEASUREMENT_ITERS;
     
@@ -213,10 +213,10 @@ void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
         float64_t torch_flops_mkl = 0, torch_flops_cuda = 0;
         float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
         float64_t nw_flops_mkl = 0, nw_flops_openblas = 0, nw_flops_cuda = 0;
-        uint64_t n = shapes[k][0];
-        uint64_t num_flop = flop_calc(n);
+        int64_t n = shapes[k][0];
+        int64_t num_flop = flop_calc(n);
 
-        printf("Dimensions (%lu, %lu):\n", n, n);
+        printf("Dimensions (%ld, %ld):\n", n, n);
 
         for (int i = 0; i < RUNTIMES; ++i)
         {
@@ -226,10 +226,10 @@ void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
             {
                 for (int z = 0; z < MEASUREMENT_ITERS; ++z)
                 {
-                    uint64_t torch_start, torch_end;
-                    uint64_t torch_completion_time;
-                    uint64_t nw_start, nw_end;
-                    uint64_t nw_completion_time;
+                    int64_t torch_start, torch_end;
+                    int64_t torch_completion_time;
+                    int64_t nw_start, nw_end;
+                    int64_t nw_completion_time;
 
                     torch_start = get_time_nanoseconds();
                     torch::Tensor expected_tensor = torch_op(torch_tensors[i][j][k][z]);
@@ -277,8 +277,8 @@ void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
         }
 
         print_heuristics(torch_time_mkl, torch_flops_mkl, torch_time_cuda,
-                torch_flops_cuda, nw_time_mkl, nw_flops_mkl, nw_time_openblas,
-                nw_flops_openblas, nw_time_cuda, nw_flops_cuda);
+                         torch_flops_cuda, nw_time_mkl, nw_flops_mkl, nw_time_openblas,
+                         nw_flops_openblas, nw_time_cuda, nw_flops_cuda);
     }
 }
 
@@ -321,7 +321,7 @@ START_TEST(test_reciprocal_computational_performance)
 {
     printf("---------------------   Reciprocal   ---------------------\n");
     performance_test(AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
-            [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+            [] (int64_t n) -> int64_t { return pow(n, 2); });
 }
 END_TEST
 
@@ -343,7 +343,7 @@ START_TEST(test_rectified_linear_computational_performance)
 {
     printf("------------------   Rectified Linear   ------------------\n");
     performance_test(AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
-            [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+            [] (int64_t n) -> int64_t { return pow(n, 2); });
 }
 END_TEST
 

@@ -51,15 +51,15 @@ typedef enum dataset_type_t
 
 typedef struct batch_t
 {
-    uint64_t batch_size;
+    int64_t batch_size;
     datatype_t datatype;
     runtime_t runtime;
     tensor_t *x;
     tensor_t *y;
 } batch_t;
 
-nw_error_t *fit(uint64_t epochs,
-                uint64_t number_of_samples,
+nw_error_t *fit(int64_t epochs,
+                int64_t number_of_samples,
                 batch_t *batch,
                 bool_t shuffle,
                 float32_t train_split,
@@ -70,11 +70,11 @@ nw_error_t *fit(uint64_t epochs,
                 void * arguments,
                 nw_error_t *(*setup)(void *),
                 nw_error_t *(*teardown)(void *),
-                nw_error_t *(*dataloader)(uint64_t, batch_t *, void *),
+                nw_error_t *(*dataloader)(int64_t, batch_t *, void *),
                 nw_error_t *(*criterion)(const tensor_t *, const tensor_t *, tensor_t **),
-                nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *, const tensor_t *, uint64_t, uint64_t, uint64_t, uint64_t));
+                nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *, const tensor_t *, int64_t, int64_t, int64_t, int64_t));
 
-nw_error_t *batch_create(batch_t **batch, uint64_t batch_size, datatype_t datatype, runtime_t runtime);
+nw_error_t *batch_create(batch_t **batch, int64_t batch_size, datatype_t datatype, runtime_t runtime);
 void batch_destroy(batch_t *batch);
 string_t dataset_type_string(dataset_type_t dataset_type);
 #endif
