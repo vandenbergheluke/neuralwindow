@@ -76,18 +76,23 @@ set(
     cublas
 )
 
+set(
+    GRAPH_LIBRARIES
+    cgraph
+)
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 find_package(GraphViz REQUIRED)
 
 if (NOT DEFINED ENV{CPU_ONLY})
     add_library(${PROJECT_NAME} STATIC ${SOURCE} ${SOURCE_CUDA})
     set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-    target_link_libraries(${TEST} ${PROJECT_NAME} ${CPU_LIBRARIES} ${GPU_LIBRARIES} ${GRAPHVIZ_CGRAPH_LIBRARY})
+    target_link_libraries(${TEST} ${PROJECT_NAME} ${CPU_LIBRARIES} ${GPU_LIBRARIES} ${GRAPH_LIBRARIES})
     set_target_properties(${PROJECT_NAME} PROPERTIES SOVERSION 1)
     set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${HEADERS} ${CUDA_HEADERS}")
 else()
     add_library(${PROJECT_NAME} STATIC ${SOURCE})
-    target_link_libraries(${TEST} ${PROJECT_NAME} ${CPU_LIBRARIES} ${GRAPHVIZ_CGRAPH_LIBRARY})
+    target_link_libraries(${TEST} ${PROJECT_NAME} ${CPU_LIBRARIES} ${GRAPH_LIBRARIES})
     set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${HEADERS}")
 endif()
 
