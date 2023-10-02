@@ -31,7 +31,7 @@ jobs:
     - name: Install Valgrind
       run: sudo apt-get install -y valgrind
     - name: Install Graphviz
-      run: sudo apt-get install -y graphviz
+      run: sudo apt-get install -y libgraphviz-dev
     - name: Install Libtorch
       run: |
         sudo wget https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-2.0.1%2Bcpu.zip
