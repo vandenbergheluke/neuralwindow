@@ -1,10 +1,11 @@
 #include <iostream>
+#include <mgl2/base_cf.h>
+#include <mgl2/canvas_cf.h>
 #include <vector>
 #include <tuple>
 #include <string>
 
-#include <mgl2/mgl.h>
-
+#include <mgl2/mgl_cf.h>
 extern "C"
 {
 #include <buffer.h>
@@ -32,6 +33,7 @@ torch::Tensor torch_tensors[RUNTIMES][DATATYPES][CASES][MEASUREMENT_ITERS];
 torch::Device device_cuda(torch::kCUDA);
 torch::Device device_cpu(torch::kCPU);
 
+// Min at 0, max at -1 because tests are written lazily for tracking x range.
 std::vector<int64_t> shapes[CASES] = {
     {1,   1},
     {2,   2},
@@ -104,29 +106,35 @@ void teardown(void)
     error_destroy(error);
 }
 
-void plot_heuristics(std::string t, std::string save_path, float64_t* x, int x_n,
-        float64_t* y, int y_n)
+void plot_heuristics(std::string t, std::string save_path, float64_t* x,
+        int x_n, float64_t* y, int y_n)
 {
-    mglGraph graph;
+    HMGL graph = mgl_create_graph(800,400);
 
-    mglData x_mgl;
-    mglData y_mgl;
+    HMDT x_mgl = mgl_create_data();
+    HMDT y_mgl = mgl_create_data();
 
-    x_mgl.Link(x, x_n);
-    y_mgl.Link(y, y_n);
+    mgl_data_set_double(x_mgl, x, x_n, 1, 1);
+    mgl_data_set_double(y_mgl, y, y_n, 1, 1);
 
-    graph.SubPlot(2,2,0);
-    graph.Title(t.c_str());
-    graph.Axis();
-    graph.Label('y', "Time (nsec)", 0);
-    graph.Label('x', "Square Matrix Width", 0);
-    graph.Grid();
-    graph.Plot(x_mgl, y_mgl, "e");
-    graph.Box();
+    mgl_fill_background(graph, 1, 1, 1, 1);
 
-    // Line graph formatting
+    //mgl_subplot(graph, 3, 3, 4, "");
+    mgl_inplot(graph, 0, 1, 0, 1);
+    mgl_title(graph, t.c_str(), "", 5);
+    mgl_set_range_dat(graph, 'x', x_mgl, 0);
+    mgl_set_range_dat(graph, 'y', y_mgl, 0);
+    mgl_axis(graph, "xy", "", "");
+    mgl_axis_grid(graph, "xy", "|h", "");
+    // TODO: NOT WORKING
+    mgl_label(graph, 'x', "Square Matrix Width", 0, "");
+    mgl_label(graph, 'y', "Time (nsec)", 0, "");
+    mgl_box(graph);
+    mgl_plot_xy(graph, x_mgl, y_mgl, "e#.", "");
 
-    graph.WritePNG(save_path.c_str());
+    mgl_write_png(graph, save_path.c_str(), "w");
+
+    mgl_delete_graph(graph);
 }
 
 void print_heuristics(float64_t torch_time_mkl, float64_t torch_flops_mkl,
@@ -157,6 +165,22 @@ void performance_test(std::string op_name,
     float64_t nw_time_arr_mkl[CASES];
     float64_t nw_time_arr_openblas[CASES];
     float64_t nw_time_arr_cuda[CASES];
+
+    // Minimum time (for range calculations)
+    float64_t torch_time_min_mkl = DBL_MAX;
+    float64_t torch_time_min_cuda = DBL_MAX;
+
+    float64_t nw_time_min_mkl = DBL_MAX;
+    float64_t nw_time_min_openblas = DBL_MAX;
+    float64_t nw_time_min_cuda = DBL_MAX;
+
+    // Maximum time (for range calculations)
+    float64_t torch_time_max_mkl = DBL_MIN;
+    float64_t torch_time_max_cuda = DBL_MIN;
+
+    float64_t nw_time_max_mkl = DBL_MIN;
+    float64_t nw_time_max_openblas = DBL_MIN;
+    float64_t nw_time_max_cuda = DBL_MIN;
 
     // TODO: Figure out a smart way to manage dims.
     float64_t x[CASES];
@@ -203,6 +227,16 @@ void performance_test(std::string op_name,
                             // Pytorch uses MKL on CPU
 
                             nw_time_openblas += (float64_t) nw_completion_time / total_runs;
+
+                            if (nw_time_min_openblas > nw_completion_time)
+                            {
+                                nw_time_min_openblas = nw_completion_time;
+                            }
+
+                            if (nw_time_max_openblas < nw_completion_time)
+                            {
+                                nw_time_max_openblas = nw_completion_time;
+                            }
                             break;
                         case MKL_RUNTIME:
                             // Torch MKL gets double the runs as a biproduct of
@@ -210,10 +244,51 @@ void performance_test(std::string op_name,
 
                             torch_time_mkl += (float64_t) torch_completion_time / (2 * total_runs);
                             nw_time_mkl += (float64_t) nw_completion_time / total_runs;
+
+
+                            if (torch_time_min_mkl > torch_completion_time)
+                            {
+                                torch_time_min_mkl = torch_completion_time;
+                            }
+
+                            if (torch_time_max_mkl < torch_completion_time)
+                            {
+                                torch_time_max_mkl = torch_completion_time;
+                            }
+
+                            if (nw_time_min_mkl > nw_completion_time)
+                            {
+                                nw_time_min_mkl = nw_completion_time;
+                            }
+
+                            if (nw_time_max_mkl < nw_completion_time)
+                            {
+                                nw_time_max_mkl = nw_completion_time;
+                            }
                             break;
                         case CU_RUNTIME:
                             torch_time_cuda += (float64_t) torch_completion_time / total_runs;
                             nw_time_cuda += (float64_t) nw_completion_time / total_runs;
+
+                            if (torch_time_min_cuda > torch_completion_time)
+                            {
+                                torch_time_min_cuda = torch_completion_time;
+                            }
+
+                            if (torch_time_max_cuda < torch_completion_time)
+                            {
+                                torch_time_max_cuda = torch_completion_time;
+                            }
+
+                            if (nw_time_min_cuda > nw_completion_time)
+                            {
+                                nw_time_min_cuda = nw_completion_time;
+                            }
+
+                            if (nw_time_max_cuda < nw_completion_time)
+                            {
+                                nw_time_max_cuda = nw_completion_time;
+                            }
                             break;
                         default:
                         ck_abort_msg("unknown runtime.");
@@ -236,29 +311,24 @@ void performance_test(std::string op_name,
         x[k] = n;
     }
 
-    plot_heuristics("Torch MKL Completion Time - " + op_name
-            + " - Time (nsec) by Square Matrix Width",
-            "img/" + op_name + "/torch_mkl_time.png", x, CASES,
+    plot_heuristics("Torch MKL Completion Time - " + op_name,
+            "buffer_" + op_name + "_torch_mkl_time.png", x, CASES,
             torch_time_arr_mkl, CASES);
 
-    plot_heuristics("Torch CUDA Completion Time - " + op_name
-            + " - Time (nsec) by Square Matrix Width",
-            "img/" + op_name + "/torch_cuda_time.png", x, CASES,
+    plot_heuristics("Torch CUDA Completion Time - " + op_name,
+            "buffer_" + op_name + "_torch_cuda_time.png", x, CASES,
             torch_time_arr_cuda, CASES);
 
-    plot_heuristics("NW OpenBLAS Completion Time - " + op_name
-            + " - Time (nsec) by Square Matrix Width",
-            "img/" + op_name + "/nw_openblas_time.png", x, CASES,
+    plot_heuristics("NW OpenBLAS Completion Time - " + op_name,
+            "buffer_" + op_name + "_nw_openblas_time.png", x, CASES,
             nw_time_arr_openblas, CASES);
 
-    plot_heuristics("NW MKL Completion Time - " + op_name
-            + " - Time (nsec) by Square Matrix Width",
-            "img/" + op_name + "/nw_mkl_time.png", x, CASES,
+    plot_heuristics("NW MKL Completion Time - " + op_name,
+            "buffer_" + op_name + "_nw_mkl_time.png", x, CASES,
             nw_time_arr_mkl, CASES);
 
-    plot_heuristics("NW CUDA Completion Time - " + op_name
-            + " - Time (nsec) by Square Matrix Width",
-            "img/" + op_name + "/nw_cuda_time.png", x, CASES,
+    plot_heuristics("NW CUDA Completion Time - " + op_name,
+            "buffer_" + op_name + "_nw_cuda_time.png", x, CASES,
             nw_time_arr_cuda, CASES);
 }
 
