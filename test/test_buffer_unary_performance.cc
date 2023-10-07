@@ -25,14 +25,18 @@ extern "C"
 
 #include <test_helper.h>
 
-// Populate with dimensions up to 16 ^ UT_MAX_SHAPE_EXP16.
+// Populate with dimensions up to 8 ^ UT_MAX_SHAPE_EXP8.
 // More dense towards 1.
-// Should work up to 3.
-#ifndef UT_MAX_SHAPE_EXP16
-#define UT_MAX_SHAPE_EXP16 2
+// Should work up to 7 (due to storing as signed 64 bit int) without taking
+// memory limits into account.
+#ifndef UT_MAX_SHAPE_EXP8
+#define UT_MAX_SHAPE_EXP8 3
 #endif
 
-#define MEASUREMENT_ITERS 30
+// Take average over UT_MEASUREMENT_ITERS iterations.
+#ifndef UT_MEASUREMENT_ITERS
+#define UT_MEASUREMENT_ITERS 30
+#endif
 
 #define SAVE_DIR "img/buffer"
 
@@ -64,6 +68,8 @@ static void mkdir_recurse(string_t s)
 
 void setup(void)
 {
+    ck_assert(UT_MAX_SHAPE_EXP8 < 8);
+
     struct stat st_result = {0};
     if (stat(SAVE_DIR, &st_result) == -1)
     {
@@ -78,7 +84,7 @@ void setup(void)
 
 void teardown(void)
 {
-    int num_cases = 16 * UT_MAX_SHAPE_EXP16;
+    int num_cases = 8 * UT_MAX_SHAPE_EXP8;
     for (int i = 0; i < RUNTIMES; ++i)
     {
         runtime_destroy_context((runtime_t) i);
@@ -149,8 +155,6 @@ void plot_heuristics(std::string t, std::string save_path, float64_t* x,
     mgl_inplot(graph, 0, 1, 0, 1);
     mgl_title(graph, t.c_str(), "", 5);
     mgl_set_range_dat(graph, 'x', x_mgl, 0);
-    // TODO: Make this take the max of both ranges instead of assuming
-    // Might fix problem below.
     //mgl_set_range_dat(graph, 'y', y1_mgl, 0);
     mgl_set_range_val(graph, 'y', y_min, y_max);
     mgl_axis(graph, "xy", "", "");
@@ -163,7 +167,6 @@ void plot_heuristics(std::string t, std::string save_path, float64_t* x,
     // L    dark green blue
     // P    dark purple
     // #.   circle-dot marker
-    // TODO: Make these both print
     mgl_plot_xy(graph, x_mgl, y1_mgl, "2L#.", "");
     mgl_plot_xy(graph, x_mgl, y2_mgl, "2P#.", "");
 
@@ -199,7 +202,7 @@ void performance_test(std::string op_name,
         std::function<torch::Tensor(torch::Tensor)> torch_op,
         std::function<nw_error_t *(buffer_t *, buffer_t *)> nw_op)
 {
-    int num_cases = 16 * UT_MAX_SHAPE_EXP16;
+    int num_cases = 8 * UT_MAX_SHAPE_EXP8;
 
     float64_t torch_time_arr_mkl[num_cases];
     //float64_t torch_time_arr_cuda[num_cases];
@@ -233,28 +236,28 @@ void performance_test(std::string op_name,
     std::string op_name_dir = op_name;
     std::string op_save_dir;
 
-    uint32_t total_runs = DATATYPES * MEASUREMENT_ITERS;
+    uint32_t total_runs = DATATYPES * UT_MEASUREMENT_ITERS;
 
-    for (int x = 0; x < UT_MAX_SHAPE_EXP16; ++x)
+    for (int x = 0; x < UT_MAX_SHAPE_EXP8; ++x)
     {
-        for (int y = 0; y < 16; ++y)
+        for (int y = 0; y < 8; ++y)
         {
             float64_t torch_time_mkl = 0;
             //float64_t torch_time_cuda = 0;
             float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
 
-            int64_t n = (y + 1) * pow(16, x);
+            int64_t n = (y + 1) * pow(8, x);
             // TODO: Make this support higher ranks. Test cases will have to be
             // changed to support this.
             std::vector<int64_t> shape = {n, n};
 
             for (int i = 0; i < RUNTIMES; ++i)
             {
-                // Take average time of DATATYPES * MEASUREMENT_ITERS iterations for
+                // Take average time of DATATYPES * UT_MEASUREMENT_ITERS iterations for
                 // each runtime.
                 for (int j = 0; j < DATATYPES; ++j)
                 {
-                    for (int z = 0; z < MEASUREMENT_ITERS; ++z)
+                    for (int z = 0; z < UT_MEASUREMENT_ITERS; ++z)
                     {
                         uint64_t torch_start, torch_end;
                         uint64_t torch_completion_time;
@@ -408,7 +411,7 @@ void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
         std::function<nw_error_t *(buffer_t *, buffer_t *)> nw_op,
         std::function<uint64_t(uint64_t)> flop_calc)
 {
-    uint32_t total_runs = DATATYPES * MEASUREMENT_ITERS;
+    uint32_t total_runs = DATATYPES * UT_MEASUREMENT_ITERS;
     
     for (int k = 0; k < CASES; ++k)
     {
@@ -423,11 +426,11 @@ void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
 
         for (int i = 0; i < RUNTIMES; ++i)
         {
-            // Take average time of DATATYPES * MEASUREMENT_ITERS iterations for
+            // Take average time of DATATYPES * UT_MEASUREMENT_ITERS iterations for
             // each runtime.
             for (int j = 0; j < DATATYPES; ++j)
             {
-                for (int z = 0; z < MEASUREMENT_ITERS; ++z)
+                for (int z = 0; z < UT_MEASUREMENT_ITERS; ++z)
                 {
                     uint64_t torch_start, torch_end;
                     uint64_t torch_completion_time;
