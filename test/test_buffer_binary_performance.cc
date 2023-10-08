@@ -716,95 +716,313 @@ void performance_test(std::string op_name, datatype_t datatype,
 
 START_TEST(test_addition_computational_performance)
 {
+    // Rank 1
+    performance_test("Addition FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::add), AS_LAMBDA(runtime_addition),
+            [] (uint64_t n) -> uint64_t { return n; });
+    performance_test("Addition FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::add), AS_LAMBDA(runtime_addition),
+            [] (uint64_t n) -> uint64_t { return n; });
+    // Rank 2
     performance_test("Addition FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::add), AS_LAMBDA(runtime_addition),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
     performance_test("Addition FLOAT64", FLOAT64, 2, 3,
             AS_LAMBDA(torch::add), AS_LAMBDA(runtime_addition),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+    // Rank 3
+    performance_test("Addition FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::add), AS_LAMBDA(runtime_addition),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    performance_test("Addition FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::add), AS_LAMBDA(runtime_addition),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    // Rank 4
+    performance_test("Addition FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::add), AS_LAMBDA(runtime_addition),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    performance_test("Addition FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::add), AS_LAMBDA(runtime_addition),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    // Rank 5
+    performance_test("Addition FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::add), AS_LAMBDA(runtime_addition),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
+    performance_test("Addition FLOAT64", FLOAT64, 5, 1,
+            AS_LAMBDA(torch::add), AS_LAMBDA(runtime_addition),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
 }
 END_TEST
 
 START_TEST(test_subtraction_computational_performance)
 {
+    // Rank 1
+    performance_test("Subtraction FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::subtract), AS_LAMBDA(runtime_subtraction),
+            [] (uint64_t n) -> uint64_t { return n; });
+    performance_test("Subtraction FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::subtract), AS_LAMBDA(runtime_subtraction),
+            [] (uint64_t n) -> uint64_t { return n; });
+    // Rank 2
     performance_test("Subtraction FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::subtract), AS_LAMBDA(runtime_subtraction),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
     performance_test("Subtraction FLOAT64", FLOAT64, 2, 3,
             AS_LAMBDA(torch::subtract), AS_LAMBDA(runtime_subtraction),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+    // Rank 3
+    performance_test("Subtraction FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::subtract), AS_LAMBDA(runtime_subtraction),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    performance_test("Subtraction FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::subtract), AS_LAMBDA(runtime_subtraction),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    // Rank 4
+    performance_test("Subtraction FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::subtract), AS_LAMBDA(runtime_subtraction),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    performance_test("Subtraction FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::subtract), AS_LAMBDA(runtime_subtraction),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    // Rank 5
+    performance_test("Subtraction FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::subtract), AS_LAMBDA(runtime_subtraction),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
+    performance_test("Subtraction FLOAT64", FLOAT64, 5, 1,
+            AS_LAMBDA(torch::subtract), AS_LAMBDA(runtime_subtraction),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
 }
 END_TEST
 
 START_TEST(test_multiplication_computational_performance)
 {
+    // Rank 1
+    performance_test("Multiplication FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::mul), AS_LAMBDA(runtime_multiplication),
+            [] (uint64_t n) -> uint64_t { return n; });
+    performance_test("Multiplication FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::mul), AS_LAMBDA(runtime_multiplication),
+            [] (uint64_t n) -> uint64_t { return n; });
+    // Rank 2
     performance_test("Multiplication FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::mul), AS_LAMBDA(runtime_multiplication),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
     performance_test("Multiplication FLOAT64", FLOAT64, 2, 3,
             AS_LAMBDA(torch::mul), AS_LAMBDA(runtime_multiplication),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+    // Rank 3
+    performance_test("Multiplication FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::mul), AS_LAMBDA(runtime_multiplication),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    performance_test("Multiplication FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::mul), AS_LAMBDA(runtime_multiplication),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    // Rank 4
+    performance_test("Multiplication FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::mul), AS_LAMBDA(runtime_multiplication),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    performance_test("Multiplication FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::mul), AS_LAMBDA(runtime_multiplication),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    // Rank 5
+    performance_test("Multiplication FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::mul), AS_LAMBDA(runtime_multiplication),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
+    performance_test("Multiplication FLOAT64", FLOAT64, 5, 1,
+            AS_LAMBDA(torch::mul), AS_LAMBDA(runtime_multiplication),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
 }
 END_TEST
 
 START_TEST(test_division_computational_performance)
 {
+    // Rank 1
+    performance_test("Division FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::div), AS_LAMBDA(runtime_division),
+            [] (uint64_t n) -> uint64_t { return n; });
+    performance_test("Division FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::div), AS_LAMBDA(runtime_division),
+            [] (uint64_t n) -> uint64_t { return n; });
+    // Rank 2
     performance_test("Division FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::div), AS_LAMBDA(runtime_division),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
     performance_test("Division FLOAT64", FLOAT64, 2, 3,
             AS_LAMBDA(torch::div), AS_LAMBDA(runtime_division),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+    // Rank 3
+    performance_test("Division FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::div), AS_LAMBDA(runtime_division),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    performance_test("Division FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::div), AS_LAMBDA(runtime_division),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    // Rank 4
+    performance_test("Division FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::div), AS_LAMBDA(runtime_division),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    performance_test("Division FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::div), AS_LAMBDA(runtime_division),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    // Rank 5
+    performance_test("Division FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::div), AS_LAMBDA(runtime_division),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
+    performance_test("Division FLOAT64", FLOAT64, 5, 1,
+            AS_LAMBDA(torch::div), AS_LAMBDA(runtime_division),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
 }
 END_TEST
 
 START_TEST(test_power_computational_performance)
 {
+    // Rank 1
+    performance_test("Power FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::pow), AS_LAMBDA(runtime_power));
+    performance_test("Power FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::pow), AS_LAMBDA(runtime_power));
+    // Rank 2
     performance_test("Power FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::pow), AS_LAMBDA(runtime_power));
     performance_test("Power FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::pow), AS_LAMBDA(runtime_power));
+    // Rank 3
+    performance_test("Power FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::pow), AS_LAMBDA(runtime_power));
+    performance_test("Power FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::pow), AS_LAMBDA(runtime_power));
+    // Rank 4
+    performance_test("Power FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::pow), AS_LAMBDA(runtime_power));
+    performance_test("Power FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::pow), AS_LAMBDA(runtime_power));
+    // Rank 5
+    performance_test("Power FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::pow), AS_LAMBDA(runtime_power));
+    performance_test("Power FLOAT64", FLOAT64, 5, 1,
             AS_LAMBDA(torch::pow), AS_LAMBDA(runtime_power));
 }
 END_TEST
 
 START_TEST(test_compare_equal_computational_performance)
 {
+    // Rank 1
+    performance_test("Compare Equal FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::eq), AS_LAMBDA(runtime_compare_equal),
+            [] (uint64_t n) -> uint64_t { return n; });
+    performance_test("Compare Equal FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::eq), AS_LAMBDA(runtime_compare_equal),
+            [] (uint64_t n) -> uint64_t { return n; });
+    // Rank 2
     performance_test("Compare Equal FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::eq), AS_LAMBDA(runtime_compare_equal),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
     performance_test("Compare Equal FLOAT64", FLOAT64, 2, 3,
             AS_LAMBDA(torch::eq), AS_LAMBDA(runtime_compare_equal),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+    // Rank 3
+    performance_test("Compare Equal FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::eq), AS_LAMBDA(runtime_compare_equal),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    performance_test("Compare Equal FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::eq), AS_LAMBDA(runtime_compare_equal),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    // Rank 4
+    performance_test("Compare Equal FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::eq), AS_LAMBDA(runtime_compare_equal),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    performance_test("Compare Equal FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::eq), AS_LAMBDA(runtime_compare_equal),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    // Rank 5
+    performance_test("Compare Equal FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::eq), AS_LAMBDA(runtime_compare_equal),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
+    performance_test("Compare Equal FLOAT64", FLOAT64, 5, 1,
+            AS_LAMBDA(torch::eq), AS_LAMBDA(runtime_compare_equal),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
 }
 END_TEST
 
 START_TEST(test_compare_greater_computational_performance)
 {
+    // Rank 1
+    performance_test("Compare Greater FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::gt), AS_LAMBDA(runtime_compare_greater),
+            [] (uint64_t n) -> uint64_t { return n; });
+    performance_test("Compare Greater FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::gt), AS_LAMBDA(runtime_compare_greater),
+            [] (uint64_t n) -> uint64_t { return n; });
+    // Rank 2
     performance_test("Compare Greater FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::gt), AS_LAMBDA(runtime_compare_greater),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
     performance_test("Compare Greater FLOAT64", FLOAT64, 2, 3,
             AS_LAMBDA(torch::gt), AS_LAMBDA(runtime_compare_greater),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+    // Rank 3
+    performance_test("Compare Greater FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::gt), AS_LAMBDA(runtime_compare_greater),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    performance_test("Compare Greater FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::gt), AS_LAMBDA(runtime_compare_greater),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    // Rank 4
+    performance_test("Compare Greater FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::gt), AS_LAMBDA(runtime_compare_greater),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    performance_test("Compare Greater FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::gt), AS_LAMBDA(runtime_compare_greater),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    // Rank 5
+    performance_test("Compare Greater FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::gt), AS_LAMBDA(runtime_compare_greater),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
+    performance_test("Compare Greater FLOAT64", FLOAT64, 5, 1,
+            AS_LAMBDA(torch::gt), AS_LAMBDA(runtime_compare_greater),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
 }
 END_TEST
 
 START_TEST(test_matrix_multiplication_computational_performance)
 {
+    // Rank 1 - NA
+    // Rank 2
     performance_test("Matrix Multiplication FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::matmul),
             AS_LAMBDA(runtime_matrix_multiplication),
-            [] (uint64_t n) -> uint64_t {
-            return ((2.0 / 3.0) * (float64_t) pow(n, 3))
-            + (2.0 * (float64_t) pow(n, 2));
-            });
+            [] (uint64_t n) -> uint64_t { return 2 * pow(n, 3); });
     performance_test("Matrix Multiplication FLOAT64", FLOAT64, 2, 3,
             AS_LAMBDA(torch::matmul),
             AS_LAMBDA(runtime_matrix_multiplication),
-            [] (uint64_t n) -> uint64_t {
-            return ((2.0 / 3.0) * (float64_t) pow(n, 3))
-            + (2.0 * (float64_t) pow(n, 2));
-            });
+            [] (uint64_t n) -> uint64_t { return 2 * pow(n, 3); });
+    // Rank 3
+    performance_test("Matrix Multiplication FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::matmul),
+            AS_LAMBDA(runtime_matrix_multiplication),
+            [] (uint64_t n) -> uint64_t { return 2 * pow(n, 4); });
+    performance_test("Matrix Multiplication FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::matmul),
+            AS_LAMBDA(runtime_matrix_multiplication),
+            [] (uint64_t n) -> uint64_t { return 2 * pow(n, 4); });
+    // Rank 4
+    performance_test("Matrix Multiplication FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::matmul),
+            AS_LAMBDA(runtime_matrix_multiplication),
+            [] (uint64_t n) -> uint64_t { return 2 * pow(n, 5); });
+    performance_test("Matrix Multiplication FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::matmul),
+            AS_LAMBDA(runtime_matrix_multiplication),
+            [] (uint64_t n) -> uint64_t { return 2 * pow(n, 5); });
+    // Rank 5
+    performance_test("Matrix Multiplication FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::matmul),
+            AS_LAMBDA(runtime_matrix_multiplication),
+            [] (uint64_t n) -> uint64_t { return 2 * pow(n, 6); });
+    performance_test("Matrix Multiplication FLOAT64", FLOAT64, 5, 1,
+            AS_LAMBDA(torch::matmul),
+            AS_LAMBDA(runtime_matrix_multiplication),
+            [] (uint64_t n) -> uint64_t { return 2 * pow(n, 6); });
 }
 END_TEST
 

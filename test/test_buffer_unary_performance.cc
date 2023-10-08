@@ -27,7 +27,7 @@ extern "C"
 
 // Take average over UT_MEASUREMENT_ITERS iterations.
 #ifndef UT_MEASUREMENT_ITERS
-#define UT_MEASUREMENT_ITERS 30
+#define UT_MEASUREMENT_ITERS 15
 #endif
 
 #define SAVE_DIR "img/buffer"
@@ -690,66 +690,230 @@ void performance_test(std::string op_name, datatype_t datatype,
 
 START_TEST(test_exponential_computational_performance)
 {
+    // TODO: Decide whether rank 1 should have higher max dims.
+    // Rank 1
+    performance_test("Exponential FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::exp), AS_LAMBDA(runtime_exponential));
+    performance_test("Exponential FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::exp), AS_LAMBDA(runtime_exponential));
+    // Rank 2
     performance_test("Exponential FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::exp), AS_LAMBDA(runtime_exponential));
     performance_test("Exponential FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::exp), AS_LAMBDA(runtime_exponential));
+    // Rank 3
+    performance_test("Exponential FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::exp), AS_LAMBDA(runtime_exponential));
+    performance_test("Exponential FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::exp), AS_LAMBDA(runtime_exponential));
+    // Rank 4
+    performance_test("Exponential FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::exp), AS_LAMBDA(runtime_exponential));
+    performance_test("Exponential FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::exp), AS_LAMBDA(runtime_exponential));
+    // Rank 5
+    performance_test("Exponential FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::exp), AS_LAMBDA(runtime_exponential));
+    performance_test("Exponential FLOAT64", FLOAT64, 5, 1,
             AS_LAMBDA(torch::exp), AS_LAMBDA(runtime_exponential));
 }
 END_TEST
 
 START_TEST(test_logarithm_computational_performance)
 {
+    // Rank 1
+    performance_test("Logarithm FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::log), AS_LAMBDA(runtime_logarithm));
+    performance_test("Logarithm FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::log), AS_LAMBDA(runtime_logarithm));
+    // Rank 2
     performance_test("Logarithm FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::log), AS_LAMBDA(runtime_logarithm));
     performance_test("Logarithm FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::log), AS_LAMBDA(runtime_logarithm));
+    // Rank 3
+    performance_test("Logarithm FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::log), AS_LAMBDA(runtime_logarithm));
+    performance_test("Logarithm FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::log), AS_LAMBDA(runtime_logarithm));
+    // Rank 4
+    performance_test("Logarithm FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::log), AS_LAMBDA(runtime_logarithm));
+    performance_test("Logarithm FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::log), AS_LAMBDA(runtime_logarithm));
+    // Rank 5
+    performance_test("Logarithm FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::log), AS_LAMBDA(runtime_logarithm));
+    performance_test("Logarithm FLOAT64", FLOAT64, 5, 1,
             AS_LAMBDA(torch::log), AS_LAMBDA(runtime_logarithm));
 }
 END_TEST
 
 START_TEST(test_sine_computational_performance)
 {
+    // Rank 1
+    performance_test("Sine FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
+    performance_test("Sine FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
+    // Rank 2
     performance_test("Sine FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
     performance_test("Sine FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
+    // Rank 3
+    performance_test("Sine FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
+    performance_test("Sine FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
+    // Rank 4
+    performance_test("Sine FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
+    performance_test("Sine FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
+    // Rank 5
+    performance_test("Sine FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
+    performance_test("Sine FLOAT64", FLOAT64, 5, 1,
             AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
 }
 END_TEST
 
 START_TEST(test_cosine_computational_performance)
 {
+    // Rank 1
+    performance_test("Cosine FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::cos), AS_LAMBDA(runtime_cosine));
+    performance_test("Cosine FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::cos), AS_LAMBDA(runtime_cosine));
+    // Rank 2
     performance_test("Cosine FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::cos), AS_LAMBDA(runtime_cosine));
     performance_test("Cosine FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::cos), AS_LAMBDA(runtime_cosine));
+    // Rank 3
+    performance_test("Cosine FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::cos), AS_LAMBDA(runtime_cosine));
+    performance_test("Cosine FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::cos), AS_LAMBDA(runtime_cosine));
+    // Rank 4
+    performance_test("Cosine FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::cos), AS_LAMBDA(runtime_cosine));
+    performance_test("Cosine FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::cos), AS_LAMBDA(runtime_cosine));
+    // Rank 5
+    performance_test("Cosine FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::cos), AS_LAMBDA(runtime_cosine));
+    performance_test("Cosine FLOAT64", FLOAT64, 5, 1,
             AS_LAMBDA(torch::cos), AS_LAMBDA(runtime_cosine));
 }
 END_TEST
 
 START_TEST(test_square_root_computational_performance)
 {
+    // Rank 1
+    performance_test("Square Root FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::sqrt), AS_LAMBDA(runtime_square_root));
+    performance_test("Square Root FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::sqrt), AS_LAMBDA(runtime_square_root));
+    // Rank 2
     performance_test("Square Root FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::sqrt), AS_LAMBDA(runtime_square_root));
     performance_test("Square Root FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::sqrt), AS_LAMBDA(runtime_square_root));
+    // Rank 3
+    performance_test("Square Root FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::sqrt), AS_LAMBDA(runtime_square_root));
+    performance_test("Square Root FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::sqrt), AS_LAMBDA(runtime_square_root));
+    // Rank 4
+    performance_test("Square Root FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::sqrt), AS_LAMBDA(runtime_square_root));
+    performance_test("Square Root FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::sqrt), AS_LAMBDA(runtime_square_root));
+    // Rank 5
+    performance_test("Square Root FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::sqrt), AS_LAMBDA(runtime_square_root));
+    performance_test("Square Root FLOAT64", FLOAT64, 5, 1,
             AS_LAMBDA(torch::sqrt), AS_LAMBDA(runtime_square_root));
 }
 END_TEST
 
 START_TEST(test_reciprocal_computational_performance)
 {
+    // Rank 1
+    performance_test("Reciprocal FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
+            [] (uint64_t n) -> uint64_t { return n; });
+    performance_test("Reciprocal FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
+            [] (uint64_t n) -> uint64_t { return n; });
+    // Rank 2
     performance_test("Reciprocal FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
     performance_test("Reciprocal FLOAT64", FLOAT64, 2, 3,
             AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+    // Rank 3
+    performance_test("Reciprocal FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    performance_test("Reciprocal FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    // Rank 4
+    performance_test("Reciprocal FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    performance_test("Reciprocal FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    // Rank 5
+    performance_test("Reciprocal FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
+    performance_test("Reciprocal FLOAT64", FLOAT64, 5, 1,
+            AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
 }
 END_TEST
 
 START_TEST(test_contiguous_computational_performance)
 {
+    // Rank 1
+    performance_test("Contiguous FLOAT32", FLOAT32, 1, 4,
+            AS_MEMBER_LAMBDA(torch::Tensor::contiguous),
+            AS_LAMBDA(runtime_contiguous));
+    performance_test("Contiguous FLOAT64", FLOAT64, 1, 4,
+            AS_MEMBER_LAMBDA(torch::Tensor::contiguous),
+            AS_LAMBDA(runtime_contiguous));
+    // Rank 2
     performance_test("Contiguous FLOAT32", FLOAT32, 2, 3,
             AS_MEMBER_LAMBDA(torch::Tensor::contiguous),
             AS_LAMBDA(runtime_contiguous));
     performance_test("Contiguous FLOAT64", FLOAT64, 2, 3,
+            AS_MEMBER_LAMBDA(torch::Tensor::contiguous),
+            AS_LAMBDA(runtime_contiguous));
+    // Rank 3
+    performance_test("Contiguous FLOAT32", FLOAT32, 3, 2,
+            AS_MEMBER_LAMBDA(torch::Tensor::contiguous),
+            AS_LAMBDA(runtime_contiguous));
+    performance_test("Contiguous FLOAT64", FLOAT64, 3, 2,
+            AS_MEMBER_LAMBDA(torch::Tensor::contiguous),
+            AS_LAMBDA(runtime_contiguous));
+    // Rank 4
+    performance_test("Contiguous FLOAT32", FLOAT32, 4, 1,
+            AS_MEMBER_LAMBDA(torch::Tensor::contiguous),
+            AS_LAMBDA(runtime_contiguous));
+    performance_test("Contiguous FLOAT64", FLOAT64, 4, 1,
+            AS_MEMBER_LAMBDA(torch::Tensor::contiguous),
+            AS_LAMBDA(runtime_contiguous));
+    // Rank 5
+    performance_test("Contiguous FLOAT32", FLOAT32, 5, 1,
+            AS_MEMBER_LAMBDA(torch::Tensor::contiguous),
+            AS_LAMBDA(runtime_contiguous));
+    performance_test("Contiguous FLOAT64", FLOAT64, 5, 1,
             AS_MEMBER_LAMBDA(torch::Tensor::contiguous),
             AS_LAMBDA(runtime_contiguous));
 }
@@ -757,21 +921,71 @@ END_TEST
 
 START_TEST(test_negation_computational_performance)
 {
+    // Rank 1
+    performance_test("Negation FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::neg), AS_LAMBDA(runtime_negation));
+    performance_test("Negation FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::neg), AS_LAMBDA(runtime_negation));
+    // Rank 2
     performance_test("Negation FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::neg), AS_LAMBDA(runtime_negation));
     performance_test("Negation FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::neg), AS_LAMBDA(runtime_negation));
+    // Rank 3
+    performance_test("Negation FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::neg), AS_LAMBDA(runtime_negation));
+    performance_test("Negation FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::neg), AS_LAMBDA(runtime_negation));
+    // Rank 4
+    performance_test("Negation FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::neg), AS_LAMBDA(runtime_negation));
+    performance_test("Negation FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::neg), AS_LAMBDA(runtime_negation));
+    // Rank 5
+    performance_test("Negation FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::neg), AS_LAMBDA(runtime_negation));
+    performance_test("Negation FLOAT64", FLOAT64, 5, 1,
             AS_LAMBDA(torch::neg), AS_LAMBDA(runtime_negation));
 }
 END_TEST
 
 START_TEST(test_rectified_linear_computational_performance)
 {
+    // Rank 2
+    performance_test("Rectified Linear FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
+            [] (uint64_t n) -> uint64_t { return n; });
+    performance_test("Rectified Linear FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
+            [] (uint64_t n) -> uint64_t { return n; });
+    // Rank 2
     performance_test("Rectified Linear FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
     performance_test("Rectified Linear FLOAT64", FLOAT64, 2, 3,
             AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+    // Rank 2
+    performance_test("Rectified Linear FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    performance_test("Rectified Linear FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    // Rank 2
+    performance_test("Rectified Linear FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    performance_test("Rectified Linear FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    // Rank 2
+    performance_test("Rectified Linear FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
+    performance_test("Rectified Linear FLOAT64", FLOAT64, 5, 1,
+            AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
 }
 END_TEST
 
