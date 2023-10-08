@@ -120,6 +120,12 @@ Install LCOV
 sudo apt-get install lcov
 ```
 
+Install MathGL
+
+```bash
+sudo apt-get install libmgl-dev
+```
+
 ## Build
 
 To build neuralwindow run
