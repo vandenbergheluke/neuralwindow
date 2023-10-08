@@ -1,11 +1,11 @@
 #include <iostream>
-#include <mgl2/base_cf.h>
-#include <mgl2/canvas_cf.h>
 #include <vector>
 #include <tuple>
 #include <string>
 #include <algorithm>
 
+#include <mgl2/base_cf.h>
+#include <mgl2/canvas_cf.h>
 #include <mgl2/mgl_cf.h>
 extern "C"
 {
@@ -24,14 +24,6 @@ extern "C"
 }
 
 #include <test_helper.h>
-
-// Populate with dimensions up to 8 ^ UT_MAX_SHAPE_EXP8.
-// More dense towards 1.
-// Should work up to 7 (due to storing as signed 64 bit int) without taking
-// memory limits into account.
-#ifndef UT_MAX_SHAPE_EXP8
-#define UT_MAX_SHAPE_EXP8 3
-#endif
 
 // Take average over UT_MEASUREMENT_ITERS iterations.
 #ifndef UT_MEASUREMENT_ITERS
@@ -68,8 +60,6 @@ static void mkdir_recurse(string_t s)
 
 void setup(void)
 {
-    ck_assert(UT_MAX_SHAPE_EXP8 < 8);
-
     struct stat st_result = {0};
     if (stat(SAVE_DIR, &st_result) == -1)
     {
@@ -84,7 +74,6 @@ void setup(void)
 
 void teardown(void)
 {
-    int num_cases = 8 * UT_MAX_SHAPE_EXP8;
     for (int i = 0; i < RUNTIMES; ++i)
     {
         runtime_destroy_context((runtime_t) i);
@@ -93,8 +82,11 @@ void teardown(void)
     error_destroy(error);
 }
 
-void plot_heuristics(std::string t, std::string save_path, float64_t* x,
-        int x_n, float64_t* y, int y_n, float64_t y_min, float64_t y_max)
+//TODO: Make x axis ticks at multiples of 8.
+void plot_heuristics(std::string t, std::string save_path,
+        std::string x_str, float64_t* x, int x_n,
+        std::string y_str, float64_t* y, int y_n,
+        float64_t y_min, float64_t y_max)
 {
     HMGL graph = mgl_create_graph(800,400);
 
@@ -115,8 +107,8 @@ void plot_heuristics(std::string t, std::string save_path, float64_t* x,
     // |    long dashed line
     // h    grey
     mgl_axis_grid(graph, "xy", "|h", "");
-    mgl_label(graph, 'x', "Square Matrix Width", 0, "");
-    mgl_label(graph, 'y', "Time (nsec)", 0, "");
+    mgl_label(graph, 'x', x_str.c_str(), 0, "");
+    mgl_label(graph, 'y', y_str.c_str(), 0, "");
     mgl_box(graph);
     // u    blue purple
     // #.   circle-dot marker
@@ -127,8 +119,9 @@ void plot_heuristics(std::string t, std::string save_path, float64_t* x,
     mgl_delete_graph(graph);
 }
 
-void plot_heuristics(std::string t, std::string save_path, float64_t* x,
-        int x_n, float64_t* y1, int y1_n, std::string plt1,
+void plot_heuristics(std::string t, std::string save_path,
+        std::string x_str, float64_t* x, int x_n,
+        std::string y_str, float64_t* y1, int y1_n, std::string plt1,
         float64_t* y2, int y2_n, std::string plt2,
         float64_t y_min, float64_t y_max)
 {
@@ -161,8 +154,8 @@ void plot_heuristics(std::string t, std::string save_path, float64_t* x,
     // |    long dashed line
     // h    grey
     mgl_axis_grid(graph, "xy", "|h", "");
-    mgl_label(graph, 'x', "Square Matrix Width", 0, "");
-    mgl_label(graph, 'y', "Time (nsec)", 0, "");
+    mgl_label(graph, 'x', x_str.c_str(), 0, "");
+    mgl_label(graph, 'y', y_str.c_str(), 0, "");
     mgl_box(graph);
     // L    dark green blue
     // P    dark purple
@@ -180,29 +173,16 @@ void plot_heuristics(std::string t, std::string save_path, float64_t* x,
     mgl_delete_graph(graph);
 }
 
-void print_heuristics(float64_t torch_time_mkl, float64_t torch_flops_mkl,
-        float64_t torch_time_cuda, float64_t torch_flops_cuda,
-        float64_t nw_time_mkl, float64_t nw_flops_mkl,
-        float64_t nw_time_openblas, float64_t nw_flops_openblas,
-        float64_t nw_time_cuda, float64_t nw_flops_cuda)
-{
-    printf("MKL:\n");
-    printf("PyTorch performance: %0.2lf nsec, %0.2lf FLOPS\n", torch_time_mkl, torch_flops_mkl);
-    printf("NW exponential performance: %0.2lf nsec, %0.2lf FLOPS\n", nw_time_mkl, nw_flops_mkl);
-    printf("Fraction (NW nsec/Pytorch nsec): %0.3lf\n\n", nw_time_mkl / torch_time_mkl);
-    printf("OpenBLAS:\n");
-    printf("NW exponential performance: %0.2lf nsec, %0.2lf FLOPS\n", nw_time_openblas, nw_flops_openblas);
-    printf("CUDA:\n");
-    // printf("PyTorch performance: %0.2lf nsec, %0.2lf FLOPS\n", torch_time_cuda, torch_flops_cuda);
-    printf("NW exponential performance: %0.2lf nsec, %0.2lf FLOPS\n\n", nw_time_cuda, nw_flops_cuda);
-    // printf("Fraction (NW nsec/Pytorch nsec): %0.3lf\n\n", nw_time_cuda / torch_time_cuda);
-}
-
-void performance_test(std::string op_name,
+void performance_test(std::string op_name, datatype_t datatype,
+        int rank, int max_shape_exp8,
         std::function<torch::Tensor(torch::Tensor)> torch_op,
         std::function<nw_error_t *(buffer_t *, buffer_t *)> nw_op)
 {
-    int num_cases = 8 * UT_MAX_SHAPE_EXP8;
+    ck_assert(0 < rank && rank <= 5);
+    // Limited to 7 because of dim values stored as 64 bit signed int.
+    ck_assert(0 < max_shape_exp8 && max_shape_exp8 < 8);
+
+    int num_cases = 8 * max_shape_exp8;
 
     float64_t torch_time_arr_mkl[num_cases];
     //float64_t torch_time_arr_cuda[num_cases];
@@ -235,10 +215,9 @@ void performance_test(std::string op_name,
 
     std::string op_name_dir = op_name;
     std::string op_save_dir;
+    std::string rank_str = std::to_string(rank);
 
-    uint32_t total_runs = DATATYPES * UT_MEASUREMENT_ITERS;
-
-    for (int x = 0; x < UT_MAX_SHAPE_EXP8; ++x)
+    for (int x = 0; x < max_shape_exp8; ++x)
     {
         for (int y = 0; y < 8; ++y)
         {
@@ -247,94 +226,95 @@ void performance_test(std::string op_name,
             float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
 
             int64_t n = (y + 1) * pow(8, x);
-            // TODO: Make this support higher ranks. Test cases will have to be
-            // changed to support this.
-            std::vector<int64_t> shape = {n, n};
+
+            std::vector<int64_t> shape;
+
+            for (int i = 0; i < rank; ++i)
+            {
+                shape.push_back(n);
+            }
 
             for (int i = 0; i < RUNTIMES; ++i)
             {
-                // Take average time of DATATYPES * UT_MEASUREMENT_ITERS iterations for
+                // Take average time of UT_MEASUREMENT_ITERS iterations for
                 // each runtime.
-                for (int j = 0; j < DATATYPES; ++j)
+                for (int j = 0; j < UT_MEASUREMENT_ITERS; ++j)
                 {
-                    for (int z = 0; z < UT_MEASUREMENT_ITERS; ++z)
+                    uint64_t torch_start, torch_end;
+                    uint64_t torch_completion_time;
+                    uint64_t nw_start, nw_end;
+                    uint64_t nw_completion_time;
+
+                    torch::Tensor torch_tensor;
+                    torch::Tensor expected_tensor;
+
+                    tensor_t *tensor;
+                    tensor_t *returned_tensor;
+
+                    // We're using CPU pytorch because we use an unsupported
+                    // version of CUDA... CUDA tests are disabled right now.
+                    switch (datatype)
                     {
-                        uint64_t torch_start, torch_end;
-                        uint64_t torch_completion_time;
-                        uint64_t nw_start, nw_end;
-                        uint64_t nw_completion_time;
+                    case FLOAT32:
+                        torch_tensor = torch::randn(shape,
+                                torch::TensorOptions()
+                                .dtype(torch::kFloat32)
+                                // .device(((runtime_t) i == CU_RUNTIME) ? device_cuda : device_cpu)
+                                );
+                        break;
+                    case FLOAT64:
+                        torch_tensor = torch::randn(shape,
+                                torch::TensorOptions()
+                                .dtype(torch::kFloat64)
+                                // .device(((runtime_t) i == CU_RUNTIME) ? device_cuda : device_cpu)
+                                );
+                        break;
+                    default:
+                        ck_abort_msg("unknown datatype.");
+                    }
 
-                        torch::Tensor torch_tensor;
-                        torch::Tensor expected_tensor;
+                    tensor = torch_to_tensor(torch_tensor, (runtime_t) i, datatype);
 
-                        tensor_t *tensor;
-                        tensor_t *returned_tensor;
+                    torch_start = get_time_nanoseconds();
+                    expected_tensor = torch_op(torch_tensor);
+                    torch_end = get_time_nanoseconds();
 
-                        // We're using CPU pytorch because we use an unsupported
-                        // version of CUDA... CUDA tests are disabled right now.
-                        switch ((datatype_t) j)
-                        {
-                        case FLOAT32:
-                            torch_tensor = torch::randn(shape,
-                                    torch::TensorOptions()
-                                    .dtype(torch::kFloat32)
-                                    // .device(((runtime_t) i == CU_RUNTIME) ? device_cuda : device_cpu)
-                                    );
+                    returned_tensor = torch_to_tensor(expected_tensor, (runtime_t) i, datatype);
+
+                    nw_start = get_time_nanoseconds();
+                    error = nw_op(tensor->buffer, returned_tensor->buffer);
+                    nw_end = get_time_nanoseconds();
+                    ck_assert_ptr_null(error);
+
+                    tensor_destroy(tensor);
+                    tensor_destroy(returned_tensor);
+
+                    torch_completion_time = torch_end - torch_start;
+                    nw_completion_time = nw_end - nw_start;
+
+                    switch ((runtime_t) i)
+                    {
+                        case OPENBLAS_RUNTIME:
+                            // Pytorch uses MKL on CPU
+
+                            nw_time_openblas += (float64_t) nw_completion_time / UT_MEASUREMENT_ITERS;
+
                             break;
-                        case FLOAT64:
-                            torch_tensor = torch::randn(shape,
-                                    torch::TensorOptions()
-                                    .dtype(torch::kFloat64)
-                                    // .device(((runtime_t) i == CU_RUNTIME) ? device_cuda : device_cpu)
-                                    );
+                        case MKL_RUNTIME:
+                            // Torch MKL gets double the runs as a biproduct of
+                            // how the tests are setup.
+
+                            torch_time_mkl += (float64_t) torch_completion_time / (2 * UT_MEASUREMENT_ITERS);
+                            nw_time_mkl += (float64_t) nw_completion_time / UT_MEASUREMENT_ITERS;
+
+                            break;
+                        case CU_RUNTIME:
+                            //torch_time_cuda += (float64_t) torch_completion_time / UT_MEASUREMENT_ITERS;
+                            nw_time_cuda += (float64_t) nw_completion_time / UT_MEASUREMENT_ITERS;
+
                             break;
                         default:
-                            ck_abort_msg("unknown datatype.");
-                        }
-
-                        tensor = torch_to_tensor(torch_tensor, (runtime_t) i, (datatype_t) j);
-
-                        torch_start = get_time_nanoseconds();
-                        expected_tensor = torch_op(torch_tensor);
-                        torch_end = get_time_nanoseconds();
-
-                        returned_tensor = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
-
-                        nw_start = get_time_nanoseconds();
-                        error = nw_op(tensor->buffer, returned_tensor->buffer);
-                        nw_end = get_time_nanoseconds();
-                        ck_assert_ptr_null(error);
-
-                        tensor_destroy(tensor);
-                        tensor_destroy(returned_tensor);
-
-                        torch_completion_time = torch_end - torch_start;
-                        nw_completion_time = nw_end - nw_start;
-
-                        switch ((runtime_t) i)
-                        {
-                            case OPENBLAS_RUNTIME:
-                                // Pytorch uses MKL on CPU
-
-                                nw_time_openblas += (float64_t) nw_completion_time / total_runs;
-
-                                break;
-                            case MKL_RUNTIME:
-                                // Torch MKL gets double the runs as a biproduct of
-                                // how the tests are setup.
-
-                                torch_time_mkl += (float64_t) torch_completion_time / (2 * total_runs);
-                                nw_time_mkl += (float64_t) nw_completion_time / total_runs;
-
-                                break;
-                            case CU_RUNTIME:
-                                //torch_time_cuda += (float64_t) torch_completion_time / total_runs;
-                                nw_time_cuda += (float64_t) nw_completion_time / total_runs;
-
-                                break;
-                            default:
-                            ck_abort_msg("unknown runtime.");
-                        }
+                        ck_abort_msg("unknown runtime.");
                     }
                 }
             }
@@ -383,70 +363,179 @@ void performance_test(std::string op_name,
     }
 
     /*
-    plot_heuristics("Torch CUDA Completion Time - " + op_name,
-            op_save_dir + "/torch_cuda_time.png", widths, num_cases,
-            torch_time_arr_cuda, num_cases);
+    plot_heuristics("Torch CUDA Completion Time - R^" + rank_str + " " + op_name,
+            op_save_dir + "/torch_cuda_time_r" + rank_str + ".png",
+            "Square Matrix Width", widths, num_cases,
+            "Time (nsec)", torch_time_arr_cuda, num_cases,
+            torch_time_min_cuda, torch_time_max_cuda);
     */
 
-    plot_heuristics("NW OpenBLAS Completion Time - " + op_name,
-            op_save_dir + "/nw_openblas_time.png", widths, num_cases,
-            nw_time_arr_openblas, num_cases, nw_time_min_openblas,
-            nw_time_max_openblas);
+    plot_heuristics("NW OpenBLAS Completion Time - R^" + rank_str + " " + op_name,
+            op_save_dir + "/nw_openblas_time_r" + rank_str + ".png",
+            "Square Matrix Width", widths, num_cases,
+            "Time (nsec)", nw_time_arr_openblas, num_cases,
+            nw_time_min_openblas, nw_time_max_openblas);
 
     mkl_time_min = std::min(torch_time_min_mkl, nw_time_min_mkl);
     mkl_time_max = std::max(torch_time_max_mkl, nw_time_max_mkl);
-    plot_heuristics("MKL Completion Time - " + op_name,
-            op_save_dir + "/mkl_time.png", widths, num_cases,
-            nw_time_arr_mkl, num_cases, "NeuralWindow",
+    plot_heuristics("MKL Completion Time - R^" + rank_str + " " + op_name,
+            op_save_dir + "/mkl_time_r" + rank_str + ".png",
+            "Square Matrix Width", widths, num_cases,
+            "Time (nsec)", nw_time_arr_mkl, num_cases, "NeuralWindow",
             torch_time_arr_mkl, num_cases, "PyTorch",
             mkl_time_min, mkl_time_max);
 
-    plot_heuristics("NW CUDA Completion Time - " + op_name,
-            op_save_dir + "/nw_cuda_time.png", widths, num_cases,
-            nw_time_arr_cuda, num_cases, nw_time_min_cuda, nw_time_max_cuda);
+    plot_heuristics("NW CUDA Completion Time - R^" + rank_str + " " + op_name,
+            op_save_dir + "/nw_cuda_time_r" + rank_str + ".png",
+            "Square Matrix Width", widths, num_cases,
+            "Time (nsec)", nw_time_arr_cuda, num_cases,
+            nw_time_min_cuda, nw_time_max_cuda);
 }
 
-/*
-void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
+void performance_test(std::string op_name, datatype_t datatype,
+        int rank, int max_shape_exp8,
+        std::function<torch::Tensor(torch::Tensor)> torch_op,
         std::function<nw_error_t *(buffer_t *, buffer_t *)> nw_op,
         std::function<uint64_t(uint64_t)> flop_calc)
 {
-    uint32_t total_runs = DATATYPES * UT_MEASUREMENT_ITERS;
-    
-    for (int k = 0; k < CASES; ++k)
+    ck_assert(0 < rank && rank <= 5);
+    // Limited to 7 because of dim values stored as 64 bit signed int.
+    ck_assert(0 < max_shape_exp8 && max_shape_exp8 < 8);
+
+    int num_cases = 8 * max_shape_exp8;
+
+    float64_t torch_time_arr_mkl[num_cases];
+    //float64_t torch_time_arr_cuda[num_cases];
+
+    float64_t torch_flops_arr_mkl[num_cases];
+    //float64_t torch_flops_arr_cuda[num_cases];
+
+    float64_t nw_time_arr_mkl[num_cases];
+    float64_t nw_time_arr_openblas[num_cases];
+    float64_t nw_time_arr_cuda[num_cases];
+
+    float64_t nw_flops_arr_mkl[num_cases];
+    float64_t nw_flops_arr_openblas[num_cases];
+    float64_t nw_flops_arr_cuda[num_cases];
+
+    // Minimum time/throughput (for range calculations)
+    float64_t torch_time_min_mkl = DBL_MAX;
+    //float64_t torch_time_min_cuda = DBL_MAX;
+
+    float64_t torch_flops_min_mkl = DBL_MAX;
+    //float64_t torch_flops_min_cuda = DBL_MAX;
+
+    float64_t nw_time_min_mkl = DBL_MAX;
+    float64_t nw_time_min_openblas = DBL_MAX;
+    float64_t nw_time_min_cuda = DBL_MAX;
+
+    float64_t nw_flops_min_mkl = DBL_MAX;
+    float64_t nw_flops_min_openblas = DBL_MAX;
+    float64_t nw_flops_min_cuda = DBL_MAX;
+
+    // Maximum time/throughput (for range calculations)
+    float64_t torch_time_max_mkl = DBL_MIN;
+    //float64_t torch_time_max_cuda = DBL_MIN;
+
+    float64_t torch_flops_max_mkl = DBL_MIN;
+    //float64_t torch_flops_max_cuda = DBL_MIN;
+
+    float64_t nw_time_max_mkl = DBL_MIN;
+    float64_t nw_time_max_openblas = DBL_MIN;
+    float64_t nw_time_max_cuda = DBL_MIN;
+
+    float64_t nw_flops_max_mkl = DBL_MIN;
+    float64_t nw_flops_max_openblas = DBL_MIN;
+    float64_t nw_flops_max_cuda = DBL_MIN;
+
+    // Min and max between torch/nw.
+    float64_t mkl_time_min;
+    float64_t mkl_time_max;
+
+    float64_t mkl_flops_min;
+    float64_t mkl_flops_max;
+
+    float64_t widths[num_cases];
+
+    std::string op_name_dir = op_name;
+    std::string op_save_dir;
+    std::string rank_str = std::to_string(rank);
+
+    for (int x = 0; x < max_shape_exp8; ++x)
     {
-        float64_t torch_time_mkl = 0, torch_time_cuda = 0;
-        float64_t torch_flops_mkl = 0, torch_flops_cuda = 0;
-        float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
-        float64_t nw_flops_mkl = 0, nw_flops_openblas = 0, nw_flops_cuda = 0;
-        uint64_t n = shapes[k][0];
-        uint64_t num_flop = flop_calc(n);
-
-        printf("Dimensions (%lu, %lu):\n", n, n);
-
-        for (int i = 0; i < RUNTIMES; ++i)
+        for (int y = 0; y < 8; ++y)
         {
-            // Take average time of DATATYPES * UT_MEASUREMENT_ITERS iterations for
-            // each runtime.
-            for (int j = 0; j < DATATYPES; ++j)
+            float64_t torch_time_mkl = 0;
+            float64_t torch_flops_mkl = 0;
+            //float64_t torch_time_cuda = 0;
+            //float64_t torch_flops_cuda = 0;
+            float64_t nw_time_mkl = 0, nw_time_openblas = 0, nw_time_cuda = 0;
+            float64_t nw_flops_mkl = 0, nw_flops_openblas = 0, nw_flops_cuda = 0;
+
+            uint64_t n = (y + 1) * pow(8, x);
+            uint64_t num_flop = flop_calc(n);
+
+            std::vector<int64_t> shape;
+
+            for (int i = 0; i < rank; ++i)
             {
-                for (int z = 0; z < UT_MEASUREMENT_ITERS; ++z)
+                shape.push_back(n);
+            }
+
+            for (int i = 0; i < RUNTIMES; ++i)
+            {
+                // Take average time of UT_MEASUREMENT_ITERS iterations for
+                // each runtime.
+                for (int j = 0; j < UT_MEASUREMENT_ITERS; ++j)
                 {
                     uint64_t torch_start, torch_end;
                     uint64_t torch_completion_time;
                     uint64_t nw_start, nw_end;
                     uint64_t nw_completion_time;
 
+                    torch::Tensor torch_tensor;
+                    torch::Tensor expected_tensor;
+
+                    tensor_t *tensor;
+                    tensor_t *returned_tensor;
+
+                    // We're using CPU pytorch because we use an unsupported
+                    // version of CUDA... CUDA tests are disabled right now.
+                    switch (datatype)
+                    {
+                    case FLOAT32:
+                        torch_tensor = torch::randn(shape,
+                                torch::TensorOptions()
+                                .dtype(torch::kFloat32)
+                                // .device(((runtime_t) i == CU_RUNTIME) ? device_cuda : device_cpu)
+                                );
+                        break;
+                    case FLOAT64:
+                        torch_tensor = torch::randn(shape,
+                                torch::TensorOptions()
+                                .dtype(torch::kFloat64)
+                                // .device(((runtime_t) i == CU_RUNTIME) ? device_cuda : device_cpu)
+                                );
+                        break;
+                    default:
+                        ck_abort_msg("unknown datatype.");
+                    }
+
+                    tensor = torch_to_tensor(torch_tensor, (runtime_t) i, datatype);
+
                     torch_start = get_time_nanoseconds();
-                    torch::Tensor expected_tensor = torch_op(torch_tensors[i][j][k][z]);
+                    expected_tensor = torch_op(torch_tensor);
                     torch_end = get_time_nanoseconds();
 
-                    returned_tensors[i][j][k][z] = torch_to_tensor(expected_tensor, (runtime_t) i, (datatype_t) j);
+                    returned_tensor = torch_to_tensor(expected_tensor, (runtime_t) i, datatype);
 
                     nw_start = get_time_nanoseconds();
-                    error = nw_op(tensors[i][j][k][z]->buffer, returned_tensors[i][j][k][z]->buffer);
+                    error = nw_op(tensor->buffer, returned_tensor->buffer);
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);
+
+                    tensor_destroy(tensor);
+                    tensor_destroy(returned_tensor);
 
                     torch_completion_time = torch_end - torch_start;
                     nw_completion_time = nw_end - nw_start;
@@ -456,104 +545,233 @@ void performance_test(std::function<torch::Tensor(torch::Tensor)> torch_op,
                         case OPENBLAS_RUNTIME:
                             // Pytorch uses MKL on CPU
 
-                            nw_time_openblas += (float64_t) nw_completion_time / total_runs;
-                            nw_flops_openblas += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * total_runs);
+                            nw_time_openblas += (float64_t) nw_completion_time / UT_MEASUREMENT_ITERS;
+                            nw_flops_openblas += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * UT_MEASUREMENT_ITERS);
+
                             break;
                         case MKL_RUNTIME:
                             // Torch MKL gets double the runs as a biproduct of
                             // how the tests are setup.
 
-                            torch_time_mkl += (float64_t) torch_completion_time / (2 * total_runs);
-                            torch_flops_mkl += ((float64_t) num_flop * 1000000000) / ((float64_t) torch_completion_time * 2 * total_runs);
-                            nw_time_mkl += (float64_t) nw_completion_time / total_runs;
-                            nw_flops_mkl += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * total_runs);
+                            torch_time_mkl += (float64_t) torch_completion_time / (2 * UT_MEASUREMENT_ITERS);
+                            torch_flops_mkl += ((float64_t) num_flop * 1000000000) / ((float64_t) torch_completion_time * 2 * UT_MEASUREMENT_ITERS);
+                            nw_time_mkl += (float64_t) nw_completion_time / UT_MEASUREMENT_ITERS;
+                            nw_flops_mkl += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * UT_MEASUREMENT_ITERS);
+
                             break;
                         case CU_RUNTIME:
-                            torch_time_cuda += (float64_t) torch_completion_time / total_runs;
-                            torch_flops_cuda += ((float64_t) num_flop * 1000000000) / ((float64_t) torch_completion_time * total_runs);
-                            nw_time_cuda += (float64_t) nw_completion_time / total_runs;
-                            nw_flops_cuda += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * total_runs);
+                            //torch_time_cuda += (float64_t) torch_completion_time / UT_MEASUREMENT_ITERS;
+                            //torch_flops_cuda += ((float64_t) num_flop * 1000000000) / ((float64_t) torch_completion_time * UT_MEASUREMENT_ITERS);
+                            nw_time_cuda += (float64_t) nw_completion_time / UT_MEASUREMENT_ITERS;
+                            nw_flops_cuda += ((float64_t) num_flop * 1000000000) / ((float64_t) nw_completion_time * UT_MEASUREMENT_ITERS);
+
                             break;
                         default:
                         ck_abort_msg("unknown runtime.");
                     }
                 }
-
             }
-        }
 
-        print_heuristics(torch_time_mkl, torch_flops_mkl, torch_time_cuda,
-                torch_flops_cuda, nw_time_mkl, nw_flops_mkl, nw_time_openblas,
-                nw_flops_openblas, nw_time_cuda, nw_flops_cuda);
+            torch_time_arr_mkl[x + y] = torch_time_mkl;
+            torch_time_min_mkl = std::min(torch_time_min_mkl, torch_time_mkl);
+            torch_time_max_mkl = std::max(torch_time_max_mkl, torch_time_mkl);
+
+            torch_flops_arr_mkl[x + y] = torch_flops_mkl;
+            torch_flops_min_mkl = std::min(torch_flops_min_mkl, torch_flops_mkl);
+            torch_flops_max_mkl = std::max(torch_flops_max_mkl, torch_flops_mkl);
+
+            //torch_time_arr_cuda[x + y] = torch_time_cuda;
+            //torch_time_min_cuda = std::min(torch_time_min_cuda, torch_time_cuda);
+            //torch_time_max_cuda = std::max(torch_time_max_cuda, torch_time_cuda);
+
+            //torch_flops_arr_cuda[x + y] = torch_flops_cuda;
+            //torch_flops_min_cuda = std::min(torch_flops_min_cuda, torch_flops_cuda);
+            //torch_flops_max_cuda = std::max(torch_flops_max_cuda, torch_flops_cuda);
+
+            nw_time_arr_openblas[x + y] = nw_time_openblas;
+            nw_time_min_openblas = std::min(nw_time_min_openblas, nw_time_openblas);
+            nw_time_max_openblas = std::max(nw_time_max_openblas, nw_time_openblas);
+
+            nw_flops_arr_openblas[x + y] = nw_flops_openblas;
+            nw_flops_min_openblas = std::min(nw_flops_min_openblas, nw_flops_openblas);
+            nw_flops_max_openblas = std::max(nw_flops_max_openblas, nw_flops_openblas);
+
+            nw_time_arr_mkl[x + y] = nw_time_mkl;
+            nw_time_min_mkl = std::min(nw_time_min_mkl, nw_time_mkl);
+            nw_time_max_mkl = std::max(nw_time_max_mkl, nw_time_mkl);
+
+            nw_flops_arr_mkl[x + y] = nw_flops_mkl;
+            nw_flops_min_mkl = std::min(nw_flops_min_mkl, nw_flops_mkl);
+            nw_flops_max_mkl = std::max(nw_flops_max_mkl, nw_flops_mkl);
+
+            nw_time_arr_cuda[x + y] = nw_time_cuda;
+            nw_time_min_cuda = std::min(nw_time_min_cuda, nw_time_cuda);
+            nw_time_max_cuda = std::max(nw_time_max_cuda, nw_time_cuda);
+
+            nw_flops_arr_cuda[x + y] = nw_flops_cuda;
+            nw_flops_min_cuda = std::min(nw_flops_min_cuda, nw_flops_cuda);
+            nw_flops_max_cuda = std::max(nw_flops_max_cuda, nw_flops_cuda);
+
+            widths[x + y] = (float64_t) n;
+        }
     }
+
+    std::for_each(op_name_dir.begin(), op_name_dir.end(), [] (char &c) {
+            if (isupper(c))
+            {
+                c = tolower(c);
+            }
+            else if (isspace(c))
+            {
+                c = '_';
+            }});
+
+    op_save_dir = std::string(SAVE_DIR) + "/" + op_name_dir;
+    struct stat st_result = {0};
+    if (stat(op_save_dir.c_str(), &st_result) == -1)
+    {
+        mkdir(op_save_dir.c_str(), S_IRWXU);
+    }
+
+    //plot_heuristics("Torch CUDA Completion Time - R^" + rank_str + " " + op_name,
+    //        op_save_dir + "/torch_cuda_time_r" + rank_str + ".png",
+    //        "Square Matrix Width", widths, num_cases,
+    //        "Time (nsec)", torch_time_arr_cuda, num_cases,
+    //        torch_time_min_cuda, torch_time_max_cuda);
+
+    plot_heuristics("NW OpenBLAS Completion Time - R^" + rank_str + " " + op_name,
+            op_save_dir + "/nw_openblas_time_r" + rank_str + ".png",
+            "Square Matrix Width", widths, num_cases,
+            "Time (nsec)", nw_time_arr_openblas, num_cases,
+            nw_time_min_openblas, nw_time_max_openblas);
+
+    mkl_time_min = std::min(torch_time_min_mkl, nw_time_min_mkl);
+    mkl_time_max = std::max(torch_time_max_mkl, nw_time_max_mkl);
+    plot_heuristics("MKL Completion Time - R^" + rank_str + " " + op_name,
+            op_save_dir + "/mkl_time_r" + rank_str + ".png",
+            "Square Matrix Width", widths, num_cases,
+            "Time (nsec)", nw_time_arr_mkl, num_cases, "NeuralWindow",
+            torch_time_arr_mkl, num_cases, "PyTorch",
+            mkl_time_min, mkl_time_max);
+
+    plot_heuristics("NW CUDA Completion Time - R^" + rank_str + " " + op_name,
+            op_save_dir + "/nw_cuda_time_r" + rank_str + ".png",
+            "Square Matrix Width", widths, num_cases,
+            "Time (nsec)", nw_time_arr_cuda, num_cases,
+            nw_time_min_cuda, nw_time_max_cuda);
+
+    //plot_heuristics("Torch CUDA Throughput - R^" + rank_str + " " + op_name,
+    //        op_save_dir + "/torch_cuda_flops_r" + rank_str + ".png",
+    //        "Square Matrix Width", widths, num_cases,
+    //        "Throughput (FLOPS)", torch_flops_arr_cuda, num_cases,
+    //        torch_flops_min_cuda, torch_flops_max_cuda);
+
+    plot_heuristics("NW OpenBLAS Completion Throughput - R^" + rank_str + " " + op_name,
+            op_save_dir + "/nw_openblas_flops_r" + rank_str + ".png",
+            "Square Matrix Width", widths, num_cases,
+            "Throughput (FLOPS)", nw_flops_arr_openblas, num_cases,
+            nw_flops_min_openblas, nw_flops_max_openblas);
+
+    mkl_flops_min = std::min(torch_flops_min_mkl, nw_flops_min_mkl);
+    mkl_flops_max = std::max(torch_flops_max_mkl, nw_flops_max_mkl);
+    plot_heuristics("MKL Completion Throughput - R^" + rank_str + " " + op_name,
+            op_save_dir + "/mkl_flops_r" + rank_str + ".png",
+            "Square Matrix Width", widths, num_cases,
+            "Throughput (FLOPS)", nw_flops_arr_mkl, num_cases, "NeuralWindow",
+            torch_flops_arr_mkl, num_cases, "PyTorch",
+            mkl_flops_min, mkl_flops_max);
+
+    plot_heuristics("NW CUDA Completion Throughput - R^" + rank_str + " " + op_name,
+            op_save_dir + "/nw_cuda_flops_r" + rank_str + ".png",
+            "Square Matrix Width", widths, num_cases,
+            "Throughput (FLOPS)", nw_flops_arr_cuda, num_cases,
+            nw_flops_min_cuda, nw_flops_max_cuda);
 }
-*/
 
 START_TEST(test_exponential_computational_performance)
 {
-    performance_test("Exponential", AS_LAMBDA(torch::exp),
-            AS_LAMBDA(runtime_exponential));
+    performance_test("Exponential FLOAT32", FLOAT32, 2, 3,
+            AS_LAMBDA(torch::exp), AS_LAMBDA(runtime_exponential));
+    performance_test("Exponential FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::exp), AS_LAMBDA(runtime_exponential));
 }
 END_TEST
 
 START_TEST(test_logarithm_computational_performance)
 {
-    performance_test("Logarithm", AS_LAMBDA(torch::log),
-            AS_LAMBDA(runtime_logarithm));
+    performance_test("Logarithm FLOAT32", FLOAT32, 2, 3,
+            AS_LAMBDA(torch::log), AS_LAMBDA(runtime_logarithm));
+    performance_test("Logarithm FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::log), AS_LAMBDA(runtime_logarithm));
 }
 END_TEST
 
 START_TEST(test_sine_computational_performance)
 {
-    performance_test("Sine", AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
+    performance_test("Sine FLOAT32", FLOAT32, 2, 3,
+            AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
+    performance_test("Sine FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::sin), AS_LAMBDA(runtime_sine));
 }
 END_TEST
 
 START_TEST(test_cosine_computational_performance)
 {
-    performance_test("Cosine", AS_LAMBDA(torch::cos),
-            AS_LAMBDA(runtime_cosine));
+    performance_test("Cosine FLOAT32", FLOAT32, 2, 3,
+            AS_LAMBDA(torch::cos), AS_LAMBDA(runtime_cosine));
+    performance_test("Cosine FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::cos), AS_LAMBDA(runtime_cosine));
 }
 END_TEST
 
 START_TEST(test_square_root_computational_performance)
 {
-    performance_test("Square Root", AS_LAMBDA(torch::sqrt),
-            AS_LAMBDA(runtime_square_root));
+    performance_test("Square Root FLOAT32", FLOAT32, 2, 3,
+            AS_LAMBDA(torch::sqrt), AS_LAMBDA(runtime_square_root));
+    performance_test("Square Root FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::sqrt), AS_LAMBDA(runtime_square_root));
 }
 END_TEST
 
 START_TEST(test_reciprocal_computational_performance)
 {
-    printf("---------------------   Reciprocal   ---------------------\n");
-    /*
-    performance_test(AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
+    performance_test("Reciprocal FLOAT32", FLOAT32, 2, 3,
+            AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
-    */
+    performance_test("Reciprocal FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::reciprocal), AS_LAMBDA(runtime_reciprocal),
+            [] (uint64_t n) -> uint64_t { return pow(n, 2); });
 }
 END_TEST
 
 START_TEST(test_contiguous_computational_performance)
 {
-    performance_test("Contiguous", AS_MEMBER_LAMBDA(torch::Tensor::contiguous),
+    performance_test("Contiguous FLOAT32", FLOAT32, 2, 3,
+            AS_MEMBER_LAMBDA(torch::Tensor::contiguous),
+            AS_LAMBDA(runtime_contiguous));
+    performance_test("Contiguous FLOAT64", FLOAT64, 2, 3,
+            AS_MEMBER_LAMBDA(torch::Tensor::contiguous),
             AS_LAMBDA(runtime_contiguous));
 }
 END_TEST
 
 START_TEST(test_negation_computational_performance)
 {
-    performance_test("Negation", AS_LAMBDA(torch::neg),
-            AS_LAMBDA(runtime_negation));
+    performance_test("Negation FLOAT32", FLOAT32, 2, 3,
+            AS_LAMBDA(torch::neg), AS_LAMBDA(runtime_negation));
+    performance_test("Negation FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::neg), AS_LAMBDA(runtime_negation));
 }
 END_TEST
 
 START_TEST(test_rectified_linear_computational_performance)
 {
-    printf("------------------   Rectified Linear   ------------------\n");
-    /*
-    performance_test(AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
+    performance_test("Rectified Linear FLOAT32", FLOAT32, 2, 3,
+            AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
-    */
+    performance_test("Rectified Linear FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::relu), AS_LAMBDA(runtime_rectified_linear),
+            [] (uint64_t n) -> uint64_t { return pow(n, 2); });
 }
 END_TEST
 
