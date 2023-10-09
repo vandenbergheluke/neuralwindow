@@ -182,7 +182,7 @@ void performance_test(std::string op_name, datatype_t datatype,
     // Limited to 7 because of dim values stored as 64 bit signed int.
     ck_assert(0 < max_shape_exp8 && max_shape_exp8 < 8);
 
-    int num_cases = 8 * max_shape_exp8;
+    int num_cases = (7 * max_shape_exp8) + 1;
 
     float64_t torch_time_arr_mkl[num_cases];
     //float64_t torch_time_arr_cuda[num_cases];
@@ -217,9 +217,10 @@ void performance_test(std::string op_name, datatype_t datatype,
     std::string op_save_dir;
     std::string rank_str = std::to_string(rank);
 
-    for (int x = 0; x < max_shape_exp8; ++x)
+    for (int x = 0; x <= max_shape_exp8; ++x)
     {
-        for (int y = 0; y < 8; ++y)
+        int y = 0;
+        do
         {
             float64_t torch_time_mkl = 0;
             //float64_t torch_time_cuda = 0;
@@ -332,30 +333,32 @@ void performance_test(std::string op_name, datatype_t datatype,
                 }
             }
 
-            torch_time_arr_mkl[x + y] = torch_time_mkl;
+            torch_time_arr_mkl[(x * 7) + y] = torch_time_mkl;
             torch_time_min_mkl = std::min(torch_time_min_mkl, torch_time_mkl);
             torch_time_max_mkl = std::max(torch_time_max_mkl, torch_time_mkl);
 
             /*
-            torch_time_arr_cuda[x + y] = torch_time_cuda;
+            torch_time_arr_cuda[(x * 7) + y] = torch_time_cuda;
             torch_time_min_cuda = std::min(torch_time_min_cuda, torch_time_cuda);
             torch_time_max_cuda = std::max(torch_time_max_cuda, torch_time_cuda);
             */
 
-            nw_time_arr_openblas[x + y] = nw_time_openblas;
+            nw_time_arr_openblas[(x * 7) + y] = nw_time_openblas;
             nw_time_min_openblas = std::min(nw_time_min_openblas, nw_time_openblas);
             nw_time_max_openblas = std::max(nw_time_max_openblas, nw_time_openblas);
 
-            nw_time_arr_mkl[x + y] = nw_time_mkl;
+            nw_time_arr_mkl[(x * 7) + y] = nw_time_mkl;
             nw_time_min_mkl = std::min(nw_time_min_mkl, nw_time_mkl);
             nw_time_max_mkl = std::max(nw_time_max_mkl, nw_time_mkl);
 
-            nw_time_arr_cuda[x + y] = nw_time_cuda;
+            nw_time_arr_cuda[(x * 7) + y] = nw_time_cuda;
             nw_time_min_cuda = std::min(nw_time_min_cuda, nw_time_cuda);
             nw_time_max_cuda = std::max(nw_time_max_cuda, nw_time_cuda);
 
-            widths[x + y] = (float64_t) n;
-        }
+            widths[(x * 7) + y] = (float64_t) n;
+
+            ++y;
+        } while ((y < 7) && (x != max_shape_exp8));
     }
 
     std::for_each(op_name_dir.begin(), op_name_dir.end(), [] (char &c) {
@@ -415,7 +418,7 @@ void performance_test(std::string op_name, datatype_t datatype,
     // Limited to 7 because of dim values stored as 64 bit signed int.
     ck_assert(0 < max_shape_exp8 && max_shape_exp8 < 8);
 
-    int num_cases = 8 * max_shape_exp8;
+    int num_cases = (7 * max_shape_exp8) + 1;
 
     float64_t torch_time_arr_mkl[num_cases];
     //float64_t torch_time_arr_cuda[num_cases];
@@ -474,9 +477,10 @@ void performance_test(std::string op_name, datatype_t datatype,
     std::string op_save_dir;
     std::string rank_str = std::to_string(rank);
 
-    for (int x = 0; x < max_shape_exp8; ++x)
+    for (int x = 0; x <= max_shape_exp8; ++x)
     {
-        for (int y = 0; y < 8; ++y)
+        int y = 0;
+        do
         {
             float64_t torch_time_mkl = 0;
             float64_t torch_flops_mkl = 0;
@@ -598,48 +602,50 @@ void performance_test(std::string op_name, datatype_t datatype,
                 }
             }
 
-            torch_time_arr_mkl[x + y] = torch_time_mkl;
+            torch_time_arr_mkl[(x * 7) + y] = torch_time_mkl;
             torch_time_min_mkl = std::min(torch_time_min_mkl, torch_time_mkl);
             torch_time_max_mkl = std::max(torch_time_max_mkl, torch_time_mkl);
 
-            torch_flops_arr_mkl[x + y] = torch_flops_mkl;
+            torch_flops_arr_mkl[(x * 7) + y] = torch_flops_mkl;
             torch_flops_min_mkl = std::min(torch_flops_min_mkl, torch_flops_mkl);
             torch_flops_max_mkl = std::max(torch_flops_max_mkl, torch_flops_mkl);
 
-            //torch_time_arr_cuda[x + y] = torch_time_cuda;
+            //torch_time_arr_cuda[(x * 7) + y] = torch_time_cuda;
             //torch_time_min_cuda = std::min(torch_time_min_cuda, torch_time_cuda);
             //torch_time_max_cuda = std::max(torch_time_max_cuda, torch_time_cuda);
 
-            //torch_flops_arr_cuda[x + y] = torch_flops_cuda;
+            //torch_flops_arr_cuda[(x * 7) + y] = torch_flops_cuda;
             //torch_flops_min_cuda = std::min(torch_flops_min_cuda, torch_flops_cuda);
             //torch_flops_max_cuda = std::max(torch_flops_max_cuda, torch_flops_cuda);
 
-            nw_time_arr_openblas[x + y] = nw_time_openblas;
+            nw_time_arr_openblas[(x * 7) + y] = nw_time_openblas;
             nw_time_min_openblas = std::min(nw_time_min_openblas, nw_time_openblas);
             nw_time_max_openblas = std::max(nw_time_max_openblas, nw_time_openblas);
 
-            nw_flops_arr_openblas[x + y] = nw_flops_openblas;
+            nw_flops_arr_openblas[(x * 7) + y] = nw_flops_openblas;
             nw_flops_min_openblas = std::min(nw_flops_min_openblas, nw_flops_openblas);
             nw_flops_max_openblas = std::max(nw_flops_max_openblas, nw_flops_openblas);
 
-            nw_time_arr_mkl[x + y] = nw_time_mkl;
+            nw_time_arr_mkl[(x * 7) + y] = nw_time_mkl;
             nw_time_min_mkl = std::min(nw_time_min_mkl, nw_time_mkl);
             nw_time_max_mkl = std::max(nw_time_max_mkl, nw_time_mkl);
 
-            nw_flops_arr_mkl[x + y] = nw_flops_mkl;
+            nw_flops_arr_mkl[(x * 7) + y] = nw_flops_mkl;
             nw_flops_min_mkl = std::min(nw_flops_min_mkl, nw_flops_mkl);
             nw_flops_max_mkl = std::max(nw_flops_max_mkl, nw_flops_mkl);
 
-            nw_time_arr_cuda[x + y] = nw_time_cuda;
+            nw_time_arr_cuda[(x * 7) + y] = nw_time_cuda;
             nw_time_min_cuda = std::min(nw_time_min_cuda, nw_time_cuda);
             nw_time_max_cuda = std::max(nw_time_max_cuda, nw_time_cuda);
 
-            nw_flops_arr_cuda[x + y] = nw_flops_cuda;
+            nw_flops_arr_cuda[(x * 7) + y] = nw_flops_cuda;
             nw_flops_min_cuda = std::min(nw_flops_min_cuda, nw_flops_cuda);
             nw_flops_max_cuda = std::max(nw_flops_max_cuda, nw_flops_cuda);
 
-            widths[x + y] = (float64_t) n;
-        }
+            widths[(x * 7) + y] = (float64_t) n;
+
+            ++y;
+        } while ((y < 7) && (x != max_shape_exp8));
     }
 
     std::for_each(op_name_dir.begin(), op_name_dir.end(), [] (char &c) {
