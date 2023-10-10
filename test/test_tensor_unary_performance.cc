@@ -691,7 +691,7 @@ void performance_test(std::string op_name, datatype_t datatype,
     //        "Throughput (FLOPS)", torch_flops_arr_cuda, num_cases,
     //        torch_flops_min_cuda, torch_flops_max_cuda);
 
-    plot_heuristics("NW OpenBLAS Completion Throughput - R^" + rank_str + " " + op_name,
+    plot_heuristics("NW OpenBLAS Throughput - R^" + rank_str + " " + op_name,
             op_save_dir + "/nw_openblas_flops_r" + rank_str + ".png",
             "Square Matrix Width", widths, num_cases,
             "Throughput (FLOPS)", nw_flops_arr_openblas, num_cases,
@@ -699,14 +699,14 @@ void performance_test(std::string op_name, datatype_t datatype,
 
     mkl_flops_min = std::min(torch_flops_min_mkl, nw_flops_min_mkl);
     mkl_flops_max = std::max(torch_flops_max_mkl, nw_flops_max_mkl);
-    plot_heuristics("MKL Completion Throughput - R^" + rank_str + " " + op_name,
+    plot_heuristics("MKL Throughput - R^" + rank_str + " " + op_name,
             op_save_dir + "/mkl_flops_r" + rank_str + ".png",
             "Square Matrix Width", widths, num_cases,
             "Throughput (FLOPS)", nw_flops_arr_mkl, num_cases, "NeuralWindow",
             torch_flops_arr_mkl, num_cases, "PyTorch",
             mkl_flops_min, mkl_flops_max);
 
-    plot_heuristics("NW CUDA Completion Throughput - R^" + rank_str + " " + op_name,
+    plot_heuristics("NW CUDA Throughput - R^" + rank_str + " " + op_name,
             op_save_dir + "/nw_cuda_flops_r" + rank_str + ".png",
             "Square Matrix Width", widths, num_cases,
             "Throughput (FLOPS)", nw_flops_arr_cuda, num_cases,
@@ -1014,6 +1014,36 @@ START_TEST(test_rectified_linear_computational_performance)
 }
 END_TEST
 
+START_TEST(test_sigmoid_computational_performance)
+{
+    // Rank 1
+    performance_test("Sigmoid FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::sigmoid), AS_LAMBDA(tensor_sigmoid));
+    performance_test("Sigmoid FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::sigmoid), AS_LAMBDA(tensor_sigmoid));
+    // Rank 2
+    performance_test("Sigmoid FLOAT32", FLOAT32, 2, 3,
+            AS_LAMBDA(torch::sigmoid), AS_LAMBDA(tensor_sigmoid));
+    performance_test("Sigmoid FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::sigmoid), AS_LAMBDA(tensor_sigmoid));
+    // Rank 3
+    performance_test("Sigmoid FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::sigmoid), AS_LAMBDA(tensor_sigmoid));
+    performance_test("Sigmoid FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::sigmoid), AS_LAMBDA(tensor_sigmoid));
+    // Rank 4
+    performance_test("Sigmoid FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::sigmoid), AS_LAMBDA(tensor_sigmoid));
+    performance_test("Sigmoid FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::sigmoid), AS_LAMBDA(tensor_sigmoid));
+    // Rank 5
+    performance_test("Sigmoid FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::sigmoid), AS_LAMBDA(tensor_sigmoid));
+    performance_test("Sigmoid FLOAT64", FLOAT64, 5, 1,
+            AS_LAMBDA(torch::sigmoid), AS_LAMBDA(tensor_sigmoid));
+}
+END_TEST
+
 Suite *make_buffer_unary_perf_suite(void)
 {
     Suite *s;
@@ -1033,6 +1063,7 @@ Suite *make_buffer_unary_perf_suite(void)
     tcase_add_test(tc_unary, test_contiguous_computational_performance);
     tcase_add_test(tc_unary, test_negation_computational_performance);
     tcase_add_test(tc_unary, test_rectified_linear_computational_performance);
+    tcase_add_test(tc_unary, test_sigmoid_computational_performance);
 
     suite_add_tcase(s, tc_unary);
 
