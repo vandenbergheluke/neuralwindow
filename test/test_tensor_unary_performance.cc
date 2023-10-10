@@ -375,14 +375,14 @@ void performance_test(std::string op_name, datatype_t datatype,
     }
 
     /*
-    plot_heuristics("Torch CUDA Completion Time - R^" + rank_str + " " + op_name,
+    plot_heuristics("Torch CUDA Completion Time - Rank " + rank_str + " " + op_name,
             op_save_dir + "/torch_cuda_time_r" + rank_str + ".png",
             "Square Matrix Width", widths, num_cases,
             "Time (nsec)", torch_time_arr_cuda, num_cases,
             torch_time_min_cuda, torch_time_max_cuda);
     */
 
-    plot_heuristics("NW OpenBLAS Completion Time - R^" + rank_str + " " + op_name,
+    plot_heuristics("NW OpenBLAS Completion Time - Rank " + rank_str + " " + op_name,
             op_save_dir + "/nw_openblas_time_r" + rank_str + ".png",
             "Square Matrix Width", widths, num_cases,
             "Time (nsec)", nw_time_arr_openblas, num_cases,
@@ -390,14 +390,14 @@ void performance_test(std::string op_name, datatype_t datatype,
 
     mkl_time_min = std::min(torch_time_min_mkl, nw_time_min_mkl);
     mkl_time_max = std::max(torch_time_max_mkl, nw_time_max_mkl);
-    plot_heuristics("MKL Completion Time - R^" + rank_str + " " + op_name,
+    plot_heuristics("MKL Completion Time - Rank " + rank_str + " " + op_name,
             op_save_dir + "/mkl_time_r" + rank_str + ".png",
             "Square Matrix Width", widths, num_cases,
             "Time (nsec)", nw_time_arr_mkl, num_cases, "NeuralWindow",
             torch_time_arr_mkl, num_cases, "PyTorch",
             mkl_time_min, mkl_time_max);
 
-    plot_heuristics("NW CUDA Completion Time - R^" + rank_str + " " + op_name,
+    plot_heuristics("NW CUDA Completion Time - Rank " + rank_str + " " + op_name,
             op_save_dir + "/nw_cuda_time_r" + rank_str + ".png",
             "Square Matrix Width", widths, num_cases,
             "Time (nsec)", nw_time_arr_cuda, num_cases,
@@ -658,13 +658,13 @@ void performance_test(std::string op_name, datatype_t datatype,
         mkdir(op_save_dir.c_str(), S_IRWXU);
     }
 
-    //plot_heuristics("Torch CUDA Completion Time - R^" + rank_str + " " + op_name,
+    //plot_heuristics("Torch CUDA Completion Time - Rank " + rank_str + " " + op_name,
     //        op_save_dir + "/torch_cuda_time_r" + rank_str + ".png",
     //        "Square Matrix Width", widths, num_cases,
     //        "Time (nsec)", torch_time_arr_cuda, num_cases,
     //        torch_time_min_cuda, torch_time_max_cuda);
 
-    plot_heuristics("NW OpenBLAS Completion Time - R^" + rank_str + " " + op_name,
+    plot_heuristics("NW OpenBLAS Completion Time - Rank " + rank_str + " " + op_name,
             op_save_dir + "/nw_openblas_time_r" + rank_str + ".png",
             "Square Matrix Width", widths, num_cases,
             "Time (nsec)", nw_time_arr_openblas, num_cases,
@@ -672,26 +672,26 @@ void performance_test(std::string op_name, datatype_t datatype,
 
     mkl_time_min = std::min(torch_time_min_mkl, nw_time_min_mkl);
     mkl_time_max = std::max(torch_time_max_mkl, nw_time_max_mkl);
-    plot_heuristics("MKL Completion Time - R^" + rank_str + " " + op_name,
+    plot_heuristics("MKL Completion Time - Rank " + rank_str + " " + op_name,
             op_save_dir + "/mkl_time_r" + rank_str + ".png",
             "Square Matrix Width", widths, num_cases,
             "Time (nsec)", nw_time_arr_mkl, num_cases, "NeuralWindow",
             torch_time_arr_mkl, num_cases, "PyTorch",
             mkl_time_min, mkl_time_max);
 
-    plot_heuristics("NW CUDA Completion Time - R^" + rank_str + " " + op_name,
+    plot_heuristics("NW CUDA Completion Time - Rank " + rank_str + " " + op_name,
             op_save_dir + "/nw_cuda_time_r" + rank_str + ".png",
             "Square Matrix Width", widths, num_cases,
             "Time (nsec)", nw_time_arr_cuda, num_cases,
             nw_time_min_cuda, nw_time_max_cuda);
 
-    //plot_heuristics("Torch CUDA Throughput - R^" + rank_str + " " + op_name,
+    //plot_heuristics("Torch CUDA Throughput - Rank " + rank_str + " " + op_name,
     //        op_save_dir + "/torch_cuda_flops_r" + rank_str + ".png",
     //        "Square Matrix Width", widths, num_cases,
     //        "Throughput (FLOPS)", torch_flops_arr_cuda, num_cases,
     //        torch_flops_min_cuda, torch_flops_max_cuda);
 
-    plot_heuristics("NW OpenBLAS Throughput - R^" + rank_str + " " + op_name,
+    plot_heuristics("NW OpenBLAS Throughput - Rank " + rank_str + " " + op_name,
             op_save_dir + "/nw_openblas_flops_r" + rank_str + ".png",
             "Square Matrix Width", widths, num_cases,
             "Throughput (FLOPS)", nw_flops_arr_openblas, num_cases,
@@ -699,14 +699,14 @@ void performance_test(std::string op_name, datatype_t datatype,
 
     mkl_flops_min = std::min(torch_flops_min_mkl, nw_flops_min_mkl);
     mkl_flops_max = std::max(torch_flops_max_mkl, nw_flops_max_mkl);
-    plot_heuristics("MKL Throughput - R^" + rank_str + " " + op_name,
+    plot_heuristics("MKL Throughput - Rank " + rank_str + " " + op_name,
             op_save_dir + "/mkl_flops_r" + rank_str + ".png",
             "Square Matrix Width", widths, num_cases,
             "Throughput (FLOPS)", nw_flops_arr_mkl, num_cases, "NeuralWindow",
             torch_flops_arr_mkl, num_cases, "PyTorch",
             mkl_flops_min, mkl_flops_max);
 
-    plot_heuristics("NW CUDA Throughput - R^" + rank_str + " " + op_name,
+    plot_heuristics("NW CUDA Throughput - Rank " + rank_str + " " + op_name,
             op_save_dir + "/nw_cuda_flops_r" + rank_str + ".png",
             "Square Matrix Width", widths, num_cases,
             "Throughput (FLOPS)", nw_flops_arr_cuda, num_cases,
