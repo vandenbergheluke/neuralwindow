@@ -173,6 +173,7 @@ void plot_heuristics(std::string t, std::string save_path,
     mgl_delete_graph(graph);
 }
 
+// TODO: Replace min/max vars with simple min_element/max_element calls.
 void performance_test(std::string op_name, datatype_t datatype,
         int rank, int max_shape_exp8,
         std::function<torch::Tensor(torch::Tensor)> torch_op,

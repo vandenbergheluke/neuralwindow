@@ -486,28 +486,97 @@ START_TEST(test_summation_computational_performance)
     performance_test("Summation FLOAT32", FLOAT32, 1, 4,
             AS_LAMBDA(torch::sum), AS_LAMBDA(runtime_summation),
             (std::vector<int64_t>) {0}, true,
-            [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+            [] (uint64_t n) -> uint64_t { return n; });
+    performance_test("Summation FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::sum), AS_LAMBDA(runtime_summation),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return n; });
     // Rank 2
     performance_test("Summation FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::sum), AS_LAMBDA(runtime_summation),
-            (std::vector<int64_t>) {0, 1}, true,
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+    performance_test("Summation FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::sum), AS_LAMBDA(runtime_summation),
+            (std::vector<int64_t>) {0}, true,
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
     // Rank 3
     performance_test("Summation FLOAT32", FLOAT32, 3, 2,
             AS_LAMBDA(torch::sum), AS_LAMBDA(runtime_summation),
-            (std::vector<int64_t>) {0, 1, 2}, true,
-            [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    performance_test("Summation FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::sum), AS_LAMBDA(runtime_summation),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    // Rank 4
+    performance_test("Summation FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::sum), AS_LAMBDA(runtime_summation),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    performance_test("Summation FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::sum), AS_LAMBDA(runtime_summation),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    // Rank 5
+    performance_test("Summation FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::sum), AS_LAMBDA(runtime_summation),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
+    performance_test("Summation FLOAT64", FLOAT64, 5, 1,
+            AS_LAMBDA(torch::sum), AS_LAMBDA(runtime_summation),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
 }
 END_TEST
 
 START_TEST(test_maximum_computational_performance)
 {
+    // Rank 1
+    performance_test("Maximum FLOAT32", FLOAT32, 1, 4,
+            AS_LAMBDA(torch::amax), AS_LAMBDA(runtime_maximum),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return n; });
+    performance_test("Maximum FLOAT64", FLOAT64, 1, 4,
+            AS_LAMBDA(torch::amax), AS_LAMBDA(runtime_maximum),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return n; });
     // Rank 2
-    // num_flop is wrong
     performance_test("Maximum FLOAT32", FLOAT32, 2, 3,
             AS_LAMBDA(torch::amax), AS_LAMBDA(runtime_maximum),
-            (std::vector<int64_t>) {1}, true,
+            (std::vector<int64_t>) {0}, true,
             [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+    performance_test("Maximum FLOAT64", FLOAT64, 2, 3,
+            AS_LAMBDA(torch::amax), AS_LAMBDA(runtime_maximum),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return pow(n, 2); });
+    // Rank 3
+    performance_test("Maximum FLOAT32", FLOAT32, 3, 2,
+            AS_LAMBDA(torch::amax), AS_LAMBDA(runtime_maximum),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    performance_test("Maximum FLOAT64", FLOAT64, 3, 2,
+            AS_LAMBDA(torch::amax), AS_LAMBDA(runtime_maximum),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return pow(n, 3); });
+    // Rank 4
+    performance_test("Maximum FLOAT32", FLOAT32, 4, 1,
+            AS_LAMBDA(torch::amax), AS_LAMBDA(runtime_maximum),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    performance_test("Maximum FLOAT64", FLOAT64, 4, 1,
+            AS_LAMBDA(torch::amax), AS_LAMBDA(runtime_maximum),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return pow(n, 4); });
+    // Rank 5
+    performance_test("Maximum FLOAT32", FLOAT32, 5, 1,
+            AS_LAMBDA(torch::amax), AS_LAMBDA(runtime_maximum),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
+    performance_test("Maximum FLOAT64", FLOAT64, 5, 1,
+            AS_LAMBDA(torch::amax), AS_LAMBDA(runtime_maximum),
+            (std::vector<int64_t>) {0}, true,
+            [] (uint64_t n) -> uint64_t { return pow(n, 5); });
 }
 END_TEST
 
