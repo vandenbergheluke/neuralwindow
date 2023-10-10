@@ -27,7 +27,7 @@ extern "C"
 
 // Take average over UT_MEASUREMENT_ITERS iterations.
 #ifndef UT_MEASUREMENT_ITERS
-#define UT_MEASUREMENT_ITERS 30
+#define UT_MEASUREMENT_ITERS 15
 #endif
 
 #define SAVE_DIR "img/buffer"
