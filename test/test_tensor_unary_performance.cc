@@ -178,7 +178,6 @@ void performance_test(std::string op_name, datatype_t datatype,
         std::function<torch::Tensor(torch::Tensor)> torch_op,
         std::function<nw_error_t *(tensor_t *, tensor_t **)> nw_op)
 {
-    printf("op_name: %s, rank: %i\n", op_name.c_str(), rank);
     ck_assert(0 < rank && rank <= 5);
     // Limited to 7 because of dim values stored as 64 bit signed int.
     ck_assert(0 < max_shape_exp8 && max_shape_exp8 < 8);
@@ -411,7 +410,6 @@ void performance_test(std::string op_name, datatype_t datatype,
         std::function<nw_error_t *(tensor_t *, tensor_t **)> nw_op,
         std::function<uint64_t(uint64_t)> flop_calc)
 {
-    printf("op_name: %s, rank: %i\n", op_name.c_str(), rank);
     ck_assert(0 < rank && rank <= 5);
     // Limited to 7 because of dim values stored as 64 bit signed int.
     ck_assert(0 < max_shape_exp8 && max_shape_exp8 < 8);
