@@ -17,6 +17,7 @@ set(TEST_CXX
     test_tensor_binary
     test_tensor_unary_performance
     test_tensor_binary_performance
+    test_tensor_reduction_performance
     test_buffer_reduction_performance
     test_buffer_reduction
     test_buffer_unary
