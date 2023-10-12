@@ -232,6 +232,6 @@ string_t dataset_type_string(dataset_type_t dataset_type)
     case TEST:
         return "TEST";
     default:
-        return "UNKNOWN_DATASET_TYPE";
+        return "DATASET_TYPE";
     }
 }

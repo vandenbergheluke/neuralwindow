@@ -23,7 +23,7 @@ nw_error_t *categorical_cross_entropy(const tensor_t *y_true, const tensor_t *y_
 
     if (!tensor_shapes_equal(y_prediction, y_true))    
     {
-        return ERROR(ERROR_SHAPE_CONFLICT, string_create("tensor shapes not equal."), NULL);
+        return ERROR(ERROR_SHAPE, string_create("tensor shapes not equal."), NULL);
     }
 
     nw_error_t *error = NULL;
@@ -102,7 +102,7 @@ nw_error_t *negative_log_likelihood(const tensor_t *y_true, const tensor_t *y_pr
 
     if (!tensor_shapes_equal(y_prediction, y_true))    
     {
-        return ERROR(ERROR_SHAPE_CONFLICT, string_create("tensor shapes not equal."), NULL);
+        return ERROR(ERROR_SHAPE, string_create("tensor shapes not equal."), NULL);
     }
 
     nw_error_t *error = NULL;

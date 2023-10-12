@@ -620,7 +620,7 @@ nw_error_t *tensor_item(const tensor_t *x, void *value)
 
     if (x->buffer->view->rank)
     {
-        return ERROR(ERROR_RANK_CONFLICT, string_create("tensor must be rank zero."), NULL);
+        return ERROR(ERROR_RANK, string_create("tensor must be rank zero."), NULL);
     }
 
     switch (x->buffer->storage->datatype)
@@ -1592,7 +1592,7 @@ static nw_error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *t
             // Leaf node
             break;
         default:
-            error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+            error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
             break;
         }
 
@@ -2118,7 +2118,7 @@ nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
     {
         if (x->buffer->view->rank)
         {
-            return ERROR(ERROR_RANK_CONFLICT, string_create("gradient only implicitly created for scalars"), NULL);
+            return ERROR(ERROR_RANK, string_create("gradient only implicitly created for scalars"), NULL);
         }
 
         error = tensor_ones_like(x, &x->gradient, false, false, false);

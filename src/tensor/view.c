@@ -44,7 +44,7 @@ nw_error_t *view_create(view_t **view, int64_t offset, int64_t rank, const int64
 
     if (rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("rank %ld must be less or equal to %d.",
                      rank, (int) MAX_RANK), NULL);
     }
@@ -53,7 +53,7 @@ nw_error_t *view_create(view_t **view, int64_t offset, int64_t rank, const int64
     {
         if (!shape[i])
         {
-            return ERROR(ERROR_SHAPE_CONFLICT,
+            return ERROR(ERROR_SHAPE,
                          string_create("all tensor dimensions must be greater than 0."),
                          NULL);
         }
@@ -232,7 +232,7 @@ nw_error_t *permute(const int64_t *original_shape,
 
     if (length > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("axis length %ld must be less than or equal to %d.",
                      length, (int) MAX_RANK),
                      NULL);
@@ -245,7 +245,7 @@ nw_error_t *permute(const int64_t *original_shape,
         {
             if (!original_shape[dimension])
             {
-                return ERROR(ERROR_SHAPE_CONFLICT,
+                return ERROR(ERROR_SHAPE,
                              string_create("all shape dimensions must be greater than 0."),
                              NULL);
             }
@@ -261,87 +261,6 @@ nw_error_t *permute(const int64_t *original_shape,
         }
     }
     
-    return NULL;
-}
-
-typedef struct pair_t
-{
-    int64_t index;
-    int64_t value;
-} pair_t;
-    
-static int compare(const void *a, const void *b)
-{
-    pair_t *pair_a = (pair_t *) a;
-    pair_t *pair_b = (pair_t *) b;
-
-    return (pair_a->value - pair_b->value);
-}
-
-/**
- * @brief Given an `axis` of size `rank` used to reorder the dimensions of a 
- *        tensor through the `permute` operation, find a new axis `reverse_axis`
- *        such that when the `permute` operation with `reverse_axis` is applied 
- *        to a tensor that has been permuted with `axis`, the original dimension
- *        order of the tensor before being permuted with `axis` is recovered. 
- *        Equivalently, this is an argsort of axis. 
- *        Reference: https://pytorch.org/docs/stable/generated/torch.argsort.html 
- * @param[in] axis An array of indicies specifying the order of dimensions.
- * @param[in] rank Number of elements in `axis` and `reverse_axis` that is equal to
- *                 the rank of the permuted tensor.
- * @param[out] reverse_axis An array of indicies specifying the order of dimensions
- *                          to reverse the permutation operation that was applied
- *                          with `axis`.
- * @return Error if `axis` or `reverse_axis` is NULL.
- *         Error if memory has failed to be dynamically allocated for axis.
- *         Error if `rank` does not satisfy 0 <= rank <= 5.
- *         Error if `axis` dimension index is greater than or equal to rank.
- *         Error if not all dimension indices in `axis` are unique.
- *         NULL if `reverse_axis` was successfully acquired.
- */
-nw_error_t *reverse_permute(const int64_t *axis, int64_t rank, int64_t *reverse_axis)
-{
-    CHECK_NULL_ARGUMENT(axis, "axis");
-    CHECK_NULL_ARGUMENT(reverse_axis, "reverse_axis");
-    CHECK_UNIQUE(axis, rank, "axis");
-
-    if (rank > MAX_RANK)
-    {
-        return ERROR(ERROR_RANK_CONFLICT,
-                     string_create("rank %ld must be less than or equal to %d.",
-                     rank, (int) MAX_RANK), NULL);
-    }
-
-    pair_t *new_axis = (pair_t *) malloc((size_t) (rank * sizeof(pair_t)));
-    if (!new_axis)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate new axis of size %zu bytes.", (size_t) (rank * sizeof(pair_t))), NULL);
-    }
-
-    for (int64_t i = 0; i < rank; ++i)
-    {
-        if (axis[i] >= rank)
-        {
-            free(new_axis);
-            return ERROR(ERROR_RANK_CONFLICT,
-                         string_create("dimension index %ld cannot be greater or equal to rank %ld",
-                         axis[i], rank),
-                         NULL);
-        }
-
-        new_axis[i].index = i;
-        new_axis[i].value = axis[i];
-    }
-
-    qsort((void *) new_axis, (size_t) rank, sizeof(pair_t), compare);
-
-    for (int64_t i = 0; i < rank; ++i)
-    {
-        reverse_axis[i] = new_axis[i].index;
-    }
-
-    free(new_axis);
-
     return NULL;
 }
 
@@ -388,7 +307,7 @@ nw_error_t *reduce_recover_dimensions(const int64_t *reduced_shape,
 
     if (recovered_rank != reduced_rank + rank)
     {
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("conflicting ranks with reduced rank %ld, recovered rank %ld and axis length %ld.",
                      reduced_rank, recovered_rank, rank),
                      NULL);
@@ -396,7 +315,7 @@ nw_error_t *reduce_recover_dimensions(const int64_t *reduced_shape,
 
     if (reduced_rank > MAX_RANK || recovered_rank > MAX_RANK || rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("reduced rank %ld, recovered rank %ld and axis length %ld must be less than or equal to %d.",
                      reduced_rank, recovered_rank, rank, (int) MAX_RANK),
                      NULL);
@@ -406,7 +325,7 @@ nw_error_t *reduce_recover_dimensions(const int64_t *reduced_shape,
     {
         if (axis[i] >= recovered_rank)
         {
-            return ERROR(ERROR_RANK_CONFLICT,
+            return ERROR(ERROR_RANK,
                          string_create("recovered rank %ld must be greater than the axis dimension index %ld.",
                          recovered_rank, axis[i]),
                          NULL);
@@ -432,7 +351,7 @@ nw_error_t *reduce_recover_dimensions(const int64_t *reduced_shape,
         {
             if (k >= reduced_rank)
             {
-                return ERROR(ERROR_RANK_CONFLICT,
+                return ERROR(ERROR_RANK,
                              string_create("error index %ld out of range of reduced rank %ld.",
                              k, reduced_rank),
                              NULL);
@@ -440,7 +359,7 @@ nw_error_t *reduce_recover_dimensions(const int64_t *reduced_shape,
 
             if (!reduced_shape[k])
             {
-                return ERROR(ERROR_SHAPE_CONFLICT,
+                return ERROR(ERROR_SHAPE,
                              string_create("all reduced shape dimensions must be greater than 0."),
                              NULL);
             }
@@ -494,7 +413,7 @@ nw_error_t *reduce(const int64_t *original_shape,
 
     if (rank > original_rank || original_rank > MAX_RANK || reduced_rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("original rank %ld, reduced rank %ld and axis length %ld must be less than or equal to %d and rank <= original rank.",
                      original_rank, reduced_rank, rank, (int) MAX_RANK),
                      NULL);
@@ -502,14 +421,14 @@ nw_error_t *reduce(const int64_t *original_shape,
 
     if (keep_dimensions && original_rank != reduced_rank)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("conflicting ranks with original rank %ld and reduced rank %ld.",
                      original_rank, reduced_rank), NULL);
     }
 
     if (!keep_dimensions && reduced_rank != original_rank - rank)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("conflicting ranks with expected reduced rank %ld and reduced rank %ld.", 
                      (original_rank - rank), reduced_rank), NULL);
     }
@@ -519,7 +438,7 @@ nw_error_t *reduce(const int64_t *original_shape,
     {
         if (axis[i] >= original_rank)
         {
-            return ERROR(ERROR_RANK_CONFLICT,
+            return ERROR(ERROR_RANK,
                          string_create("original rank %ld must be greater than axis dimension index %ld.",
                          original_rank, axis[i]),
                          NULL);
@@ -548,7 +467,7 @@ nw_error_t *reduce(const int64_t *original_shape,
 
         if (original_shape[i] == 0)
         {
-            return ERROR(ERROR_SHAPE_CONFLICT,
+            return ERROR(ERROR_SHAPE,
                          string_create("The dimensions of the original shape must all be greater than 0"),
                          NULL);
         }
@@ -604,7 +523,7 @@ nw_error_t *n_from_shape_and_strides(const int64_t *shape, const int64_t *stride
 
     if (rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("rank %ld must be less than or equal to %d.",
                      rank, (int) MAX_RANK),
                      NULL);
@@ -626,7 +545,7 @@ nw_error_t *n_from_shape_and_strides(const int64_t *shape, const int64_t *stride
             }
             else
             {
-                return ERROR(ERROR_SHAPE_CONFLICT,
+                return ERROR(ERROR_SHAPE,
                              string_create("all dimensions of the tensor must be greater than 0."),
                              NULL);
             }
@@ -719,7 +638,7 @@ nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t r
 
     if (rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("rank %ld must be less than or equal to %d.", 
                      rank, (int) MAX_RANK),
                      NULL);
@@ -729,7 +648,7 @@ nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t r
     {
         if (!shape[i])
         {
-            return ERROR(ERROR_SHAPE_CONFLICT,
+            return ERROR(ERROR_SHAPE,
                          string_create("all shape dimensions must be greater than 0."),
                          NULL);
         }
@@ -781,7 +700,7 @@ nw_error_t *broadcast_strides(const int64_t *original_shape,
 
     if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("original rank %ld and broadcasted rank %ld must be less than or equal to %d.", 
                      original_rank, broadcasted_rank, (int) MAX_RANK),
                      NULL);
@@ -808,7 +727,7 @@ nw_error_t *broadcast_strides(const int64_t *original_shape,
         {
             if (!original_shape[original_index] || !broadcasted_shape[broadcast_index])
             {
-                return ERROR(ERROR_SHAPE_CONFLICT,
+                return ERROR(ERROR_SHAPE,
                             string_create("all shape dimensions must be greater than 0."),
                             NULL);
             }
@@ -851,7 +770,7 @@ nw_error_t *broadcast_shapes(const int64_t *x_original_shape,
 
     if (x_original_rank > MAX_RANK || y_original_rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("x original rank %ld and y original rank %ld must be less than or equal to %d.", 
                      x_original_rank, y_original_rank, (int) MAX_RANK),
                      NULL);
@@ -859,7 +778,7 @@ nw_error_t *broadcast_shapes(const int64_t *x_original_shape,
 
     if (broadcasted_rank != MAX(x_original_rank, y_original_rank))
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("broadcast rank %ld must be the max rank of {%ld, %ld}.",
                      broadcasted_rank, x_original_rank, y_original_rank),
                      NULL);
@@ -922,7 +841,7 @@ nw_error_t *matrix_multiplication_broadcast_shapes(const int64_t *x_original_sha
         x_original_rank < 2 ||
         y_original_rank < 2)
     {
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("x original rank %ld and y original rank %ld must be in the interval [2, %d].", 
                      x_original_rank, y_original_rank, (int) MAX_RANK),
                      NULL);
@@ -930,7 +849,7 @@ nw_error_t *matrix_multiplication_broadcast_shapes(const int64_t *x_original_sha
 
     if (broadcasted_rank != MAX(x_original_rank, y_original_rank))
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("broadcast rank %ld must be the max rank of {%ld, %ld}.",
                      broadcasted_rank, x_original_rank, y_original_rank),
                      NULL);
@@ -979,7 +898,7 @@ nw_error_t *matrix_multiplication_shape(int64_t *x_shape, int64_t *y_shape, int6
 
     if (rank < 2)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("rank %ld must be 2 or greater.",
                      rank),
                      NULL);
@@ -987,7 +906,7 @@ nw_error_t *matrix_multiplication_shape(int64_t *x_shape, int64_t *y_shape, int6
 
     if (x_shape[rank - 1] != y_shape[rank - 2])
     {
-        return ERROR(ERROR_SHAPE_CONFLICT,
+        return ERROR(ERROR_SHAPE,
                      string_create("number of columns in x %ld not equal to number of rows in y %ld.",
                      x_shape[rank - 1], y_shape[rank - 1]),
                      NULL);
@@ -1008,7 +927,7 @@ nw_error_t *matrix_multiplication_shape(int64_t *x_shape, int64_t *y_shape, int6
         {
             if (x_shape[j] != y_shape[j])
             {
-                return ERROR(ERROR_SHAPE_CONFLICT,
+                return ERROR(ERROR_SHAPE,
                              string_create("dimension in x %ld not equal to dimension in y $lu.",
                              x_shape[j], y_shape[j]),
                              NULL);
@@ -1072,7 +991,7 @@ nw_error_t *reduce_axis_length(const int64_t *original_shape,
     
     if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("original rank %ld and broadcasted rank %ld must be less than or equal to %d.", 
                      original_rank, broadcasted_rank, (int) MAX_RANK),
                      NULL);
@@ -1120,7 +1039,7 @@ nw_error_t *reduce_axis(const int64_t *original_shape,
 
     if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("original rank %ld and broadcasted rank %ld must be less than or equal to %d.", 
                      original_rank, 
                      broadcasted_rank,
@@ -1182,7 +1101,7 @@ nw_error_t *slice_shape(const int64_t *original_shape,
 
     if (original_rank != slice_rank)
     {
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("conflicting ranks with original rank %ld and sliced rank %ld.", 
                      original_rank, slice_rank),
                      NULL);
@@ -1190,7 +1109,7 @@ nw_error_t *slice_shape(const int64_t *original_shape,
 
     if (original_rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("rank %ld must be less than or equal to %d.", 
                      original_rank, (int) MAX_RANK),
                      NULL);
@@ -1198,7 +1117,7 @@ nw_error_t *slice_shape(const int64_t *original_shape,
 
     if (length % 2 != 0 || original_rank != length / 2)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("conflicting ranks with original rank %ld "
                      "and axis length %ld which should be a multiple of 2.",
                      original_rank, length),
@@ -1211,7 +1130,7 @@ nw_error_t *slice_shape(const int64_t *original_shape,
             arguments[2 * i] > original_shape[i] ||
             arguments[2 * i + 1] > original_shape[i])
         {
-            return ERROR(ERROR_SHAPE_CONFLICT, 
+            return ERROR(ERROR_SHAPE, 
                          string_create("upperbound of slice %ld must be greater"
                          "than lower bound %ld and bounds must be less than dimension %ld.", 
                          arguments[2 * i + 1], 
@@ -1237,21 +1156,21 @@ nw_error_t *slice_offset(const int64_t *original_strides,
 
     if (original_rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("original rank %ld must be less than or equal to %d.", 
                      original_rank, (int) MAX_RANK), NULL);
     }
 
     if (length % 2 != 0)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("conflicting ranks with original rank %ld and axis length %ld which should be a multiple of 2.",
                      original_rank, length), NULL);
     }
 
     if (original_rank != length / 2)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("conflict between rank %ld and length of arguments %ld.",
                      original_rank, length), NULL);
     }
@@ -1277,28 +1196,28 @@ nw_error_t *reverse_slice(const int64_t *original_shape,
 
     if (new_length != length)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("length of original arguments %ld is not equal to length of new arguments %ld.", 
                      length, new_length), NULL);
     }
 
     if (length % 2 != 0)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("length of original arguments %ld is not a multiple of 2.", 
                      length), NULL);
     }
 
     if (original_rank != length / 2)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("conflict between rank %ld and length of arguments %ld.",
                      original_rank, length), NULL);
     }
 
     if (original_rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("original rank %ld must be less than or equal to %d.", 
                      original_rank, (int) MAX_RANK), NULL);
     }
@@ -1325,28 +1244,28 @@ nw_error_t *padding(const int64_t *original_shape,
 
     if (original_rank != padding_rank)
     {
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("conflicting ranks with original rank %ld, padding rank %ld.", 
                      original_rank, padding_rank), NULL);
     }
 
     if (length % 2 != 0)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("length of arguments %ld is not a multiple of 2.", 
                      length), NULL);
     }
 
     if (original_rank != length / 2)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("conflict between rank %ld and length of arguments %ld.",
                      original_rank, length), NULL);
     }
 
     if (original_rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("original rank %ld must be less than or equal to %d.", 
                      original_rank, (int) MAX_RANK), NULL);
     }
@@ -1372,28 +1291,28 @@ nw_error_t *reverse_padding(const int64_t *original_shape,
 
     if (new_length != length)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("length of original arguments %ld is not equal to length of new arguments %ld.", 
                      length, new_length), NULL);
     }
 
     if (length % 2 != 0)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("length of original arguments %ld is not a multiple of 2.", 
                      length), NULL);
     }
 
     if (original_rank != length / 2)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("conflict between rank %ld and length of arguments %ld.",
                      original_rank, length), NULL);
     }
 
     if (original_rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("original rank %ld must be less than or equal to %d.", 
                      original_rank, (int) MAX_RANK), NULL);
     }

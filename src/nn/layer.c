@@ -118,7 +118,7 @@ static nw_error_t *activation_forward(activation_t *activation, tensor_t *x, ten
         }
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown activation function %d.", (int) activation_function_type), NULL);
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown activation function %d.", (int) activation_function_type), NULL);
         break;
     }
 
@@ -231,7 +231,7 @@ static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
             error = block_forward(transform->block, x, &feature_map);
             break;
         default:
-            error = ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
+            error = ERROR(ERROR_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
             break;
         }
 
@@ -327,7 +327,7 @@ static nw_error_t *block_requires_gradient(block_t *block, bool_t requires_gradi
             error = block_requires_gradient(transform->block, requires_gradient);
             break;
         default:
-            error = ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
+            error = ERROR(ERROR_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
             break;
         }
 
@@ -405,7 +405,7 @@ nw_error_t *transform_create(transform_t **transform, transform_type_t transform
         break;
     default:
         free(*transform);
-        return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
+        return ERROR(ERROR_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
     }
 
     return NULL;
@@ -444,7 +444,7 @@ string_t transform_type_string(transform_type_t transform_type)
     case BLOCK:
         return "BLOCK";
     default:
-        return "UNKNOWN_TRANSFORM_TYPE";
+        return "TRANSFORM_TYPE";
     }
 }
 
@@ -461,7 +461,7 @@ string_t activation_function_type_string(activation_function_type_t activation_f
     case ACTIVATION_LOGSOFTMAX:
         return "ACTIVATION_LOGSOFTMAX";
     default:
-        return "UNKNOWN_ACTIVATION_FUNCTION_TYPE";
+        return "ACTIVATION_FUNCTION_TYPE";
     }
 }
 

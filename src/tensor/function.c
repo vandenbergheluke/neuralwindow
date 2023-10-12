@@ -8,6 +8,7 @@
 #include <view.h>
 #include <buffer.h>
 #include <string.h>
+#include <sort.h>
 
 extern bool_t no_gradient;
 
@@ -259,7 +260,7 @@ nw_error_t *apply_function_reduction(reduction_operation_type_t reduction_operat
 
     if (rank < reduce_length)
     {
-        error = ERROR(ERROR_RANK_CONFLICT, string_create("reduce axis length greater than rank of tensor."), NULL);
+        error = ERROR(ERROR_RANK, string_create("reduce axis length greater than rank of tensor."), NULL);
         goto cleanup;
     }
 
@@ -526,7 +527,7 @@ nw_error_t *operation_create(operation_t **operation, operation_type_t operation
         break;
     default:
         free(*operation);
-        return ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        return ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
     }
 
     return NULL;
@@ -586,7 +587,7 @@ string_t operation_type_string(operation_type_t operation_type)
     case CREATION_OPERATION:
         return "CREATION_OPERATION";
     default:
-        return "UNKNOWN_OPERATION";
+        return "OPERATION";
     }
 }
 
@@ -624,7 +625,7 @@ nw_error_t *operation_forward(operation_t *operation, operation_type_t operation
         error = creation_operation_forward(operation->creation_operation, result);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
         break;
     }
 
@@ -672,7 +673,7 @@ nw_error_t *operation_backward(operation_t *operation, operation_type_t operatio
     case CREATION_OPERATION:
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
         break;
     }
 
@@ -760,7 +761,7 @@ string_t unary_operation_type_string(unary_operation_type_t unary_operation_type
     case AS_OPERATION:
         return "AS_OPERATION";
     default:
-        return "UKNOWN_OPERATION";
+        return "OPERATION";
     }
 }
 
@@ -1594,7 +1595,7 @@ nw_error_t *unary_operation_forward(unary_operation_t *unary_operation, tensor_t
         error = as_operation_forward(x, *result);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
         break;
     }
 
@@ -1657,7 +1658,7 @@ nw_error_t *unary_operation_backward(unary_operation_t *unary_operation, tensor_
     case AS_OPERATION:
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
         break;
     }
 
@@ -1723,7 +1724,7 @@ string_t binary_operation_type_string(binary_operation_type_t binary_operation_t
     case COMPARE_GREATER_OPERATION:
         return "COMPARE_GREATER_OPERATION";
     default:
-        return "UKNOWN_OPERATION";
+        return "OPERATION";
     }
 }
 
@@ -2275,7 +2276,7 @@ nw_error_t *binary_operation_forward(binary_operation_t *binary_operation, tenso
 
     if (x_datatype != y_datatype)
     {
-        return ERROR(ERROR_DATATYPE_CONFLICT, string_create("datatypes are incompatible."), NULL);
+        return ERROR(ERROR_DATATYPE, string_create("datatypes are incompatible."), NULL);
     }
     else
     {
@@ -2284,7 +2285,7 @@ nw_error_t *binary_operation_forward(binary_operation_t *binary_operation, tenso
 
     if (x_runtime != y_runtime)
     {
-        return ERROR(ERROR_RUNTIME_CONFLICT, string_create("runtimes are incompatible."), NULL);
+        return ERROR(ERROR_RUNTIME, string_create("runtimes are incompatible."), NULL);
     }
     else
     {
@@ -2297,7 +2298,7 @@ nw_error_t *binary_operation_forward(binary_operation_t *binary_operation, tenso
         {
             if (!tensor_shapes_equal(x, y))
             {
-                return ERROR(ERROR_SHAPE_CONFLICT, string_create("incompatible tensor shapes."), NULL);
+                return ERROR(ERROR_SHAPE, string_create("incompatible tensor shapes."), NULL);
             }
             else
             {
@@ -2310,7 +2311,7 @@ nw_error_t *binary_operation_forward(binary_operation_t *binary_operation, tenso
             error = matrix_multiplication_shape(x_shape, y_shape, shape, rank);
             if (error)
             {
-                return ERROR(ERROR_SHAPE_CONFLICT, string_create("incompatible shapes for matrix multiplication."), error);
+                return ERROR(ERROR_SHAPE, string_create("incompatible shapes for matrix multiplication."), error);
             }
         }
 
@@ -2349,7 +2350,7 @@ nw_error_t *binary_operation_forward(binary_operation_t *binary_operation, tenso
         error = compare_greater_operation_forward(x, y, *result);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE,
+        error = ERROR(ERROR_OPERATION_TYPE,
                       string_create("unsupported binary operation type %d.",
                       (int) operation_type), NULL);
         break;
@@ -2404,7 +2405,7 @@ nw_error_t *binary_operation_backward(binary_operation_t *binary_operation, tens
     case COMPARE_GREATER_OPERATION:
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unsupported operation type %d.", (int) operation_type), NULL);
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unsupported operation type %d.", (int) operation_type), NULL);
         break;
     }
 
@@ -2474,7 +2475,7 @@ string_t reduction_operation_type_string(reduction_operation_type_t reduction_op
     case MAXIMUM_OPERATION:
         return "MAXIMUM_OPERATION";
     default:
-        return "UNKNOWN_OPERATION";
+        return "OPERATION";
     }
 }
 
@@ -2749,7 +2750,7 @@ nw_error_t *reduction_operation_forward(reduction_operation_t *reduction_operati
 
     if (rank < length)
     {
-        return ERROR(ERROR_RANK_CONFLICT, string_create("reduction axis length greater than rank of tensor."), NULL);
+        return ERROR(ERROR_RANK, string_create("reduction axis length greater than rank of tensor."), NULL);
     }
 
     error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, axis, length, keep_dimension);
@@ -2773,7 +2774,7 @@ nw_error_t *reduction_operation_forward(reduction_operation_t *reduction_operati
         error = maximum_operation_forward(x, axis, length, *result, keep_dimension);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
         break;
     }
 
@@ -2813,7 +2814,7 @@ nw_error_t *reduction_operation_backward(reduction_operation_t *reduction_operat
         error = maximum_operation_backward(x, axis, length, result, gradient, keep_dimension);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
         break;
     }
 
@@ -2885,7 +2886,7 @@ string_t structure_operation_type_string(structure_operation_type_t structure_op
     case PADDING_OPERATION:
         return "PADDING_OPERATION";
     default:
-        return "UNKNOWN_OPERATION";
+        return "OPERATION";
     }
 }
 
@@ -3040,26 +3041,27 @@ static nw_error_t *permute_operation_forward(tensor_t *x, int64_t *axis, int64_t
     return error;
 }
 
-static nw_error_t *permute_operation_backward(tensor_t *x, int64_t *axis, int64_t rank, tensor_t *gradient)
+static nw_error_t *permute_operation_backward(tensor_t *x, int64_t *axis, int64_t length, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(axis, "axis");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
 
     nw_error_t *error = NULL;
-    int64_t gradient_axis[rank];
     tensor_t *x_gradient = NULL;
+   int64_t sorted_axis[length];
+
 
     if (x->requires_gradient)
     {
-        error = reverse_permute(axis, rank, gradient_axis);
+        error = argument_sort(axis, length, sorted_axis);
         if (error)
         {
-            error = ERROR(ERROR_PERMUTE, string_create("failed to get permuted axis."), error);
+            error = ERROR(ERROR_SORT, string_create("failed to sort array."), error);
             goto cleanup;
         }
 
-        error = tensor_permute(gradient, &x_gradient, gradient_axis, rank);
+        error = tensor_permute(gradient, &x_gradient, sorted_axis, length);
         if (error)
         {
             error = ERROR(ERROR_PERMUTE, string_create("failed to permute tensor."), error);
@@ -3406,7 +3408,7 @@ nw_error_t *structure_operation_forward(structure_operation_t *structure_operati
         error = padding_operation_forward(x, arguments, length, *result);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
         break;
     }
 
@@ -3463,7 +3465,7 @@ nw_error_t *structure_operation_backward(structure_operation_t *structure_operat
         error = padding_operation_backward(x, arguments, length, gradient);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
         break;
     }
 
@@ -3631,7 +3633,7 @@ string_t creation_operation_type_string(creation_operation_type_t creation_opera
     case COPY_OPERATION:
         return "COPY_OPERATION";
     default:
-        return "UNKNOWN_OPERATION";
+        return "OPERATION";
     }
 }
 
@@ -3870,7 +3872,7 @@ nw_error_t *creation_operation_forward(creation_operation_t *creation_operation,
         error = copy_operation_forward(shape, rank, strides, offset, runtime, datatype, *result, data);
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
         break;
     }
 

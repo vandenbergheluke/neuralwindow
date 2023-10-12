@@ -61,7 +61,7 @@ nw_error_t *init_create(init_t **init, init_type_t init_type, void *type_init)
         break;
     default:
         free(*init);
-        return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown init type %d.", (int) init_type), NULL);
+        return ERROR(ERROR_LAYER_TYPE, string_create("unknown init type %d.", (int) init_type), NULL);
     }
 
     return NULL;

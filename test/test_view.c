@@ -53,12 +53,12 @@ START_TEST(test_view_create_error)
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
-        ERROR_RANK_CONFLICT,
-        ERROR_SHAPE_CONFLICT,
-        ERROR_SHAPE_CONFLICT,
-        ERROR_SHAPE_CONFLICT,
-        ERROR_SHAPE_CONFLICT,
-        ERROR_SHAPE_CONFLICT,
+        ERROR_RANK,
+        ERROR_SHAPE,
+        ERROR_SHAPE,
+        ERROR_SHAPE,
+        ERROR_SHAPE,
+        ERROR_SHAPE,
     };
 
     for (int64_t i = 0; i < number_of_cases; i++)
@@ -223,10 +223,10 @@ START_TEST(test_strides_from_shape_error)
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
-        ERROR_RANK_CONFLICT,
-        ERROR_SHAPE_CONFLICT,
-        ERROR_SHAPE_CONFLICT,
-        ERROR_SHAPE_CONFLICT,
+        ERROR_RANK,
+        ERROR_SHAPE,
+        ERROR_SHAPE,
+        ERROR_SHAPE,
     };
     int64_t *returned_strides[] = {
         NULL,
@@ -244,93 +244,6 @@ START_TEST(test_strides_from_shape_error)
         error = strides_from_shape(returned_strides[i], shapes[i], ranks[i]);
         ck_assert_ptr_nonnull(error);
         ck_assert_int_eq(error->error_type, expected_error_type[i]);
-        error_destroy(error);
-        error = NULL;
-    }
-}
-END_TEST
-
-START_TEST(test_reverse_permute)
-{
-    int64_t number_of_cases = 8;
-
-    int64_t *axis[] = {
-        (int64_t[]) {0},
-        (int64_t[]) {1, 0},
-        (int64_t[]) {2, 1, 0},
-        (int64_t[]) {1, 2, 0, 3},
-        (int64_t[]) {2, 0, 1},
-        (int64_t[]) {0, 1, 3, 2},
-        (int64_t[]) {},
-        (int64_t[]) {4, 2, 3, 0, 1},
-    };
-
-    int64_t returned_axis[number_of_cases][MAX_RANK];
-    int64_t *expected_axis[] = {
-        (int64_t[]) {0},
-        (int64_t[]) {1, 0},
-        (int64_t[]) {2, 1, 0},
-        (int64_t[]) {2, 0, 1, 3},
-        (int64_t[]) {1, 2, 0},
-        (int64_t[]) {0, 1, 3, 2},
-        (int64_t[]) {},
-        (int64_t[]) {3, 4, 1, 2, 0},
-    };
-    int64_t ranks[] = { 1, 2, 3, 4, 3, 4, 0, 5 };
-
-    for (int64_t i = 0; i < number_of_cases; i++)
-    {
-        error = reverse_permute(axis[i], ranks[i], returned_axis[i]);
-        ck_assert_ptr_null(error);
-        for (int64_t j = 0; j < ranks[i]; j++)
-        {
-            ck_assert_int_eq(expected_axis[i][j], returned_axis[i][j]);
-        }
-    }
-}
-END_TEST
-
-START_TEST(test_reverse_permute_error)
-{
-    int64_t number_of_cases = 8;
-
-    int64_t *axis[] = {
-        NULL,
-        (int64_t[]) {1},
-        NULL,
-        (int64_t[]) {0, 1, 2, 3, 4, 5},
-        (int64_t[]) {1},
-        (int64_t[]) {1, 2, 3, 4, 5},
-        (int64_t[]) {1, 2, 5, 4, 0},
-        (int64_t[]) {1, 2, 5, 0, 0},
-    };
-    int64_t *returned_axis[] = {
-        (int64_t[]) {1},
-        NULL,
-        NULL,
-        (int64_t[]) {0, 1},
-        (int64_t[]) {1},
-        (int64_t[]) {1, 2, 3, 4, 5},
-        (int64_t[]) {1, 2, 5, 4, 0},
-        (int64_t[]) {1, 2, 5, 4, 0},
-    };
-    int64_t ranks[] = { 1, 1, 1, MAX_RANK + 1, 1, 5, 5, 5};
-    nw_error_type_t error_types[] = {
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
-        ERROR_UNIQUE,
-    };
-
-    for (int64_t i = 0; i < number_of_cases; i++)
-    {
-        error = reverse_permute(axis[i], ranks[i], returned_axis[i]);
-        ck_assert_ptr_nonnull(error);
-        ck_assert_int_eq(error->error_type, error_types[i]);
         error_destroy(error);
         error = NULL;
     }
@@ -496,8 +409,8 @@ START_TEST(test_permute_error)
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
-        ERROR_SHAPE_CONFLICT,
-        ERROR_RANK_CONFLICT,
+        ERROR_SHAPE,
+        ERROR_RANK,
         ERROR_PERMUTE, 
         ERROR_PERMUTE, 
         ERROR_PERMUTE, 
@@ -755,12 +668,12 @@ START_TEST(test_reduce_recover_dimension_error)
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
-        ERROR_SHAPE_CONFLICT,
+        ERROR_RANK,
+        ERROR_RANK,
+        ERROR_RANK,
+        ERROR_RANK,
+        ERROR_RANK,
+        ERROR_SHAPE,
     };
 
     for (int64_t i = 0; i < number_of_cases; i++)
@@ -1272,12 +1185,12 @@ START_TEST(test_reduce_error)
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
+        ERROR_RANK,
+        ERROR_RANK,
+        ERROR_RANK,
+        ERROR_RANK,
+        ERROR_RANK,
+        ERROR_RANK,
         ERROR_UNIQUE,
     };
 
@@ -1540,8 +1453,8 @@ START_TEST(test_broadcast_strides_error)
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
+        ERROR_RANK,
+        ERROR_RANK,
         ERROR_BROADCAST,
     };
 
@@ -1821,9 +1734,9 @@ START_TEST(test_broadcast_shapes_error)
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
+        ERROR_RANK,
+        ERROR_RANK,
+        ERROR_RANK,
         ERROR_BROADCAST,
         ERROR_BROADCAST,
         ERROR_BROADCAST,
@@ -2086,8 +1999,8 @@ START_TEST(test_reduce_axis_length_error)
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
+        ERROR_RANK,
+        ERROR_RANK,
         ERROR_BROADCAST,
         ERROR_BROADCAST,
     };
@@ -2345,8 +2258,8 @@ START_TEST(test_reduce_axis_error)
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
-        ERROR_RANK_CONFLICT,
-        ERROR_RANK_CONFLICT,
+        ERROR_RANK,
+        ERROR_RANK,
         ERROR_BROADCAST,
         ERROR_BROADCAST,
         ERROR_BROADCAST,
@@ -2498,8 +2411,8 @@ START_TEST(test_n_from_shape_and_strides_error)
         ERROR_NULL,
         ERROR_NULL,
         ERROR_NULL,
-        ERROR_SHAPE_CONFLICT,
-        ERROR_RANK_CONFLICT,
+        ERROR_SHAPE,
+        ERROR_RANK,
     };
 
 
@@ -2808,8 +2721,6 @@ Suite *make_view_suite(void)
     tcase_add_test(tc, test_view_create);
     tcase_add_test(tc, test_permute);
     tcase_add_test(tc, test_permute_error);
-    tcase_add_test(tc, test_reverse_permute);
-    tcase_add_test(tc, test_reverse_permute_error);
     tcase_add_test(tc, test_is_contiguous);
     tcase_add_test(tc, test_strides_from_shape);
     tcase_add_test(tc, test_strides_from_shape_error);

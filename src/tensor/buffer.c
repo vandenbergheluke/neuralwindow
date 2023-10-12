@@ -12,6 +12,7 @@
 #include <mkl_runtime.h>
 #include <openblas_runtime.h>
 #include <string.h>
+#include <sort.h>
 
 nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, int64_t n, void *data, bool_t copy)
 {
@@ -134,7 +135,7 @@ nw_error_t *runtime_create_context(runtime_t runtime)
         break;
 #endif
     default:
-        error = ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) runtime), NULL);
+        error = ERROR(ERROR_RUNTIME, string_create("unknown runtime %d.", (int) runtime), NULL);
         break;
     }
     
@@ -188,7 +189,7 @@ nw_error_t *runtime_malloc(storage_t *storage)
         break;
 #endif
     default:
-        error = ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime %d.", (int) storage->runtime), NULL);
+        error = ERROR(ERROR_RUNTIME, string_create("unknown runtime %d.", (int) storage->runtime), NULL);
         break;
     }
 
@@ -505,7 +506,7 @@ static nw_error_t *runtime_unary(runtime_unary_type_t runtime_unary_type,
         }
         break;
     default:
-        return ERROR(ERROR_RANK_CONFLICT, string_create("unsupported rank %d", (int) rank), NULL);
+        return ERROR(ERROR_RANK, string_create("unsupported rank %d", (int) rank), NULL);
     }
 
     return NULL;
@@ -920,7 +921,7 @@ static nw_error_t *runtime_binary_elementwise(runtime_binary_elementwise_type_t 
         }
         break;
     default:
-        return ERROR(ERROR_RANK_CONFLICT, 
+        return ERROR(ERROR_RANK, 
                      string_create("unsupported rank %d",
                      (int) rank),
                      NULL);
@@ -1169,7 +1170,7 @@ nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer
         }
         break;
     default:
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("unsupported rank %d",
                      (int) z_buffer->view->rank),
                      NULL);
@@ -1448,17 +1449,12 @@ static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_
         }
         break;
     default:
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("unsupported rank %d",
                      (int) x_buffer->view->rank), NULL);
     }
 
     return NULL;
-}
-
-static int comparator (const void * p1, const void * p2)
-{
-    return (*(int64_t *) p2 - *(int64_t *) p1);
 }
 
 static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_type,
@@ -1480,13 +1476,18 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
     int64_t reduced_rank = x->view->rank; 
     nw_error_t *error = NULL;
     buffer_t *intermediate_buffer = NULL;
+    int64_t sorted_axis[length];
 
-    // Descending order
-    qsort(axis, length, sizeof(int64_t), comparator);
+    error = descending_sort(axis, length, sorted_axis);
+    if (error)
+    {
+        return ERROR(ERROR_SORT, string_create("failed to sort axis"), error);
+    }
+
 
     if (x->view->rank < length)
     {
-        return ERROR(ERROR_RANK_CONFLICT,
+        return ERROR(ERROR_RANK,
                      string_create("rank of tensor being reduced (%ld) must be not be less than length of axis (%ld).",
                      (x->view->rank), length), NULL);
     }
@@ -1505,7 +1506,7 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
         int64_t reduced_shape[reduced_rank];
         int64_t reduced_strides[reduced_rank];
 
-        error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, &axis[i], (int64_t) 1, keep_dimension);
+        error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, &sorted_axis[i], (int64_t) 1, keep_dimension);
         if (error)
         {
             return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
@@ -1524,7 +1525,7 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
             intermediate_buffer = result;
         }
 
-        error = runtime_reduction_dimension(runtime_reduction_type, x, intermediate_buffer, axis[i], keep_dimension);
+        error = runtime_reduction_dimension(runtime_reduction_type, x, intermediate_buffer, sorted_axis[i], keep_dimension);
         if (error)
         {
             return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor dimension."), error);
@@ -1586,7 +1587,7 @@ string_t runtime_string(runtime_t runtime)
     case CU_RUNTIME:
         return "CU_RUNTIME";
     default:
-        return "UNKNOWN_RUNTIME";
+        return "RUNTIME";
     }
 }
 
@@ -1952,7 +1953,7 @@ static nw_error_t *runtime_create(buffer_t **buffer,
         }
         break;
     default:
-        error = ERROR(ERROR_UNKNOWN_RUNTIME, string_create("unknown runtime creation operation."), NULL);
+        error = ERROR(ERROR_RUNTIME, string_create("unknown runtime creation operation."), NULL);
         break;
     }
 

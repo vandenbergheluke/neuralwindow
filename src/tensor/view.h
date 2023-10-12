@@ -43,9 +43,6 @@ nw_error_t *permute(const int64_t *original_shape,
                     int64_t *permuted_strides,
                     const int64_t *axis,
                     int64_t length);
-nw_error_t *reverse_permute(const int64_t *axis,
-                         int64_t rank,
-                         int64_t *reverse_axis);
 nw_error_t *reduce(const int64_t *original_shape,
                 int64_t original_rank,
                 const int64_t *original_strides, 
