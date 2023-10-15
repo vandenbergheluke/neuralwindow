@@ -462,17 +462,17 @@ nw_error_t *initialize(tensor_t **parameters,
     switch (init_type)
     {
     case ZEROES:
-        error = tensor_create_zeroes(parameters, shape, rank, NULL, 0, runtime, datatype, requires_gradient, persist);
+        error = tensor_create_zeroes(parameters, shape, rank, runtime, datatype, requires_gradient, persist);
         break;
     case ONES:
-        error = tensor_create_ones(parameters, shape, rank, NULL, 0, runtime, datatype, requires_gradient, persist);
+        error = tensor_create_ones(parameters, shape, rank, runtime, datatype, requires_gradient, persist);
         break;
     case UNIFORM:
         if (init->uniform_init)
         {
             void *lower_bound = init->uniform_init->lower_bound;
             void *upper_bound = init->uniform_init->upper_bound;
-            error = tensor_create_uniform(parameters, shape, rank, NULL, 0, runtime, datatype, requires_gradient, persist, lower_bound, upper_bound);
+            error = tensor_create_uniform(parameters, shape, rank, runtime, datatype, requires_gradient, persist, lower_bound, upper_bound);
         }
         else
         {
@@ -484,7 +484,7 @@ nw_error_t *initialize(tensor_t **parameters,
         {
             void *mean = init->normal_init->mean;
             void *standard_deviation = init->normal_init->standard_deviation;
-            error = tensor_create_normal(parameters, shape, rank, NULL, 0, runtime, datatype, requires_gradient, persist, mean, standard_deviation);
+            error = tensor_create_normal(parameters, shape, rank, runtime, datatype, requires_gradient, persist, mean, standard_deviation);
         }
         else
         {
@@ -496,7 +496,7 @@ nw_error_t *initialize(tensor_t **parameters,
         {
             void *fan = init->kaiming_init->fan;
             void *gain = init->kaiming_init->gain;
-            error = tensor_create_kaiming_uniform(parameters, shape, rank, NULL, 0, runtime, datatype, requires_gradient, persist, gain, fan);
+            error = tensor_create_kaiming_uniform(parameters, shape, rank, runtime, datatype, requires_gradient, persist, gain, fan);
         }
         else
         {
@@ -508,7 +508,7 @@ nw_error_t *initialize(tensor_t **parameters,
         {
             void *fan = init->kaiming_init->fan;
             void *gain = init->kaiming_init->gain;
-            error = tensor_create_kaiming_normal(parameters, shape, rank, NULL, 0, runtime, datatype, requires_gradient, persist, gain, fan);
+            error = tensor_create_kaiming_normal(parameters, shape, rank, runtime, datatype, requires_gradient, persist, gain, fan);
         }
         else
         {
@@ -521,7 +521,7 @@ nw_error_t *initialize(tensor_t **parameters,
             void *fan_in = init->glorot_init->fan_in;
             void *fan_out = init->glorot_init->fan_out;
             void *gain = init->glorot_init->gain;
-            error = tensor_create_glorot_uniform(parameters, shape, rank, NULL, 0, runtime, datatype, requires_gradient, persist, gain, fan_in, fan_out);
+            error = tensor_create_glorot_uniform(parameters, shape, rank, runtime, datatype, requires_gradient, persist, gain, fan_in, fan_out);
         }
         else
         {
@@ -534,7 +534,7 @@ nw_error_t *initialize(tensor_t **parameters,
             void *fan_in = init->glorot_init->fan_in;
             void *fan_out = init->glorot_init->fan_out;
             void *gain = init->glorot_init->gain;
-            error = tensor_create_glorot_normal(parameters, shape, rank, NULL, 0, runtime, datatype, requires_gradient, persist, gain, fan_in, fan_out);
+            error = tensor_create_glorot_normal(parameters, shape, rank, runtime, datatype, requires_gradient, persist, gain, fan_in, fan_out);
         }
         else
         {

@@ -87,8 +87,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_RESHAPE";
     case ERROR_SLICE:
         return "ERROR_SLICE";
-    case ERROR_BINARY_ELEMENTWISE:
-        return "ERROR_BINARY_ELEMENTWISE";
+    case ERROR_BINARY:
+        return "ERROR_BINARY";
     case ERROR_REDUCTION:
         return "ERROR_REDUCTION";
     case ERROR_EXPONENTIAL:

@@ -1,20 +1,9 @@
-/**@file buffer.c
- * @brief
- *
- */
-
 #include <buffer.h>
 #include <view.h>
-#include <random.h>
-#ifndef CPU_ONLY
-#include <cu_runtime.h>
-#endif
-#include <mkl_runtime.h>
-#include <openblas_runtime.h>
 #include <string.h>
 #include <sort.h>
 
-nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, int64_t n, void *data, bool_t copy)
+static nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, int64_t n, void *data, bool_t copy)
 {
     CHECK_NULL_ARGUMENT(storage, "storage");
 
@@ -36,7 +25,7 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
 
     if (copy)
     {
-        nw_error_t *error = runtime_malloc(*storage);
+        nw_error_t *error = runtime_malloc(&(*storage)->data, n, datatype, runtime);
         if (error)
         {
             free(*storage);
@@ -60,13 +49,13 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
     return NULL;
 }
 
-void storage_destroy(storage_t *storage)
+static void storage_destroy(storage_t *storage)
 {
     if (storage)
     {
         if (storage->reference_count < 2)
         {
-            runtime_free(storage);
+            runtime_free(storage->data, storage->runtime);
             free(storage);
         }
         else
@@ -75,7 +64,6 @@ void storage_destroy(storage_t *storage)
         }
     }
 }
-
 
 nw_error_t *buffer_create(buffer_t **buffer, view_t *view, storage_t *storage, bool_t copy)
 {
@@ -98,6 +86,7 @@ nw_error_t *buffer_create(buffer_t **buffer, view_t *view, storage_t *storage, b
         error = storage_create(&(*buffer)->storage, storage->runtime, storage->datatype, storage->n, storage->data, copy);
         if (error)
         {
+            free(*buffer);
             return ERROR(ERROR_CREATE, string_create("failed to create storage copy."), error);
         }
     }
@@ -120,265 +109,55 @@ void buffer_destroy(buffer_t *buffer)
     }
 }
 
-nw_error_t *runtime_create_context(runtime_t runtime)
-{
-    nw_error_t *error;
-    switch (runtime)
-    {
-    case OPENBLAS_RUNTIME:
-    case MKL_RUNTIME:
-        error = NULL;
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        error = cu_create_context();
-        break;
-#endif
-    default:
-        error = ERROR(ERROR_RUNTIME, string_create("unknown runtime %d.", (int) runtime), NULL);
-        break;
-    }
-    
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create context for runtime %s.", runtime_string(runtime)), error);
-    }
-
-    return NULL;
-}
-
-void runtime_destroy_context(runtime_t runtime)
-{
-    switch (runtime)
-    {
-    case OPENBLAS_RUNTIME:
-    case MKL_RUNTIME:
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        cu_destroy_context();
-        break;
-#endif
-    default:
-        break;
-    }
-}
-
-nw_error_t *runtime_malloc(storage_t *storage)
-{
-    CHECK_NULL_ARGUMENT(storage, "storage");
-
-    if (storage->n == 0)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("cannot allocate 0 bytes."), NULL);
-    }
-
-    nw_error_t *error = NULL;
-
-    switch (storage->runtime)
-    {
-    case OPENBLAS_RUNTIME:
-        error = openblas_memory_allocate(&storage->data, storage->n * datatype_size(storage->datatype));
-        break;
-    case MKL_RUNTIME:
-        error = mkl_memory_allocate(&storage->data, storage->n * datatype_size(storage->datatype));
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        error = cu_memory_allocate(&storage->data, storage->n * datatype_size(storage->datatype));
-        break;
-#endif
-    default:
-        error = ERROR(ERROR_RUNTIME, string_create("unknown runtime %d.", (int) storage->runtime), NULL);
-        break;
-    }
-
-    if (error)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes for runtime %s.", 
-                     (size_t) (storage->n *datatype_size(storage->datatype)), runtime_string(storage->runtime)), error);
-    }
-    
-    return NULL;
-}
-
-void runtime_free(storage_t *storage)
-{
-    if (storage)
-    {
-        switch (storage->runtime)
-        {
-        case OPENBLAS_RUNTIME:
-            openblas_memory_free(storage->data);
-            break;
-        case MKL_RUNTIME:
-            mkl_memory_free(storage->data);
-            break;
-#ifndef CPU_ONLY
-        case CU_RUNTIME:
-            cu_memory_free(storage->data);
-            break;
-#endif
-        default:
-            break;
-        }
-    }
-
-}
-
-static void runtime_unary_execute(runtime_unary_type_t runtime_unary_type,
-                                  runtime_t runtime,
-                                  datatype_t datatype,
-                                  int64_t n,
-                                  void *x_data,
-                                  int64_t x_stride,
-                                  int64_t x_offset,
-                                  void *y_data,
-                                  int64_t y_stride,
-                                  int64_t y_offset)
-{
-    switch (runtime)
-    {
-    case OPENBLAS_RUNTIME:
-        switch (runtime_unary_type)
-        {
-        case RUNTIME_EXPONENTIAL:
-            openblas_exponential(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_LOGARITHM:
-            openblas_logarithm(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_SINE:
-            openblas_sine(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_COSINE:
-            openblas_cosine(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_SQUARE_ROOT:
-            openblas_square_root(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_CONTIGUOUS:
-            openblas_copy(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_NEGATION:
-            openblas_negation(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_RECTIFIED_LINEAR:
-            openblas_rectified_linear(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_SIGMOID:
-            openblas_sigmoid(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_RECIPROCAL:
-            openblas_reciprocal(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        default:
-            break;
-        }
-        break;
-    case MKL_RUNTIME:
-        switch (runtime_unary_type)
-        {
-        case RUNTIME_EXPONENTIAL:
-            mkl_exponential(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_LOGARITHM:
-            mkl_logarithm(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_SINE:
-            mkl_sine(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_COSINE:
-            mkl_cosine(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_SQUARE_ROOT:
-            mkl_square_root(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_CONTIGUOUS:
-            mkl_copy(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_NEGATION:
-            mkl_negation(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_RECTIFIED_LINEAR:
-            mkl_rectified_linear(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_SIGMOID:
-            mkl_sigmoid(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_RECIPROCAL:
-            mkl_reciprocal(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        default:
-            break;
-        }
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        switch (runtime_unary_type)
-        {
-        case RUNTIME_EXPONENTIAL:
-            cu_exponential(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_LOGARITHM:
-            cu_logarithm(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_SINE:
-            cu_sine(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_COSINE:
-            cu_cosine(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_SQUARE_ROOT:
-            cu_square_root(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_CONTIGUOUS:
-            cu_copy(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_NEGATION:
-            cu_negation(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_RECTIFIED_LINEAR:
-            cu_rectified_linear(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_SIGMOID:
-            cu_sigmoid(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        case RUNTIME_RECIPROCAL:
-            cu_reciprocal(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
-            break;
-        default:
-            break;
-        }
-        break;
-#endif
-    default:
-        break;
-    }
-}
-
-static nw_error_t *runtime_unary(runtime_unary_type_t runtime_unary_type,
-                                 buffer_t *x_buffer, 
-                                 buffer_t *y_buffer)
+nw_error_t *buffer_unary(unary_operation_type_t unary_operation_type, buffer_t *x_buffer, buffer_t **y_buffer)
 {
     CHECK_NULL_ARGUMENT(x_buffer, "x_buffer");
     CHECK_NULL_ARGUMENT(y_buffer, "y_buffer");
     CHECK_NULL_ARGUMENT(x_buffer->view, "x_buffer->view");
-    CHECK_NULL_ARGUMENT(y_buffer->view, "y_buffer->view");
     CHECK_NULL_ARGUMENT(x_buffer->view->strides, "x_buffer->view->strides");
-    CHECK_NULL_ARGUMENT(y_buffer->view->strides, "y_buffer->view->strides");
     CHECK_NULL_ARGUMENT(x_buffer->view->shape, "x_buffer->view->shape");
-    CHECK_NULL_ARGUMENT(y_buffer->view->shape, "y_buffer->view->shape");
     CHECK_NULL_ARGUMENT(x_buffer->storage, "x_buffer->storage");
-    CHECK_NULL_ARGUMENT(y_buffer->storage, "y_buffer->storage");
     CHECK_NULL_ARGUMENT(x_buffer->storage->data, "x_buffer->storage->data");
-    CHECK_NULL_ARGUMENT(y_buffer->storage->data, "y_buffer->storage->data");
 
-    datatype_t datatype = y_buffer->storage->datatype;
-    runtime_t runtime = y_buffer->storage->runtime;
-    int64_t rank = y_buffer->view->rank;
+    nw_error_t *error = NULL;
+    bool_t overwrite = (bool_t) *y_buffer;
+
+    if (unary_operation_type == AS_OPERATION)
+    {
+        view_t *view = NULL;
+
+        error = view_copy(x_buffer->view, &view);
+        if (error)
+        {
+            return ERROR(ERROR_COPY, string_create("failed to copy view."), error);
+        }
+
+        error = buffer_create(y_buffer, view, x_buffer->storage, false);
+        if (error)
+        {
+            view_destroy(view);
+            return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+        }
+
+        return error;
+    }
+
+    if (!overwrite)
+    {
+        error = buffer_creation(EMPTY_OPERATION, y_buffer, x_buffer->view->shape, x_buffer->view->rank, NULL, 
+                                0, x_buffer->storage->runtime, x_buffer->storage->datatype, NULL, 0, 0);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+            goto cleanup;
+        }
+    }
+
+    datatype_t datatype = (*y_buffer)->storage->datatype;
+    runtime_t runtime = (*y_buffer)->storage->runtime;
+    int64_t rank = (*y_buffer)->view->rank;
     void *x_data = x_buffer->storage->data;
-    void *y_data = y_buffer->storage->data;
+    void *y_data = (*y_buffer)->storage->data;
 
     int64_t n;
     int64_t x_stride;
@@ -393,375 +172,349 @@ static nw_error_t *runtime_unary(runtime_unary_type_t runtime_unary_type,
         x_stride = 0;
         y_stride = 0;
         x_offset = x_buffer->view->offset;
-        y_offset = y_buffer->view->offset;
-        runtime_unary_execute(runtime_unary_type, 
-                              runtime, datatype, n, 
-                              x_data, x_stride, x_offset, 
-                              y_data, y_stride, y_offset);
+        y_offset = (*y_buffer)->view->offset;
+        runtime_unary(unary_operation_type, runtime, datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
         break;
     case 1:
-        n = y_buffer->view->shape[0];
+        n = (*y_buffer)->view->shape[0];
         x_stride = x_buffer->view->strides[0];
-        y_stride = y_buffer->view->strides[0];
+        y_stride = (*y_buffer)->view->strides[0];
         x_offset = x_buffer->view->offset;
-        y_offset = y_buffer->view->offset;
-        runtime_unary_execute(runtime_unary_type, 
-                              runtime, datatype, n, 
-                              x_data, x_stride, x_offset, 
-                              y_data, y_stride, y_offset);
+        y_offset = (*y_buffer)->view->offset;
+        runtime_unary(unary_operation_type, runtime, datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
         break;
     case 2:
-        for (int64_t i = 0; i < y_buffer->view->shape[0]; ++i)
+        for (int64_t i = 0; i < (*y_buffer)->view->shape[0]; ++i)
         {
-            n = y_buffer->view->shape[1];
+            n = (*y_buffer)->view->shape[1];
             x_stride = x_buffer->view->strides[1];
-            y_stride = y_buffer->view->strides[1];
+            y_stride = (*y_buffer)->view->strides[1];
             x_offset = x_buffer->view->offset
                        + i * x_buffer->view->strides[0];
-            y_offset = y_buffer->view->offset
-                       + i * y_buffer->view->strides[0];
-            runtime_unary_execute(runtime_unary_type, 
-                                  runtime, datatype, n, 
-                                  x_data, x_stride, x_offset, 
-                                  y_data, y_stride, y_offset);
+            y_offset = (*y_buffer)->view->offset
+                       + i * (*y_buffer)->view->strides[0];
+            runtime_unary(unary_operation_type, runtime, datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
         }
         break;
     case 3:
-        for (int64_t i = 0; i < y_buffer->view->shape[0]; ++i)
+        for (int64_t i = 0; i < (*y_buffer)->view->shape[0]; ++i)
         {
-            for (int64_t j = 0; j < y_buffer->view->shape[1]; ++j)
+            for (int64_t j = 0; j < (*y_buffer)->view->shape[1]; ++j)
             {
-                n = y_buffer->view->shape[2];
+                n = (*y_buffer)->view->shape[2];
                 x_stride = x_buffer->view->strides[2];
-                y_stride = y_buffer->view->strides[2];
+                y_stride = (*y_buffer)->view->strides[2];
                 x_offset = x_buffer->view->offset
                            + i * x_buffer->view->strides[0]
                            + j * x_buffer->view->strides[1];
-                y_offset = y_buffer->view->offset
-                           + i * y_buffer->view->strides[0]
-                           + j * y_buffer->view->strides[1];
-
-                runtime_unary_execute(runtime_unary_type, 
-                                      runtime, datatype, n, 
-                                      x_data, x_stride, x_offset, 
-                                      y_data, y_stride, y_offset);
+                y_offset = (*y_buffer)->view->offset
+                           + i * (*y_buffer)->view->strides[0]
+                           + j * (*y_buffer)->view->strides[1];
+                runtime_unary(unary_operation_type, runtime, datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
             }
         }
         break;
     case 4:
-        for (int64_t i = 0; i < y_buffer->view->shape[0]; ++i)
+        for (int64_t i = 0; i < (*y_buffer)->view->shape[0]; ++i)
         {
-            for (int64_t j = 0; j < y_buffer->view->shape[1]; ++j)
+            for (int64_t j = 0; j < (*y_buffer)->view->shape[1]; ++j)
             {
-                for (int64_t k = 0; k < y_buffer->view->shape[2]; ++k)
+                for (int64_t k = 0; k < (*y_buffer)->view->shape[2]; ++k)
                 {
-                    n = y_buffer->view->shape[3];
+                    n = (*y_buffer)->view->shape[3];
                     x_stride = x_buffer->view->strides[3];
-                    y_stride = y_buffer->view->strides[3];
+                    y_stride = (*y_buffer)->view->strides[3];
                     x_offset = x_buffer->view->offset
                                + i * x_buffer->view->strides[0]
                                + j * x_buffer->view->strides[1]
                                + k * x_buffer->view->strides[2];
-                    y_offset = y_buffer->view->offset
-                               + i * y_buffer->view->strides[0]
-                               + j * y_buffer->view->strides[1]
-                               + k * y_buffer->view->strides[2];
-                    runtime_unary_execute(runtime_unary_type, 
-                                          runtime, datatype, n, 
-                                          x_data, x_stride, x_offset, 
-                                          y_data, y_stride, y_offset);
+                    y_offset = (*y_buffer)->view->offset
+                               + i * (*y_buffer)->view->strides[0]
+                               + j * (*y_buffer)->view->strides[1]
+                               + k * (*y_buffer)->view->strides[2];
+                    runtime_unary(unary_operation_type, runtime, datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
                 }
             }
         }
         break;
     case 5:
-        for (int64_t i = 0; i < y_buffer->view->shape[0]; ++i)
+        for (int64_t i = 0; i < (*y_buffer)->view->shape[0]; ++i)
         {
-            for (int64_t j = 0; j < y_buffer->view->shape[1]; ++j)
+            for (int64_t j = 0; j < (*y_buffer)->view->shape[1]; ++j)
             {
-                for (int64_t k = 0; k < y_buffer->view->shape[2]; ++k)
+                for (int64_t k = 0; k < (*y_buffer)->view->shape[2]; ++k)
                 {
-                    for (int64_t l = 0; l < y_buffer->view->shape[3]; ++l)
+                    for (int64_t l = 0; l < (*y_buffer)->view->shape[3]; ++l)
                     {
-                        n = y_buffer->view->shape[4];
+                        n = (*y_buffer)->view->shape[4];
                         x_stride = x_buffer->view->strides[4];
-                        y_stride = y_buffer->view->strides[4];
+                        y_stride = (*y_buffer)->view->strides[4];
                         x_offset = x_buffer->view->offset
                                    + i * x_buffer->view->strides[0]
                                    + j * x_buffer->view->strides[1]
                                    + k * x_buffer->view->strides[2]
                                    + l * x_buffer->view->strides[3];
-                        y_offset = y_buffer->view->offset
-                                   + i * y_buffer->view->strides[0]
-                                   + j * y_buffer->view->strides[1]
-                                   + k * y_buffer->view->strides[2]
-                                   + l * y_buffer->view->strides[3];
-                        runtime_unary_execute(runtime_unary_type, 
-                                              runtime, datatype, n, 
-                                              x_data, x_stride, x_offset, 
-                                              y_data, y_stride, y_offset);
+                        y_offset = (*y_buffer)->view->offset
+                                   + i * (*y_buffer)->view->strides[0]
+                                   + j * (*y_buffer)->view->strides[1]
+                                   + k * (*y_buffer)->view->strides[2]
+                                   + l * (*y_buffer)->view->strides[3];
+                        runtime_unary(unary_operation_type, runtime, datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset);
                     }
                 }
             }
         }
         break;
     default:
-        return ERROR(ERROR_RANK, string_create("unsupported rank %d", (int) rank), NULL);
+        error = ERROR(ERROR_RANK, string_create("unsupported rank %d", (int) rank), NULL);
+        goto cleanup;
     }
 
-    return NULL;
-}
+    return error;
 
-nw_error_t *runtime_exponential(buffer_t *x, buffer_t *result)
-{
-    nw_error_t *error = runtime_unary(RUNTIME_EXPONENTIAL, x, result);
-    if (error)
+cleanup:
+
+    if (!overwrite)
     {
-        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
+        buffer_destroy(*y_buffer);
     }
 
-    return NULL;
+    return error;
 }
 
-nw_error_t *runtime_logarithm(buffer_t *x, buffer_t *result)
-{
-    nw_error_t *error = runtime_unary(RUNTIME_LOGARITHM, x, result);
-    if (error)
-    {
-        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
-    }
-
-    return NULL;
-}
-
-nw_error_t *runtime_sine(buffer_t *x, buffer_t *result)
-{
-    nw_error_t *error = runtime_unary(RUNTIME_SINE, x, result);
-    if (error)
-    {
-        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
-    }
-
-    return NULL;
-}
-
-nw_error_t *runtime_cosine(buffer_t *x, buffer_t *result)
-{
-    nw_error_t *error = runtime_unary(RUNTIME_COSINE, x, result);
-    if (error)
-    {
-        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
-    }
-
-    return NULL;
-}
-
-nw_error_t *runtime_square_root(buffer_t *x, buffer_t *result)
-{
-    nw_error_t *error = runtime_unary(RUNTIME_SQUARE_ROOT, x, result);
-    if (error)
-    {
-        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
-    }
-
-    return NULL;
-}
-
-nw_error_t *runtime_reciprocal(buffer_t *x, buffer_t *result)
-{
-    nw_error_t *error = runtime_unary(RUNTIME_RECIPROCAL, x, result);
-    if (error)
-    {
-        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
-    }
-
-    return NULL;
-}
-
-nw_error_t *runtime_contiguous(buffer_t *x, buffer_t *result)
-{
-    nw_error_t *error = runtime_unary(RUNTIME_CONTIGUOUS, x, result);
-    if (error)
-    {
-        return ERROR(ERROR_UNARY, 
-                     string_create("failed to apply unary operation."),
-                     error);
-    }
-
-    return NULL;
-}
-
-nw_error_t *runtime_negation(buffer_t *x, buffer_t *result)
-{
-    nw_error_t *error = runtime_unary(RUNTIME_NEGATION, x, result);
-    if (error)
-    {
-        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
-    }
-
-    return NULL;
-}
-
-nw_error_t *runtime_rectified_linear(buffer_t *x, buffer_t *result)
-{
-    nw_error_t *error = runtime_unary(RUNTIME_RECTIFIED_LINEAR, x, result);
-    if (error)
-    {
-        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
-    }
-
-    return NULL;
-}
-
-nw_error_t *runtime_sigmoid(buffer_t *x, buffer_t *result)
-{
-    nw_error_t *error = runtime_unary(RUNTIME_SIGMOID, x, result);
-    if (error)
-    {
-        return ERROR(ERROR_UNARY, string_create("failed to apply unary operation."), error);
-    }
-
-    return NULL;
-}
-
-
-static void runtime_binary_elementwise_execute(runtime_binary_elementwise_type_t runtime_binary_elementwise_type,
-                                               runtime_t runtime,
-                                               datatype_t datatype,
-                                               int64_t n,
-                                               void *x_data,
-                                               int64_t x_stride,
-                                               int64_t x_offset,
-                                               void *y_data,
-                                               int64_t y_stride,
-                                               int64_t y_offset,
-                                               void *z_data,
-                                               int64_t z_stride,
-                                               int64_t z_offset)
-{
-    switch (runtime)
-    {
-    case OPENBLAS_RUNTIME:
-        switch (runtime_binary_elementwise_type)
-        {
-        case RUNTIME_ADDITION:
-            openblas_addition(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_SUBTRACTION:
-            openblas_subtraction(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_MULTIPLICATION:
-            openblas_multiplication(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_DIVISION:
-            openblas_division(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_POWER:  
-            openblas_power(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_COMPARE_EQUAL:
-            openblas_compare_equal(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_COMPARE_GREATER:
-            openblas_compare_greater(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        default:
-            break;
-        }
-        break;
-    case MKL_RUNTIME:
-        switch (runtime_binary_elementwise_type)
-        {
-        case RUNTIME_ADDITION:
-            mkl_addition(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_SUBTRACTION:
-            mkl_subtraction(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_MULTIPLICATION:
-            mkl_multiplication(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_DIVISION:
-            mkl_division(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_POWER:  
-            mkl_power(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_COMPARE_EQUAL:
-            mkl_compare_equal(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_COMPARE_GREATER:
-            mkl_compare_greater(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        default:
-            break;
-        }
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        switch (runtime_binary_elementwise_type)
-        {
-        case RUNTIME_ADDITION:
-            cu_addition(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_SUBTRACTION:
-            cu_subtraction(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_MULTIPLICATION:
-            cu_multiplication(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_DIVISION:
-            cu_division(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_POWER:  
-            cu_power(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_COMPARE_EQUAL:
-            cu_compare_equal(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        case RUNTIME_COMPARE_GREATER:
-            cu_compare_greater(datatype, n, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
-            break;
-        default:
-            break;
-        }
-        break;
-#endif
-    default:
-        break;
-    }
-}
-
-static nw_error_t *runtime_binary_elementwise(runtime_binary_elementwise_type_t runtime_binary_elementwise_type, 
-                                              buffer_t *x_buffer,
-                                              buffer_t *y_buffer,
-                                              buffer_t *z_buffer)
+static nw_error_t *buffer_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t **z_buffer)
 {
     CHECK_NULL_ARGUMENT(x_buffer, "x_buffer");
     CHECK_NULL_ARGUMENT(y_buffer, "y_buffer");
     CHECK_NULL_ARGUMENT(z_buffer, "z_buffer");
     CHECK_NULL_ARGUMENT(x_buffer->view, "x_buffer->view");
     CHECK_NULL_ARGUMENT(y_buffer->view, "y_buffer->view");
-    CHECK_NULL_ARGUMENT(z_buffer->view, "z_buffer->view");
     CHECK_NULL_ARGUMENT(x_buffer->view->strides, "x_buffer->view->strides");
     CHECK_NULL_ARGUMENT(y_buffer->view->strides, "y_buffer->view->strides");
-    CHECK_NULL_ARGUMENT(z_buffer->view->strides, "z_buffer->view->strides");
     CHECK_NULL_ARGUMENT(x_buffer->view->shape, "x_buffer->view->shape");
     CHECK_NULL_ARGUMENT(y_buffer->view->shape, "y_buffer->view->shape");
-    CHECK_NULL_ARGUMENT(z_buffer->view->shape, "z_buffer->view->shape");
     CHECK_NULL_ARGUMENT(x_buffer->storage, "x_buffer->storage");
     CHECK_NULL_ARGUMENT(y_buffer->storage, "y_buffer->storage");
-    CHECK_NULL_ARGUMENT(z_buffer->storage, "z_buffer->storage");
     CHECK_NULL_ARGUMENT(x_buffer->storage->data, "x_buffer->storage->data");
     CHECK_NULL_ARGUMENT(y_buffer->storage->data, "y_buffer->storage->data");
-    CHECK_NULL_ARGUMENT(z_buffer->storage->data, "z_buffer->storage->data");
 
-    datatype_t datatype = z_buffer->storage->datatype;
-    runtime_t runtime = z_buffer->storage->runtime;
-    int64_t rank = z_buffer->view->rank;
+    nw_error_t *error = NULL;
+    bool_t overwrite = (bool_t) *z_buffer;
+    int64_t rank = MAX(x_buffer->view->rank, y_buffer->view->rank);
+    int64_t shape[rank];
+    runtime_t runtime;
+    datatype_t datatype;
+
+    if (x_buffer->storage->datatype != y_buffer->storage->datatype)
+    {
+        error = ERROR(ERROR_DATATYPE, string_create("datatypes are incompatible."), NULL);
+        goto cleanup;
+    }
+    else
+    {
+        datatype = x_buffer->storage->datatype;
+    }
+
+    if (x_buffer->storage->runtime != y_buffer->storage->runtime)
+    {
+        error = ERROR(ERROR_RUNTIME, string_create("runtimes are incompatible."), NULL);
+        goto cleanup;
+    }
+    else
+    {
+        runtime = x_buffer->storage->runtime;
+    }
+
+    if (!overwrite)
+    {
+        error = matrix_multiplication_shape(x_buffer->view->shape, y_buffer->view->shape, shape, rank);
+        if (error)
+        {
+            error = ERROR(ERROR_SHAPE, string_create("incompatible shapes for matrix multiplication."), error);
+            goto cleanup;
+        }
+
+        error = buffer_creation(EMPTY_OPERATION, z_buffer, shape, rank, NULL, 0, runtime, datatype, NULL, 0, NULL);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+            goto cleanup;
+        }
+    }
+
     void *x_data = x_buffer->storage->data;
     void *y_data = y_buffer->storage->data;
-    void *z_data = z_buffer->storage->data;
+    void *z_data = (*z_buffer)->storage->data;
+    int64_t m = x_buffer->view->shape[x_buffer->view->rank - 2];
+    int64_t k = x_buffer->view->shape[x_buffer->view->rank - 1];
+    int64_t n = y_buffer->view->shape[y_buffer->view->rank - 1];
+    bool_t x_transpose = false; 
+    bool_t y_transpose = false;  
+    int64_t x_offset;
+    int64_t y_offset;
+    int64_t z_offset;
+
+    switch (rank)
+    {
+    case 2:
+        x_offset = x_buffer->view->offset;
+        y_offset = y_buffer->view->offset;
+        z_offset = (*z_buffer)->view->offset;
+        runtime_matrix_multiplication(runtime, datatype, m, k, n,
+                                      x_transpose, y_transpose, 
+                                      x_data, x_offset, 
+                                      y_data, y_offset,
+                                      z_data, z_offset);
+        break;
+    case 3:
+        for (int64_t i = 0; i < (*z_buffer)->view->shape[0]; ++i)
+        {
+            x_offset = x_buffer->view->offset
+                       + i * x_buffer->view->strides[0];
+            y_offset = y_buffer->view->offset
+                       + i * y_buffer->view->strides[0];
+            z_offset = (*z_buffer)->view->offset
+                       + i * (*z_buffer)->view->strides[0];
+            runtime_matrix_multiplication(runtime, datatype, m, k, n,
+                                          x_transpose, y_transpose, 
+                                          x_data, x_offset, 
+                                          y_data, y_offset,
+                                          z_data, z_offset);
+        }
+        break;
+    case 4:
+        for (int64_t i = 0; i < (*z_buffer)->view->shape[0]; ++i)
+        {
+            for (int64_t j = 0; j < (*z_buffer)->view->shape[1]; ++j)
+            {
+                x_offset = x_buffer->view->offset
+                           + i * x_buffer->view->strides[0]
+                           + j * x_buffer->view->strides[1];
+                y_offset = y_buffer->view->offset
+                           + i * y_buffer->view->strides[0]
+                           + j * y_buffer->view->strides[1];
+                z_offset = (*z_buffer)->view->offset
+                           + i * (*z_buffer)->view->strides[0]
+                           + j * (*z_buffer)->view->strides[1];
+                runtime_matrix_multiplication(runtime, datatype, m, k, n,
+                                              x_transpose, y_transpose, 
+                                              x_data, x_offset, 
+                                              y_data, y_offset,
+                                              z_data, z_offset);
+            }
+        }
+        break;
+    case 5:
+        for (int64_t i = 0; i < (*z_buffer)->view->shape[0]; ++i)
+        {
+            for (int64_t j = 0; j < (*z_buffer)->view->shape[1]; ++j)
+            {
+                for (int64_t l = 0; l < (*z_buffer)->view->shape[2]; ++l)
+                {
+                    x_offset = x_buffer->view->offset
+                               + i * x_buffer->view->strides[0]
+                               + j * x_buffer->view->strides[1]
+                               + l * x_buffer->view->strides[2];
+                    y_offset = y_buffer->view->offset
+                               + i * y_buffer->view->strides[0]
+                               + j * y_buffer->view->strides[1]
+                               + l * y_buffer->view->strides[2];
+                    z_offset = (*z_buffer)->view->offset
+                               + i * (*z_buffer)->view->strides[0]
+                               + j * (*z_buffer)->view->strides[1]
+                               + l * (*z_buffer)->view->strides[2];
+                    runtime_matrix_multiplication(runtime, datatype, m, k, n,
+                                                  x_transpose, y_transpose, 
+                                                  x_data, x_offset, 
+                                                  y_data, y_offset,
+                                                  z_data, z_offset);
+                }
+            }
+        }
+        break;
+    default:
+        error = ERROR(ERROR_RANK, string_create("unsupported rank %d", (int) (*z_buffer)->view->rank), NULL);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    if (!overwrite)
+    {
+        buffer_destroy(*z_buffer);
+    }
+
+    return error;
+}
+
+static nw_error_t *buffer_binary_elementwise(binary_operation_type_t binary_operation_type, buffer_t *x_buffer, buffer_t *y_buffer, buffer_t **z_buffer)
+{
+    CHECK_NULL_ARGUMENT(x_buffer, "x_buffer");
+    CHECK_NULL_ARGUMENT(y_buffer, "y_buffer");
+    CHECK_NULL_ARGUMENT(z_buffer, "z_buffer");
+    CHECK_NULL_ARGUMENT(x_buffer->view, "x_buffer->view");
+    CHECK_NULL_ARGUMENT(y_buffer->view, "y_buffer->view");
+    CHECK_NULL_ARGUMENT(x_buffer->view->strides, "x_buffer->view->strides");
+    CHECK_NULL_ARGUMENT(y_buffer->view->strides, "y_buffer->view->strides");
+    CHECK_NULL_ARGUMENT(x_buffer->view->shape, "x_buffer->view->shape");
+    CHECK_NULL_ARGUMENT(y_buffer->view->shape, "y_buffer->view->shape");
+    CHECK_NULL_ARGUMENT(x_buffer->storage, "x_buffer->storage");
+    CHECK_NULL_ARGUMENT(y_buffer->storage, "y_buffer->storage");
+    CHECK_NULL_ARGUMENT(x_buffer->storage->data, "x_buffer->storage->data");
+    CHECK_NULL_ARGUMENT(y_buffer->storage->data, "y_buffer->storage->data");
+
+    nw_error_t *error = NULL;
+    bool_t overwrite = (bool_t) *z_buffer;
+    int64_t rank = MAX(x_buffer->view->rank, y_buffer->view->rank);
+    int64_t shape[rank];
+    runtime_t runtime;
+    datatype_t datatype;
+
+    if (x_buffer->storage->datatype != y_buffer->storage->datatype)
+    {
+        error = ERROR(ERROR_DATATYPE, string_create("datatypes are incompatible."), NULL);
+        goto cleanup;
+    }
+    else
+    {
+        datatype = x_buffer->storage->datatype;
+    }
+
+    if (x_buffer->storage->runtime != y_buffer->storage->runtime)
+    {
+        error = ERROR(ERROR_RUNTIME, string_create("runtimes are incompatible."), NULL);
+        goto cleanup;
+    }
+    else
+    {
+        runtime = x_buffer->storage->runtime;
+    }
+
+    if (!overwrite)
+    {
+        if (!shapes_equal(x_buffer->view->shape, x_buffer->view->rank, y_buffer->view->shape, y_buffer->view->rank))
+        {
+            error = ERROR(ERROR_SHAPE, string_create("incompatible tensor shapes."), NULL);
+            goto cleanup;
+        }
+        else
+        {
+            memcpy(shape, x_buffer->view->shape, rank * sizeof(int64_t));
+        }
+
+        error = buffer_creation(EMPTY_OPERATION, z_buffer, shape, rank, NULL, 0, runtime, datatype, NULL, 0, NULL);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+            goto cleanup;
+        }
+    }
+
+    void *x_data = x_buffer->storage->data;
+    void *y_data = y_buffer->storage->data;
+    void *z_data = (*z_buffer)->storage->data;
 
     int64_t n;
     int64_t x_stride;
@@ -780,85 +533,85 @@ static nw_error_t *runtime_binary_elementwise(runtime_binary_elementwise_type_t 
         z_stride = 0;
         x_offset = x_buffer->view->offset;
         y_offset = y_buffer->view->offset;
-        z_offset = z_buffer->view->offset;
-        runtime_binary_elementwise_execute(runtime_binary_elementwise_type, 
-                                           runtime, datatype, n, 
-                                           x_data, x_stride, x_offset, 
-                                           y_data, y_stride, y_offset,
-                                           z_data, z_stride, z_offset);
+        z_offset = (*z_buffer)->view->offset;
+        runtime_binary_elementwise(binary_operation_type, 
+                                   runtime, datatype, n, 
+                                   x_data, x_stride, x_offset, 
+                                   y_data, y_stride, y_offset,
+                                   z_data, z_stride, z_offset);
         break;
     case 1:
-        n = z_buffer->view->shape[0];
+        n = (*z_buffer)->view->shape[0];
         x_stride = x_buffer->view->strides[0];
         y_stride = y_buffer->view->strides[0];
-        z_stride = z_buffer->view->strides[0];
+        z_stride = (*z_buffer)->view->strides[0];
         x_offset = x_buffer->view->offset;
         y_offset = y_buffer->view->offset;
-        z_offset = z_buffer->view->offset;
-        runtime_binary_elementwise_execute(runtime_binary_elementwise_type, 
-                                           runtime, datatype, n, 
-                                           x_data, x_stride, x_offset, 
-                                           y_data, y_stride, y_offset,
-                                           z_data, z_stride, z_offset);
+        z_offset = (*z_buffer)->view->offset;
+        runtime_binary_elementwise(binary_operation_type, 
+                                   runtime, datatype, n, 
+                                   x_data, x_stride, x_offset, 
+                                   y_data, y_stride, y_offset,
+                                   z_data, z_stride, z_offset);
         break;
     case 2:
-        for (int64_t i = 0; i < z_buffer->view->shape[0]; ++i)
+        for (int64_t i = 0; i < (*z_buffer)->view->shape[0]; ++i)
         {
-            n = z_buffer->view->shape[1];
+            n = (*z_buffer)->view->shape[1];
             x_stride = x_buffer->view->strides[1];
             y_stride = y_buffer->view->strides[1];
-            z_stride = z_buffer->view->strides[1];
+            z_stride = (*z_buffer)->view->strides[1];
             x_offset = x_buffer->view->offset
                        + i * x_buffer->view->strides[0];
             y_offset = y_buffer->view->offset
                        + i * y_buffer->view->strides[0];
-            z_offset = z_buffer->view->offset
-                       + i * z_buffer->view->strides[0];
-            runtime_binary_elementwise_execute(runtime_binary_elementwise_type, 
-                                               runtime, datatype, n, 
-                                               x_data, x_stride, x_offset, 
-                                               y_data, y_stride, y_offset,
-                                               z_data, z_stride, z_offset);
+            z_offset = (*z_buffer)->view->offset
+                       + i * (*z_buffer)->view->strides[0];
+            runtime_binary_elementwise(binary_operation_type, 
+                                       runtime, datatype, n, 
+                                       x_data, x_stride, x_offset, 
+                                       y_data, y_stride, y_offset,
+                                       z_data, z_stride, z_offset);
         }
         break;
     case 3:
-        for (int64_t i = 0; i < z_buffer->view->shape[0]; ++i)
+        for (int64_t i = 0; i < (*z_buffer)->view->shape[0]; ++i)
         {
-            for (int64_t j = 0; j < z_buffer->view->shape[1]; ++j)
+            for (int64_t j = 0; j < (*z_buffer)->view->shape[1]; ++j)
             {
-                n = z_buffer->view->shape[2];
+                n = (*z_buffer)->view->shape[2];
                 x_stride = x_buffer->view->strides[2];
                 y_stride = y_buffer->view->strides[2];
-                z_stride = z_buffer->view->strides[2];
+                z_stride = (*z_buffer)->view->strides[2];
                 x_offset = x_buffer->view->offset
                            + i * x_buffer->view->strides[0]
                            + j * x_buffer->view->strides[1];
                 y_offset = y_buffer->view->offset
                            + i * y_buffer->view->strides[0]
                            + j * y_buffer->view->strides[1];
-                z_offset = z_buffer->view->offset
-                           + i * z_buffer->view->strides[0]
-                           + j * z_buffer->view->strides[1];
+                z_offset = (*z_buffer)->view->offset
+                           + i * (*z_buffer)->view->strides[0]
+                           + j * (*z_buffer)->view->strides[1];
 
-                runtime_binary_elementwise_execute(runtime_binary_elementwise_type, 
-                                                   runtime, datatype, n, 
-                                                   x_data, x_stride, x_offset, 
-                                                   y_data, y_stride, y_offset,
-                                                   z_data, z_stride, z_offset);
+                runtime_binary_elementwise(binary_operation_type, 
+                                           runtime, datatype, n, 
+                                           x_data, x_stride, x_offset, 
+                                           y_data, y_stride, y_offset,
+                                           z_data, z_stride, z_offset);
             }
         }
         break;
     case 4:
-        for (int64_t i = 0; i < z_buffer->view->shape[0]; ++i)
+        for (int64_t i = 0; i < (*z_buffer)->view->shape[0]; ++i)
         {
-            for (int64_t j = 0; j < z_buffer->view->shape[1]; ++j)
+            for (int64_t j = 0; j < (*z_buffer)->view->shape[1]; ++j)
             {
-                for (int64_t k = 0; k < z_buffer->view->shape[2]; ++k)
+                for (int64_t k = 0; k < (*z_buffer)->view->shape[2]; ++k)
                 {
-                    n = z_buffer->view->shape[3];
+                    n = (*z_buffer)->view->shape[3];
                     x_stride = x_buffer->view->strides[3];
                     y_stride = y_buffer->view->strides[3];
-                    z_stride = z_buffer->view->strides[3];
+                    z_stride = (*z_buffer)->view->strides[3];
                     x_offset = x_buffer->view->offset
                                + i * x_buffer->view->strides[0]
                                + j * x_buffer->view->strides[1]
@@ -867,33 +620,33 @@ static nw_error_t *runtime_binary_elementwise(runtime_binary_elementwise_type_t 
                                + i * y_buffer->view->strides[0]
                                + j * y_buffer->view->strides[1]
                                + k * y_buffer->view->strides[2];
-                    z_offset = z_buffer->view->offset
-                               + i * z_buffer->view->strides[0]
-                               + j * z_buffer->view->strides[1]
-                               + k * z_buffer->view->strides[2];
+                    z_offset = (*z_buffer)->view->offset
+                               + i * (*z_buffer)->view->strides[0]
+                               + j * (*z_buffer)->view->strides[1]
+                               + k * (*z_buffer)->view->strides[2];
 
-                    runtime_binary_elementwise_execute(runtime_binary_elementwise_type, 
-                                                       runtime, datatype, n, 
-                                                       x_data, x_stride, x_offset, 
-                                                       y_data, y_stride, y_offset,
-                                                       z_data, z_stride, z_offset);
+                    runtime_binary_elementwise(binary_operation_type, 
+                                               runtime, datatype, n, 
+                                               x_data, x_stride, x_offset, 
+                                               y_data, y_stride, y_offset,
+                                               z_data, z_stride, z_offset);
                 }
             }
         }
         break;
     case 5:
-        for (int64_t i = 0; i < z_buffer->view->shape[0]; ++i)
+        for (int64_t i = 0; i < (*z_buffer)->view->shape[0]; ++i)
         {
-            for (int64_t j = 0; j < z_buffer->view->shape[1]; ++j)
+            for (int64_t j = 0; j < (*z_buffer)->view->shape[1]; ++j)
             {
-                for (int64_t k = 0; k < z_buffer->view->shape[2]; ++k)
+                for (int64_t k = 0; k < (*z_buffer)->view->shape[2]; ++k)
                 {
-                    for (int64_t l = 0; l < z_buffer->view->shape[3]; ++l)
+                    for (int64_t l = 0; l < (*z_buffer)->view->shape[3]; ++l)
                     {
-                        n = z_buffer->view->shape[4];
+                        n = (*z_buffer)->view->shape[4];
                         x_stride = x_buffer->view->strides[4];
                         y_stride = y_buffer->view->strides[4];
-                        z_stride = z_buffer->view->strides[4];
+                        z_stride = (*z_buffer)->view->strides[4];
                         x_offset = x_buffer->view->offset
                                    + i * x_buffer->view->strides[0]
                                    + j * x_buffer->view->strides[1]
@@ -904,341 +657,71 @@ static nw_error_t *runtime_binary_elementwise(runtime_binary_elementwise_type_t 
                                    + j * y_buffer->view->strides[1]
                                    + k * y_buffer->view->strides[2]
                                    + l * y_buffer->view->strides[3];
-                        z_offset = z_buffer->view->offset
-                                   + i * z_buffer->view->strides[0]
-                                   + j * z_buffer->view->strides[1]
-                                   + k * z_buffer->view->strides[2]
-                                   + l * z_buffer->view->strides[3];
+                        z_offset = (*z_buffer)->view->offset
+                                   + i * (*z_buffer)->view->strides[0]
+                                   + j * (*z_buffer)->view->strides[1]
+                                   + k * (*z_buffer)->view->strides[2]
+                                   + l * (*z_buffer)->view->strides[3];
 
-                        runtime_binary_elementwise_execute(runtime_binary_elementwise_type, 
-                                                           runtime, datatype, n, 
-                                                           x_data, x_stride, x_offset, 
-                                                           y_data, y_stride, y_offset,
-                                                           z_data, z_stride, z_offset);
+                        runtime_binary_elementwise(binary_operation_type, 
+                                                   runtime, datatype, n, 
+                                                   x_data, x_stride, x_offset, 
+                                                   y_data, y_stride, y_offset,
+                                                   z_data, z_stride, z_offset);
                     }
                 }
             }
         }
         break;
     default:
-        return ERROR(ERROR_RANK, 
-                     string_create("unsupported rank %d",
-                     (int) rank),
-                     NULL);
+        error = ERROR(ERROR_RANK, string_create("unsupported rank %d", (int) rank), NULL);
+        goto cleanup;
     }
 
-    return NULL;
-}
+    return error;
 
-nw_error_t *runtime_addition(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
-{
-    nw_error_t *error = runtime_binary_elementwise(RUNTIME_ADDITION, x_buffer, y_buffer, z_buffer);
-    if (error)
+cleanup:
+
+    if (!overwrite)
     {
-        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
+        buffer_destroy(*z_buffer);
     }
 
-    return NULL;
+    return error;
 }
 
-nw_error_t *runtime_subtraction(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
+nw_error_t *buffer_binary(binary_operation_type_t operation_type, buffer_t *x_buffer, buffer_t *y_buffer, buffer_t **z_buffer)
 {
-    nw_error_t *error = runtime_binary_elementwise(RUNTIME_SUBTRACTION, x_buffer, y_buffer, z_buffer);
-    if (error)
+    nw_error_t *error = NULL;
+
+    switch (operation_type)
     {
-        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
-    }
-
-    return NULL;
-}
-
-nw_error_t *runtime_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
-{
-    nw_error_t *error = runtime_binary_elementwise(RUNTIME_MULTIPLICATION, x_buffer, y_buffer, z_buffer);
-    if (error)
-    {
-        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
-    }
-
-    return NULL;
-}
-
-nw_error_t *runtime_division(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
-{
-    nw_error_t *error = runtime_binary_elementwise(RUNTIME_DIVISION, x_buffer, y_buffer, z_buffer);
-    if (error)
-    {
-        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
-    }
-
-    return NULL;
-}
-
-nw_error_t *runtime_power(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
-{
-    nw_error_t *error = runtime_binary_elementwise(RUNTIME_POWER, x_buffer, y_buffer, z_buffer);
-    if (error)
-    {
-        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
-    }
-
-    return NULL;
-}
-
-nw_error_t *runtime_compare_equal(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
-{
-    nw_error_t *error = runtime_binary_elementwise(RUNTIME_COMPARE_EQUAL, x_buffer, y_buffer, z_buffer);
-    if (error)
-    {
-        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
-    }
-
-    return NULL;
-}
-
-nw_error_t *runtime_compare_greater(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
-{
-    nw_error_t *error = runtime_binary_elementwise(RUNTIME_COMPARE_GREATER, x_buffer, y_buffer, z_buffer);
-    if (error)
-    {
-        return ERROR(ERROR_BINARY_ELEMENTWISE, string_create("failed to apply binary elementwise operation."), error);
-    }
-
-    return NULL;
-}
-
-static void runtime_matrix_multiplication_execute(runtime_t runtime,
-                                                  datatype_t datatype,
-                                                  int64_t m,
-                                                  int64_t k,
-                                                  int64_t n,
-                                                  bool_t x_transpose,
-                                                  bool_t y_transpose,
-                                                  void *x_data,
-                                                  int64_t x_offset,
-                                                  void *y_data,
-                                                  int64_t y_offset,
-                                                  void *z_data,
-                                                  int64_t z_offset)
-{
-    switch (runtime)
-    {
-    case OPENBLAS_RUNTIME:
-        openblas_matrix_multiplication(datatype, m, k, n, 
-                                       x_transpose, y_transpose,
-                                       x_data, x_offset,
-                                       y_data, y_offset,
-                                       z_data, z_offset);
+    case ADDITION_OPERATION:
+    case SUBTRACTION_OPERATION:
+    case MULTIPLICATION_OPERATION:
+    case DIVISION_OPERATION:
+    case POWER_OPERATION:
+    case COMPARE_EQUAL_OPERATION:
+    case COMPARE_GREATER_OPERATION:
+        error = buffer_binary_elementwise(operation_type, x_buffer, y_buffer, z_buffer);
         break;
-    case MKL_RUNTIME:
-        mkl_matrix_multiplication(datatype, m, k, n, 
-                                  x_transpose, y_transpose,
-                                  x_data, x_offset,
-                                  y_data, y_offset,
-                                  z_data, z_offset);
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        cu_matrix_multiplication(datatype, m, k, n, 
-                                 x_transpose, y_transpose,
-                                 x_data, x_offset,
-                                 y_data, y_offset,
-                                 z_data, z_offset);
-        break;
-#endif
-    default:
-        break;
-    }
-}
-
-nw_error_t *runtime_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_buffer, buffer_t *z_buffer)
-{
-    CHECK_NULL_ARGUMENT(x_buffer, "x_buffer");
-    CHECK_NULL_ARGUMENT(y_buffer, "y_buffer");
-    CHECK_NULL_ARGUMENT(z_buffer, "z_buffer");
-    CHECK_NULL_ARGUMENT(x_buffer->view, "x_buffer->view");
-    CHECK_NULL_ARGUMENT(y_buffer->view, "y_buffer->view");
-    CHECK_NULL_ARGUMENT(z_buffer->view, "z_buffer->view");
-    CHECK_NULL_ARGUMENT(x_buffer->view->strides, "x_buffer->view->strides");
-    CHECK_NULL_ARGUMENT(y_buffer->view->strides, "y_buffer->view->strides");
-    CHECK_NULL_ARGUMENT(z_buffer->view->strides, "z_buffer->view->strides");
-    CHECK_NULL_ARGUMENT(x_buffer->view->shape, "x_buffer->view->shape");
-    CHECK_NULL_ARGUMENT(y_buffer->view->shape, "y_buffer->view->shape");
-    CHECK_NULL_ARGUMENT(z_buffer->view->shape, "z_buffer->view->shape");
-    CHECK_NULL_ARGUMENT(x_buffer->storage, "x_buffer->storage");
-    CHECK_NULL_ARGUMENT(y_buffer->storage, "y_buffer->storage");
-    CHECK_NULL_ARGUMENT(z_buffer->storage, "z_buffer->storage");
-    CHECK_NULL_ARGUMENT(x_buffer->storage->data, "x_buffer->storage->data");
-    CHECK_NULL_ARGUMENT(y_buffer->storage->data, "y_buffer->storage->data");
-    CHECK_NULL_ARGUMENT(z_buffer->storage->data, "z_buffer->storage->data");
-
-    datatype_t datatype = z_buffer->storage->datatype;
-    runtime_t runtime = z_buffer->storage->runtime;
-    int64_t rank = z_buffer->view->rank;
-    void *x_data = x_buffer->storage->data;
-    void *y_data = y_buffer->storage->data;
-    void *z_data = z_buffer->storage->data;
-    int64_t m = x_buffer->view->shape[x_buffer->view->rank - 2];
-    int64_t k = x_buffer->view->shape[x_buffer->view->rank - 1];
-    int64_t n = y_buffer->view->shape[y_buffer->view->rank - 1];
-    bool_t x_transpose = false; 
-    bool_t y_transpose = false;  
-    int64_t x_offset;
-    int64_t y_offset;
-    int64_t z_offset;
-
-    switch (rank)
-    {
-    case 2:
-        x_offset = x_buffer->view->offset;
-        y_offset = y_buffer->view->offset;
-        z_offset = z_buffer->view->offset;
-
-        runtime_matrix_multiplication_execute(runtime, datatype, m, k, n,
-                                              x_transpose, y_transpose, 
-                                              x_data, x_offset, 
-                                              y_data, y_offset,
-                                              z_data, z_offset);
-        break;
-    case 3:
-        for (int64_t i = 0; i < z_buffer->view->shape[0]; ++i)
-        {
-            x_offset = x_buffer->view->offset
-                       + i * x_buffer->view->strides[0];
-            y_offset = y_buffer->view->offset
-                       + i * y_buffer->view->strides[0];
-            z_offset = z_buffer->view->offset
-                       + i * z_buffer->view->strides[0];
-
-            runtime_matrix_multiplication_execute(runtime, datatype, m, k, n,
-                                                  x_transpose, y_transpose, 
-                                                  x_data, x_offset, 
-                                                  y_data, y_offset,
-                                                  z_data, z_offset);
-        }
-        break;
-    case 4:
-        for (int64_t i = 0; i < z_buffer->view->shape[0]; ++i)
-        {
-            for (int64_t j = 0; j < z_buffer->view->shape[1]; ++j)
-            {
-                x_offset = x_buffer->view->offset
-                           + i * x_buffer->view->strides[0]
-                           + j * x_buffer->view->strides[1];
-                y_offset = y_buffer->view->offset
-                           + i * y_buffer->view->strides[0]
-                           + j * y_buffer->view->strides[1];
-                z_offset = z_buffer->view->offset
-                           + i * z_buffer->view->strides[0]
-                           + j * z_buffer->view->strides[1];
-
-                runtime_matrix_multiplication_execute(runtime, datatype, m, k, n,
-                                                      x_transpose, y_transpose, 
-                                                      x_data, x_offset, 
-                                                      y_data, y_offset,
-                                                      z_data, z_offset);
-            }
-        }
-        break;
-    case 5:
-        for (int64_t i = 0; i < z_buffer->view->shape[0]; ++i)
-        {
-            for (int64_t j = 0; j < z_buffer->view->shape[1]; ++j)
-            {
-                for (int64_t l = 0; l < z_buffer->view->shape[2]; ++l)
-                {
-                    x_offset = x_buffer->view->offset
-                               + i * x_buffer->view->strides[0]
-                               + j * x_buffer->view->strides[1]
-                               + l * x_buffer->view->strides[2];
-                    y_offset = y_buffer->view->offset
-                               + i * y_buffer->view->strides[0]
-                               + j * y_buffer->view->strides[1]
-                               + l * y_buffer->view->strides[2];
-                    z_offset = z_buffer->view->offset
-                               + i * z_buffer->view->strides[0]
-                               + j * z_buffer->view->strides[1]
-                               + l * z_buffer->view->strides[2];
-
-                    runtime_matrix_multiplication_execute(runtime, datatype, m, k, n,
-                                                          x_transpose, y_transpose, 
-                                                          x_data, x_offset, 
-                                                          y_data, y_offset,
-                                                          z_data, z_offset);
-                }
-            }
-        }
+    case MATRIX_MULTIPLICATION_OPERATION:
+        error = buffer_matrix_multiplication(x_buffer, y_buffer, z_buffer);
         break;
     default:
-        return ERROR(ERROR_RANK,
-                     string_create("unsupported rank %d",
-                     (int) z_buffer->view->rank),
-                     NULL);
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+        break;
     }
 
-    return NULL;
-}
-
-static void runtime_reduction_execute(runtime_reduction_type_t runtime_reduction_type,
-                                      runtime_t runtime,
-                                      datatype_t datatype,
-                                      int64_t n,
-                                      void *x_data,
-                                      int64_t x_stride,
-                                      int64_t x_offset,
-                                      void *y_data,
-                                      int64_t y_offset)
-{
-    switch (runtime)
+    if (error)
     {
-    case OPENBLAS_RUNTIME:
-        switch (runtime_reduction_type)
-        {
-        case RUNTIME_MAXIMUM:
-            openblas_maximum(datatype, n, x_data, x_stride, x_offset, y_data, y_offset);
-            break;
-        case RUNTIME_SUMMATION:
-            openblas_summation(datatype, n, x_data, x_stride, x_offset, y_data, y_offset);
-            break;
-        default:
-            break;
-        }
-        break;
-    case MKL_RUNTIME:
-        switch (runtime_reduction_type)
-        {
-        case RUNTIME_MAXIMUM:
-            mkl_maximum(datatype, n, x_data, x_stride, x_offset, y_data, y_offset);
-            break;
-        case RUNTIME_SUMMATION:
-            mkl_summation(datatype, n, x_data, x_stride, x_offset, y_data, y_offset);
-            break;
-        default:
-            break;
-        }
-        break;
-#ifndef CPU_ONLY
-    case CU_RUNTIME:
-        switch (runtime_reduction_type)
-        {
-        case RUNTIME_MAXIMUM:
-            cu_maximum(datatype, n, x_data, x_stride, x_offset, y_data, y_offset);
-            break;
-        case RUNTIME_SUMMATION:
-            cu_summation(datatype, n, x_data, x_stride, x_offset, y_data, y_offset);
-            break;
-        default:
-            break;
-        }
-        break;
-#endif
-    default:
-        break;
+        return ERROR(ERROR_BINARY, string_create("failed binary operation."), error);
     }
 
+    return error;
 }
 
-static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_reduction_type, buffer_t *x_buffer, buffer_t *y_buffer, int64_t axis, bool_t keep_dimension)
+static nw_error_t *runtime_reduction_dimension(reduction_operation_type_t reduction_operation_type, buffer_t *x_buffer, buffer_t *y_buffer, int64_t axis, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x_buffer, "x_buffer");
     CHECK_NULL_ARGUMENT(y_buffer, "y_buffer");
@@ -1273,9 +756,7 @@ static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_
     case 1:
         x_offset = x_buffer->view->offset;
         y_offset = y_buffer->view->offset;
-        runtime_reduction_execute(runtime_reduction_type, runtime, datatype, n, 
-                                  x_data, x_stride, x_offset, 
-                                  y_data, y_offset);
+        runtime_reduction(reduction_operation_type, runtime, datatype, n, x_data, x_stride, x_offset, y_data, y_offset);
         break;
     case 2:
         switch (axis)
@@ -1296,9 +777,7 @@ static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_
                        + i * x_buffer->view->strides[idim];
             y_offset = y_buffer->view->offset
                        + i * y_buffer->view->strides[(idim >= axis && !keep_dimension) ? idim - 1 : idim];
-            runtime_reduction_execute(runtime_reduction_type, runtime, datatype, n, 
-                                    x_data, x_stride, x_offset, 
-                                    y_data, y_offset);
+            runtime_reduction(reduction_operation_type, runtime, datatype, n, x_data, x_stride, x_offset, y_data, y_offset);
         }
         break;
     case 3:
@@ -1330,9 +809,7 @@ static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_
                 y_offset = y_buffer->view->offset
                        + i * y_buffer->view->strides[(idim >= axis && !keep_dimension) ? idim - 1 : idim]
                        + j * y_buffer->view->strides[(jdim >= axis && !keep_dimension) ? jdim - 1 : jdim];
-                runtime_reduction_execute(runtime_reduction_type, runtime, datatype, n, 
-                                          x_data, x_stride, x_offset, 
-                                          y_data, y_offset);
+                runtime_reduction(reduction_operation_type, runtime, datatype, n, x_data, x_stride, x_offset, y_data, y_offset);
             }
         }
 
@@ -1378,9 +855,7 @@ static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_
                        + i * y_buffer->view->strides[(idim >= axis && !keep_dimension) ? idim - 1 : idim]
                        + j * y_buffer->view->strides[(jdim >= axis && !keep_dimension) ? jdim - 1 : jdim]
                        + k * y_buffer->view->strides[(kdim >= axis && !keep_dimension) ? kdim - 1 : kdim];
-                    runtime_reduction_execute(runtime_reduction_type, runtime, datatype, n, 
-                                              x_data, x_stride, x_offset, 
-                                              y_data, y_offset);
+                    runtime_reduction(reduction_operation_type, runtime, datatype, n, x_data, x_stride, x_offset, y_data, y_offset);
                 }
             }
         }
@@ -1440,29 +915,20 @@ static nw_error_t *runtime_reduction_dimension(runtime_reduction_type_t runtime_
                        + j * y_buffer->view->strides[(jdim >= axis && !keep_dimension) ? jdim - 1 : jdim]
                        + k * y_buffer->view->strides[(kdim >= axis && !keep_dimension) ? kdim - 1 : kdim]
                        + l * y_buffer->view->strides[(ldim >= axis && !keep_dimension) ? ldim - 1 : ldim];
-                        runtime_reduction_execute(runtime_reduction_type, runtime, datatype, n, 
-                                                  x_data, x_stride, x_offset, 
-                                                  y_data, y_offset);
+                        runtime_reduction(reduction_operation_type, runtime, datatype, n, x_data, x_stride, x_offset, y_data, y_offset);
                     }
                 }
             }
         }
         break;
     default:
-        return ERROR(ERROR_RANK,
-                     string_create("unsupported rank %d",
-                     (int) x_buffer->view->rank), NULL);
+        return ERROR(ERROR_RANK, string_create("unsupported rank %d", (int) x_buffer->view->rank), NULL);
     }
 
     return NULL;
 }
 
-static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_type,
-                                     buffer_t *x,
-                                     int64_t *axis,
-                                     int64_t length,
-                                     buffer_t *result,
-                                     bool_t keep_dimension)
+nw_error_t *buffer_reduction(reduction_operation_type_t reduction_operation_type, buffer_t *x, int64_t *axis, int64_t length, buffer_t **result, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->view, "x->view");
@@ -1471,26 +937,48 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
     CHECK_NULL_ARGUMENT(result, "result");
     CHECK_UNIQUE(axis, length, "axis");
 
+    nw_error_t *error = NULL;
+    bool_t overwrite = (bool_t) *result;
     datatype_t datatype = x->storage->datatype;
     runtime_t runtime = x->storage->runtime;
-    int64_t reduced_rank = x->view->rank; 
-    nw_error_t *error = NULL;
     buffer_t *intermediate_buffer = NULL;
     int64_t sorted_axis[length];
+
+    if (!overwrite)
+    {
+        int64_t reduced_rank = (keep_dimension) ? x->view->rank : (x->view->rank - length); 
+        int64_t reduced_shape[reduced_rank];
+        int64_t reduced_strides[reduced_rank];
+
+        if (reduced_rank < 0)
+        {
+            error = ERROR(ERROR_RANK, string_create("reduction axis length greater than rank of tensor."), NULL);
+            goto cleanup;
+        }
+
+        error = reduce(x->view->shape, x->view->rank, x->view->strides, reduced_shape, reduced_rank, reduced_strides, axis, length, keep_dimension);
+        if (error)
+        {
+            error = ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
+            goto cleanup;
+        }
+
+        error = buffer_creation(EMPTY_OPERATION, result, reduced_shape, reduced_rank, reduced_strides, 0, x->storage->runtime, x->storage->datatype, NULL, 0, NULL);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+            goto cleanup;
+        }
+    }
 
     error = descending_sort(axis, length, sorted_axis);
     if (error)
     {
-        return ERROR(ERROR_SORT, string_create("failed to sort axis"), error);
+        error = ERROR(ERROR_SORT, string_create("failed to sort axis"), error);
+        goto cleanup;
     }
 
-
-    if (x->view->rank < length)
-    {
-        return ERROR(ERROR_RANK,
-                     string_create("rank of tensor being reduced (%ld) must be not be less than length of axis (%ld).",
-                     (x->view->rank), length), NULL);
-    }
+    int64_t reduced_rank = x->view->rank; 
 
     for (int64_t i = 0; i < length; ++i)
     {
@@ -1509,26 +997,29 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
         error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, &sorted_axis[i], (int64_t) 1, keep_dimension);
         if (error)
         {
-            return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
+            error = ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
+            goto cleanup;
         }
 
         if (i + 1 < length)
         {
-            error = runtime_empty(&intermediate_buffer, reduced_shape, reduced_rank, reduced_strides, offset, runtime, datatype);
+            error = buffer_creation(EMPTY_OPERATION, &intermediate_buffer, reduced_shape, reduced_rank, reduced_strides, offset, runtime, datatype, NULL, 0, NULL);
             if (error)
             {
-                return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+                error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+                goto cleanup;
             }
         }
         else
         {
-            intermediate_buffer = result;
+            intermediate_buffer = *result;
         }
 
-        error = runtime_reduction_dimension(runtime_reduction_type, x, intermediate_buffer, sorted_axis[i], keep_dimension);
+        error = runtime_reduction_dimension(reduction_operation_type, x, intermediate_buffer, sorted_axis[i], keep_dimension);
         if (error)
         {
-            return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor dimension."), error);
+            error = ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor dimension."), error);
+            goto cleanup;
         }
 
         if (i > 0)
@@ -1540,245 +1031,106 @@ static nw_error_t *runtime_reduction(runtime_reduction_type_t runtime_reduction_
     }
 
     return error; 
-}
-
-nw_error_t *runtime_summation(buffer_t *x, int64_t *axis, int64_t length, buffer_t *result, bool_t keep_dimension)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(axis, "axis");
-    CHECK_NULL_ARGUMENT(result, "result");
-
-    nw_error_t *error = NULL;
-
-    error = runtime_reduction(RUNTIME_SUMMATION, x, axis, length, result, keep_dimension);
-    if (error)
-    {
-        return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
-    }
-
-    return NULL;
-}
-
-nw_error_t *runtime_maximum(buffer_t *x, int64_t *axis, int64_t length, buffer_t *result, bool_t keep_dimension)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(axis, "axis");
-    CHECK_NULL_ARGUMENT(result, "result");
-
-    nw_error_t *error = NULL;
-
-    error = runtime_reduction(RUNTIME_MAXIMUM, x, axis, length, result, keep_dimension);
-    if (error)
-    {
-        return ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
-    }
-
-    return error;
-}
-
-string_t runtime_string(runtime_t runtime)
-{
-    switch (runtime)
-    {
-    case OPENBLAS_RUNTIME:
-        return "OPENBLAS_RUNTIME"; 
-    case MKL_RUNTIME:
-        return "MKL_RUNTIME";
-    case CU_RUNTIME:
-        return "CU_RUNTIME";
-    default:
-        return "RUNTIME";
-    }
-}
-
-static nw_error_t *runtime_init_zeroes(buffer_t *buffer)
-{
-    CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
-    CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
-
-    void *data = buffer->storage->data;
-    int64_t n = buffer->storage->n;
-    datatype_t datatype = buffer->storage->datatype;
-
-    for (int64_t i = 0; i < n; ++i)
-    {
-        switch (datatype)
-        {
-        case FLOAT32:
-            ((float32_t *) data)[i] = (float32_t) 0.0;
-            break;
-        case FLOAT64:
-            ((float64_t *) data)[i] = (float64_t) 0.0;
-            break;
-        default:
-            return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
-        }
-    }
-
-    return NULL;
-}
-
-static nw_error_t *runtime_init_ones(buffer_t *buffer)
-{
-    CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
-    CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
-
-    void *data = buffer->storage->data;
-    int64_t n = buffer->storage->n;
-    datatype_t datatype = buffer->storage->datatype;
-
-    for (int64_t i = 0; i < n; ++i)
-    {
-        switch (datatype)
-        {
-        case FLOAT32:
-            ((float32_t *) data)[i] = (float32_t) 1.0;
-            break;
-        case FLOAT64:
-            ((float64_t *) data)[i] = (float64_t) 1.0;
-            break;
-        default:
-            return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
-        }
-    }
-
-    return NULL;
-}
-
-static nw_error_t *runtime_init_arange(buffer_t *buffer, void *start, void *stop, void *step)
-{
-    CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
-    CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
-
-    int64_t interval = 0;
-    nw_error_t *error = NULL;
-    void *value = NULL;
-    void *data = buffer->storage->data;
-    datatype_t datatype = buffer->storage->datatype;
-    size_t size = datatype_size(datatype);
-
-    switch (datatype)
-    {
-    case FLOAT32:
-        interval = (int64_t) ((*(float32_t *) stop - *(float32_t *) start) / *(float32_t *) step);
-        break;
-    case FLOAT64:
-        interval = (int64_t) ((*(float64_t *) stop - *(float64_t *) start) / *(float64_t *) step);
-        break;
-    default:
-        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
-        goto cleanup;
-    }
-
-    value = (void *) malloc(size);
-    if (!value)
-    {
-        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
-        goto cleanup;
-    }
-    memcpy(value, start, size);
-
-    if (interval != buffer->storage->n)
-    {
-        error = ERROR(ERROR_N, string_create("size of buffer %ld does not match size of interval %ld.", buffer->storage->n, interval), NULL);
-        goto cleanup;
-    }
-
-    for (int64_t i = 0; i < interval; ++i)
-    {
-        switch (datatype)
-        {
-        case FLOAT32:
-            ((float32_t *) data)[i] = *(float32_t *) value;
-            *(float32_t *) value += *(float32_t *) step;
-            break;
-        case FLOAT64:
-            ((float64_t *) data)[i] = *(float64_t *) value;
-            *(float64_t *) value += *(float64_t *) step;
-            break;
-        default:
-            error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
-            goto cleanup;
-        }
-    }
 
 cleanup:
 
-    free(value);
+    if (intermediate_buffer != *result)
+    {
+        buffer_destroy(intermediate_buffer);
+    }
+
+    if (!overwrite)
+    {
+        buffer_destroy(*result);
+    }
 
     return error;
 }
 
-static nw_error_t *runtime_init_uniform(buffer_t *buffer, void *lower_bound, void *upper_bound)
+nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type, buffer_t *x, int64_t *arguments, int64_t length, buffer_t **result)
 {
-    CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
-    CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
-    CHECK_NULL_ARGUMENT(lower_bound, "lower_bound");
-    CHECK_NULL_ARGUMENT(upper_bound, "upper_bound");
+    nw_error_t *error = NULL;
+    view_t *view = NULL;
 
-    void *data = buffer->storage->data;
-    int64_t n = buffer->storage->n;
-    datatype_t datatype = buffer->storage->datatype;
-
-    for (int64_t i = 0; i < n; ++i)
+    if (structure_operation_type == EXPAND_OPERATION)
     {
-        switch (datatype)
+        int64_t strides[length];
+        error = broadcast_strides(x->view->shape, x->view->rank, x->view->strides, arguments, length, strides);
+        if (error)
         {
-        case FLOAT32:
-            ((float32_t *) data)[i] = uniformf(*(float32_t *) lower_bound, *(float32_t *) upper_bound);
-            break;
-        case FLOAT64:
-            ((float64_t *) data)[i] = uniform(*(float64_t *) lower_bound, *(float64_t *) upper_bound);
-            break;
-        default:
-            return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+            return ERROR(ERROR_EXPAND, string_create("failed to expand strides"), error);
+        }
+
+        error = view_create(&view, x->view->offset, length, arguments, strides);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+        }
+    }
+    else if (structure_operation_type == PERMUTE_OPERATION)
+    {
+        int64_t shape[length];
+        int64_t strides[length];
+
+        error = permute(x->view->shape, x->view->strides, shape, strides, arguments, length);
+        if (error)
+        {
+            return ERROR(ERROR_PERMUTE, string_create("failed to permute shape and strides."), error);
+        }
+
+        error = view_create(&view, x->view->offset, length, shape, strides);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+        }
+    }
+    else if (structure_operation_type == RESHAPE_OPERATION)
+    {
+        error = view_create(&view, x->view->offset, length, arguments, NULL);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+        }
+    }
+    else if (structure_operation_type == SLICE_OPERATION)
+    {
+        int64_t offset = x->view->offset;
+        int64_t rank = x->view->rank;
+        int64_t *shape = x->view->shape;
+        int64_t *strides = x->view->strides;
+        int64_t sliced_shape[rank];
+        int64_t sliced_offset = offset;
+
+        error = slice_offset(strides, rank, &sliced_offset, arguments, length);
+        if (shape == NULL)
+        {
+            return ERROR(ERROR_SLICE, string_create("failed to compute slice offset." ), NULL);
+        }
+
+        error = slice_shape(shape, rank, sliced_shape, rank, arguments, length);
+        if (shape == NULL)
+        {
+            return ERROR(ERROR_SLICE, string_create("failed to compute slice shape." ), NULL);
+        }
+
+        error = view_create(&view, sliced_offset, rank, sliced_shape, strides);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
         }
     }
 
-    return NULL;
-}
-
-static nw_error_t *runtime_init_normal(buffer_t *buffer, void *mean, void *standard_deviation)
-{
-    CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(buffer->storage, "buffer->storage");
-    CHECK_NULL_ARGUMENT(buffer->storage->data, "buffer->storage->data");
-    CHECK_NULL_ARGUMENT(mean, "mean");
-    CHECK_NULL_ARGUMENT(standard_deviation, "standard_deviation");
-
-    void *data = buffer->storage->data;
-    int64_t n = buffer->storage->n;
-    datatype_t datatype = buffer->storage->datatype;
-
-    for (int64_t i = 0; i < n; ++i)
+    error = buffer_create(result, view, x->storage, false);
+    if (error)
     {
-        switch (datatype)
-        {
-        case FLOAT32:
-            ((float32_t *) data)[i] = normalf(*(float32_t *) mean, *(float32_t *) standard_deviation);
-            break;
-        case FLOAT64:
-            ((float64_t *) data)[i] = normal(*(float64_t *) mean, *(float64_t *) standard_deviation);
-            break;
-        default:
-            return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
-        }
+        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
     }
 
-    return NULL;
+    return error;
 }
 
-static nw_error_t *runtime_create_empty(buffer_t **buffer,
-                                        const int64_t *shape,
-                                        int64_t rank,
-                                        const int64_t *strides,
-                                        int64_t offset,
-                                        runtime_t runtime,
-                                        datatype_t datatype)
+static nw_error_t *buffer_create_empty(buffer_t **buffer, const int64_t *shape, int64_t rank, const int64_t *strides,
+                                       int64_t offset, runtime_t runtime, datatype_t datatype)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -1826,15 +1178,8 @@ cleanup:
     return error;
 }
 
-static nw_error_t *runtime_create_nonempty(buffer_t **buffer,
-                                           const int64_t *shape,
-                                           int64_t rank,
-                                           const int64_t *strides,
-                                           int64_t offset,
-                                           runtime_t runtime,
-                                           datatype_t datatype,
-                                           void *data,
-                                           bool_t copy)
+static nw_error_t *buffer_create_nonempty(buffer_t **buffer, const int64_t *shape, int64_t rank, const int64_t *strides,
+                                          int64_t offset, runtime_t runtime, datatype_t datatype, void *data, bool_t copy)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -1882,17 +1227,8 @@ cleanup:
     return error;
 }
 
-
-static nw_error_t *runtime_create(buffer_t **buffer,
-                                  runtime_creation_type_t runtime_creation_type,
-                                  const int64_t *shape,
-                                  int64_t rank,
-                                  const int64_t *strides,
-                                  int64_t offset,
-                                  runtime_t runtime,
-                                  datatype_t datatype,
-                                  void **arguments,
-                                  int64_t length)
+static nw_error_t *buffer_create_init(buffer_t **buffer, creation_operation_type_t creation_operation_type, const int64_t *shape, int64_t rank,
+                                      const int64_t *strides, int64_t offset, runtime_t runtime, datatype_t datatype, void **arguments, int64_t length)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -1904,48 +1240,47 @@ static nw_error_t *runtime_create(buffer_t **buffer,
     nw_error_t *error = NULL;
     *buffer = NULL;
 
-    error = runtime_create_empty(buffer, shape, rank, strides, offset, runtime, datatype);
+    error = buffer_create_empty(buffer, shape, rank, strides, offset, runtime, datatype);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
         goto cleanup;
     }
 
-
-    switch (runtime_creation_type)
+    switch (creation_operation_type)
     {
-    case RUNTIME_EMPTY:
+    case EMPTY_OPERATION:
         break;
-    case RUNTIME_ZEROES:
-        error = runtime_init_zeroes(*buffer);
+    case ZEROES_OPERATION:
+        runtime_zeroes((*buffer)->storage->data, (*buffer)->storage->n, (*buffer)->storage->datatype);
         break;
-    case RUNTIME_ONES:
-        error = runtime_init_ones(*buffer);
+    case ONES_OPERATION:
+        runtime_ones((*buffer)->storage->data, (*buffer)->storage->n, (*buffer)->storage->datatype);
         break;
-    case RUNTIME_UNIFORM:
+    case UNIFORM_OPERATION:
         if (length == 2)
         {
-            error = runtime_init_uniform(*buffer, arguments[0], arguments[1]);
+            runtime_uniform((*buffer)->storage->data, (*buffer)->storage->n, (*buffer)->storage->datatype, arguments[0], arguments[1]);
         }
         else
         {
             error = ERROR(ERROR_ARGUMENTS, string_create("invalid number of arguments."), NULL);
         }
         break;
-    case RUNTIME_NORMAL:
+    case NORMAL_OPERATION:
         if (length == 2)
         {
-            error = runtime_init_normal(*buffer, arguments[0], arguments[1]);
+            runtime_normal((*buffer)->storage->data, (*buffer)->storage->n, (*buffer)->storage->datatype, arguments[0], arguments[1]);
         }
         else
         {
             error = ERROR(ERROR_ARGUMENTS, string_create("invalid number of arguments."), NULL);
         }
         break;
-    case RUNTIME_ARANGE:
+    case ARANGE_OPERATION:
         if (length == 3)
         {
-            error = runtime_init_arange(*buffer, arguments[0], arguments[1], arguments[2]);
+            runtime_arange((*buffer)->storage->data, (*buffer)->storage->datatype, arguments[0], arguments[1], arguments[2]);
         }
         else
         {
@@ -1953,7 +1288,7 @@ static nw_error_t *runtime_create(buffer_t **buffer,
         }
         break;
     default:
-        error = ERROR(ERROR_RUNTIME, string_create("unknown runtime creation operation."), NULL);
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown runtime creation operation."), NULL);
         break;
     }
 
@@ -1972,182 +1307,34 @@ cleanup:
     return error;
 }
 
-nw_error_t *runtime_empty(buffer_t **buffer,
-                          const int64_t *shape,
-                          int64_t rank,
-                          const int64_t *strides,
-                          int64_t offset,
-                          runtime_t runtime,
-                          datatype_t datatype)
+nw_error_t *buffer_creation(creation_operation_type_t creation_operation_type, buffer_t **buffer, const int64_t *shape, int64_t rank, const int64_t *strides,
+                            int64_t offset, const runtime_t runtime, datatype_t datatype, void **arguments, int64_t length, void *data)
 {
     CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(shape, "shape");
 
     nw_error_t *error = NULL;
 
-    error = runtime_create(buffer, RUNTIME_EMPTY, shape, rank, strides, offset, runtime, datatype, NULL, 0);
-    if (error)
+    switch (creation_operation_type)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+    case EMPTY_OPERATION:
+    case ZEROES_OPERATION:
+    case ONES_OPERATION:
+    case UNIFORM_OPERATION:
+    case NORMAL_OPERATION:
+    case ARANGE_OPERATION:
+        error = buffer_create_init(buffer, creation_operation_type, shape, rank, strides, offset, runtime, datatype, arguments, length);
+        break;
+    case FROM_OPERATION:
+        error = buffer_create_nonempty(buffer, shape, rank, strides, offset, runtime, datatype, data, false);
+        break;
+    case COPY_OPERATION:
+        error = buffer_create_nonempty(buffer, shape, rank, strides, offset, runtime, datatype, data, true);
+        break;
+    default:
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type."), NULL);
+        break;
     }
 
-    return error;
-}
-
-nw_error_t *runtime_zeroes(buffer_t **buffer,
-                           const int64_t *shape,
-                           int64_t rank,
-                           const int64_t *strides,
-                           int64_t offset,
-                           runtime_t runtime,
-                           datatype_t datatype)
-{
-    CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-
-    nw_error_t *error = NULL;
-
-    error = runtime_create(buffer, RUNTIME_ZEROES, shape, rank, strides, offset, runtime, datatype, NULL, 0);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *runtime_ones(buffer_t **buffer,
-                         const int64_t *shape,
-                         int64_t rank,
-                         const int64_t *strides,
-                         int64_t offset,
-                         runtime_t runtime,
-                         datatype_t datatype)
-{
-    CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-
-    nw_error_t *error = NULL;
-
-    error = runtime_create(buffer, RUNTIME_ONES, shape, rank, strides, offset, runtime, datatype, NULL, 0);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *runtime_uniform(buffer_t **buffer,
-                            const int64_t *shape,
-                            int64_t rank,
-                            const int64_t *strides,
-                            int64_t offset,
-                            runtime_t runtime,
-                            datatype_t datatype,
-                            void **arguments,
-                            int64_t length)
-{
-    CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-
-    nw_error_t *error = NULL;
-
-    error = runtime_create(buffer, RUNTIME_UNIFORM, shape, rank, strides, offset, runtime, datatype, arguments, length);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *runtime_normal(buffer_t **buffer,
-                           const int64_t *shape,
-                           int64_t rank,
-                           const int64_t *strides,
-                           int64_t offset,
-                           const runtime_t runtime,
-                           datatype_t datatype,
-                           void **arguments,
-                           int64_t length)
-{
-    CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-
-    nw_error_t *error = NULL;
-
-    error = runtime_create(buffer, RUNTIME_NORMAL, shape, rank, strides, offset, runtime, datatype, arguments, length);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *runtime_arange(buffer_t **buffer,
-                           const int64_t *shape,
-                           int64_t rank,
-                           const int64_t *strides,
-                           int64_t offset,
-                           const runtime_t runtime,
-                           datatype_t datatype,
-                           void **arguments,
-                           int64_t length)
-{
-    CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-
-    nw_error_t *error = NULL;
-
-    error = runtime_create(buffer, RUNTIME_ARANGE, shape, rank, strides, offset, runtime, datatype, arguments, length);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *runtime_from(buffer_t **buffer,
-                         const int64_t *shape,
-                         int64_t rank,
-                         const int64_t *strides,
-                         int64_t offset,
-                         const runtime_t runtime,
-                         datatype_t datatype,
-                         void *data)
-{
-    CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-
-    nw_error_t *error = NULL;
-
-    error = runtime_create_nonempty(buffer, shape, rank, strides, offset, runtime, datatype, data, false);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *runtime_copy(buffer_t **buffer,
-                         const int64_t *shape,
-                         int64_t rank,
-                         const int64_t *strides,
-                         int64_t offset,
-                         const runtime_t runtime,
-                         datatype_t datatype,
-                         void *data)
-{
-    CHECK_NULL_ARGUMENT(buffer, "buffer");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-
-    nw_error_t *error = NULL;
-
-    error = runtime_create_nonempty(buffer, shape, rank, strides, offset, runtime, datatype, data, true);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);

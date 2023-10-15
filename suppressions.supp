@@ -17627,8 +17627,8 @@
    fun:binary_operation_forward
    fun:operation_forward
    fun:function_forward
-   fun:apply_function
-   fun:apply_function_binary
+   fun:apply_operation
+   fun:apply_operation_binary
    fun:tensor_power
    fun:_Z23test_binary_elementwise23binary_operation_type_t
 }

@@ -208,14 +208,6 @@
             {\
                 fprintf(stderr, ", x: (id: %lu)", (function)->operation->unary_operation->x->id);\
             }\
-            if (!(function)->operation->unary_operation->result)\
-            {\
-                fprintf(stderr, ", result: NULL");\
-            }\
-            else\
-            {\
-                fprintf(stderr, ", result: (id: %lu)", (function)->operation->unary_operation->result->id);\
-            }\
             break;\
         case BINARY_OPERATION:\
             fprintf(stderr, "%s", binary_operation_type_string((function)->operation->binary_operation->operation_type));\
@@ -235,14 +227,6 @@
             {\
                 fprintf(stderr, ", y: (id: %lu)", (function)->operation->binary_operation->y->id);\
             }\
-            if (!(function)->operation->binary_operation->result)\
-            {\
-                fprintf(stderr, ", result: NULL");\
-            }\
-            else\
-            {\
-                fprintf(stderr, ", result: (id: %lu)", (function)->operation->binary_operation->result->id);\
-            }\
             break;\
         case REDUCTION_OPERATION:\
             fprintf(stderr, "%s", reduction_operation_type_string((function)->operation->reduction_operation->operation_type));\
@@ -253,14 +237,6 @@
             else\
             {\
                 fprintf(stderr, ", x: (id: %lu)", (function)->operation->reduction_operation->x->id);\
-            }\
-            if (!(function)->operation->reduction_operation->result)\
-            {\
-                fprintf(stderr, ", result: NULL");\
-            }\
-            else\
-            {\
-                fprintf(stderr, ", result: (id: %lu)", (function)->operation->reduction_operation->result->id);\
             }\
             fprintf(stderr, ", axis: ");\
             PRINT_DEBUG_INT64_ARRAY((function)->operation->reduction_operation->axis,\
@@ -277,14 +253,6 @@
             else\
             {\
                 fprintf(stderr, ", x: (id: %lu)", (function)->operation->structure_operation->x->id);\
-            }\
-            if (!(function)->operation->structure_operation->result)\
-            {\
-                fprintf(stderr, ", result: NULL");\
-            }\
-            else\
-            {\
-                fprintf(stderr, ", result: (id: %lu)", (function)->operation->structure_operation->result->id);\
             }\
             fprintf(stderr, ", arguments: ");\
             PRINT_DEBUG_INT64_ARRAY((function)->operation->structure_operation->arguments,\
@@ -633,7 +601,7 @@ typedef enum nw_error_type_t
     ERROR_SQUARE_ROOT,
     ERROR_RESHAPE,
     ERROR_SLICE,
-    ERROR_BINARY_ELEMENTWISE,
+    ERROR_BINARY,
     ERROR_REDUCTION,
     ERROR_EXPONENTIAL,
     ERROR_LOGARITHM,

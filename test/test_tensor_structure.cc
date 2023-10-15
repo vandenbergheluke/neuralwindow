@@ -304,28 +304,28 @@ Suite *make_structure_suite(void)
     TCase *tc_padding;
 
     s = suite_create("Test structure Tensor Suite");
-    // tc_expand = tcase_create("Test Expand Tensor Case");
-    // tc_permute = tcase_create("Test Permute Tensor Case");
-    // tc_reshape = tcase_create("Test Reshape Tensor Case");
-    tc_slice = tcase_create("Test Slice Tensor Case");
+    tc_expand = tcase_create("Test Expand Tensor Case");
+    tc_permute = tcase_create("Test Permute Tensor Case");
+    tc_reshape = tcase_create("Test Reshape Tensor Case");
+    // tc_slice = tcase_create("Test Slice Tensor Case");
     // tc_padding = tcase_create("Test Padding Tensor Case");
 
-    // tcase_add_checked_fixture(tc_expand, setup_expand, teardown_expand);
-    // tcase_add_checked_fixture(tc_permute, setup_permute, teardown_permute);
-    // tcase_add_checked_fixture(tc_reshape, setup_reshape, teardown_reshape);
-    tcase_add_checked_fixture(tc_slice, setup_slice, teardown_slice);
+    tcase_add_checked_fixture(tc_expand, setup_expand, teardown_expand);
+    tcase_add_checked_fixture(tc_permute, setup_permute, teardown_permute);
+    tcase_add_checked_fixture(tc_reshape, setup_reshape, teardown_reshape);
+    // tcase_add_checked_fixture(tc_slice, setup_slice, teardown_slice);
     // tcase_add_checked_fixture(tc_padding, setup_padding, teardown_padding);
 
-    // tcase_add_test(tc_expand, test_expand);
-    // tcase_add_test(tc_permute, test_permute);
-    // tcase_add_test(tc_reshape, test_reshape);
-    tcase_add_test(tc_slice, test_slice);
+    tcase_add_test(tc_expand, test_expand);
+    tcase_add_test(tc_permute, test_permute);
+    tcase_add_test(tc_reshape, test_reshape);
+    // tcase_add_test(tc_slice, test_slice);
     // tcase_add_test(tc_padding, test_padding);
 
-    // suite_add_tcase(s, tc_expand);
-    // suite_add_tcase(s, tc_permute);
-    // suite_add_tcase(s, tc_reshape);
-    suite_add_tcase(s, tc_slice);
+    suite_add_tcase(s, tc_expand);
+    suite_add_tcase(s, tc_permute);
+    suite_add_tcase(s, tc_reshape);
+    // suite_add_tcase(s, tc_slice);
     // suite_add_tcase(s, tc_padding);
 
     return s;

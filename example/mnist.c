@@ -1,4 +1,5 @@
 #include <view.h>
+#include <runtime.h>
 #include <buffer.h>
 #include <tensor.h>
 #include <function.h>
@@ -126,14 +127,14 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
         int64_t shape[] = {iterations};
         int64_t rank = 1;
         
-        error = tensor_from_data(&total_accuracy, accuracy_data, runtime, datatype, rank, shape, NULL, 0, false, false, false);
+        error = tensor_from_data(&total_accuracy, accuracy_data, runtime, datatype, rank, shape, false, false, false);
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
             goto cleanup;
         }
 
-        error = tensor_from_data(&total_cost, cost_data, runtime, datatype, rank, shape, NULL, 0, false, false, false);
+        error = tensor_from_data(&total_cost, cost_data, runtime, datatype, rank, shape, false, false, false);
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -345,13 +346,13 @@ nw_error_t *mnist_dataloader(int64_t index, batch_t *batch, void *arguments)
         }
     }
 
-    error = tensor_from_data(&batch->x, data, runtime, datatype, 2, (int64_t[]) {batch_size, number_of_pixels}, NULL, 0, copy, false, true);
+    error = tensor_from_data(&batch->x, data, runtime, datatype, 2, (int64_t[]) {batch_size, number_of_pixels}, copy, false, true);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
-    error = tensor_from_data(&batch->y, labels, runtime, datatype, 2, (int64_t[]) {batch_size, number_of_labels}, NULL, 0, copy, false, true);
+    error = tensor_from_data(&batch->y, labels, runtime, datatype, 2, (int64_t[]) {batch_size, number_of_labels}, copy, false, true);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);

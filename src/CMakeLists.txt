@@ -8,6 +8,7 @@ set(
     SOURCE 
     "${TENSOR_DIR}/buffer.c"
     "${TENSOR_DIR}/function.c"
+    "${TENSOR_DIR}/operation.c"
     "${TENSOR_DIR}/tensor.c"
     "${TENSOR_DIR}/view.c"
     "${UTIL_DIR}/datatype.c"
@@ -21,6 +22,7 @@ set(
     "${UTIL_DIR}/sort.c"
     "${RUNTIME_DIR}/mkl_runtime.c"
     "${RUNTIME_DIR}/openblas_runtime.c"
+    "${RUNTIME_DIR}/runtime.c"
     "${NN_DIR}/cost.c"
     "${NN_DIR}/init.c"
     "${NN_DIR}/layer.c"
@@ -38,6 +40,7 @@ set(
     HEADERS
     "${TENSOR_DIR}/buffer.h"
     "${TENSOR_DIR}/function.h"
+    "${TENSOR_DIR}/operation.h"
     "${TENSOR_DIR}/tensor.h"
     "${TENSOR_DIR}/view.h"
     "${UTIL_DIR}/datatype.h"
@@ -51,6 +54,7 @@ set(
     "${UTIL_DIR}/sort.h"
     "${RUNTIME_DIR}/mkl_runtime.h"
     "${RUNTIME_DIR}/openblas_runtime.h"
+    "${RUNTIME_DIR}/runtime.h"
     "${NN_DIR}/cost.h"
     "${NN_DIR}/init.h"
     "${NN_DIR}/layer.h"
