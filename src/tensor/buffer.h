@@ -13,7 +13,7 @@ typedef struct view_t view_t;
 
 typedef struct storage_t
 {
-    int64_t reference_count;
+    uint64_t reference_count;
     runtime_t runtime;
     datatype_t datatype;
     int64_t n;

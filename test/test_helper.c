@@ -1,60 +1,25 @@
-#include <iostream>
-extern "C"
-{
+#include <view.h>
+#include <datatype.h>
 #include <check.h>
 #include <view.h>
+#include <runtime.h>
 #include <buffer.h>
 #include <tensor.h>
 #include <function.h>
-}
 #include <test_helper.h>
-#include <torch/torch.h>
 
-tensor_t *torch_to_tensor(torch::Tensor torch_tensor, runtime_t runtime, datatype_t datatype)
+static inline float32_t get_epsilon_float(float32_t a, float32_t b)
 {
-    nw_error_t *error = NULL;
-    buffer_t *buffer = NULL;
-    tensor_t *tensor = NULL;
-
-    switch (datatype)
-    {
-    case FLOAT32:
-        torch_tensor = torch_tensor.to(torch::kFloat32);
-        break;
-    case FLOAT64:
-        torch_tensor = torch_tensor.to(torch::kFloat64);
-        break;
-    default:
-        ck_abort_msg("invalid datatype.");
-    }
-
-    error = buffer_creation(COPY_OPERATION, &buffer, torch_tensor.sizes().data(), torch_tensor.ndimension(), torch_tensor.strides().data(), 
-                            torch_tensor.storage_offset(), runtime, datatype, NULL, 0, (void *) torch_tensor.storage().data_ptr().get());
-    if (error)
-    {
-        error_print(error);
-    }
-    ck_assert_ptr_null(error);
-
-    error = tensor_create(&tensor, buffer, NULL, NULL, (bool_t) torch_tensor.requires_grad(), true);
-    if (error)
-    {
-        error_print(error);
-    }
-    ck_assert_ptr_null(error);
-
-    return tensor;
+    static float32_t epsilon = 128 * FLT_EPSILON;
+    static float32_t abs_epsilon = 1e-5;
+    return MAX(abs_epsilon, epsilon * MIN((ABS(a) + ABS(b)), FLT_MAX));
 }
 
-// https://stackoverflow.com/questions/4915462/how-should-i-do-floating-point-comparison
-static inline float32_t get_epsilon_float(float32_t a, float32_t b, float32_t epsilon = 128 * FLT_EPSILON, float32_t abs_epsilon = 1e-5)
+static inline float64_t get_epsilon_double(float64_t a, float64_t b)
 {
-    return std::max(abs_epsilon, epsilon * std::min((std::abs(a) + std::abs(b)), std::numeric_limits<float>::max()));
-}
-
-static inline float64_t get_epsilon_double(float64_t a, float64_t b, float64_t epsilon = 1e2 * FLT_EPSILON, float64_t abs_epsilon = 1e-5)
-{
-    return std::max(abs_epsilon, epsilon * std::min((std::abs(a) + std::abs(b)), std::numeric_limits<double>::max()));
+    static float64_t epsilon = 1e2 * FLT_EPSILON;
+    static float64_t abs_epsilon = 1e-5;
+    return MAX(abs_epsilon, epsilon * MIN((ABS(a) + ABS(b)), FLT_MAX));
 }
 
 
@@ -103,28 +68,6 @@ void ck_assert_element_eq(const void *returned_data, int64_t returned_index,
         break;
     default:
         ck_abort_msg("unknown datatype.");
-    }
-}
-
-void ck_assert_view_eq(const view_t *returned_view, const view_t *expected_view)
-{
-    ck_assert_ptr_nonnull(returned_view);
-    ck_assert_ptr_nonnull(expected_view);
-
-    ck_assert_int_eq(expected_view->rank, returned_view->rank);
-    ck_assert_int_eq(expected_view->offset, returned_view->offset);
-    for (int64_t i = 0; i < expected_view->rank; ++i)
-    {
-        ck_assert_int_eq(expected_view->shape[i], returned_view->shape[i]);
-        
-        if (expected_view->shape[i] == 1)
-        {
-            ck_assert(returned_view->strides[i] == (int64_t) 0 || expected_view->strides[i] == returned_view->strides[i]);
-        }
-        else
-        {
-            ck_assert_int_eq(expected_view->strides[i], returned_view->strides[i]);
-        }
     }
 }
 
@@ -359,4 +302,27 @@ void ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tensor_t *exp
                          expected_tensor->buffer->storage->data, expected_tensor->buffer->view->strides, expected_tensor->buffer->view->offset,
                          expected_tensor->buffer->view->shape, expected_tensor->buffer->view->rank, expected_tensor->buffer->storage->datatype);
 
+}
+
+void ck_assert_view_eq(const view_t *returned_view, const view_t *expected_view)
+{
+    ck_assert_ptr_nonnull(returned_view);
+    ck_assert_ptr_nonnull(expected_view);
+
+    ck_assert_int_eq(expected_view->rank, returned_view->rank);
+    ck_assert_int_eq(expected_view->offset, returned_view->offset);
+    for (int64_t i = 0; i < expected_view->rank; ++i)
+    {
+        ck_assert_int_eq(expected_view->shape[i], returned_view->shape[i]);
+        ck_assert_int_eq(expected_view->mask[i], returned_view->mask[i]);
+        
+        if (expected_view->shape[i] == 1)
+        {
+            ck_assert(returned_view->strides[i] == (int64_t) 0 || expected_view->strides[i] == returned_view->strides[i]);
+        }
+        else
+        {
+            ck_assert_int_eq(expected_view->strides[i], returned_view->strides[i]);
+        }
+    }
 }

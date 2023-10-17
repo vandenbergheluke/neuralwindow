@@ -8,8 +8,9 @@ extern "C"
 #include <buffer.h>
 #include <tensor.h>
 #include <function.h>
-}
 #include <test_helper.h>
+}
+#include <test_helper_torch.h>
 
 typedef enum tensor_structure_type_t
 {

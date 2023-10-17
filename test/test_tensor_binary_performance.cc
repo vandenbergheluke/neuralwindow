@@ -9,8 +9,9 @@ extern "C"
 #include <errors.h>
 #include <measure.h>
 #include <check.h>
-}
 #include <test_helper.h>
+}
+#include <test_helper_torch.h>
 
 #define CASES 5
 

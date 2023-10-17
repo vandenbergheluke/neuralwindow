@@ -17,6 +17,10 @@ set(TEST_CXX
     test_autograd
 )
 
+set(TEST_HELPER_TORCH
+    test_helper_torch
+)
+
 set(TEST_HELPER
     test_helper
 )
@@ -28,12 +32,13 @@ foreach(TEST ${TESTS})
         add_custom_target("compute_sanitizer_${TEST}" COMMAND compute-sanitizer --leak-check full --target-processes all $<TARGET_FILE:${TEST}> DEPENDS ${TEST})
     endif()
     if(${TEST} IN_LIST TEST_CXX)
-        add_executable(${TEST} "${TEST}.cc" "${TEST_HELPER}.cc")
+        add_executable(${TEST} "${TEST}.cc" "${TEST_HELPER_TORCH}.cc" "${TEST_HELPER}.c")
+        set_target_properties(${TEST} PROPERTIES PUBLIC_HEADER "${TEST_HELPER_TORCH}.h ${TEST_HELPER}.h")
     elseif(${TEST} IN_LIST TEST_C)
-        add_executable(${TEST} "${TEST}.c" "${TEST_HELPER}.cc")
+        add_executable(${TEST} "${TEST}.c" "${TEST_HELPER}.c")
+        set_target_properties(${TEST} PROPERTIES PUBLIC_HEADER "${TEST_HELPER}.h")
     endif()
     target_include_directories(${TEST} PUBLIC ".")
-    set_target_properties(${TEST} PROPERTIES PUBLIC_HEADER "${TEST_HELPER}.h")
     target_link_libraries(${TEST} ${PROJECT_NAME} check subunit m "${TORCH_LIBRARIES}")
     add_test(NAME ${TEST} COMMAND ${TEST} WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${TEST_DIR})
     # add_custom_target("valgrind_${TEST}" COMMAND valgrind --leak-check=full  --show-reachable=yes --error-limit=no --gen-suppressions=all --log-file=../suppressions.log --suppressions=../../suppressions.supp $<TARGET_FILE:${TEST}> DEPENDS ${TEST})

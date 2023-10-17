@@ -11,6 +11,7 @@
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define ABS(x) ((x)<0 ? -(x) : (x))
 
 #ifdef DEBUG
 #define MAX_DATA 10
@@ -679,11 +680,11 @@ string_t error_type_string(nw_error_type_t error_type);
 #define CHECK_UNIQUE(array, length, string) do {\
     if (length)\
     {\
-        for (int64_t i = 0; i < length - 1; ++i)\
+        for (int64_t i = 0; i < (length) - 1; ++i)\
         {\
             for (int64_t j = i + 1; j < length; ++j)\
             {\
-                if (array[i] == array[j])\
+                if ((array)[i] == (array)[j])\
                 {\
                     return ERROR(ERROR_UNIQUE, string_create("received non-unique array %s.", string), NULL);\
                 }\
@@ -691,6 +692,13 @@ string_t error_type_string(nw_error_type_t error_type);
         }\
     }\
 } while(0)
+
+#define CHECK_NEGATIVE_ARGUMENT(value, string) do {\
+            if (value < 0)\
+            {\
+                return ERROR(ERROR_NULL, string_create("received negative argument for %s.", string), NULL);\
+            }\
+        } while(0)
 
 #define UNUSED(x) (void)(x)
 

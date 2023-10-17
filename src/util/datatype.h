@@ -1,8 +1,3 @@
-/**@file datatype.h
- * @brief Provides common datatypes and utilities that interact with them.
- *
- */
-
 #ifndef DATATYPE_H
 #define DATATYPE_H
 
@@ -12,6 +7,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <limits.h>
+#include <float.h>
 
 typedef float float32_t;
 typedef double float64_t;

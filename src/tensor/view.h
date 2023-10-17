@@ -25,24 +25,14 @@ typedef struct view_t
     int64_t rank; /** The rank of the tensor. (The length of shape) */ 
     int64_t *strides; /** The strides are the jumps necessary to go from one element to the next one in storage along each dimension. (not bytes) */
     int64_t offset; /** The offset in the underlying storage in terms of number of storage elements. (not bytes) */
+    int64_t *mask; /** The shape of the tensor before padding. */
 } view_t;
 
-nw_error_t *view_create(view_t **view,
-                        int64_t offset,
-                        int64_t rank,
-                        const int64_t *shape,
-                        const int64_t *strides);
+nw_error_t *view_create(view_t **view, int64_t offset, int64_t rank, const int64_t *shape, const int64_t *strides, const int64_t *mask);
 void view_destroy(view_t *view);
-bool_t is_contiguous(const int64_t *shape,
-                     int64_t rank,
-                     const int64_t *strides,
-                     int64_t offset);
-nw_error_t *permute(const int64_t *original_shape,
-                    const int64_t *original_strides,
-                    int64_t *permuted_shape,
-                    int64_t *permuted_strides,
-                    const int64_t *axis,
-                    int64_t length);
+bool_t is_contiguous(const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset);
+nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t rank);
+nw_error_t *view_permute(const view_t *original_view, view_t **permuted_view, const int64_t *axis, int64_t length);
 nw_error_t *reduce(const int64_t *original_shape,
                 int64_t original_rank,
                 const int64_t *original_strides, 
@@ -62,7 +52,6 @@ nw_error_t *reduce_recover_dimensions(const int64_t *reduced_shape,
                                       int64_t rank);
 bool_t shapes_equal(const int64_t *x_shape, int64_t x_rank, const int64_t *y_shape, int64_t y_rank);
 int64_t shape_size(const int64_t *shape, int64_t rank);
-nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t rank);
 nw_error_t *broadcast_strides(const int64_t *original_shape,
                            int64_t original_rank,
                            const int64_t *original_strides,
@@ -124,10 +113,6 @@ nw_error_t *reduce_axis_length(const int64_t *original_shape,
                                   int64_t broadcasted_rank, 
                                   int64_t *length_keep_dimension,
                                   int64_t *length_remove_dimension);
-bool_t is_broadcastable(const int64_t *original_shape,
-                        int64_t original_rank,
-                        const int64_t *broadcasted_shape,
-                        int64_t broadcasted_rank);
 nw_error_t *n_from_shape_and_strides(const int64_t *shape, 
                                      const int64_t *strides,
                                      int64_t rank,

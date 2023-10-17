@@ -9,9 +9,190 @@
 #include <stdio.h>
 #include <string.h>
 
+#pragma region VIEW_HELPERS
+
+/**
+ * @brief Given the shape and rank of a tensor that is contiguous in memory and stored in
+ *        row-major format, find the associated strides. See unit tests in `test_view.c`
+ *        for examples.
+ *        Reference: https://github.com/tinygrad/tinygrad/blob/master/tinygrad/shape/shapetracker.py
+ * @param[out] strides The number of elements to skip in memory to reach the next 
+ *                     element in a specific dimension of the tensor. The strides 
+ *                     should be preallocated and same size as shape.
+ * @param[in] shape An array of size rank representing the dimensions of the tensor.
+ * @param[in] rank The order of the tensor. Gives the number of elements in shape.
+ * @return Error if `shape` or `strides` is NULL.
+ *         Error if `rank` does not satisfy 0 <= rank <= MAX_DIM.
+ *         Error if any of the dimensions in shape are 0.
+ *         NULL if the strides were successfully acquired.
+ */
+nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t rank)
+{
+    CHECK_NULL_ARGUMENT(strides, "strides");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    if (rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK, string_create("rank %ld must be less than or equal to %d.", rank, (int) MAX_RANK), NULL);
+    }
+
+    for (int64_t i = 0; i < rank; ++i)
+    {
+        if (!shape[i])
+        {
+            return ERROR(ERROR_SHAPE,
+                         string_create("all shape dimensions must be greater than 0."),
+                         NULL);
+        }
+
+        if (!i)
+        {
+            strides[rank - (i + 1)] = 1;
+        }
+        else
+        {
+            strides[rank - (i + 1)] = shape[rank - i] * strides[rank - i];
+        }
+    }
+
+    for (int64_t i = 0; i < rank; ++i)
+    {
+        if (shape[i] == 1)
+        {
+            strides[i] = 0;
+        }
+    }
+
+    return NULL;
+}
+
+static inline int64_t dimension_to_index(int64_t dimension, int64_t rank)
+{
+    return (dimension < 0) ? (rank + dimension) : dimension;
+}
+
+static bool_t axis_in_range(const int64_t *axis, int64_t length, int64_t rank)
+{
+    if (axis)
+    {
+        for (int64_t i = 0; i < length; ++i)
+        {
+            int64_t index = dimension_to_index(axis[i], rank);
+            if (index < 0 || index >= rank)
+            {
+               return false;
+            }
+        }
+    }
+    else
+    {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * @brief Determine if an integer array contains a given value.
+ * @param array The collection of integers being queried.
+ * @param length The length of `array`.
+ * @param value The value being searched for in the array.
+ * @return True if `value` is present in the `array` and false otherwise.
+ */
+static bool_t array_contains(const int64_t *array, int64_t length, int64_t value)
+{
+    if (array)
+    {
+        for (int64_t i = 0; i < length; ++i)
+        {
+            if (value == array[i])
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * @brief Given two arrays, determine if both have the same elements in the same positions. 
+ * @param[in] array_a An array of size `length_a`.
+ * @param[in] length_a Gives number of elements in `array_a`.
+ * @param[in] array_b An array of size `length_b`.
+ * @param[in] length_b Gives number of elements in `array_b`.
+ * @return False if either shapes are NULL, ranks are not equal, or shape dimensions at a common index are not equal. 
+ *         True if ranks are equal and shape dimensions are equal or both are NULL.
+ */
+static bool_t arrays_equal(const int64_t *array_a, int64_t length_a, const int64_t *array_b, int64_t length_b)
+{
+    if (length_a != length_b || (!array_a && array_b) || (array_a && !array_b))
+    {
+        return false;
+    }
+
+    if (!array_a && !array_b)
+    {
+        return true;
+    }
+
+    for (int64_t i = 0; i < length_a; ++i)
+    {
+        if (array_a[i] != array_b[i])
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * @brief Take the product of all elements in an array,
+ * @param[in] array A collection of integers being multiplied together.
+ * @param[in] length Number of elements in `array`.
+ * @return The product of elements in the array.
+ */
+static int64_t array_product(const int64_t *array, int64_t length)
+{
+    int64_t product = 1;
+
+    if (!array)
+    {
+        return product;
+    }
+
+    for (int64_t i = 0; i < length; ++i)
+    {
+        product *= array[i];
+    }
+    
+    return product;
+}
+
+static bool_t is_expandable(const int64_t *original_shape, int64_t original_rank, const int64_t *expanded_shape, int64_t expanded_rank)
+{
+    if (!original_shape || !expanded_shape || expanded_rank < original_rank)
+    {
+        return false;
+    }
+
+    for (int64_t i = 1; i < expanded_rank + 1; ++i)
+    {
+        if (original_rank >= i && original_shape[original_rank - i] != expanded_shape[expanded_rank - i] && original_shape[original_rank - i] != 1)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+#pragma endregion VIEW_HELPERS
+
 /**
  * @brief Dynamically memory allocate and initialize a view. 
- *        Refernence: https://pytorch.org/docs/stable/generated/torch.Tensor.view.html       
+ *        Reference: https://pytorch.org/docs/stable/generated/torch.Tensor.view.html       
  * @param[out] view Pointer to allocated view memory. 
  * @param[in] offset The offset in the underlying storage in terms of number of 
  *                   storage elements (not bytes).
@@ -30,99 +211,111 @@
  *                    initialized under the assumption that the tensor is contiguous 
  *                    and in row major format.
  *                    Reference: https://pytorch.org/docs/stable/generated/torch.Tensor.stride.html
- * @return Error if failed to dynamically allocate memory for view or any of
- *         its members.
+ * @param[in] mask The mask is the original shape of the tensor before padding. Used to identify the explicit
+ *                 elements of the tensor that reside in memory and implicit padding elements. If NULL
+ *                 then mask shape will be the same dimensions as `shape`.
+ * @return Error if failed to dynamically allocate memory for view or any of its members.
  *         Error if `rank` does not satisfy `0 <= rank <= MAX_RANK`.
  *         Error of the contiguous tensor strides failed to be computed.
- *         Error if a dimension in shape is 0.
+ *         Error if a dimension in shape is less than or equal to 0.
  *         NULL if view was successfully dynamically memory allocated and initialized.
  */
-nw_error_t *view_create(view_t **view, int64_t offset, int64_t rank, const int64_t *shape, const int64_t *strides)
+nw_error_t *view_create(view_t **view, int64_t offset, int64_t rank, const int64_t *shape, const int64_t *strides, const int64_t *mask)
 {
     CHECK_NULL_ARGUMENT(view, "view");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
-    if (rank > MAX_RANK)
+    if (rank < 0 || rank > MAX_RANK)
     {
-        return ERROR(ERROR_RANK,
-                     string_create("rank %ld must be less or equal to %d.",
-                     rank, (int) MAX_RANK), NULL);
+        return ERROR(ERROR_RANK, string_create("rank must be in the interval [0, %d].", rank, (int) MAX_RANK), NULL);
     }
 
     for (int64_t i = 0; i < rank; ++i)
     {
-        if (!shape[i])
+        if (shape[i] <= 0 || (mask && (mask[i] <= 0 || mask[i] > shape[i])))
         {
-            return ERROR(ERROR_SHAPE,
-                         string_create("all tensor dimensions must be greater than 0."),
-                         NULL);
+            return ERROR(ERROR_SHAPE, string_create("all tensor dimensions must be greater than 0 and mask dimension <= shape dimesion."), NULL);
         }
     }
 
+    nw_error_t *error = NULL;
+    size_t size = rank * sizeof(int64_t);
+
     // View
-    *view = (view_t *) malloc((size_t) sizeof(view_t));
+    *view = (view_t *) malloc(sizeof(view_t));
     if (!*view)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view of size %zu.", sizeof(view_t)), NULL);
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view of size %zu.", sizeof(view_t)), NULL);
+        goto cleanup;
     } 
 
     // Initialize
     (*view)->offset = offset;
     (*view)->rank = rank;
+    (*view)->shape = NULL;
+    (*view)->strides = NULL;
+    (*view)->mask = NULL;
 
-    // Dynamically allocate memory for shape
-
+    // Dynamically allocate memory for shape, strides, and mask.
     // If rank is 0, this should return a reference to a block of memory of size 0.
-    (*view)->shape = (int64_t *) malloc((size_t) (rank * sizeof(int64_t)));
+
+    (*view)->shape = (int64_t *) malloc(size);
     if (!(*view)->shape)
     {
-        free(*view);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view->shape of size %zu.", (size_t) (rank * sizeof(int64_t))), NULL);
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
     }
 
-    // Dynamically allocate memory for strides.
-
-    // If rank is 0, this should return a reference to a block of memory of size 0.
-    (*view)->strides = (int64_t *) malloc((size_t) (rank * sizeof(int64_t)));
+    (*view)->strides = (int64_t *) malloc(size);
     if (!(*view)->strides)
     {
-        free(*view);
-        free((*view)->shape);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view->strides of size %zu.", (size_t) (rank * sizeof(int64_t))), NULL);
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    (*view)->mask = (int64_t *) malloc(size);
+    if (!(*view)->mask)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
     }
 
     // Copy
-
     // Don't need to copy for scalar tensors.
-    if (rank == 0)
+    if (rank)
     {
-       return NULL; 
-    }
-
-    // Initialize Shape
-    memcpy((void *) ((*view)->shape), 
-           (const void *) shape, (size_t) (rank * sizeof(int64_t)));
-
-    // Initialize Strides
-    if (strides)
-    {
-        memcpy((void *) ((*view)->strides), 
-               (const void *) strides,
-               (size_t) (rank * sizeof(int64_t)));
-    }
-    else
-    {
-        nw_error_t *error = strides_from_shape((*view)->strides, shape, rank);
-        if (error)
+        memcpy((*view)->shape, shape, size);
+        if (strides)
         {
-            free((*view)->strides);
-            free((*view)->shape);
-            free(*view);
-            return ERROR(ERROR_CREATE, string_create("failed to create strides from shape."), error);
+            memcpy((*view)->strides, strides, size);
+        }
+        else
+        {
+            error = strides_from_shape((*view)->strides, shape, rank);
+            if (error)
+            {
+                error = ERROR(ERROR_INITIALIZATION, string_create("failed to initialize strides."), error);
+                goto cleanup;
+            }
+        }
+
+        if (mask)
+        {
+            memcpy((*view)->mask, mask, size);
+        }
+        else
+        {
+            memcpy((*view)->mask, shape, size);
         }
     }
 
-    return NULL;
+    return error;
+
+cleanup:
+
+    view_destroy(*view);
+
+    return error;
 }
 
 /**
@@ -135,10 +328,35 @@ void view_destroy(view_t *view)
     {
         free(view->shape);
         free(view->strides);
+        free(view->mask);
         free(view);
     }
 }
 
+nw_error_t *view_create_contiguous(view_t **view, const int64_t *shape, int64_t rank)
+{
+    CHECK_NULL_ARGUMENT(view, "view");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    nw_error_t *error = NULL;
+
+    error = view_create(view, 0, rank, shape, NULL, NULL);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    return error;
+}
+
+/**
+ * @brief Copy contents of a source view to a destination view.
+ * @param[in] source_view The view whose contents is being copied. Must not be NULL.
+ * @param[out] destination_view The view to write the copied contents to. Must not be NULL.
+ * return Error if `source_view` or `destination_view` is NULL.
+ *        Error if destination view could not be allocated and initialized.
+ *        NULL if copy was successful.
+ */
 nw_error_t *view_copy(const view_t *source_view, view_t **destination_view)
 {
     CHECK_NULL_ARGUMENT(source_view, "source_view");
@@ -146,14 +364,14 @@ nw_error_t *view_copy(const view_t *source_view, view_t **destination_view)
 
     nw_error_t *error = NULL;
 
-    error = view_create(destination_view, source_view->offset, source_view->rank, source_view->shape, source_view->strides);
+    error = view_create(destination_view, source_view->offset, source_view->rank, 
+                        source_view->shape, source_view->strides, source_view->mask);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
-    }
+    }        
 
     return error;
-        
 }
 
 /**
@@ -198,70 +416,41 @@ bool_t is_contiguous(const int64_t *shape, int64_t rank, const int64_t *strides,
     return true;
 }
 
-/**
- * @brief Permute the dimensions of a tensor.
- *        Refernece: https://pytorch.org/docs/stable/generated/torch.permute.html
- * @param[in] original_shape The original dimensions of the tensor. 
- * @param[in] original_strides The original memory strides.
- * @param[out] permuted_shape The reordered dimensions.
- * @param[out] permuted_strides The reordered memory strides.
- * @param[in] axis Index array containing the order of dimensions.
- * @param[in] length Number of elements `original_shape`, `original_strides`,
- *                   `permuted_shape`, `permuted_strides`, and `axis`. Should
- *                   be in closed interval [0, MAX_RANK].
- * @return Error if length does not satisfy 0 <= length <= MAX_RANK.
- *         Error if any argument is NULL.
- *         Error if dimension index in `axis` is greater than length (out of range).
- *         Error if not all indicies in `axis` are unique.
- *         NULL if dimensions of the tensor were successfully permuted to the 
- *         new order specified by axis.
- */
-nw_error_t *permute(const int64_t *original_shape,
-                    const int64_t *original_strides, 
-                    int64_t *permuted_shape,
-                    int64_t *permuted_strides,
-                    const int64_t *axis,
-                    int64_t length)
+nw_error_t *view_permute(const view_t *original_view, view_t **permuted_view, const int64_t *axis, int64_t length)
 {
-    CHECK_NULL_ARGUMENT(original_shape, "original_shape");
-    CHECK_NULL_ARGUMENT(original_strides, "original_strides");
-    CHECK_NULL_ARGUMENT(permuted_shape, "permuted_shape");
-    CHECK_NULL_ARGUMENT(permuted_strides, "permuted_strides");
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
+    CHECK_NULL_ARGUMENT(permuted_view, "permuted_view");
     CHECK_NULL_ARGUMENT(axis, "axis");
+    CHECK_NEGATIVE_ARGUMENT(length, "length");
     CHECK_UNIQUE(axis, length, "axis");
 
-    if (length > MAX_RANK)
+    nw_error_t *error = NULL;
+
+    if (length != original_view->rank)
     {
-        return ERROR(ERROR_RANK,
-                     string_create("axis length %ld must be less than or equal to %d.",
-                     length, (int) MAX_RANK),
-                     NULL);
+        return ERROR(ERROR_AXIS, string_create("length of axis much match rank of tensor."), NULL);
+    }
+
+    if (!axis_in_range(axis, length, original_view->rank))
+    {
+        return ERROR(ERROR_AXIS, string_create("axis dimensions out of range."), NULL);
+    }
+
+    error = view_copy(original_view, permuted_view);
+    if (error)
+    {
+        return ERROR(ERROR_COPY, string_create("failed to copy view."), error);
     }
     
     for (int64_t i = 0; i < length; ++i)
     {
-        int64_t dimension = axis[i];
-        if (dimension < length)
-        {
-            if (!original_shape[dimension])
-            {
-                return ERROR(ERROR_SHAPE,
-                             string_create("all shape dimensions must be greater than 0."),
-                             NULL);
-            }
-
-            permuted_shape[i] = original_shape[dimension];
-            permuted_strides[i] = original_strides[dimension];
-        }
-        else
-        {
-            return ERROR(ERROR_PERMUTE,
-                         string_create("axis dimension %ld out of range of length %ld.", 
-                         dimension, length), NULL);
-        }
+        int64_t j = dimension_to_index(axis[i], original_view->rank);
+        (*permuted_view)->shape[i] = original_view->shape[j];
+        (*permuted_view)->strides[i] = original_view->strides[j];
+        (*permuted_view)->mask[i] = original_view->mask[j];
     }
     
-    return NULL;
+    return error;
 }
 
 /**
@@ -617,64 +806,6 @@ int64_t shape_size(const int64_t *shape, int64_t rank)
 }
 
 /**
- * @brief Given the shape and rank of a tensor that is contiguous in memory and stored in
- *        row-major format, find the associated strides. See unit tests in `test_view.c`
- *        for examples.
- *        Reference: https://github.com/tinygrad/tinygrad/blob/master/tinygrad/shape/shapetracker.py
- * @param[out] strides The number of elements to skip in memory to reach the next 
- *                     element in a specific dimension of the tensor. The strides 
- *                     should be preallocated and same size as shape.
- * @param[in] shape An array of size rank representing the dimensions of the tensor.
- * @param[in] rank The order of the tensor. Gives the number of elements in shape.
- * @return Error if `shape` or `strides` is NULL.
- *         Error if `rank` does not satisfy 0 <= rank <= MAX_DIM.
- *         Error if any of the dimensions in shape are 0.
- *         NULL if the strides were successfully acquired.
- */
-nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t rank)
-{
-    CHECK_NULL_ARGUMENT(strides, "strides");
-    CHECK_NULL_ARGUMENT(shape, "shape");
-
-    if (rank > MAX_RANK)
-    {
-        return ERROR(ERROR_RANK, 
-                     string_create("rank %ld must be less than or equal to %d.", 
-                     rank, (int) MAX_RANK),
-                     NULL);
-    }
-
-    for (int64_t i = 0; i < rank; ++i)
-    {
-        if (!shape[i])
-        {
-            return ERROR(ERROR_SHAPE,
-                         string_create("all shape dimensions must be greater than 0."),
-                         NULL);
-        }
-
-        if (!i)
-        {
-            strides[rank - (i + 1)] = 1;
-        }
-        else
-        {
-            strides[rank - (i + 1)] = shape[rank - i] * strides[rank - i];
-        }
-    }
-
-    for (int64_t i = 0; i < rank; ++i)
-    {
-        if (shape[i] == 1)
-        {
-            strides[i] = 0;
-        }
-    }
-
-    return NULL;
-}
-
-/**
  * @brief Given the shape, rank, and strides of a tensor, and the target shape and rank to broadcast the tensor to,
  *        get the strides required to broadcast the tensor to the target shape without copying memory.   
  * @param[in] original_shape An array of size original_rank representing the dimensions of the original tensor being broadcasted.
@@ -706,7 +837,7 @@ nw_error_t *broadcast_strides(const int64_t *original_shape,
                      NULL);
     }
 
-    if (!is_broadcastable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
+    if (!is_expandable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
     {
         return ERROR(ERROR_BROADCAST,
                      string_create("cannot broadcast shapes."),
@@ -942,41 +1073,6 @@ nw_error_t *matrix_multiplication_shape(int64_t *x_shape, int64_t *y_shape, int6
     return NULL;
 }
 
-/**
- * @brief 
- * 
- * @param original_shape 
- * @param original_rank 
- * @param broadcasted_shape 
- * @param broadcasted_rank 
- * @return bool_t 
- */
-bool_t is_broadcastable(const int64_t *original_shape,
-                        int64_t original_rank,
-                        const int64_t *broadcasted_shape,
-                        int64_t broadcasted_rank)
-{
-    if (!original_shape ||
-        !broadcasted_shape ||
-        broadcasted_rank < original_rank)
-    {
-        return false;
-    }
-
-
-    for (int64_t i = 1; i < broadcasted_rank + 1; ++i)
-    {
-        if (original_rank >= i && 
-            original_shape[original_rank - i] != broadcasted_shape[broadcasted_rank - i] && 
-            original_shape[original_rank - i] != 1)
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 nw_error_t *reduce_axis_length(const int64_t *original_shape,
                                int64_t original_rank,
                                const int64_t *broadcasted_shape,
@@ -997,7 +1093,7 @@ nw_error_t *reduce_axis_length(const int64_t *original_shape,
                      NULL);
     }
 
-    if (!is_broadcastable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
+    if (!is_expandable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
     {
         return ERROR(ERROR_BROADCAST,
                      string_create("cannot broadcast shapes."),
@@ -1047,7 +1143,7 @@ nw_error_t *reduce_axis(const int64_t *original_shape,
                      NULL);
     }
 
-    if (!is_broadcastable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
+    if (!is_expandable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
     {
         return ERROR(ERROR_BROADCAST,
                      string_create("cannot broadcast shapes."),

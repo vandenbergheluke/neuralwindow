@@ -7,8 +7,9 @@ extern "C"
 #include <buffer.h>
 #include <tensor.h>
 #include <function.h>
-}
 #include <test_helper.h>
+}
+#include <test_helper_torch.h>
 
 typedef enum tensor_unary_type_t
 {
