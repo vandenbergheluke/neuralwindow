@@ -5,6 +5,7 @@ set(TEST_C
     test_map
     test_queue
     test_view
+    graph
 )
 
 set(TEST_CXX

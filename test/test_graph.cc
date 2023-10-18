@@ -111,6 +111,12 @@ int main(void)
     // Set seed
     torch::manual_seed(SEED);
 
+    // Set the environment variable using putenv
+    const char *env_variable = "GRAPH=1";
+    if (putenv((char *)env_variable) != 0) {
+        return EXIT_FAILURE;
+    }
+
     int number_failed;
     SRunner *sr;
 
