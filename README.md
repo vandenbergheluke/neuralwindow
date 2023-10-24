@@ -123,7 +123,14 @@ sudo apt-get install lcov
 Install MathGL
 
 ```bash
-sudo apt-get install libmgl-dev
+curl https://sourceforge.net/projects/mathgl/files/latest/download
+tar -xvzf mathgl-X.X.X.tar.gz
+cd mathgl-X.X.X
+mkdir build
+cd build
+cmake ../
+make
+sudo make install
 ```
 
 ## Build
