@@ -18,7 +18,7 @@ jobs:
     - name: Update
       run: sudo apt-get update
     - name: Install MathGL
-      run: sudo apt-get install -y udav libmgl-dev
+      run: sudo apt-get install -y udav mathgl libmgl-dev
     - name: Install CUDA Toolkit
       uses: Jimver/cuda-toolkit@v0.2.11
       id: cuda-toolkit
