@@ -324,8 +324,20 @@ void performance_test(std::string op_name, datatype_t datatype,
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);
 
+                    // Deal with the nasty case of tensor_contiguous returning
+                    // itself.
+                    // TODO: We might want to add a source code fix for
+                    // error-prone functions that overwrite a pointer without
+                    // checking if it was non-null. (most of our functions
+                    // allow you to pass an existing tensor for the return, and
+                    // its entirely necessary for some)
                     tensor_destroy(tensor);
-                    tensor_destroy(intermediate_tensor);
+                    if (returned_tensor != tensor) {
+                        tensor_destroy(returned_tensor);
+                    }
+                    if (intermediate_tensor != returned_tensor) {
+                        tensor_destroy(intermediate_tensor);
+                    }
 
                     torch_completion_time = torch_end - torch_start;
                     nw_completion_time = nw_end - nw_start;
@@ -597,8 +609,20 @@ void performance_test(std::string op_name, datatype_t datatype,
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);
 
+                    // Deal with the nasty case of tensor_contiguous returning
+                    // itself.
+                    // TODO: We might want to add a source code fix for
+                    // error-prone functions that overwrite a pointer without
+                    // checking if it was non-null. (most of our functions
+                    // allow you to pass an existing tensor for the return, and
+                    // its entirely necessary for some)
                     tensor_destroy(tensor);
-                    tensor_destroy(intermediate_tensor);
+                    if (returned_tensor != tensor) {
+                        tensor_destroy(returned_tensor);
+                    }
+                    if (intermediate_tensor != returned_tensor) {
+                        tensor_destroy(intermediate_tensor);
+                    }
 
                     torch_completion_time = torch_end - torch_start;
                     nw_completion_time = nw_end - nw_start;
