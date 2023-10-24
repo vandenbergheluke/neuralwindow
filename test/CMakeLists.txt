@@ -38,15 +38,18 @@ set(TEST_HELPER
     test_helper
 )
 
-set(TESTS ${TEST_C} ${TEST_CXX} ${TEST_CXX_PERF})
+if(MathGL2_FOUND)
+    set(TESTS ${TEST_C} ${TEST_CXX} ${TEST_CXX_PERF})
+else()
+    set(TESTS ${TEST_C} ${TEST_CXX})
+endif()
+
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --nvlink-options=--disable-warnings")
 foreach(TEST ${TESTS})
     if (NOT DEFINED ENV{CPU_ONLY})
         add_custom_target("compute_sanitizer_${TEST}" COMMAND compute-sanitizer --leak-check full --target-processes all $<TARGET_FILE:${TEST}> DEPENDS ${TEST})
     endif()
-    if(${TEST} IN_LIST TEST_CXX)
-        add_executable(${TEST} "${TEST}.cc" "${TEST_HELPER}.cc")
-    elseif(MathGL2_FOUND AND (${TEST} IN_LIST TEST_CXX_PERF))
+    if((${TEST} IN_LIST TEST_CXX) OR (${TEST} IN_LIST TEST_CXX_PERF))
         add_executable(${TEST} "${TEST}.cc" "${TEST_HELPER}.cc")
     elseif(${TEST} IN_LIST TEST_C)
         add_executable(${TEST} "${TEST}.c" "${TEST_HELPER}.cc")
