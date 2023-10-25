@@ -12,6 +12,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <limits.h>
+#include <float.h>
 
 typedef float float32_t;
 typedef double float64_t;
