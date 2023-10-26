@@ -123,9 +123,9 @@ sudo apt-get install lcov
 Install MathGL
 
 ```bash
-curl https://sourceforge.net/projects/mathgl/files/latest/download
-tar -xvzf mathgl-X.X.X.tar.gz
-cd mathgl-X.X.X
+wget -O mathgl-8.0.1.tar.gz "https://gigenet.dl.sourceforge.net/project/mathgl/mathgl/mathgl%208.0/mathgl-8.0.1.tar.gz"
+tar -xvzf mathgl-8.0.1.tar.gz
+cd mathgl-8.0.1
 mkdir build
 cd build
 cmake ../
