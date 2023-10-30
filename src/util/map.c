@@ -83,6 +83,7 @@ nw_error_t *map_get(map_t *map, string_t key, void **data)
         if (strcmp(key, map->entries[index].key) == 0)
         {
             (*data) = map->entries[index].data;
+            return NULL;
         }
         ++index;
         if (index >= map->capacity)
@@ -105,6 +106,7 @@ static nw_error_t *map_set_entry(entry_t *entries, uint64_t capacity, string_t k
         if (strcmp(key, entries[index].key) == 0)
         {
             entries[index].data = data;
+            return NULL;
         }
         ++index;
         if (index >= capacity)

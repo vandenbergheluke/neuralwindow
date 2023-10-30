@@ -454,9 +454,9 @@ nw_error_t *function_forward(function_t *function, tensor_t **result)
                     break;
                 case BINARY_OPERATION:
                     error = graph_binary_operation(operation->binary_operation->x, 
-                                                operation->binary_operation->y,
-                                                *result,
-                                                binary_operation_type_string(operation->binary_operation->operation_type));
+                                                  operation->binary_operation->y,
+                                                  *result,
+                                                  binary_operation_type_string(operation->binary_operation->operation_type));
                     break;
                 case REDUCTION_OPERATION:
                     error = graph_unary_operation(operation->reduction_operation->x,
@@ -467,6 +467,8 @@ nw_error_t *function_forward(function_t *function, tensor_t **result)
                     error = graph_unary_operation(operation->structure_operation->x,
                                                     *result,
                                                     structure_operation_type_string(operation->structure_operation->operation_type));
+                    break;
+                case CREATION_OPERATION:
                     break;
                 default:
                     error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
