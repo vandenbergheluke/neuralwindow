@@ -3,6 +3,7 @@
 
 #include <errors.h>
 #include <datatype.h>
+#include <layer.h>
 
 typedef struct model_t model_t;
 
@@ -52,5 +53,9 @@ nw_error_t *stochastic_gradient_descent_create(stochastic_gradient_descent_t **s
                                                void *weight_decay,
                                                bool_t nesterov);
 void stochastic_gradient_descent_destroy(stochastic_gradient_descent_t *stochastic_gradient_descent);
+nw_error_t *algorithm_create(algorithm_t **algorithm, algorithm_type_t algorithm_type, void *type_algorithm);
+void algorithm_destroy(algorithm_t *algorithm, algorithm_type_t algorithm_type);
+nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, block_t *block);
+nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer, tensor_t *parameters);
 
 #endif

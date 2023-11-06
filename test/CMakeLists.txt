@@ -23,6 +23,7 @@ set(TEST_CXX
     test_buffer_unary
     test_buffer_binary
     test_autograd
+    test_optimizers
 )
 
 set(TEST_CXX_PERF

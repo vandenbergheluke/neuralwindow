@@ -12,6 +12,8 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
 
     nw_error_t *error = NULL;
     tensor_t *learning_rate = NULL;
+    tensor_t *weight_decay = NULL;
+    tensor_t *weight_decay_product = NULL;
     tensor_t *parameter_update = NULL;
     datatype_t datatype = parameters->buffer->storage->datatype;
     runtime_t runtime = parameters->buffer->storage->runtime;
@@ -22,7 +24,25 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
+    error = tensor_constant(optimizer->weight_decay, datatype, runtime, false, false, &weight_decay);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
     with_no_gradient(true);
+
+    error = tensor_multiplication(weight_decay, parameters, &weight_decay_product);
+    if (error)
+    {
+        return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+    }
+
+    error = tensor_addition(weight_decay_product, parameters->gradient, &parameters->gradient);
+    if (error)
+    {
+        return ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensors."), error);
+    }
 
     error = tensor_multiplication(learning_rate, parameters->gradient, &parameter_update);
     if (error)
@@ -41,6 +61,8 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
     tensor_destroy(parameters->gradient);
     tensor_destroy(learning_rate);
     tensor_destroy(parameter_update);
+    tensor_destroy(weight_decay);
+    tensor_destroy(weight_decay_product);
     parameters->gradient = NULL;
 
     return error;
