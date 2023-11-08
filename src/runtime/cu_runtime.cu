@@ -329,6 +329,7 @@ __global__ static void cu_square_root_float32(int n, const float32_t *x_data, in
     if (i < n)
     {
         y_data[i * y_stride] = sqrtf(x_data[i * x_stride]);
+        // TODO: magma has its own sqrt func, maybe it's faster?
     }
 }
 
@@ -338,6 +339,7 @@ __global__ static void cu_square_root_float64(int n, const float64_t *x_data, in
     if (i < n)
     {
         y_data[i * y_stride] = sqrt(x_data[i * x_stride]);
+        // TODO: magma has its own sqrt func, maybe it's faster?
     }
 }
 
