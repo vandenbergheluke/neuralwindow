@@ -7,16 +7,17 @@
 #include "magma_types.h"
 #include "magmablas_s.h"
 #include <cuda_runtime.h>
-#include <cublas.h>
+#include <cublas_v2.h>
 #include <cusparse.h>
 extern "C" {
     #include <cu_runtime.h>
 }
-// TODO: Figure out which to use between magma.h and magmablas.h
-#include <magma.h>
+#include <magma_v2.h>
 
 // TODO: Temporary
+#ifndef USE_MAGMA
 #define USE_MAGMA 1
+#endif
 
 #define SYNCHRONOUS 1
 
@@ -50,7 +51,7 @@ extern "C" nw_error_t *cu_create_context(void)
 
     magma_int_t error = magma_init();
     if (error != MAGMA_SUCCESS) {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to initialize MAGMA.", size, magma_strerror(error)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to initialize MAGMA.", magma_strerror(error)), NULL);
     }
 
     magma_device_t m_device;
@@ -503,7 +504,7 @@ extern "C" void cu_copy(datatype_t datatype, int64_t n, const void *x_data, int6
         break;
     case FLOAT64:
 #if USE_MAGMA
-        magma_scopy((magma_int_t) n, &((magmaDouble_const_ptr) x_data)[x_offset], (magma_int_t) x_stride, &((magmaDouble_ptr) y_data)[y_offset], (magma_int_t) y_stride, m_queue);
+        magma_dcopy((magma_int_t) n, &((magmaDouble_const_ptr) x_data)[x_offset], (magma_int_t) x_stride, &((magmaDouble_ptr) y_data)[y_offset], (magma_int_t) y_stride, m_queue);
         magma_queue_sync(m_queue);
 #else
         cublasDcopy_v2(cublas_handle, (int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
