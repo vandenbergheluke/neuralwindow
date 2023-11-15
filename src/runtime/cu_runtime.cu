@@ -7,7 +7,7 @@
 #include "magmablas_s.h"
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
-#include <cusparse.h>
+#include <cusparse_v2.h>
 extern "C" {
     #include <cu_runtime.h>
 }
@@ -131,7 +131,7 @@ extern "C" void cu_exponential(datatype_t datatype, int64_t n, const void *x_dat
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_exponential_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        cu_exponential_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -147,7 +147,7 @@ extern "C" void cu_exponential(datatype_t datatype, int64_t n, const void *x_dat
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_exponential_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        cu_exponential_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -194,7 +194,7 @@ extern "C" void cu_logarithm(datatype_t datatype, int64_t n, const void *x_data,
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_logarithm_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        cu_logarithm_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -211,7 +211,7 @@ extern "C" void cu_logarithm(datatype_t datatype, int64_t n, const void *x_data,
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_logarithm_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        cu_logarithm_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -258,7 +258,7 @@ extern "C" void cu_sine(datatype_t datatype, int64_t n, const void *x_data, int6
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_sine_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        cu_sine_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -274,7 +274,7 @@ extern "C" void cu_sine(datatype_t datatype, int64_t n, const void *x_data, int6
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_sine_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        cu_sine_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -321,7 +321,7 @@ extern "C" void cu_cosine(datatype_t datatype, int64_t n, const void *x_data, in
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_cosine_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        cu_cosine_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -335,7 +335,7 @@ extern "C" void cu_cosine(datatype_t datatype, int64_t n, const void *x_data, in
         {
             block_size = 32;
         }
-        cu_cosine_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        cu_cosine_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -382,7 +382,7 @@ extern "C" void cu_square_root(datatype_t datatype, int64_t n, const void *x_dat
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_square_root_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        cu_square_root_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -398,7 +398,7 @@ extern "C" void cu_square_root(datatype_t datatype, int64_t n, const void *x_dat
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_square_root_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        cu_square_root_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -445,7 +445,7 @@ extern "C" void cu_reciprocal(datatype_t datatype, int64_t n, const void *x_data
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_reciprocal_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        cu_reciprocal_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -461,7 +461,7 @@ extern "C" void cu_reciprocal(datatype_t datatype, int64_t n, const void *x_data
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_reciprocal_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        cu_reciprocal_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -544,7 +544,7 @@ void cu_negation(datatype_t datatype,
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_negation_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        cu_negation_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -560,7 +560,7 @@ void cu_negation(datatype_t datatype,
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_negation_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        cu_negation_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -609,7 +609,7 @@ extern "C" void cu_rectified_linear(datatype_t datatype, int64_t n, const void *
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_rectified_linear_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        cu_rectified_linear_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -625,7 +625,7 @@ extern "C" void cu_rectified_linear(datatype_t datatype, int64_t n, const void *
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_rectified_linear_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        cu_rectified_linear_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -688,7 +688,7 @@ extern "C" void cu_sigmoid(datatype_t datatype, int64_t n, const void *x_data, i
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_sigmoid_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        cu_sigmoid_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -704,7 +704,7 @@ extern "C" void cu_sigmoid(datatype_t datatype, int64_t n, const void *x_data, i
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_sigmoid_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        cu_sigmoid_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -907,7 +907,7 @@ extern "C" void cu_multiplication(datatype_t datatype,
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_multiplication_float32<<<grid_size, block_size>>>((int) n,
+        cu_multiplication_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n,
                                   &((float32_t *) x_data)[x_offset],
                                   (int) x_stride,
                                   &((float32_t *) y_data)[y_offset],
@@ -929,7 +929,7 @@ extern "C" void cu_multiplication(datatype_t datatype,
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_multiplication_float64<<<grid_size, block_size>>>((int) n,
+        cu_multiplication_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n,
                                   &((float64_t *) x_data)[x_offset],
                                   (int) x_stride,
                                   &((float64_t *) y_data)[y_offset],
@@ -982,7 +982,7 @@ extern "C" void cu_division(datatype_t datatype, int64_t n, const void *x_data, 
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_division_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        cu_division_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -998,7 +998,7 @@ extern "C" void cu_division(datatype_t datatype, int64_t n, const void *x_data, 
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_division_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        cu_division_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -1045,7 +1045,7 @@ extern "C" void cu_power(datatype_t datatype, int64_t n, const void *x_data, int
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_power_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        cu_power_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -1061,7 +1061,7 @@ extern "C" void cu_power(datatype_t datatype, int64_t n, const void *x_data, int
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_power_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        cu_power_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -1114,7 +1114,7 @@ extern "C" void cu_compare_equal(datatype_t datatype, int64_t n, const void *x_d
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_compare_equal_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        cu_compare_equal_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -1130,7 +1130,7 @@ extern "C" void cu_compare_equal(datatype_t datatype, int64_t n, const void *x_d
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_compare_equal_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        cu_compare_equal_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -1177,7 +1177,7 @@ extern "C" void cu_compare_greater(datatype_t datatype, int64_t n, const void *x
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_compare_greater_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        cu_compare_greater_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -1193,7 +1193,7 @@ extern "C" void cu_compare_greater(datatype_t datatype, int64_t n, const void *x
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_compare_greater_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        cu_compare_greater_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -1375,7 +1375,7 @@ extern "C" void cu_maximum(datatype_t datatype, int64_t n, const void *x_data, i
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_maximum_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
+        cu_maximum_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -1391,7 +1391,7 @@ extern "C" void cu_maximum(datatype_t datatype, int64_t n, const void *x_data, i
         }
         grid_size = (n + block_size - 1) / block_size;
 
-        cu_maximum_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
+        cu_maximum_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
