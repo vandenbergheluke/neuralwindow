@@ -3,6 +3,9 @@
  * CuBLAS.
  */
 
+// #include "magma_auxiliary.h"
+#include "magma_types.h"
+#include "magmablas_s.h"
 #include <cuda_runtime.h>
 #include <cublas.h>
 #include <cusparse.h>
@@ -19,22 +22,41 @@ extern "C" {
 
 #define EPSILON 1e-7
 
-static cublasHandle_t cublasHandle = NULL;
-static cusparseHandle_t cusparseHandle = NULL;
+// CUDA defns.
+static cublasHandle_t cublas_handle = NULL;
+static cusparseHandle_t cusparse_handle = NULL;
+static cudaStream_t cuda_stream = NULL;
+
+// MAGMA defns.
+static magma_queue_t m_queue = {0};
 
 extern "C" nw_error_t *cu_create_context(void)
 {
-    cublasStatus_t cublasStatus = cublasCreate_v2(&cublasHandle);
+    cublasStatus_t cublasStatus = cublasCreate_v2(&cublas_handle);
     if (cublasStatus != CUBLAS_STATUS_SUCCESS)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create cublas context."), NULL);
     }
 
-    cusparseStatus_t sparseStatus = cusparseCreate(&cusparseHandle);
+    cusparseStatus_t cusparseStatus = cusparseCreate(&cusparse_handle);
     if (cusparseStatus != CUSPARSE_STATUS_SUCCESS)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create cusparse context."), NULL);
     }
+
+    // TODO: We may want to support more than one stream in the future for
+    // better performance.
+    cudaStreamCreate(&cuda_stream);
+
+    magma_int_t error = magma_init();
+    if (error != MAGMA_SUCCESS) {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to initialize MAGMA.", size, magma_strerror(error)), NULL);
+    }
+
+    magma_device_t m_device;
+    magma_getdevice(&m_device);
+
+    magma_queue_create_from_cuda(m_device, cuda_stream, cublas_handle, cusparse_handle, &m_queue);
 
     return NULL;
 }
@@ -42,26 +64,41 @@ extern "C" nw_error_t *cu_create_context(void)
 extern "C" void cu_destroy_context(void)
 {
     // Automatically synchronizes the device.
-    cublasDestroy_v2(cublasHandle);
-    cusparseDestroy(cusparseHandle);
+    cublasDestroy_v2(cublas_handle);
+    cusparseDestroy(cusparse_handle);
+    cudaStreamDestroy(cuda_stream);
+
+    magma_queue_destroy(m_queue);
+    magma_finalize();
 }
 
 extern "C" nw_error_t *cu_memory_allocate(void **pp, size_t size)
 {
     CHECK_NULL_ARGUMENT(pp, "pp");
 
+#if USE_MAGMA
+    magma_int_t error = magma_malloc(pp, size);
+    if (error != MAGMA_SUCCESS) {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes %s.", size, magma_strerror(error)), NULL);
+    }
+#else
     cudaError_t error = cudaMallocManaged(pp, size);
     if (error != cudaSuccess)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes %s.", size, cudaGetErrorString(error)), NULL);
     }
+#endif
 
     return NULL;
 }
 
 extern "C" void cu_memory_free(void *p)
 {
+#if USE_MAGMA
+    magma_free(p);
+#else
     cudaFree(p);
+#endif
 }
 
 __global__ static void cu_exponential_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
@@ -456,16 +493,22 @@ extern "C" void cu_copy(datatype_t datatype, int64_t n, const void *x_data, int6
     switch (datatype)
     {
     case FLOAT32:
-        cublasScopy_v2(cublasHandle, (int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
-        // Does not look like there's a cusparse equivalent
-        // magma equivalent looks to be magma_scopy
+#if USE_MAGMA
+        magma_scopy((magma_int_t) n, &((magmaFloat_const_ptr) x_data)[x_offset], (magma_int_t) x_stride, &((magmaFloat_ptr) y_data)[y_offset], (magma_int_t) y_stride, m_queue);
+        magma_queue_sync(m_queue);
+#else
+        cublasScopy_v2(cublas_handle, (int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         cudaDeviceSynchronize();
+#endif
         break;
     case FLOAT64:
-        cublasDcopy_v2(cublasHandle, (int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
-        // Does not look like there's a cusparse equivalent
-        // magma equivalent looks to be magma_dcopy
+#if USE_MAGMA
+        magma_scopy((magma_int_t) n, &((magmaDouble_const_ptr) x_data)[x_offset], (magma_int_t) x_stride, &((magmaDouble_ptr) y_data)[y_offset], (magma_int_t) y_stride, m_queue);
+        magma_queue_sync(m_queue);
+#else
+        cublasDcopy_v2(cublas_handle, (int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         cudaDeviceSynchronize();
+#endif
         break;
     default:
         break;
@@ -694,19 +737,22 @@ extern "C" static void cu_addition_float32(int n,
                                            float32_t *z_data,
                                            int z_stride)
 {
+#if USE_MAGMA
+    float alpha = 1.0;
+    magma_scopy((magma_int_t) n, (magmaFloat_const_ptr) x_data, (magma_int_t) x_stride, (magmaFloat_ptr) y_data, (magma_int_t) y_stride, m_queue);
+    magma_queue_sync(m_queue);
+    magma_saxpy((magma_int_t) n, alpha, (magmaFloat_const_ptr) x_data, (magma_int_t) x_stride, (magmaFloat_ptr) y_data, (magma_int_t) y_stride, m_queue);
+    magma_queue_sync(m_queue);
+#else
     float32_t *alpha;
     cudaMallocManaged((void **) &alpha, sizeof(float32_t));
     *alpha = (float32_t) 1.0;
-    cublasScopy_v2(cublasHandle, n, x_data, x_stride, z_data, z_stride);
-    // Does not look like there's a cusparse equivalent
-    // magma equivalent looks to be magma_scopy
+    cublasScopy_v2(cublas_handle, n, x_data, x_stride, z_data, z_stride);
     cudaDeviceSynchronize();
-    cublasSaxpy_v2(cublasHandle, n, alpha, y_data, y_stride, z_data, z_stride);
-    // Begin investigating at cusparseAxpby
-    // magma equivalent looks to be magma_saxpy
+    cublasSaxpy_v2(cublas_handle, n, alpha, y_data, y_stride, z_data, z_stride);
     cudaDeviceSynchronize();
     cudaFree(alpha);
-
+#endif
 }
 
 extern "C" static void cu_addition_float64(int n,
@@ -717,19 +763,22 @@ extern "C" static void cu_addition_float64(int n,
                                            double *z_data,
                                            float64_t z_stride)
 {
+#if USE_MAGMA
+    double alpha = 1.0;
+    magma_dcopy((magma_int_t) n, (magmaDouble_const_ptr) x_data, (magma_int_t) x_stride, (magmaDouble_ptr) y_data, (magma_int_t) y_stride, m_queue);
+    magma_queue_sync(m_queue);
+    magma_daxpy((magma_int_t) n, alpha, (magmaDouble_const_ptr) x_data, (magma_int_t) x_stride, (magmaDouble_ptr) y_data, (magma_int_t) y_stride, m_queue);
+    magma_queue_sync(m_queue);
+#else
     float64_t *alpha;
     cudaMallocManaged((void **) &alpha, sizeof(float64_t));
     *alpha = (float64_t) 1.0;
-    cublasDcopy_v2(cublasHandle, n, x_data, x_stride, z_data, z_stride);
-    // Does not look like there's a cusparse equivalent
-    // magma equivalent looks to be magma_dcopy
+    cublasDcopy_v2(cublas_handle, n, x_data, x_stride, z_data, z_stride);
     cudaDeviceSynchronize();
-    cublasDaxpy_v2(cublasHandle, n, alpha, y_data, y_stride, z_data, z_stride);
-    // Begin investigating at cusparseAxpby
-    // magma equivalent looks to be magma_daxpy
+    cublasDaxpy_v2(cublas_handle, n, alpha, y_data, y_stride, z_data, z_stride);
     cudaDeviceSynchronize();
     cudaFree(alpha);
-
+#endif
 }
 
 extern "C" void cu_addition(datatype_t datatype,
@@ -777,18 +826,22 @@ extern "C" static void cu_subtraction_float32(int n,
                                               float32_t *z_data,
                                               int z_stride)
 {
+#if USE_MAGMA
+    float alpha = -1.0;
+    magma_scopy((magma_int_t) n, (magmaFloat_const_ptr) x_data, (magma_int_t) x_stride, (magmaFloat_ptr) y_data, (magma_int_t) y_stride, m_queue);
+    magma_queue_sync(m_queue);
+    magma_saxpy((magma_int_t) n, alpha, (magmaFloat_const_ptr) x_data, (magma_int_t) x_stride, (magmaFloat_ptr) y_data, (magma_int_t) y_stride, m_queue);
+    magma_queue_sync(m_queue);
+#else
     float32_t *alpha;
     cudaMallocManaged((void **) &alpha, sizeof(float32_t));
     *alpha = (float32_t) -1.0;
-    cublasScopy_v2(cublasHandle, n, x_data, x_stride, z_data, z_stride);
-    // Does not look like there's a cusparse equivalent
-    // magma equivalent looks to be magma_scopy
+    cublasScopy_v2(cublas_handle, n, x_data, x_stride, z_data, z_stride);
     cudaDeviceSynchronize();
-    cublasSaxpy_v2(cublasHandle, n, alpha, y_data, y_stride, z_data, z_stride);
-    // Begin investigating at cusparseAxpby
-    // magma equivalent looks to be magma_saxpy
+    cublasSaxpy_v2(cublas_handle, n, alpha, y_data, y_stride, z_data, z_stride);
     cudaDeviceSynchronize();
     cudaFree(alpha);
+#endif
 }
 
 extern "C" static void cu_subtraction_float64(int n,
@@ -799,19 +852,26 @@ extern "C" static void cu_subtraction_float64(int n,
                                               float64_t *z_data,
                                               int z_stride)
 {
+#if USE_MAGMA
+    double alpha = -1.0;
+    magma_dcopy((magma_int_t) n, (magmaDouble_const_ptr) x_data, (magma_int_t) x_stride, (magmaDouble_ptr) y_data, (magma_int_t) y_stride, m_queue);
+    magma_queue_sync(m_queue);
+    magma_daxpy((magma_int_t) n, alpha, (magmaDouble_const_ptr) x_data, (magma_int_t) x_stride, (magmaDouble_ptr) y_data, (magma_int_t) y_stride, m_queue);
+    magma_queue_sync(m_queue);
+#else
     float64_t *alpha;
     cudaMallocManaged((void **) &alpha, sizeof(float64_t));
     *alpha = (float64_t) -1.0;
-    cublasDcopy_v2(cublasHandle, n, x_data, x_stride, z_data, z_stride);
+    cublasDcopy_v2(cublas_handle, n, x_data, x_stride, z_data, z_stride);
     // Does not look like there's a cusparse equivalent
     // magma equivalent looks to be magma_dcopy
     cudaDeviceSynchronize();
-    cublasDaxpy_v2(cublasHandle, n, alpha, y_data, y_stride, z_data, z_stride);
+    cublasDaxpy_v2(cublas_handle, n, alpha, y_data, y_stride, z_data, z_stride);
     // Begin investigating at cusparseAxpby
     // magma equivalent looks to be magma_daxpy
     cudaDeviceSynchronize();
     cudaFree(alpha);
-
+#endif
 }
 
 extern "C" void cu_subtraction(datatype_t datatype,
@@ -1216,23 +1276,33 @@ extern "C" void cu_matrix_multiplication_float32(datatype_t datatype,
                                                  const float32_t *y_data,
                                                  float32_t *z_data)
 {
+#if USE_MAGMA
+    float alpha = 1.0;
+    float beta = 0.0;
+    magma_sgemm(x_transpose ? MagmaTrans : MagmaNoTrans,
+            y_transpose ? MagmaTrans : MagmaNoTrans,
+            n, m, k, alpha, (magmaFloat_const_ptr) y_data,
+            n, (magmaFloat_const_ptr) x_data, k, beta,
+            (magmaFloat_ptr) z_data, n, m_queue);
+    magma_queue_sync(m_queue);
+#else
     float32_t *alpha;
     float32_t *beta;
     cudaMallocManaged((void **) &alpha, sizeof(float32_t));
     cudaMallocManaged((void **) &beta, sizeof(float32_t));
     *alpha = (float32_t) 1.0;
     *beta = (float32_t) 0.0;
-    cublasSgemm_v2(cublasHandle,
+    cublasSgemm_v2(cublas_handle,
                    y_transpose ? CUBLAS_OP_T : CUBLAS_OP_N,
                    x_transpose ? CUBLAS_OP_T : CUBLAS_OP_N,
                    n, m, k, alpha,
                    y_data, n, x_data, 
                    k, beta, z_data, n);
     // cusparse equivalent looks to be cusparseSpGEMM
-    // magma equivalent looks to be magma_sgemm
     cudaDeviceSynchronize();
     cudaFree(alpha);
     cudaFree(beta);
+#endif
 }
 
 extern "C" void cu_matrix_multiplication_float64(datatype_t datatype,
@@ -1245,13 +1315,23 @@ extern "C" void cu_matrix_multiplication_float64(datatype_t datatype,
                                                  const float64_t *y_data,
                                                  float64_t *z_data)
 {
+#if USE_MAGMA
+    double alpha = 1.0;
+    double beta = 0.0;
+    magma_dgemm(x_transpose ? MagmaTrans : MagmaNoTrans,
+            y_transpose ? MagmaTrans : MagmaNoTrans,
+            n, m, k, alpha, (magmaDouble_const_ptr) y_data,
+            n, (magmaDouble_const_ptr) x_data, k, beta,
+            (magmaDouble_ptr) z_data, n, m_queue);
+    magma_queue_sync(m_queue);
+#else
     float64_t *alpha;
     float64_t *beta;
     cudaMallocManaged((void **) &alpha, sizeof(float64_t));
     cudaMallocManaged((void **) &beta, sizeof(float64_t));
     *alpha = (float64_t) 1.0;
     *beta = (float64_t) 0.0;
-    cublasDgemm_v2(cublasHandle,
+    cublasDgemm_v2(cublas_handle,
                    y_transpose ? CUBLAS_OP_T : CUBLAS_OP_N,
                    x_transpose ? CUBLAS_OP_T : CUBLAS_OP_N,
                    n, m, k, alpha,
@@ -1262,6 +1342,7 @@ extern "C" void cu_matrix_multiplication_float64(datatype_t datatype,
     cudaDeviceSynchronize();
     cudaFree(alpha);
     cudaFree(beta);
+#endif
 }
 
 extern "C" void cu_matrix_multiplication(datatype_t datatype,
@@ -1308,26 +1389,42 @@ extern "C" void cu_matrix_multiplication(datatype_t datatype,
 
 extern "C" static void cu_summation_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data)
 {
+#if USE_MAGMA
+    float32_t *temp;
+    magma_malloc((void **) &temp, sizeof(float32_t));
+    *temp = (float32_t) 1.0;
+    *y_data = magma_sdot(n, (magmaFloat_const_ptr) x_data, x_stride, (magmaFloat_const_ptr) temp, 0, m_queue);
+    magma_queue_sync(m_queue);
+    magma_free(temp);
+#else
     float32_t *temp;
     cudaMallocManaged((void **) &temp, sizeof(float32_t));
     *temp = (float32_t) 1.0;
-    cublasSdot_v2(cublasHandle, n, x_data, x_stride, temp, (int) 0, y_data);
+    cublasSdot_v2(cublas_handle, n, x_data, x_stride, temp, (int) 0, y_data);
     // cusparse equivalent looks to be cusparseSpVV
-    // magma equivalent looks to be magma_smdotc
     cudaDeviceSynchronize();
     cudaFree(temp);
+#endif
 }
 
 extern "C" static void cu_summation_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data)
 {
+#if USE_MAGMA
+    float64_t *temp;
+    magma_malloc((void **) &temp, sizeof(float64_t));
+    *temp = (float64_t) 1.0;
+    *y_data = magma_ddot(n, (magmaDouble_const_ptr) x_data, x_stride, (magmaDouble_const_ptr) temp, 0, m_queue);
+    magma_queue_sync(m_queue);
+    magma_free(temp);
+#else
     float64_t *temp;
     cudaMallocManaged((void **) &temp, sizeof(float64_t));
     *temp = (float64_t) 1.0;
-    cublasDdot_v2(cublasHandle, n, x_data, x_stride, temp, (int) 0, y_data);
+    cublasDdot_v2(cublas_handle, n, x_data, x_stride, temp, (int) 0, y_data);
     // cusparse equivalent looks to be cusparseSpVV (maybe there's a double precision version??)
-    // magma equivalent looks to be magma_dmdotc
     cudaDeviceSynchronize();
     cudaFree(temp);
+#endif
 }
 
 extern "C" void cu_summation(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_offset)
