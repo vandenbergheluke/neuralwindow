@@ -10,6 +10,10 @@
 #include <metric.h>
 #include <measure.h>
 
+#include <mgl2/base_cf.h>
+#include <mgl2/canvas_cf.h>
+#include <mgl2/mgl_cf.h>
+
 typedef struct mnist_dataset_t
 {
     string_t images_path;
@@ -31,6 +35,62 @@ static uint32_t uint32_big_endian(uint8_t *buffer)
     value |= buffer[2] << 8;
     value |= buffer[3];
     return value;
+}
+
+void *plt_accuracies = NULL;
+void *plt_costs = NULL;
+void *plt_count = NULL;
+
+nw_error_t plot(string_t title, string_t save_path,
+          string_t x_str, float64_t* x, int x_n,
+          string_t y_str, float64_t* y, int y_n,
+          float64_t y_min, float64_t y_max,
+          datatype_t datatype)
+{
+    HMGL graph = mgl_create_graph(800,400);
+
+    HMDT x_mgl = mgl_create_data();
+    HMDT y_mgl = mgl_create_data();
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        mgl_data_set_float(x_mgl, x, x_n, 1, 1);
+        mgl_data_set_float(y_mgl, y, y_n, 1, 1);
+        break;
+    case FLOAT64:
+        mgl_data_set_double(x_mgl, x, x_n, 1, 1);
+        mgl_data_set_double(y_mgl, y, y_n, 1, 1);
+        break;
+    default:
+        mgl_delete_graph(graph);
+
+        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+    }
+
+    mgl_fill_background(graph, 1, 1, 1, 1);
+
+    //mgl_subplot(graph, 3, 3, 4, "");
+    mgl_inplot(graph, 0, 1, 0, 1);
+    mgl_title(graph, t.c_str(), "", 5);
+    mgl_set_range_dat(graph, 'x', x_mgl, 0);
+    mgl_set_range_val(graph, 'y', y_min, y_max);
+    mgl_axis(graph, "xy", "", "");
+    // |    long dashed line
+    // h    grey
+    mgl_axis_grid(graph, "xy", "|h", "");
+    mgl_label(graph, 'x', x_str, 0, "");
+    mgl_label(graph, 'y', y_str, 0, "");
+    mgl_box(graph);
+    // u    blue purple
+    // #.   circle-dot marker
+    mgl_plot_xy(graph, x_mgl, y_mgl, "2u#.", "");
+
+    mgl_write_png(graph, save_path, "w");
+
+    mgl_delete_graph(graph);
+
+    return NULL;
 }
 
 nw_error_t *mnist_metrics(dataset_type_t dataset_type, 
@@ -130,6 +190,8 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            free(accuracy_data);
+            free(cost_data);
             goto cleanup;
         }
 
@@ -137,6 +199,8 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            free(accuracy_data);
+            free(cost_data);
             goto cleanup;
         }
 
@@ -144,6 +208,8 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
         if (error)
         {
             error = ERROR(ERROR_DIVISION, string_create("failed to get mean of tensor."), error);
+            free(accuracy_data);
+            free(cost_data);
             goto cleanup;
         }
 
@@ -151,7 +217,39 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
         if (error)
         {
             error = ERROR(ERROR_DIVISION, string_create("failed to get mean of tensor."), error);
+            free(accuracy_data);
+            free(cost_data);
             goto cleanup;
+        }
+
+        tensor_item(mean_accuracy, &plt_accuracies[epoch - 1]);
+        tensor_item(mean_cost, &plt_costs[epoch - 1]);
+        plt_count[epoch - 1] = epoch;
+
+        if (epoch == epochs) {
+            error = plot("MNIST Accuracy", "mnist_accuracy.png",
+                      "Epoch", plt_count, epochs,
+                      "Accuracy", plt_accuracies, epochs,
+                      0.0, 1.0, datatype);
+            if (error)
+            {
+                error = ERROR(ERROR_METRICS, string_create("failed to plot accuracy."), error);
+                free(accuracy_data);
+                free(cost_data);
+                goto cleanup;
+            }
+
+            error = plot("MNIST Cost", "mnist_cost.png",
+                      "Epoch", plt_count, epochs,
+                      "Cost", plt_costs, epochs,
+                      0.0, 1.0, datatype);
+            if (error)
+            {
+                error = ERROR(ERROR_METRICS, string_create("failed to plot accuracy."), error);
+                free(accuracy_data);
+                free(cost_data);
+                goto cleanup;
+            }
         }
 
         LOG("Dataset %s - %lu/%lu Epochs", dataset_type_string(dataset_type), epoch, epochs);
@@ -159,6 +257,9 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
         LOG_SCALAR_TENSOR("- Accuracy", mean_accuracy);
         LOG("- Time: %lfs", (float64_t) (get_time_nanoseconds() - time) * (float64_t) 1e-9);
         LOG_NEWLINE;
+
+        free(accuracy_data);
+        free(cost_data);
     }
 
 cleanup:
@@ -530,6 +631,10 @@ int main(void)
     float32_t weight_decay = 0.0;
     bool_t nesterov = false;
 
+    plt_accuracies = malloc(epochs * datatype_size(datatype));
+    plt_costs = malloc(epochs * datatype_size(datatype));
+    plt_count = malloc(epochs * datatype_size(datatype));
+
     error = runtime_create_context(runtime);
     if (error)
     {
@@ -567,6 +672,10 @@ int main(void)
     }
 
 cleanup:
+
+    free(plt_accuracies);
+    free(plt_costs);
+    free(plt_count);
 
     runtime_destroy_context(runtime);
     optimizer_destroy(optimizer);
