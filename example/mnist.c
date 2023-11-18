@@ -39,11 +39,11 @@ static uint32_t uint32_big_endian(uint8_t *buffer)
 
 void *plt_accuracies = NULL;
 void *plt_costs = NULL;
-void *plt_count = NULL;
+float32_t *plt_count = NULL;
 
-nw_error_t plot(string_t title, string_t save_path,
-          string_t x_str, float64_t* x, int x_n,
-          string_t y_str, float64_t* y, int y_n,
+nw_error_t *plot(string_t title, string_t save_path,
+          string_t x_str, void* x, int x_n,
+          string_t y_str, void* y, int y_n,
           float64_t y_min, float64_t y_max,
           datatype_t datatype)
 {
@@ -52,15 +52,14 @@ nw_error_t plot(string_t title, string_t save_path,
     HMDT x_mgl = mgl_create_data();
     HMDT y_mgl = mgl_create_data();
 
+    mgl_data_set_float(x_mgl, x, x_n, 1, 1);
     switch (datatype)
     {
     case FLOAT32:
-        mgl_data_set_float(x_mgl, x, x_n, 1, 1);
-        mgl_data_set_float(y_mgl, y, y_n, 1, 1);
+        mgl_data_set_float(y_mgl, (float32_t *) y, y_n, 1, 1);
         break;
     case FLOAT64:
-        mgl_data_set_double(x_mgl, x, x_n, 1, 1);
-        mgl_data_set_double(y_mgl, y, y_n, 1, 1);
+        mgl_data_set_double(y_mgl, (float64_t *) y, y_n, 1, 1);
         break;
     default:
         mgl_delete_graph(graph);
@@ -72,7 +71,7 @@ nw_error_t plot(string_t title, string_t save_path,
 
     //mgl_subplot(graph, 3, 3, 4, "");
     mgl_inplot(graph, 0, 1, 0, 1);
-    mgl_title(graph, t.c_str(), "", 5);
+    mgl_title(graph, title, "", 5);
     mgl_set_range_dat(graph, 'x', x_mgl, 0);
     mgl_set_range_val(graph, 'y', y_min, y_max);
     mgl_axis(graph, "xy", "", "");
@@ -222,8 +221,8 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
             goto cleanup;
         }
 
-        tensor_item(mean_accuracy, &plt_accuracies[epoch - 1]);
-        tensor_item(mean_cost, &plt_costs[epoch - 1]);
+        tensor_item(mean_accuracy, plt_accuracies + datatype_size(datatype) * (epoch - 1));
+        tensor_item(mean_cost, plt_costs + datatype_size(datatype) * (epoch - 1));
         plt_count[epoch - 1] = epoch;
 
         if (epoch == epochs) {
@@ -633,7 +632,7 @@ int main(void)
 
     plt_accuracies = malloc(epochs * datatype_size(datatype));
     plt_costs = malloc(epochs * datatype_size(datatype));
-    plt_count = malloc(epochs * datatype_size(datatype));
+    plt_count = malloc(epochs * sizeof(float32_t));
 
     error = runtime_create_context(runtime);
     if (error)
