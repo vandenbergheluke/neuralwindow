@@ -10,6 +10,9 @@
 #include <metric.h>
 #include <measure.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <mgl2/base_cf.h>
 #include <mgl2/canvas_cf.h>
 #include <mgl2/mgl_cf.h>
@@ -41,7 +44,8 @@ void *plt_accuracies = NULL;
 void *plt_costs = NULL;
 float32_t *plt_count = NULL;
 
-nw_error_t *plot(string_t title, string_t save_path,
+
+nw_error_t *bounded_plot(string_t title, string_t save_path,
           string_t x_str, void* x, int x_n,
           string_t y_str, void* y, int y_n,
           float64_t y_min, float64_t y_max,
@@ -82,8 +86,56 @@ nw_error_t *plot(string_t title, string_t save_path,
     mgl_label(graph, 'y', y_str, 0, "");
     mgl_box(graph);
     // u    blue purple
-    // #.   circle-dot marker
-    mgl_plot_xy(graph, x_mgl, y_mgl, "2u#.", "");
+    mgl_plot_xy(graph, x_mgl, y_mgl, "2u", "");
+
+    mgl_write_png(graph, save_path, "w");
+
+    mgl_delete_graph(graph);
+
+    return NULL;
+}
+
+nw_error_t *plot(string_t title, string_t save_path,
+          string_t x_str, void* x, int x_n,
+          string_t y_str, void* y, int y_n,
+          datatype_t datatype)
+{
+    HMGL graph = mgl_create_graph(800,400);
+
+    HMDT x_mgl = mgl_create_data();
+    HMDT y_mgl = mgl_create_data();
+
+    mgl_data_set_float(x_mgl, x, x_n, 1, 1);
+    switch (datatype)
+    {
+    case FLOAT32:
+        mgl_data_set_float(y_mgl, (float32_t *) y, y_n, 1, 1);
+        break;
+    case FLOAT64:
+        mgl_data_set_double(y_mgl, (float64_t *) y, y_n, 1, 1);
+        break;
+    default:
+        mgl_delete_graph(graph);
+
+        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+    }
+
+    mgl_fill_background(graph, 1, 1, 1, 1);
+
+    //mgl_subplot(graph, 3, 3, 4, "");
+    mgl_inplot(graph, 0, 1, 0, 1);
+    mgl_title(graph, title, "", 5);
+    mgl_set_range_dat(graph, 'x', x_mgl, 0);
+    mgl_set_range_dat(graph, 'y', y_mgl, 0);
+    mgl_axis(graph, "xy", "", "");
+    // |    long dashed line
+    // h    grey
+    mgl_axis_grid(graph, "xy", "|h", "");
+    mgl_label(graph, 'x', x_str, 0, "");
+    mgl_label(graph, 'y', y_str, 0, "");
+    mgl_box(graph);
+    // u    blue purple
+    mgl_plot_xy(graph, x_mgl, y_mgl, "2u", "");
 
     mgl_write_png(graph, save_path, "w");
 
@@ -189,8 +241,6 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-            free(accuracy_data);
-            free(cost_data);
             goto cleanup;
         }
 
@@ -198,8 +248,6 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-            free(accuracy_data);
-            free(cost_data);
             goto cleanup;
         }
 
@@ -207,8 +255,6 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
         if (error)
         {
             error = ERROR(ERROR_DIVISION, string_create("failed to get mean of tensor."), error);
-            free(accuracy_data);
-            free(cost_data);
             goto cleanup;
         }
 
@@ -216,37 +262,78 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
         if (error)
         {
             error = ERROR(ERROR_DIVISION, string_create("failed to get mean of tensor."), error);
-            free(accuracy_data);
-            free(cost_data);
             goto cleanup;
         }
 
-        tensor_item(mean_accuracy, plt_accuracies + datatype_size(datatype) * (epoch - 1));
-        tensor_item(mean_cost, plt_costs + datatype_size(datatype) * (epoch - 1));
+        error = tensor_item(mean_accuracy, plt_accuracies + datatype_size(datatype) * (epoch - 1));
+        if (error)
+        {
+            error = ERROR(ERROR_ITEM, string_create("failed to get tensor item."), NULL);
+            goto cleanup;
+        }
+
+        error = tensor_item(mean_cost, plt_costs + datatype_size(datatype) * (epoch - 1));
+        if (error)
+        {
+            error = ERROR(ERROR_ITEM, string_create("failed to get tensor item."), NULL);
+            goto cleanup;
+        }
+
         plt_count[epoch - 1] = epoch;
 
         if (epoch == epochs) {
-            error = plot("MNIST Accuracy", "mnist_accuracy.png",
-                      "Epoch", plt_count, epochs,
-                      "Accuracy", plt_accuracies, epochs,
-                      0.0, 1.0, datatype);
-            if (error)
+            switch (dataset_type)
             {
-                error = ERROR(ERROR_METRICS, string_create("failed to plot accuracy."), error);
-                free(accuracy_data);
-                free(cost_data);
-                goto cleanup;
-            }
+            case TRAIN:
+                error = bounded_plot("MNIST Training Accuracy",
+                          "img/mnist_accuracy_train.png",
+                          "Epoch", plt_count, epochs,
+                          "Accuracy", plt_accuracies, epochs,
+                          0.0, 1.0, datatype);
+                if (error)
+                {
+                    error = ERROR(ERROR_METRICS, string_create("failed to plot accuracy."), error);
+                    goto cleanup;
+                }
 
-            error = plot("MNIST Cost", "mnist_cost.png",
-                      "Epoch", plt_count, epochs,
-                      "Cost", plt_costs, epochs,
-                      0.0, 1.0, datatype);
-            if (error)
-            {
-                error = ERROR(ERROR_METRICS, string_create("failed to plot accuracy."), error);
-                free(accuracy_data);
-                free(cost_data);
+                error = plot("MNIST Training Cost",
+                          "img/mnist_cost_train.png",
+                          "Epoch", plt_count, epochs,
+                          "Cost", plt_costs, epochs,
+                          datatype);
+                if (error)
+                {
+                    error = ERROR(ERROR_METRICS, string_create("failed to plot cost."), error);
+                    goto cleanup;
+                }
+                break;
+            case VALID:
+                error = bounded_plot("MNIST Validation Accuracy",
+                          "img/mnist_accuracy_valid.png",
+                          "Epoch", plt_count, epochs,
+                          "Accuracy", plt_accuracies, epochs,
+                          0.0, 1.0, datatype);
+                if (error)
+                {
+                    error = ERROR(ERROR_METRICS, string_create("failed to plot accuracy."), error);
+                    goto cleanup;
+                }
+
+                error = plot("MNIST Validation Cost",
+                          "img/mnist_cost_valid.png",
+                          "Epoch", plt_count, epochs,
+                          "Cost", plt_costs, epochs,
+                          datatype);
+                if (error)
+                {
+                    error = ERROR(ERROR_METRICS, string_create("failed to plot cost."), error);
+                    goto cleanup;
+                }
+                break;
+            case TEST:
+                break;
+            default:
+                error = ERROR(ERROR_DATASET_TYPE, string_create("unknown dataset type %d.", dataset_type), NULL);
                 goto cleanup;
             }
         }
@@ -256,9 +343,6 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
         LOG_SCALAR_TENSOR("- Accuracy", mean_accuracy);
         LOG("- Time: %lfs", (float64_t) (get_time_nanoseconds() - time) * (float64_t) 1e-9);
         LOG_NEWLINE;
-
-        free(accuracy_data);
-        free(cost_data);
     }
 
 cleanup:
@@ -629,6 +713,8 @@ int main(void)
     float32_t dampening = 0.0;
     float32_t weight_decay = 0.0;
     bool_t nesterov = false;
+
+    mkdir("img", S_IRWXU);
 
     plt_accuracies = malloc(epochs * datatype_size(datatype));
     plt_costs = malloc(epochs * datatype_size(datatype));
