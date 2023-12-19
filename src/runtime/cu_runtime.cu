@@ -107,6 +107,9 @@ __global__ static void cu_exponential_float64(int n, const float64_t *x_data, in
 
 extern "C" void cu_exponential(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset)
 {
+    // TODO: Temporary
+    PRINTLN_DEBUG_LOCATION("cu_exponential");
+    PRINTF_DEBUG("datatype %s\n", datatype_string(datatype));
     // CUDA devs want us using ints here for minor optimization purposes, and
     // presumably because we know we're not going to overflow.
     int block_size;

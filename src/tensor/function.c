@@ -2865,6 +2865,7 @@ static nw_error_t *creation_operation_create(creation_operation_t **creation_ope
                                              const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient,
                                              bool_t persist, const void **arguments, int64_t length, void *data)
 {
+    PRINTLN_DEBUG_LOCATION("creation_operation_create");
     CHECK_NULL_ARGUMENT(creation_operation, "creation_operation");
     CHECK_NULL_ARGUMENT(shape, "shape");
     if (length)
@@ -2888,6 +2889,8 @@ static nw_error_t *creation_operation_create(creation_operation_t **creation_ope
     (*creation_operation)->persist = persist;
     (*creation_operation)->runtime = runtime;
     (*creation_operation)->datatype = datatype;
+    // TODO: Temporary
+    PRINTF_DEBUG("datatype %s\n", datatype_string(datatype));
     (*creation_operation)->requires_gradient = requires_gradient;
     (*creation_operation)->shape = NULL;
     (*creation_operation)->arguments = NULL;
