@@ -684,6 +684,9 @@ typedef enum nw_error_type_t
     ERROR_DATASET_TYPE,
     ERROR_ARGUMENTS,
     ERROR_ITEM,
+    ERROR_MOMENTUM,
+    ERROR_SGD,
+    ERROR_QUEUE,
 } nw_error_type_t;
 
 typedef struct nw_error_t

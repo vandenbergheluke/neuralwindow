@@ -9,23 +9,28 @@ extern "C"
 #include <errors.h>
 #include <datatype.h>
 #include <optimizer.h>
+#include <layer.h>
+#include <function.h>
 }
 #include <test_helper.h>
 
 nw_error_t *error = NULL;
 
+model_t *model = NULL;
 tensor_t *x = NULL; 
 tensor_t *w = NULL;
+tensor_t *b = NULL;
 tensor_t *m = NULL;
 tensor_t *out1 = NULL; 
 tensor_t *out2 = NULL;
 tensor_t *out3 = NULL;
 tensor_t *out4 = NULL; 
-tensor_t *out5 = NULL;
 tensor_t *outNW = NULL;
 torch::Tensor x_torch;
 torch::Tensor w_torch;
+torch::Tensor b_torch;
 torch::Tensor m_torch;
+torch::Tensor w_torch_zeros;
 
 void initialize_out()
 {
@@ -33,57 +38,42 @@ void initialize_out()
     out2 = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
     out3 = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
     out4 = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
-    out5 = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
 }
 
 void initialize_xwm()
 {
     x_torch = torch::randn({1, 4}, torch::TensorOptions().requires_grad(true).dtype(torch::kFloat32));
     w_torch = torch::randn({4, 4}, torch::TensorOptions().requires_grad(true).dtype(torch::kFloat32));
+    b_torch = torch::zeros({1, 4}, torch::TensorOptions().requires_grad(true).dtype(torch::kFloat32));
     m_torch = torch::randn({1, 4}, torch::TensorOptions().requires_grad(false).dtype(torch::kFloat32));
+    w_torch_zeros = torch::zeros({4, 4}, torch::TensorOptions().requires_grad(false).dtype(torch::kFloat32));
     
     x = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
     w = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT32);
+    b = torch_to_tensor(b_torch, MKL_RUNTIME, FLOAT32);
     m = torch_to_tensor(m_torch, MKL_RUNTIME, FLOAT32);
 
-    initialize_out();
+    
+
+    //initialize_out();
 }
 
 void forwardNW()
 {
-    error = tensor_matrix_multiplication(x, w, &out1);
-    if (error) goto cleanup;
+    error = model_forward(model, x, &out1);
+    ck_assert_ptr_null(error);
 
-    error = tensor_rectified_linear(out1, &out2);
-    if (error) goto cleanup;
+    error = tensor_logsoftmax(out1, &out2, 1);
+    ck_assert_ptr_null(error);
 
-    error = tensor_logsoftmax(out2, &out3, 1);
-    if (error) goto cleanup;
+    error = tensor_multiplication(out2, m, &out3);
+    ck_assert_ptr_null(error);
 
-    error = tensor_multiplication(out3, m, &out4);
-    if (error) goto cleanup;
+    error = tensor_addition(out3, m, &out4);
+    ck_assert_ptr_null(error);
 
-    error = tensor_addition(out4, m, &out5);
-    if (error) goto cleanup;
-
-    error = tensor_summation(out5, &outNW, NULL, 0, false);
-    if (error) goto cleanup;
-
-    return;
-
-cleanup:
-    tensor_destroy(x);
-    tensor_destroy(w);
-    tensor_destroy(m);
-
-    if (out1 != NULL) {tensor_destroy(out1); out1 = NULL;}
-    if (out2 != NULL) {tensor_destroy(out2); out2 = NULL;}
-    if (out3 != NULL) {tensor_destroy(out3); out3 = NULL;}
-    if (out4 != NULL) {tensor_destroy(out4); out4 = NULL;}
-    if (out5 != NULL) {tensor_destroy(out5); out5 = NULL;}
-
-    error_print(error);
-    error_destroy(error); 
+    error = tensor_summation(out4, &outNW, NULL, 0, false);
+    ck_assert_ptr_null(error);
 }
 
 torch::Tensor forwardTorch()
@@ -96,57 +86,115 @@ torch::Tensor forwardTorch()
 
 void zero_grad()
 {
-    tensor_destroy(out1);
-    tensor_destroy(out2);
-    tensor_destroy(out3);
-    tensor_destroy(out4);
-    tensor_destroy(out5);
+    //tensor_destroy(out1);
+    //tensor_destroy(out2);
+    //tensor_destroy(out3);
+    //tensor_destroy(out4); 
+  
 
     out1 = NULL; 
     out2 = NULL;
     out3 = NULL;
     out4 = NULL; 
-    out5 = NULL;
 
-    initialize_out();
+    ///initialize_out();
 }
 
 void destory()
 {   
     tensor_destroy(x);
-    tensor_destroy(w);
-    tensor_destroy(m); 
+    tensor_destroy(m);
+
+    model_destroy(model);
 
     tensor_destroy(out1);
-    tensor_destroy(out2);
-    tensor_destroy(out3);
     tensor_destroy(out4);
-    tensor_destroy(out5);
-
+    tensor_destroy(out3);
+    tensor_destroy(out2);
+    
     x = NULL; 
     w = NULL;
+    b = NULL;
     m = NULL;
 
     out1 = NULL; 
     out2 = NULL;
     out3 = NULL;
-    out4 = NULL; 
-    out5 = NULL;  
+    out4 = NULL;   
+
+    model = NULL;
 }
 
-void take_step_SGD(float32_t learning_rate, float32_t momentum, float32_t dampening, float32_t weight_decay, bool_t nesterov, int steps)
+void setup_params()
+{
+    activation_t *activation_1 = NULL;
+    linear_t *linear_1 = NULL;
+    transform_t *transform_1 = NULL;
+    layer_t *layer_1 = NULL;
+    layer_t *layer_2 = NULL;
+    block_t *block =NULL;
+    
+    error = rectified_linear_activation_create(&activation_1);
+    ck_assert_ptr_null(error);
+    ck_assert_ptr_nonnull(activation_1);
+
+    error = linear_create(&linear_1, w, b, activation_1);
+    ck_assert_ptr_null(error);
+    ck_assert_ptr_nonnull(activation_1);
+
+    error = transform_create(&transform_1, LINEAR, linear_1);
+    ck_assert_ptr_null(error);
+    ck_assert_ptr_nonnull(linear_1);
+
+    error = layer_create(&layer_1, transform_1, LINEAR);
+    ck_assert_ptr_null(error);
+    ck_assert_ptr_nonnull(layer_1);
+
+    error = block_create(&block, 1, layer_1, layer_2);
+    ck_assert_ptr_null(error);
+    ck_assert_ptr_nonnull(block);
+
+    error = model_create(&model, block);
+    ck_assert_ptr_null(error);
+    ck_assert_ptr_nonnull(model);
+}
+
+nw_error_t *take_step_SGD(float32_t learning_rate, float32_t momentum, float32_t dampening, float32_t weight_decay, bool_t nesterov, int steps)
 {
     initialize_xwm();
 
     stochastic_gradient_descent_t *SGD = NULL;
 
+    setup_params();
+    ck_assert_ptr_nonnull(model);
+
     error = stochastic_gradient_descent_create(&SGD,
+                                            model->block,
                                             FLOAT32,
                                             &learning_rate,
                                             &momentum,
                                             &dampening,
                                             &weight_decay,
                                             nesterov);
+    ck_assert_ptr_null(error);
+/*
+    if (*(float32_t *) SGD->momentum != 0.f)
+    {
+        ck_assert_int_eq(2, SGD->momentum_buffer_size);
+        ck_assert_ptr_nonnull(SGD->momentum_buffer);
+        //ck_assert_ptr_nonnull(SGD->momentum_buffer[0]);
+        //ck_assert_ptr_nonnull(SGD->momentum_buffer[1]);
+
+        tensor_t *w_torch_zeros_tensor = torch_to_tensor(w_torch_zeros, MKL_RUNTIME, FLOAT32);
+        tensor_t *b_torch_tensor = torch_to_tensor(b_torch, MKL_RUNTIME, FLOAT32);
+
+        ck_assert_tensor_equiv(SGD->momentum_buffer[0], w_torch_zeros_tensor);
+        ck_assert_tensor_equiv(SGD->momentum_buffer[1], b_torch_tensor);
+
+        tensor_destroy(w_torch_zeros_tensor);
+        tensor_destroy(b_torch_tensor);
+    }
+*/
 
     torch::optim::SGDOptions sgdOptions(learning_rate);
     sgdOptions.momentum(momentum)
@@ -167,45 +215,25 @@ void take_step_SGD(float32_t learning_rate, float32_t momentum, float32_t dampen
     for (int j = 0; j < steps; j++) 
     {
         forwardNW();
-
-        if(!outNW)
-        {
-            error = ERROR(ERROR_CREATE, string_create("Failed to perform TinyNet forward using NW tensors."), error);
-            destory();
-            error_print(error);
-            error_destroy(error); 
-            return;
-
-        }
+        ck_assert_ptr_nonnull(outNW);
         
         error = tensor_backward(outNW, NULL);
-        if (error)
-        {
-            destory();
-            error_print(error);
-            error_destroy(error); 
-            return;
-        }
+        ck_assert_ptr_null(error);
 
-        error = stochastic_gradient_descent(SGD, x);
+        ck_assert_ptr_nonnull(x->gradient);
+        error = stochastic_gradient_descent(SGD, x, 0);
         if (error)
         {
-            destory();
             error_print(error);
             error_destroy(error); 
-            return;
         }
-        error = stochastic_gradient_descent(SGD, w);
-        if (error)
-        {
-            destory();
-            error_print(error);
-            error_destroy(error); 
-            return;
-        }
-        outNW =NULL;
+        ck_assert_ptr_null(error);
+
+        error = stochastic_gradient_descent(SGD, w, 1);
+        ck_assert_ptr_null(error);
+
+        outNW = NULL;
         zero_grad();
-
     }
 
     tensor_t *x_torch_tensor = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
@@ -272,6 +300,78 @@ START_TEST(test_multistep_sgd_high_lr_wd)
 }
 END_TEST
 
+START_TEST(test_multistep_sgd_momentum)
+{
+    take_step_SGD(0.001, 0.9, 0.0, 0.0, false, 2);
+}
+END_TEST
+
+START_TEST(test_multistep_sgd_high_lr_momentum)
+{
+    take_step_SGD(10, 0.9, 0.0, 0.0, false, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_sgd_momentum_wd)
+{
+    take_step_SGD(0.001, 0.9, 0.0, 0.1, false, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_sgd_high_lr_momentum_wd)
+{
+    take_step_SGD(10, 0.9, 0.0, 0.1, false, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_sgd_momentum_damp)
+{
+    take_step_SGD(0.001, 0.9, 0.2, 0.0, false, 2);
+}
+END_TEST
+
+START_TEST(test_multistep_sgd_high_lr_momentum_damp)
+{
+    take_step_SGD(10, 0.9, 0.2, 0.0, false, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_sgd_momentum_wd_damp)
+{
+    take_step_SGD(0.001, 0.9, 0.2, 0.1, false, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_sgd_high_lr_momentum_wd_damp)
+{
+    take_step_SGD(10, 0.9, 0.8, 0.1, false, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_sgd_nesterov_momentum)
+{
+    take_step_SGD(0.001, 0.9, 0.0, 0.0, true, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_sgd_high_lr_nesterov_momentum)
+{
+    take_step_SGD(10, 0.9, 0.0, 0.0, true, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_sgd_nesterov_momentum_wd)
+{
+    take_step_SGD(0.001, 0.9, 0.0, 0.1, true, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_sgd_high_lr_nesterov_momentum_wd)
+{
+    take_step_SGD(9, 0.9, 0.0, 0.1, true, 10);
+}
+END_TEST
+
 Suite *make_ptimizers_suite(void)
 {
     Suite *s;
@@ -282,12 +382,28 @@ Suite *make_ptimizers_suite(void)
     tc_unary = tcase_create("Optimizers Case");
     tcase_add_test(tc_unary, test_SGD);
     tcase_add_test(tc_unary, test_sgd_high_lr);
-    tcase_add_test(tc_unary, test_sgd_wd); //TODO not implemented yet
-    tcase_add_test(tc_unary, test_sgd_high_lr_wd); //TODO not implemented yet
+    tcase_add_test(tc_unary, test_sgd_wd); 
+    tcase_add_test(tc_unary, test_sgd_high_lr_wd); 
+
     tcase_add_test(tc_unary, test_multistep_sgd);
     tcase_add_test(tc_unary, test_multistep_sgd_high_lr);
-    tcase_add_test(tc_unary, test_multistep_sgd_wd); //TODO not implemented yet
-    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_wd); //TODO not implemented yet
+    tcase_add_test(tc_unary, test_multistep_sgd_wd); 
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_wd);
+
+    tcase_add_test(tc_unary, test_multistep_sgd_momentum);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum);
+    tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd);
+
+    // tcase_add_test(tc_unary, test_multistep_sgd_momentum_damp);
+    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_damp);
+    // tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd_damp);
+    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd_damp);
+
+    tcase_add_test(tc_unary, test_multistep_sgd_nesterov_momentum);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_nesterov_momentum);
+    tcase_add_test(tc_unary, test_multistep_sgd_nesterov_momentum_wd);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_nesterov_momentum_wd);
 
     suite_add_tcase(s, tc_unary);
 
