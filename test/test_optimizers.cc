@@ -380,6 +380,7 @@ Suite *make_ptimizers_suite(void)
     s = suite_create("Test Optimizers Suite");
 
     tc_unary = tcase_create("Optimizers Case");
+
     tcase_add_test(tc_unary, test_SGD);
     tcase_add_test(tc_unary, test_sgd_high_lr);
     tcase_add_test(tc_unary, test_sgd_wd); 

@@ -54,6 +54,7 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
 
     if (*(float32_t *) optimizer->momentum != 0.f)
     {
+        //tensor_zeroes_like(parameters->gradient, &optimizer->momentum_buffer[index], false, true, true);
         
         error = tensor_constant(optimizer->momentum, datatype, runtime, false, false, &momentum_constant);
         if (error)
