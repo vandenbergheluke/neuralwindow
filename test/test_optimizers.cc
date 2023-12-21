@@ -86,18 +86,10 @@ torch::Tensor forwardTorch()
 
 void zero_grad()
 {
-    //tensor_destroy(out1);
-    //tensor_destroy(out2);
-    //tensor_destroy(out3);
-    //tensor_destroy(out4); 
-  
-
     out1 = NULL; 
     out2 = NULL;
     out3 = NULL;
     out4 = NULL; 
-
-    ///initialize_out();
 }
 
 void destory()
@@ -159,7 +151,7 @@ void setup_params()
     ck_assert_ptr_nonnull(model);
 }
 
-nw_error_t *take_step_SGD(float32_t learning_rate, float32_t momentum, float32_t dampening, float32_t weight_decay, bool_t nesterov, int steps)
+void take_step_SGD(float32_t learning_rate, float32_t momentum, float32_t dampening, float32_t weight_decay, bool_t nesterov, int steps)
 {
     initialize_xwm();
 
@@ -177,24 +169,6 @@ nw_error_t *take_step_SGD(float32_t learning_rate, float32_t momentum, float32_t
                                             &weight_decay,
                                             nesterov);
     ck_assert_ptr_null(error);
-/*
-    if (*(float32_t *) SGD->momentum != 0.f)
-    {
-        ck_assert_int_eq(2, SGD->momentum_buffer_size);
-        ck_assert_ptr_nonnull(SGD->momentum_buffer);
-        //ck_assert_ptr_nonnull(SGD->momentum_buffer[0]);
-        //ck_assert_ptr_nonnull(SGD->momentum_buffer[1]);
-
-        tensor_t *w_torch_zeros_tensor = torch_to_tensor(w_torch_zeros, MKL_RUNTIME, FLOAT32);
-        tensor_t *b_torch_tensor = torch_to_tensor(b_torch, MKL_RUNTIME, FLOAT32);
-
-        ck_assert_tensor_equiv(SGD->momentum_buffer[0], w_torch_zeros_tensor);
-        ck_assert_tensor_equiv(SGD->momentum_buffer[1], b_torch_tensor);
-
-        tensor_destroy(w_torch_zeros_tensor);
-        tensor_destroy(b_torch_tensor);
-    }
-*/
 
     torch::optim::SGDOptions sgdOptions(learning_rate);
     sgdOptions.momentum(momentum)
@@ -344,7 +318,7 @@ END_TEST
 
 START_TEST(test_multistep_sgd_high_lr_momentum_wd_damp)
 {
-    take_step_SGD(10, 0.9, 0.8, 0.1, false, 10);
+    take_step_SGD(9, 0.9, 0.8, 0.1, false, 10);
 }
 END_TEST
 
@@ -396,10 +370,10 @@ Suite *make_ptimizers_suite(void)
     tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd);
     tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd);
 
-    // tcase_add_test(tc_unary, test_multistep_sgd_momentum_damp);
-    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_damp);
-    // tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd_damp);
-    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd_damp);
+    tcase_add_test(tc_unary, test_multistep_sgd_momentum_damp);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_damp);
+    tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd_damp);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd_damp);
 
     tcase_add_test(tc_unary, test_multistep_sgd_nesterov_momentum);
     tcase_add_test(tc_unary, test_multistep_sgd_high_lr_nesterov_momentum);
@@ -411,7 +385,7 @@ Suite *make_ptimizers_suite(void)
     return s;
 }
 
-int main(void)
+int main(void) 
 {
     // Set seed
     torch::manual_seed(SEED);

@@ -181,8 +181,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_ARGUMENTS";
     case ERROR_ITEM:
         return "ERROR_ITEM";
-    case ERROR_MOMENTUM:
-        return "ERROR_MOMENTUM";
+    case ERROR_OPTIM:
+        return "ERROR_OPTIM";
     default:
         return "ERROR";
     }

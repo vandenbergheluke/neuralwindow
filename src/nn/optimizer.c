@@ -39,7 +39,6 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
 
     with_no_gradient(true);
 
-    // weight decay
     error = tensor_multiplication(weight_decay, parameters, &weight_decay_product);
     if (error)
     {
@@ -49,53 +48,76 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
     error = tensor_addition(weight_decay_product, parameters->gradient, &parameters->gradient);
     if (error)
     {
-        return ERROR(ERROR_SUBTRACTION, string_create("failed to add tensors."), error);
+        return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
     }
 
     if (*(float32_t *) optimizer->momentum != 0.f)
     {
-        //tensor_zeroes_like(parameters->gradient, &optimizer->momentum_buffer[index], false, true, true);
-        
-        error = tensor_constant(optimizer->momentum, datatype, runtime, false, false, &momentum_constant);
-        if (error)
+        if (!optimizer->momentum_buffer[index])
         {
-            return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-        }
-       
-        error = tensor_multiplication(momentum_constant, optimizer->momentum_buffer[index], &momentum_product);
-        if (error)
-        {
-            return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
-        }
-        
-        float32_t dampening_alpha = (float32_t) 1 - *(float32_t *) (optimizer->dampening);
-        error = tensor_constant(&dampening_alpha, datatype, runtime, false, false, &dampening_constant);
-        if (error)
-        {
-            return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-        }
-
-        error = tensor_multiplication(dampening_constant, parameters->gradient, &dampening_gradient);
-        if (error)
-        {
-            return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
-        }
-
-        error = tensor_addition(dampening_gradient, momentum_product, &updated_momentum);
-        if (error)
-        {
-            return ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensors."), error);
-        }
-
-        tensor_destroy(optimizer->momentum_buffer[index]);
-        optimizer->momentum_buffer[index] = updated_momentum;
-        
-        if (optimizer->nesterov)
-         {
-            error = tensor_multiplication(momentum_constant, updated_momentum, &modified_momentum);
+            // iteration 0
+            error = tensor_zeroes_like(parameters->gradient, &optimizer->momentum_buffer[index], false, true, true);
             if (error)
             {
-                return ERROR(ERROR_SGD, string_create("Nesterov momentum multiplication failed"), error);
+                return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+            }
+
+            error = tensor_addition(optimizer->momentum_buffer[index], parameters->gradient, &optimizer->momentum_buffer[index]);
+            if (error)
+            {
+                return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+            }
+        }
+        else
+        {
+            error = tensor_constant(optimizer->momentum, datatype, runtime, false, false, &momentum_constant);
+            if (error)
+            {
+                return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            }
+        
+            error = tensor_multiplication(momentum_constant, optimizer->momentum_buffer[index], &momentum_product);
+            if (error)
+            {
+                return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+            }
+            
+            float32_t dampening_alpha = (float32_t) 1 - *(float32_t *) (optimizer->dampening);
+            error = tensor_constant(&dampening_alpha, datatype, runtime, false, false, &dampening_constant);
+            if (error)
+            {
+                return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            }
+
+            error = tensor_multiplication(dampening_constant, parameters->gradient, &dampening_gradient);
+            if (error)
+            {
+                return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+            }
+
+            error = tensor_addition(dampening_gradient, momentum_product, &updated_momentum);
+            if (error)
+            {
+                return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+            }
+
+            tensor_destroy(optimizer->momentum_buffer[index]);
+            optimizer->momentum_buffer[index] = updated_momentum;
+        }
+        if (optimizer->nesterov)
+        {
+            if (!momentum_constant)
+            {
+                error = tensor_constant(optimizer->momentum, datatype, runtime, false, false, &momentum_constant);
+                if (error)
+                {
+                    return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+                }
+            }
+            error = tensor_multiplication(momentum_constant, optimizer->momentum_buffer[index], &modified_momentum);
+            if (error)
+            {
+                return ERROR(ERROR_OPTIM, string_create("Nesterov momentum multiplication failed"), error);
             }
 
             error = tensor_addition(modified_momentum, parameters->gradient, &nesterov_momentum);
@@ -111,7 +133,7 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
         else
         {
             tensor_destroy(parameters->gradient);
-            parameters->gradient = updated_momentum;
+            parameters->gradient = optimizer->momentum_buffer[index];
         }
     }
     
@@ -274,10 +296,7 @@ nw_error_t *stochastic_gradient_descent_create(stochastic_gradient_descent_t **s
     (*stochastic_gradient_descent)->dampening = NULL;
     (*stochastic_gradient_descent)->weight_decay = NULL;
     (*stochastic_gradient_descent)->nesterov = nesterov;
-
-    //(*stochastic_gradient_descent)->momentum_buffer_size = NULL;
-   // (*stochastic_gradient_descent)->momentum_buffer = NULL;
-    //(*stochastic_gradient_descent)->momentum_queue = NULL;
+    
     size_t size = datatype_size(datatype);
 
     (*stochastic_gradient_descent)->learning_rate = (void *) malloc(size);
@@ -334,7 +353,7 @@ nw_error_t *stochastic_gradient_descent_create(stochastic_gradient_descent_t **s
         error = block_num_params(params, &num_params);
         if (error)
         {
-            error = ERROR(ERROR_SGD, string_create("failed to count model parameters."), error);
+            error = ERROR(ERROR_OPTIM, string_create("failed to count model parameters."), error);
             goto cleanup;
         }
 
@@ -353,15 +372,6 @@ nw_error_t *stochastic_gradient_descent_create(stochastic_gradient_descent_t **s
         {
             (*stochastic_gradient_descent)->momentum_buffer[i] = NULL;
         }
-
-        error = initialize_momentum_buffer(params, (*stochastic_gradient_descent)->momentum_buffer, 0);
-        if (error) 
-        {
-            error = ERROR(ERROR_MOMENTUM,
-                         string_create("failed to initialize buffer of size %lu.",
-                         (unsigned long) (num_params * sizeof(tensor_t))), NULL);
-            goto cleanup;
-        }
     }
 
     return error;
@@ -370,47 +380,6 @@ cleanup:
 
     stochastic_gradient_descent_destroy(*stochastic_gradient_descent);
 
-    return error;
-}
-
-nw_error_t *initialize_momentum_buffer(block_t *param, tensor_t **buffer, uint64_t index)
-{
-    nw_error_t *error = NULL;
-
-    for (uint64_t i = 0; i < param->depth; ++i)
-    {
-        layer_t *layer = param->layers[i];
-        if (!layer)
-        {
-            return ERROR(ERROR_MOMENTUM, string_create("failed to create momentum tensor for null layer."), NULL);
-        }
-
-        transform_type_t transform_type = layer->transform_type;
-        transform_t *transform = layer->transform;
-        if (!transform)
-        {
-            return ERROR(ERROR_MOMENTUM, string_create("failed to create momentum tensor, transform is null."), NULL);
-        }
-
-        switch (transform_type)
-        {
-        case LINEAR:
-            tensor_zeroes_like(transform->linear->weights, &buffer[index], false, true, true);
-            index++;
-            tensor_zeroes_like(transform->linear->bias, &buffer[index], false, true, true);
-            index++;
-            break;
-        case BLOCK:
-            error = initialize_momentum_buffer(transform->block, buffer, index);
-            if (error)
-            {
-                return ERROR(ERROR_UPDATE, string_create("failed to count parameters for block."), error);
-            }
-            break;
-        default:
-            return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown layer type %d.", transform_type), error);
-        }
-    }
     return error;
 }
 
