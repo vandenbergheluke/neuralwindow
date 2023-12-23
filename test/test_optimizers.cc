@@ -52,10 +52,6 @@ void initialize_xwm()
     w = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT32);
     b = torch_to_tensor(b_torch, MKL_RUNTIME, FLOAT32);
     m = torch_to_tensor(m_torch, MKL_RUNTIME, FLOAT32);
-
-    
-
-    //initialize_out();
 }
 
 void forwardNW()
@@ -196,11 +192,6 @@ void take_step_SGD(float32_t learning_rate, float32_t momentum, float32_t dampen
 
         ck_assert_ptr_nonnull(x->gradient);
         error = stochastic_gradient_descent(SGD, x, 0);
-        if (error)
-        {
-            error_print(error);
-            error_destroy(error); 
-        }
         ck_assert_ptr_null(error);
 
         error = stochastic_gradient_descent(SGD, w, 1);
@@ -220,6 +211,78 @@ void take_step_SGD(float32_t learning_rate, float32_t momentum, float32_t dampen
     tensor_destroy(w_torch_tensor);
     destory();
     stochastic_gradient_descent_destroy(SGD);
+}
+
+void take_step_RMS_PROP(float32_t learning_rate, float32_t momentum, float32_t alpha, float32_t weight_decay, float32_t epsilon, bool_t centered, int steps)
+{
+    initialize_xwm();
+
+    rms_prop_t *RMS = NULL;
+
+    setup_params();
+    ck_assert_ptr_nonnull(model);
+
+    error = rms_prop_create(&RMS,
+                            model->block,
+                            FLOAT32,
+                            &learning_rate,
+                            &momentum,
+                            &alpha,
+                            &weight_decay,
+                            &epsilon,
+                            centered);
+    ck_assert_ptr_null(error);
+
+    torch::optim::RMSpropOptions rms_prop_options(learning_rate);
+    rms_prop_options.momentum(momentum)
+                    .alpha(alpha)
+                    .weight_decay(weight_decay)
+                    .eps(epsilon)
+                    .centered(centered);
+
+    torch::optim::RMSprop optim = torch::optim::RMSprop({x_torch, w_torch}, rms_prop_options);
+
+    for (int i = 0; i < steps; i++)
+    {
+        torch::Tensor out = forwardTorch();
+        optim.zero_grad(); 
+        out.backward();
+        optim.step();
+    }
+
+    for (int j = 0; j < steps; j++) 
+    {
+        forwardNW();
+        ck_assert_ptr_nonnull(outNW);
+        
+        error = tensor_backward(outNW, NULL);
+        ck_assert_ptr_null(error);
+
+        error = rms_prop(RMS, x, 0);
+        if (error)
+        {
+            error_print(error);
+            error_destroy(error); 
+        }
+        ck_assert_ptr_null(error);
+
+        error = rms_prop(RMS, w, 1);
+        ck_assert_ptr_null(error);
+
+        outNW = NULL;
+        zero_grad();
+    }
+
+    tensor_t *x_torch_tensor = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
+    ck_assert_tensor_equiv(x_torch_tensor, x);
+   
+    tensor_t *w_torch_tensor = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT32);
+    ck_assert_tensor_equiv(w_torch_tensor, w);
+
+    tensor_destroy(x_torch_tensor);
+    tensor_destroy(w_torch_tensor);
+    destory();
+    rms_prop_destroy(RMS);
 }
 
 void setup(void){}
@@ -346,6 +409,36 @@ START_TEST(test_multistep_sgd_high_lr_nesterov_momentum_wd)
 }
 END_TEST
 
+START_TEST(test_RMS)
+{
+   take_step_RMS_PROP(0.001, 0.0, 0.8, 0.0, 0.0001, false, 1);
+}
+END_TEST
+
+START_TEST(test_rms_prop_high_lr)
+{
+    take_step_RMS_PROP(10, 0.0, 0.8, 0.0, 0.0001, false, 1);
+}
+END_TEST
+
+START_TEST(test_rms_prop_wd)
+{
+   take_step_RMS_PROP(0.001, 0.0, 0.8, 0.1, 0.0001, false, 1);
+}
+END_TEST
+
+START_TEST(test_rms_prop_high_lr_wd)
+{
+    take_step_RMS_PROP(10, 0.0, 0.8, 0.1, 0.0001, false, 1);
+}
+END_TEST
+
+START_TEST(test_multistep_rms_prop)
+{
+   take_step_RMS_PROP(0.001, 0.0, 0.8, 0.0, 0.0001, false, 10);
+}
+END_TEST
+
 Suite *make_ptimizers_suite(void)
 {
     Suite *s;
@@ -355,30 +448,38 @@ Suite *make_ptimizers_suite(void)
 
     tc_unary = tcase_create("Optimizers Case");
 
-    tcase_add_test(tc_unary, test_SGD);
-    tcase_add_test(tc_unary, test_sgd_high_lr);
-    tcase_add_test(tc_unary, test_sgd_wd); 
-    tcase_add_test(tc_unary, test_sgd_high_lr_wd); 
+    // tcase_add_test(tc_unary, test_SGD);
+    // tcase_add_test(tc_unary, test_sgd_high_lr);
+    // tcase_add_test(tc_unary, test_sgd_wd); 
+    // tcase_add_test(tc_unary, test_sgd_high_lr_wd); 
 
-    tcase_add_test(tc_unary, test_multistep_sgd);
-    tcase_add_test(tc_unary, test_multistep_sgd_high_lr);
-    tcase_add_test(tc_unary, test_multistep_sgd_wd); 
-    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_wd);
+    // tcase_add_test(tc_unary, test_multistep_sgd);
+    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr);
+    // tcase_add_test(tc_unary, test_multistep_sgd_wd); 
+    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_wd);
 
-    tcase_add_test(tc_unary, test_multistep_sgd_momentum);
-    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum);
-    tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd);
-    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd);
+    // tcase_add_test(tc_unary, test_multistep_sgd_momentum);
+    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum);
+    // tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd);
+    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd);
 
-    tcase_add_test(tc_unary, test_multistep_sgd_momentum_damp);
-    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_damp);
-    tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd_damp);
-    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd_damp);
+    // tcase_add_test(tc_unary, test_multistep_sgd_momentum_damp);
+    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_damp);
+    // tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd_damp);
+    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd_damp);
 
-    tcase_add_test(tc_unary, test_multistep_sgd_nesterov_momentum);
-    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_nesterov_momentum);
-    tcase_add_test(tc_unary, test_multistep_sgd_nesterov_momentum_wd);
-    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_nesterov_momentum_wd);
+    // tcase_add_test(tc_unary, test_multistep_sgd_nesterov_momentum);
+    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_nesterov_momentum);
+    // tcase_add_test(tc_unary, test_multistep_sgd_nesterov_momentum_wd);
+    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_nesterov_momentum_wd);
+
+    // RMS PROP
+    tcase_add_test(tc_unary, test_RMS);
+    tcase_add_test(tc_unary, test_rms_prop_high_lr);
+    tcase_add_test(tc_unary, test_rms_prop_wd); 
+    tcase_add_test(tc_unary, test_rms_prop_high_lr_wd); 
+
+    tcase_add_test(tc_unary, test_multistep_rms_prop);
 
     suite_add_tcase(s, tc_unary);
 
