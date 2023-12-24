@@ -687,13 +687,6 @@ nw_error_t *rms_prop_create(rms_prop_t **rms_prop,
             goto cleanup;
         }
 
-        for (size_t i = 0; i < (*rms_prop)->buffer_size; ++i)
-        {
-            (*rms_prop)->momentum_buffer[i] = NULL;
-            (*rms_prop)->square_average[i] = NULL;
-            (*rms_prop)->average_gradient[i] = NULL;
-        }
-
         error = initialize_zero_buffer(params, (*rms_prop)->momentum_buffer, 0);
         if (error)
         {
@@ -711,7 +704,32 @@ cleanup:
 
 void rms_prop_destroy(rms_prop_t *rms_prop)
 {
-    return;
+    if (rms_prop)
+    {
+        if (*(float32_t *) rms_prop->momentum != 0.f)
+        {
+            for (uint64_t i=0; i < rms_prop->buffer_size; ++i)
+            {
+                tensor_destroy(rms_prop->momentum_buffer[i]);
+            }
+            free(rms_prop->momentum_buffer);
+        }
+
+        for (uint64_t i=0; i < rms_prop->buffer_size; ++i)
+        {
+            tensor_destroy(rms_prop->square_average[i]);
+            tensor_destroy(rms_prop->average_gradient[i]);
+        }
+        free(rms_prop->square_average);
+        free(rms_prop->average_gradient);
+
+        free(rms_prop->learning_rate);
+        free(rms_prop->momentum);
+        free(rms_prop->alpha);
+        free(rms_prop->weight_decay);
+        free(rms_prop->epsilon);
+        free(rms_prop);
+    }
 }
 
 
@@ -806,27 +824,25 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index
     tensor_t *weight_decay = NULL;
     tensor_t *weight_decay_product = NULL;
     tensor_t *temp_gradient_addition = NULL;
-    tensor_t *parameter_update = NULL;
-    tensor_t *momentum_constant = NULL;
-    tensor_t *momentum_product = NULL;
-    tensor_t *dampening_constant = NULL;
-    tensor_t *dampening_gradient = NULL;
-    tensor_t *updated_momentum = NULL;
-    tensor_t *modified_momentum = NULL;
     tensor_t *alpha_constant = NULL;
     tensor_t *alpha_product = NULL;
-    void *one_minus_alpha = NULL;
-    tensor_t *squared_current_gradient = NULL;
     tensor_t *one_minus_alpha_constant = NULL;
-    tensor_t *square_average_telda = NULL;
+    tensor_t *squared_current_gradient = NULL;
     tensor_t *one_minus_alpha_product = NULL;
+    tensor_t *square_average_telda = NULL;
+    tensor_t *temp_optimizer_square_average = NULL;
+    tensor_t *learning_rate_gradient = NULL;
+    tensor_t *square_average_telda_root = NULL;
     tensor_t *epsilon_constant = NULL;
     tensor_t *square_average_telda_epsilon = NULL;
-    tensor_t *square_average_telda_root = NULL;
-    tensor_t *learning_rate_gradient = NULL;
-    tensor_t *effective_learning_rate = NULL;
-    tensor_t *new_parameter = NULL;
-    tensor_t *temp_optimizer_square_average = NULL;
+    tensor_t *parameter_update = NULL;
+    tensor_t *momentum_const_buffer = NULL;
+    tensor_t *temp_gradient = NULL;
+    tensor_t *momentum_constant = NULL;
+    tensor_t *momentum_product = NULL;
+    tensor_t *updated_momentum = NULL;
+    tensor_t *modified_momentum = NULL;
+   
     datatype_t datatype = parameters->buffer->storage->datatype;
     runtime_t runtime = parameters->buffer->storage->runtime;
 
@@ -850,12 +866,6 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index
         return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
     }
 
-    // error = tensor_addition(weight_decay_product, parameters->gradient, &parameters->gradient);
-    // if (error)
-    // {
-    //     return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
-    // }
-
     error = tensor_addition(weight_decay_product, parameters->gradient, &temp_gradient_addition);
     if (error)
     {
@@ -876,22 +886,20 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index
         return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
     }
 
-    // switch(datatype)
-    // {
-    //     case FLOAT32:
-    //         float32_t alpha_float32 = (float32_t) 1 - *(float32_t *) (optimizer->alpha);
-    //         one_minus_alpha = &alpha_float32;
-    //         break;
-    //     case FLOAT64:
-    //         float64_t alpha_float64 = (float64_t) 1 - *(float64_t *) (optimizer->alpha);
-    //         one_minus_alpha = &alpha_float64;
-    //         break;
-    //     default:
-    //         error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int)datatype), NULL);
-    //         goto cleanup;
-    // } 
-    float32_t alpha_float32 = (float32_t) 1 - *(float32_t *) (optimizer->alpha);
-    error = tensor_constant(&alpha_float32, datatype, runtime, false, false, &one_minus_alpha_constant);
+    switch(datatype)
+    {
+        case FLOAT32:
+            float32_t alpha_float32 = (float32_t) 1 - *(float32_t *) (optimizer->alpha);
+            error = tensor_constant(&alpha_float32, datatype, runtime, false, false, &one_minus_alpha_constant);
+            break;
+        case FLOAT64:
+            float64_t alpha_float64 = (float64_t) 1 - *(float64_t *) (optimizer->alpha);
+            error = tensor_constant(&alpha_float64, datatype, runtime, false, false, &one_minus_alpha_constant);
+            break;
+        default:
+            error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int)datatype), NULL);
+            goto cleanup;
+    }
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -914,20 +922,13 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index
     {
         return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
     }
-    tensor_destroy(optimizer->square_average[index]);
-    //optimizer->square_average[index] = square_average_telda;
-    
+
+    tensor_destroy(optimizer->square_average[index]); 
     error = tensor_zeroes_like(square_average_telda, &optimizer->square_average[index], false, true, true);
     if (error)
     {
         return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
     }
-    
-    // error = tensor_addition(optimizer->square_average[index], square_average_telda, &optimizer->square_average[index]);
-    // if (error)
-    // {
-    //     return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
-    // }
 
     error = tensor_addition(optimizer->square_average[index], square_average_telda, &temp_optimizer_square_average);
     if (error)
@@ -937,16 +938,7 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index
     tensor_destroy(optimizer->square_average[index]);
     optimizer->square_average[index] = temp_optimizer_square_average;
 
-    // error = tensor_from_data(&optimizer->average_gradient[index], square_average_telda->gradient->buffer->storage->data, square_average_telda->gradient->buffer->storage->runtime, 
-    //                     square_average_telda->gradient->buffer->storage->datatype, square_average_telda->gradient->buffer->view->rank, square_average_telda->gradient->buffer->view->shape, 
-    //                     square_average_telda->gradient->buffer->view->strides, square_average_telda->gradient->buffer->view->offset, true, false, true);
-
-    error = tensor_multiplication(learning_rate, parameters->gradient, &learning_rate_gradient);
-    if (error)
-    {
-        return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
-    }
-    
+  
     error = tensor_square_root(square_average_telda, &square_average_telda_root);
     if (error)
     {
@@ -965,12 +957,55 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index
         return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
     }
 
-    error = tensor_division(learning_rate_gradient, square_average_telda_epsilon, &parameter_update);
-    if (error)
+    if (*(float32_t *) optimizer->momentum != 0.f)
     {
-        return ERROR(ERROR_DIVISION, string_create("failed to divide tensors."), error);
+        error = tensor_division(parameters->gradient, square_average_telda_epsilon, &temp_gradient);
+        if (error)
+        {
+            return ERROR(ERROR_DIVISION, string_create("failed to divide tensors."), error);
+        }
+
+        error = tensor_constant(optimizer->momentum, datatype, runtime, false, false, &momentum_constant);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        }
+
+        error = tensor_multiplication(momentum_constant, optimizer->momentum_buffer[index], &momentum_const_buffer);
+        if (error)
+        {
+            return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        }
+
+        error = tensor_addition(momentum_const_buffer, temp_gradient, &updated_momentum);
+        if (error)
+        {
+            return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        }
+        tensor_destroy(optimizer->momentum_buffer[index]);
+        optimizer->momentum_buffer[index] = updated_momentum;
+
+        error = tensor_multiplication(learning_rate, updated_momentum, &parameter_update);
+        if (error)
+        {
+            return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        }
     }
-    
+    else
+    {
+        error = tensor_multiplication(learning_rate, parameters->gradient, &learning_rate_gradient);
+        if (error)
+        {
+            return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        }
+
+        error = tensor_division(learning_rate_gradient, square_average_telda_epsilon, &parameter_update);
+        if (error)
+        {
+            return ERROR(ERROR_DIVISION, string_create("failed to divide tensors."), error);
+        }
+    }
+
     error = tensor_subtraction(parameters, parameter_update, &parameters);
     if (error)
     {
@@ -978,7 +1013,27 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index
     }
 
     with_no_gradient(false);
-
+    tensor_destroy(learning_rate);
+    tensor_destroy(weight_decay);
+    tensor_destroy(weight_decay_product);
+    tensor_destroy(temp_gradient_addition);
+    tensor_destroy(alpha_constant);
+    tensor_destroy(alpha_product);
+    tensor_destroy(one_minus_alpha_constant);
+    tensor_destroy(squared_current_gradient);
+    tensor_destroy(one_minus_alpha_product);
+    tensor_destroy(square_average_telda);
+    tensor_destroy(learning_rate_gradient);
+    tensor_destroy(square_average_telda_root);
+    tensor_destroy(epsilon_constant);
+    tensor_destroy(square_average_telda_epsilon);
+    tensor_destroy(parameter_update);
+    if (*(float32_t *) optimizer->momentum != 0.f)
+    {
+        tensor_destroy(momentum_const_buffer);
+        tensor_destroy(temp_gradient);
+        tensor_destroy(momentum_constant);
+    }
     parameters->gradient = NULL;
     return error;
 
@@ -995,7 +1050,7 @@ cleanup:
     // if (momentum_product){tensor_destroy(momentum_product);}
     // if (dampening_constant){tensor_destroy(dampening_constant);}
     // if (dampening_gradient){tensor_destroy(dampening_gradient);} 
-    // if (modified_momentum){tensor_destroy(modified_momentum);}  
+    // if (modified_momentum){tensor_destroy(modified_momentum);}
     parameters->gradient = NULL;
     return error;
 }

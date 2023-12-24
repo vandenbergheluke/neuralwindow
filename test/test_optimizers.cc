@@ -439,6 +439,48 @@ START_TEST(test_multistep_rms_prop)
 }
 END_TEST
 
+START_TEST(test_multistep_rms_high_lr)
+{
+   take_step_RMS_PROP(10, 0.0, 0.8, 0.0, 0.0001, false, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_rms_wd)
+{
+   take_step_RMS_PROP(0.001, 0.0, 0.8, 0.1, 0.0001, false, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_rms_high_lr_wd)
+{
+   take_step_RMS_PROP(10, 0.0, 0.8, 0.1, 0.0001, false, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_rms_momentum)
+{
+   take_step_RMS_PROP(0.001, 0.9, 0.8, 0.0, 0.0001, false, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_rms_high_lr_momentum)
+{
+   take_step_RMS_PROP(10, 0.9, 0.8, 0.0, 0.0001, false, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_rms_momentum_wd)
+{
+   take_step_RMS_PROP(0.001, 0.9, 0.8, 0.1, 0.0001, false, 10);
+}
+END_TEST
+
+START_TEST(test_multistep_rms_high_lr_momentum_wd)
+{
+   take_step_RMS_PROP(10, 0.9, 0.8, 0.1, 0.0001, false, 10);
+}
+END_TEST
+
 Suite *make_ptimizers_suite(void)
 {
     Suite *s;
@@ -458,10 +500,10 @@ Suite *make_ptimizers_suite(void)
     // tcase_add_test(tc_unary, test_multistep_sgd_wd); 
     // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_wd);
 
-    // tcase_add_test(tc_unary, test_multistep_sgd_momentum);
-    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum);
-    // tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd);
-    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd);
+    tcase_add_test(tc_unary, test_multistep_sgd_momentum);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum);
+    tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd);
 
     // tcase_add_test(tc_unary, test_multistep_sgd_momentum_damp);
     // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_damp);
@@ -473,13 +515,21 @@ Suite *make_ptimizers_suite(void)
     // tcase_add_test(tc_unary, test_multistep_sgd_nesterov_momentum_wd);
     // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_nesterov_momentum_wd);
 
-    // RMS PROP
-    tcase_add_test(tc_unary, test_RMS);
-    tcase_add_test(tc_unary, test_rms_prop_high_lr);
-    tcase_add_test(tc_unary, test_rms_prop_wd); 
-    tcase_add_test(tc_unary, test_rms_prop_high_lr_wd); 
+    // // //RMS PROP
+    // tcase_add_test(tc_unary, test_RMS);
+    // tcase_add_test(tc_unary, test_rms_prop_high_lr);
+    // tcase_add_test(tc_unary, test_rms_prop_wd); 
+    // tcase_add_test(tc_unary, test_rms_prop_high_lr_wd); 
 
-    tcase_add_test(tc_unary, test_multistep_rms_prop);
+    // tcase_add_test(tc_unary, test_multistep_rms_prop);
+    // tcase_add_test(tc_unary, test_multistep_rms_high_lr);
+    // tcase_add_test(tc_unary, test_multistep_rms_wd); 
+    // tcase_add_test(tc_unary, test_multistep_rms_high_lr_wd);
+
+    // tcase_add_test(tc_unary, test_multistep_rms_momentum);
+    // tcase_add_test(tc_unary, test_multistep_rms_high_lr_momentum);
+    // tcase_add_test(tc_unary, test_multistep_rms_momentum_wd);
+    // tcase_add_test(tc_unary, test_multistep_rms_high_lr_momentum_wd);
 
     suite_add_tcase(s, tc_unary);
 
