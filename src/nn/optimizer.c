@@ -842,6 +842,10 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index
     tensor_t *momentum_product = NULL;
     tensor_t *updated_momentum = NULL;
     tensor_t *modified_momentum = NULL;
+    tensor_t *centered_grad = NULL;
+    tensor_t *alpha_average_grad = NULL;
+    tensor_t *average_gradient_squared = NULL;
+    tensor_t *updated_average_grad = NULL;
    
     datatype_t datatype = parameters->buffer->storage->datatype;
     runtime_t runtime = parameters->buffer->storage->runtime;
@@ -938,7 +942,41 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index
     tensor_destroy(optimizer->square_average[index]);
     optimizer->square_average[index] = temp_optimizer_square_average;
 
-  
+    if (optimizer->centered)
+    {
+        error = tensor_multiplication(one_minus_alpha_constant, parameters->gradient, &centered_grad);
+        if (error)
+        {
+            return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        }
+
+        error = tensor_multiplication(optimizer->average_gradient[index], alpha_constant, &alpha_average_grad);
+        if (error)
+        {
+            return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        }
+
+        error = tensor_addition(alpha_average_grad, centered_grad, &updated_average_grad);
+        if (error)
+        {
+            return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        }
+        tensor_destroy(optimizer->average_gradient[index]);
+        optimizer->average_gradient[index] = updated_average_grad;
+
+        error = tensor_multiplication(optimizer->average_gradient[index], optimizer->average_gradient[index], &average_gradient_squared);
+        if (error)
+        {
+            return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        }
+
+        error = tensor_subtraction(square_average_telda, average_gradient_squared, &square_average_telda);
+        if (error)
+        {
+            return ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensors."), error);
+        }
+    }
+
     error = tensor_square_root(square_average_telda, &square_average_telda_root);
     if (error)
     {
@@ -1033,6 +1071,12 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index
         tensor_destroy(momentum_const_buffer);
         tensor_destroy(temp_gradient);
         tensor_destroy(momentum_constant);
+    }
+    if (optimizer->centered)
+    {
+        tensor_destroy(centered_grad);
+        tensor_destroy(alpha_average_grad);
+        tensor_destroy(average_gradient_squared);
     }
     parameters->gradient = NULL;
     return error;
