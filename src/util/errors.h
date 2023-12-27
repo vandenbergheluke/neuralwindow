@@ -59,15 +59,15 @@
     else\
     {\
         fprintf(stderr, "(");\
-        for (int64_t i = 0; i < (length); ++i)\
+        for (uint64_t _i = 0; _i < (length); ++_i)\
         {\
-            if (!i)\
+            if (!_i)\
             {\
-                fprintf(stderr, "%ld", (array)[i]);\
+                fprintf(stderr, "%lu", (array)[_i]);\
             }\
             else\
             {\
-                fprintf(stderr, ", %ld", (array)[i]);\
+                fprintf(stderr, ", %lu", (array)[_i]);\
             }\
         }\
         fprintf(stderr, ")");\
@@ -122,36 +122,36 @@
         else\
         {\
             fprintf(stderr, "(");\
-            int64_t n = MIN((storage)->n, MAX_DATA);\
-            for (int64_t j = 0; j < n; ++j)\
+            uint64_t _n = MIN((storage)->n, MAX_DATA);\
+            for (uint64_t _j = 0; _j < _n; ++_j)\
             {\
                 switch((storage)->datatype)\
                 {\
                 case FLOAT32:\
-                    if (!j)\
+                    if (!_j)\
                     {\
-                        fprintf(stderr, "%f", ((float *) (storage)->data)[j]);\
+                        fprintf(stderr, "%f", ((float *) (storage)->data)[_j]);\
                     }\
                     else\
                     {\
-                        fprintf(stderr, ", %f", ((float *) (storage)->data)[j]);\
+                        fprintf(stderr, ", %f", ((float *) (storage)->data)[_j]);\
                     }\
                     break;\
                 case FLOAT64:\
-                    if (!j)\
+                    if (!_j)\
                     {\
-                        fprintf(stderr, "%lf", ((double *) (storage)->data)[j]);\
+                        fprintf(stderr, "%lf", ((double *) (storage)->data)[_j]);\
                     }\
                     else\
                     {\
-                        fprintf(stderr, ", %lf", ((double *) (storage)->data)[j]);\
+                        fprintf(stderr, ", %lf", ((double *) (storage)->data)[_j]);\
                     }\
                     break;\
                 default:\
                     break;\
                 }\
             }\
-            if (n != (storage)->n)\
+            if (_n != (storage)->n)\
             {\
                 fprintf(stderr, ", ...");\
             }\
