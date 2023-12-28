@@ -65,3 +65,6 @@ libtorch*
 
 # Data
 data/
+
+# MathGL
+mathgl*

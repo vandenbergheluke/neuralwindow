@@ -120,6 +120,21 @@ Install LCOV
 sudo apt-get install lcov
 ```
 
+Install MathGL
+
+```bash
+sudo apt-get install zlib1g-dev
+sudo apt-get install libpng-dev
+wget -O mathgl-8.0.1.tar.gz "https://gigenet.dl.sourceforge.net/project/mathgl/mathgl/mathgl%208.0/mathgl-8.0.1.tar.gz"
+tar -xvzf mathgl-8.0.1.tar.gz
+cd mathgl-8.0.1
+mkdir build
+cd build
+cmake ../
+make
+sudo make install
+```
+
 ## Build
 
 To build neuralwindow run
