@@ -169,10 +169,11 @@ To build and test without CUDA define enviroment variable `CPU_ONLY=1`.
 CPU_ONLY=1 cmake ..
 ```
 
-Display Debug information by defining the enviroment variable `DEBUG=1`.
+Display Debug information by defining the enviroment variable `DEBUG=1` and
+skipping plotting with `-DPLOT=OFF`.
 
 ```bash
-DEBUG=1 cmake ..
+DEBUG=1 cmake -DCMAKE_PREFIX_PATH=../libtorch/ -DPLOT=OFF ..
 ```
 
 Generate graph by defining the enviroment variable `GRAPH=1`.

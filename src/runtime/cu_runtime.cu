@@ -1234,72 +1234,65 @@ __device__ static float64_t atomicMAX(float64_t *address, float64_t val)
     return __longlong_as_double(old);
 }
 
-// TODO: Test if shared memory is slower than just y_data for comparison.
-__global__ static void cu_maximum_float32_device(int n, const float32_t *x_data, int x_stride, float32_t *y_data)
+__global__ static void cu_maximum_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data)
 {
+    __shared__ float32_t current_maximum;
+    current_maximum = *x_data;
+    __syncthreads();
     int i = (blockDim.x * blockIdx.x) + threadIdx.x + 1;
     if (i < n)
     {
-        atomicMAX(y_data, x_data[i * x_stride]);
+        atomicMAX(&current_maximum, x_data[i * x_stride]);
     }
+    __syncthreads();
+    *y_data = current_maximum;
 }
 
-__global__ static void cu_maximum_float64_device(int n, const float64_t *x_data, int x_stride, float64_t *y_data)
+__global__ static void cu_maximum_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data)
 {
+    __shared__ float64_t current_maximum;
+    current_maximum = *x_data;
+    __syncthreads();
     int i = (blockDim.x * blockIdx.x) + threadIdx.x + 1;
     if (i < n)
     {
-        atomicMAX(y_data, x_data[i * x_stride]);
+        atomicMAX(&current_maximum, x_data[i * x_stride]);
     }
-}
-
-static void cu_maximum_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data)
-{
-    int block_size;
-    int min_grid_size;
-    int grid_size;
-
-    cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-            cu_maximum_float32_device, 0, 0);
-
-    grid_size = (n + block_size - 2) / block_size;
-
-    *y_data = *x_data;
-    cu_maximum_float32_device<<<grid_size, block_size, 0, cuda_stream>>>(n, x_data, x_stride, y_data);
-
-#if SYNCHRONOUS
-    cudaDeviceSynchronize();
-#endif
-}
-
-static void cu_maximum_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data)
-{
-    int block_size;
-    int min_grid_size;
-    int grid_size;
-
-    cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-            cu_maximum_float64_device, 0, 0);
-
-    grid_size = (n + block_size - 2) / block_size;
-
-    *y_data = *x_data;
-    cu_maximum_float64_device<<<grid_size, block_size, 0, cuda_stream>>>(n, x_data, x_stride, y_data);
-
-#if SYNCHRONOUS
-    cudaDeviceSynchronize();
-#endif
+    __syncthreads();
+    *y_data = current_maximum;
 }
 
 extern "C" void cu_maximum(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_offset)
 {
+    int block_size;
+    int min_grid_size;
+    int grid_size;
+
     switch (datatype)
     {
     case FLOAT32:
-        cu_maximum_float32((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
+        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
+                cu_maximum_float32, 0, 0);
+
+        grid_size = (n + block_size - 1) / block_size;
+
+        cu_maximum_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
+
+#if SYNCHRONOUS
+        cudaDeviceSynchronize();
+#endif
         break;
     case FLOAT64:
-        cu_maximum_float64((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
+        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
+                cu_maximum_float64, 0, 0);
+
+        grid_size = (n + block_size - 1) / block_size;
+
+        cu_maximum_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
+
+#if SYNCHRONOUS
+        cudaDeviceSynchronize();
+#endif
         break;
     default:
         break;

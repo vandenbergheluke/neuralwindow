@@ -2,11 +2,13 @@ SET(CMAKE_PREFIX_PATH "../libtorch/")
 find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
+if ((NOT DEFINED PLOT) OR PLOT)
 find_package(MathGL2 QUIET)
 if(MathGL2_FOUND)
     set(MathGL2_LIBRARIES "${MathGL2_LIBRARIES_DIRS}/libmgl.so")
 else()
     message("Could not find MathGL2. Omitting performance tests...")
+endif()
 endif()
 
 
