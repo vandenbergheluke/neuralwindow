@@ -5154,8 +5154,6 @@ nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_g
     int64_t *shape = x->buffer->view->shape;
     int64_t rank = x->buffer->view->rank;
     datatype_t datatype = x->buffer->storage->datatype;
-    // TODO: Temporary
-    PRINTF_DEBUG("datatype %s\n", datatype_string(datatype));
     runtime_t runtime = x->buffer->storage->runtime;
 
     error = tensor_create_empty(y, shape, rank, runtime, datatype, requires_gradient, persist);
