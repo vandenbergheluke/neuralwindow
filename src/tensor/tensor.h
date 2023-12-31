@@ -70,6 +70,7 @@ nw_error_t *tensor_power(const tensor_t *x, const tensor_t *y, tensor_t **z);
 nw_error_t *tensor_matrix_multiplication(const tensor_t *x, const tensor_t *y, tensor_t **z);
 nw_error_t *tensor_compare_equal(const tensor_t *x, const tensor_t *y, tensor_t **z);
 nw_error_t *tensor_compare_greater(const tensor_t *x, const tensor_t *y, tensor_t **z);
+nw_error_t *tensor_max(const tensor_t *x, const tensor_t *y, tensor_t **z);
 
 // Reduction Operations
 nw_error_t *tensor_summation(const tensor_t *x, tensor_t **y, const uint64_t *axis, uint64_t length, bool_t keep_dimension);

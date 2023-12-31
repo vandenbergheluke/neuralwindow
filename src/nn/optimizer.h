@@ -20,6 +20,23 @@ typedef struct stochastic_gradient_descent_t
     tensor_t **momentum_buffer;
 } stochastic_gradient_descent_t;
 
+typedef struct adam_t
+{
+    datatype_t datatype;
+    void *learning_rate;
+    void *beta_1;
+    void *beta_2;
+    void *weight_decay;
+    void *epsilon; 
+    bool_t amsgrad;
+    bool_t maximize;
+    uint64_t iteration;
+    uint64_t buffer_size;
+    tensor_t **first_moment;
+    tensor_t **second_moment;
+    tensor_t **second_moment_max;
+} adam_t;
+
 typedef struct rms_prop_t
 {
     datatype_t datatype;
@@ -39,12 +56,14 @@ typedef enum algorithm_type_t
 {
     STOCASTIC_GRADIENT_DESCENT,
     RMS_PROP,
+    ADAM,
 } algorithm_type_t;
 
 typedef union algorithm_t
 {
     stochastic_gradient_descent_t *stochastic_gradient_descent;    
     rms_prop_t *rms_prop;
+    adam_t *adam;
 } algorithm_t;
 
 typedef struct optimizer_t
@@ -102,4 +121,26 @@ nw_error_t *rms_prop_create(rms_prop_t **rms_prop,
                             bool_t centered);
 void rms_prop_destroy(rms_prop_t *rms_prop);
 const nw_error_t *initialize_zero_buffer(block_t *param, tensor_t **buffer, uint64_t index);
+nw_error_t *adam(adam_t *optimizer, tensor_t *parameters, uint64_t index);
+nw_error_t *optimizer_adam_create(optimizer_t **optimizer,
+                                        block_t *params,
+                                        datatype_t datatype,
+                                        void *learning_rate,
+                                        void *beta_1,
+                                        void *beta_2,
+                                        void *weight_decay,
+                                        void *epsilon, 
+                                        bool_t amsgrad,
+                                        bool_t maximize);
+nw_error_t *adam_create(adam_t **adam,
+                            block_t *params,
+                            datatype_t datatype,
+                            void *learning_rate,
+                            void *beta_1,
+                            void *beta_2,
+                            void *weight_decay,
+                            void *epsilon, 
+                            bool_t amsgrad,
+                            bool_t maximize);
+void adam_destroy(adam_t *adam);
 #endif

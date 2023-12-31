@@ -700,7 +700,8 @@ typedef enum tensor_binary_operation_type_t
     TENSOR_MATRIX_MULTIPLICATION,
     TENSOR_COMPARE_EQUAL,
     TENSOR_COMPARE_GREATER,
-} tensor_reduction_operation_type_t;
+    TENSOR_MAX,
+} tensor_binary_operation_type_t;
 
 int cases(binary_operation_class_t binary_operation_class)
 {
@@ -884,6 +885,9 @@ void test_binary(binary_operation_class_t binary_operation_class,
                 case TENSOR_COMPARE_GREATER:
                     expected_tensor = torch::gt(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]);
                     break;
+                case TENSOR_MAX:
+                    expected_tensor = torch::max(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]);
+                    break;
                 default:
                     ck_abort_msg("unsupported binary operation type.");
                 }
@@ -915,6 +919,9 @@ void test_binary(binary_operation_class_t binary_operation_class,
                     break;
                 case TENSOR_COMPARE_GREATER:
                     error = tensor_compare_greater(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
+                    break;
+                case TENSOR_MAX:
+                    error = tensor_max(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 default:
                     ck_abort_msg("unsupported binary operation type.");
@@ -988,6 +995,12 @@ START_TEST(test_compare_greater)
 }
 END_TEST
 
+START_TEST(test_max)
+{
+    test_binary(BINARY_ELEMENTWISE_CLASS, TENSOR_MAX, false);
+}
+END_TEST
+
 START_TEST(test_matrix_multiplication)
 {
     test_binary(MATRIX_MULTIPLICATION_CLASS, TENSOR_MATRIX_MULTIPLICATION, true);
@@ -1011,6 +1024,7 @@ Suite *make_binary_suite(void)
     tcase_add_test(tc_binary_elementwise, test_power);
     tcase_add_test(tc_binary_elementwise, test_compare_equal);
     tcase_add_test(tc_binary_elementwise, test_compare_greater);
+    tcase_add_test(tc_binary_elementwise, test_max);
 
     tc_matrix_multiplication = tcase_create("Test Matrix Multiplication Case");
     tcase_add_checked_fixture(tc_matrix_multiplication, setup_matrix_multiplication, teardown_matrix_multiplication);

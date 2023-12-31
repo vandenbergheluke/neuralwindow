@@ -4,6 +4,7 @@
 #include <tensor.h>
 #include <layer.h>
 #include <optimizer.h>
+#include <math.h>
 
 nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer, tensor_t *parameters, uint64_t index)
 {
@@ -439,6 +440,9 @@ nw_error_t *algorithm_create(algorithm_t **algorithm, algorithm_type_t algorithm
     case RMS_PROP:
         (*algorithm)->rms_prop = (rms_prop_t *) type_algorithm;
         break;
+    case ADAM:
+        (*algorithm)->adam = (adam_t *) type_algorithm;
+        break;
     default:
         free(*algorithm);
         return ERROR(ERROR_UNKNOWN_ALGORITHM, string_create("unknown algorithm type %d.", (int) algorithm_type), NULL);
@@ -458,6 +462,9 @@ void algorithm_destroy(algorithm_t *algorithm, algorithm_type_t algorithm_type)
             break;
         case RMS_PROP:
             rms_prop_destroy(algorithm->rms_prop);
+            break;
+        case ADAM:
+            adam_destroy(algorithm->adam);
             break;
         default:
             break;
@@ -498,6 +505,10 @@ string_t algorithm_type_string(algorithm_type_t algorithm_type)
     {
     case STOCASTIC_GRADIENT_DESCENT:
         return "STOCASTIC_GRADIENT_DESCENT";
+    case RMS_PROP:
+        return "RMS_PROP";
+    case ADAM:
+        return "ADAM";
     default:
         return "UNKNOWN_ALGORITHM";
     }
@@ -1097,4 +1108,508 @@ cleanup:
     // if (modified_momentum){tensor_destroy(modified_momentum);}
     parameters->gradient = NULL;
     return error;
+}
+
+nw_error_t *adam_create(adam_t **adam,
+                            block_t *params,
+                            datatype_t datatype,
+                            void *learning_rate,
+                            void *beta_1,
+                            void *beta_2,
+                            void *weight_decay,
+                            void *epsilon, 
+                            bool_t amsgrad,
+                            bool_t maximize)
+{
+    CHECK_NULL_ARGUMENT(adam, "adam");
+
+    nw_error_t *error = NULL;
+
+    *adam = NULL;
+    *adam = (adam_t *)malloc(sizeof(adam_t));
+    if (!*adam)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(adam_t)), NULL);
+        goto cleanup;
+    }
+
+    (*adam)->datatype = datatype;
+    (*adam)->learning_rate = NULL;
+    (*adam)->beta_1 = NULL;
+    (*adam)->beta_2 = NULL;
+    (*adam)->weight_decay = NULL;
+    (*adam)->amsgrad = amsgrad;
+    (*adam)->epsilon = NULL;
+    (*adam)->maximize = maximize; 
+    (*adam)->iteration = 1;
+
+    size_t size = datatype_size(datatype);
+
+    (*adam)->learning_rate = (void *)malloc(size);
+    if (!(*adam)->learning_rate)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu.", size), NULL);
+        goto cleanup;
+    }
+
+    (*adam)->beta_1 = (void *)malloc(size);
+    if (!(*adam)->beta_1)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu.", size), NULL);
+        goto cleanup;
+    }
+
+    (*adam)->beta_2 = (void *)malloc(size);
+    if (!(*adam)->beta_2)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu.", size), NULL);
+        goto cleanup;
+    }
+
+    (*adam)->weight_decay = (void *)malloc(size);
+    if (!(*adam)->weight_decay)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu.", size), NULL);
+        goto cleanup;
+    }
+
+    (*adam)->epsilon = (void *)malloc(size);
+    if (!(*adam)->epsilon)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu.", size), NULL);
+        goto cleanup;
+    }
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        *(float32_t *)(*adam)->learning_rate = *(float32_t *)learning_rate;
+        *(float32_t *)(*adam)->beta_1 = *(float32_t *)beta_1;
+        *(float32_t *)(*adam)->beta_2 = *(float32_t *)beta_2;
+        *(float32_t *)(*adam)->weight_decay = *(float32_t *)weight_decay;
+        *(float32_t *)(*adam)->epsilon = *(float32_t *)epsilon;
+        break;
+    case FLOAT64:
+        *(float64_t *)(*adam)->learning_rate = *(float64_t *)learning_rate;
+        *(float64_t *)(*adam)->beta_1 = *(float64_t *)beta_1;
+        *(float64_t *)(*adam)->beta_2 = *(float64_t *)beta_2;
+        *(float64_t *)(*adam)->weight_decay = *(float64_t *)weight_decay;
+        *(float64_t *)(*adam)->epsilon = *(float64_t *)epsilon;
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int)datatype), NULL);
+        goto cleanup;
+    }
+
+    uint64_t num_params = 0;
+      
+    error = block_num_params(params, &num_params);
+    if (error)
+    {
+        error = ERROR(ERROR_OPTIM, string_create("failed to count model parameters."), error);
+        goto cleanup;
+    }
+    (*adam)->buffer_size = num_params;
+
+    (*adam)->first_moment = (tensor_t **)malloc(num_params * sizeof(tensor_t *));
+    if (!(*adam)->first_moment)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION,
+                        string_create("failed to allocate first momentum buffer of size %lu.",
+                                    (unsigned long)(num_params * sizeof(tensor_t *))),
+                        NULL);
+        goto cleanup;
+    }
+
+    (*adam)->second_moment = (tensor_t **)malloc(num_params * sizeof(tensor_t *));
+    if (!(*adam)->second_moment)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION,
+                        string_create("failed to allocate second momentum buffer of size %lu.",
+                                    (unsigned long)(num_params * sizeof(tensor_t *))),
+                        NULL);
+        goto cleanup;
+    }
+
+    error = initialize_zero_buffer(params, (*adam)->first_moment, 0);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create first momentum buffer tensor for null layer."), NULL);
+        goto cleanup;
+    }
+
+    error = initialize_zero_buffer(params, (*adam)->second_moment, 0);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create second momentum buffer tensor for null layer."), NULL);
+        goto cleanup;
+    }
+
+    if ((*adam)->amsgrad)
+    {
+        (*adam)->second_moment_max = (tensor_t **)malloc(num_params * sizeof(tensor_t *));
+        if (!(*adam)->second_moment_max)
+        {
+            error = ERROR(ERROR_MEMORY_ALLOCATION,
+                            string_create("failed to allocate average gradient buffer of size %lu.",
+                                        (unsigned long)(num_params * sizeof(tensor_t *))),
+                            NULL);
+            goto cleanup;
+        }
+
+        error = initialize_zero_buffer(params, (*adam)->second_moment_max, 0);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create second momentum max buffer tensor for null layer."), NULL);
+            goto cleanup;
+        }
+
+    }
+    return error;
+
+cleanup:
+    adam_destroy(*adam);
+    return error;
+}
+
+void adam_destroy(adam_t *adam)
+{
+    if (adam)
+    {
+        if (adam->amsgrad)
+        {
+            for (uint64_t i=0; i < adam->buffer_size; ++i)
+            {
+                tensor_destroy(adam->second_moment_max[i]);
+            }
+            free(adam->second_moment_max);
+        }
+
+        for (uint64_t i=0; i < adam->buffer_size; ++i)
+        {
+            tensor_destroy(adam->first_moment[i]);
+            tensor_destroy(adam->second_moment[i]);
+        }
+        free(adam->first_moment);
+        free(adam->second_moment);
+
+        free(adam->learning_rate);
+        free(adam->beta_1);
+        free(adam->beta_2);
+        free(adam->weight_decay);
+        free(adam->epsilon);
+        free(adam);
+    }
+    return;
+}
+
+nw_error_t *optimizer_adam_create(optimizer_t **optimizer,
+                                        block_t *params,
+                                        datatype_t datatype,
+                                        void *learning_rate,
+                                        void *beta_1,
+                                        void *beta_2,
+                                        void *weight_decay,
+                                        void *epsilon, 
+                                        bool_t amsgrad,
+                                        bool_t maximize)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+
+    nw_error_t *error = NULL;
+    adam_t *adam = NULL;
+    algorithm_t *algorithm = NULL;
+    algorithm_type_t algorithm_type = ADAM;
+
+    error = adam_create(&adam, params, datatype, learning_rate, beta_1, beta_2, weight_decay, epsilon, amsgrad, maximize);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create adam instance."), error);
+    }
+
+    error = algorithm_create(&algorithm, algorithm_type, adam);
+    if (error)
+    {
+        adam_destroy(adam);
+        return ERROR(ERROR_CREATE, string_create("failed to create algorithm."), error);
+    }
+
+    error = optimizer_create(optimizer, algorithm, algorithm_type);
+    if (error)
+    {
+        algorithm_destroy(algorithm, algorithm_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create optimizer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *adam(adam_t *optimizer, tensor_t *parameters, uint64_t index)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(parameters, "parameters");
+
+    nw_error_t *error = NULL;
+    datatype_t datatype = parameters->buffer->storage->datatype;
+    runtime_t runtime = parameters->buffer->storage->runtime;
+
+    tensor_t *learning_rate = NULL;
+    tensor_t *weight_decay = NULL;
+    tensor_t *weight_decay_product = NULL;
+    tensor_t *beta_1_constant = NULL;
+    tensor_t *beta_2_constant = NULL;
+    tensor_t *one_minus_beta_1_constant = NULL;
+    tensor_t *one_minus_beta_2_constant = NULL;
+    tensor_t *beta_1_constant_squared = NULL;
+    tensor_t *beta_2_constant_squared = NULL;
+    tensor_t *first_moment_part_1 = NULL;
+    tensor_t *first_moment_part_2 = NULL;
+    tensor_t *gradient_squared = NULL;
+    tensor_t *second_moment_part_1 = NULL;
+    tensor_t *second_moment_part_2 = NULL;
+    tensor_t *first_momentum_telda = NULL;
+    tensor_t *second_momentum_telda = NULL;
+    tensor_t *epsilon_constant = NULL;
+    tensor_t *square_root_max_moment = NULL;
+    tensor_t *square_root_plus_epsilon = NULL;
+    tensor_t *modified_learning_rate = NULL;
+    tensor_t *parameter_update = NULL;
+
+
+    error = tensor_constant(optimizer->learning_rate, datatype, runtime, false, false, &learning_rate);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    with_no_gradient(true);
+
+    if (optimizer->maximize)
+    {
+        error = tensor_negation(parameters->gradient, &parameters->gradient);
+        if (error)
+        {
+            return ERROR(ERROR_NEGATION, string_create("failed to negate tensors."), error);
+        }
+    }
+
+    error = tensor_constant(optimizer->weight_decay, datatype, runtime, false, false, &weight_decay);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    error = tensor_multiplication(weight_decay, parameters, &weight_decay_product);
+    if (error)
+    {
+        return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+    }
+
+    error = tensor_addition(weight_decay_product, parameters->gradient, &parameters->gradient);
+    if (error)
+    {
+        return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+    }
+
+    switch(datatype)
+    {
+        case FLOAT32:
+            float32_t beta_1_float32 = (float32_t) 1 - *(float32_t *) (optimizer->beta_1);
+            float32_t beta_1_squared_float32 = (float32_t) 1 - pow(*(float32_t *) (optimizer->beta_1), optimizer->iteration);
+            error = tensor_constant(&beta_1_float32, datatype, runtime, false, false, &one_minus_beta_1_constant);
+            error = tensor_constant(optimizer->beta_1, datatype, runtime, false, false, &beta_1_constant);
+            error = tensor_constant(&beta_1_squared_float32, datatype, runtime, false, false, &beta_1_constant_squared);
+
+            float32_t beta_2_float32 = (float32_t) 1 - *(float32_t *) (optimizer->beta_2);
+            float32_t beta_2_squared_float32 = (float32_t) 1 - pow(*(float32_t *) (optimizer->beta_2), optimizer->iteration);
+            error = tensor_constant(&beta_2_float32, datatype, runtime, false, false, &one_minus_beta_2_constant);
+            error = tensor_constant(optimizer->beta_2, datatype, runtime, false, false, &beta_2_constant);
+            error = tensor_constant(&beta_2_squared_float32, datatype, runtime, false, false, &beta_2_constant_squared);
+            break;
+        case FLOAT64:
+            float64_t beta_1_float64 = (float64_t) 1 - *(float64_t *) (optimizer->beta_1);
+            float64_t beta_1_squared_float64 = (float64_t) 1 - pow(*(float64_t *) (optimizer->beta_1), optimizer->iteration);
+            error = tensor_constant(&beta_1_float64, datatype, runtime, false, false, &one_minus_beta_1_constant);
+            error = tensor_constant(optimizer->beta_1, datatype, runtime, false, false, &beta_1_constant);
+            error = tensor_constant(&beta_1_squared_float64, datatype, runtime, false, false, &beta_1_constant_squared);
+
+            float64_t beta_2_float64 = (float64_t) 1 - *(float64_t *) (optimizer->beta_2);
+            float64_t beta_2_squared_float64 = (float64_t) 1 - pow(*(float64_t *) (optimizer->beta_2), optimizer->iteration);
+            error = tensor_constant(&beta_2_float64, datatype, runtime, false, false, &one_minus_beta_2_constant);
+            error = tensor_constant(optimizer->beta_2, datatype, runtime, false, false, &beta_2_constant);
+            error = tensor_constant(&beta_2_squared_float64, datatype, runtime, false, false, &beta_2_constant_squared);
+            break;
+        default:
+            error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int)datatype), NULL);
+            goto cleanup;
+    }
+
+    //first moment
+    error = tensor_multiplication(optimizer->first_moment[index], beta_1_constant, &first_moment_part_1);
+    if (error)
+    {
+        return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+    }
+
+    error = tensor_multiplication(one_minus_beta_1_constant, parameters->gradient, &first_moment_part_2);
+    if (error)
+    {
+        return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+    }
+
+    error = tensor_addition(first_moment_part_1, first_moment_part_2, &optimizer->first_moment[index]);
+    if (error)
+    {
+        return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+    }
+
+    // second moment
+    error = tensor_multiplication(parameters->gradient, parameters->gradient, &gradient_squared);
+    if (error)
+    {
+        return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+    }
+
+    error = tensor_multiplication(beta_2_constant, optimizer->second_moment[index], &second_moment_part_1);
+    if (error)
+    {
+        return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+    }
+
+    error = tensor_multiplication(one_minus_beta_2_constant, gradient_squared, &second_moment_part_2);
+    if (error)
+    {
+        return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+    }
+
+    error = tensor_addition(second_moment_part_1, second_moment_part_2, &optimizer->second_moment[index]);
+    if (error)
+    {
+        return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+    }
+
+    //bias correction
+    error = tensor_division(optimizer->first_moment[index], beta_1_constant_squared, &first_momentum_telda);
+    if (error)
+    {
+        return ERROR(ERROR_DIVISION, string_create("failed to divide tensors."), error);
+    }
+
+    error = tensor_division(optimizer->second_moment[index], beta_2_constant_squared, &second_momentum_telda);
+    if (error)
+    {
+        return ERROR(ERROR_DIVISION, string_create("failed to divide tensors."), error);
+    }
+
+    error = tensor_constant(optimizer->epsilon, datatype, runtime, false, false, &epsilon_constant);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    if (optimizer->amsgrad)
+    {
+        error = tensor_max(optimizer->second_moment_max[index], second_momentum_telda, &optimizer->second_moment_max[index]);
+        if (error)
+        {
+            return ERROR(ERROR_MAX, string_create("failed perfrom max binary operation on tensors."), error);
+        }
+
+        error = tensor_square_root(optimizer->second_moment_max[index], &square_root_max_moment);
+        if (error)
+        {
+            return ERROR(ERROR_SQUARE_ROOT, string_create("failed to perfrom square root on tensor."), error);
+        }
+
+        error = tensor_addition(square_root_max_moment, epsilon_constant, &square_root_plus_epsilon);
+        if (error)
+        {
+            return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        }
+
+    }
+    else
+    {
+        error = tensor_square_root(second_momentum_telda, &square_root_max_moment);
+        if (error)
+        {
+            return ERROR(ERROR_SQUARE_ROOT, string_create("failed to perfrom square root on tensor."), error);
+        }
+
+        error = tensor_addition(square_root_max_moment, epsilon_constant, &square_root_plus_epsilon);
+        if (error)
+        {
+            return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        }
+    }
+
+    error = tensor_multiplication(learning_rate, first_momentum_telda, &modified_learning_rate);
+    if (error)
+    {
+        return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+    }
+
+    error = tensor_division(modified_learning_rate, square_root_plus_epsilon, &parameter_update);
+    if (error)
+    {
+        return ERROR(ERROR_DIVISION, string_create("failed to divide tensors."), error);
+    }
+
+    error = tensor_subtraction(parameters, parameter_update, &parameters);
+    if (error)
+    {
+        return ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensors."), error);
+    }
+
+    with_no_gradient(false);
+
+    if(learning_rate) tensor_destroy(learning_rate);
+    if(weight_decay) tensor_destroy(weight_decay);
+    if(weight_decay_product) tensor_destroy(weight_decay_product);
+    if(beta_1_constant) tensor_destroy(beta_1_constant);
+    if(beta_2_constant) tensor_destroy(beta_2_constant);
+    if(one_minus_beta_1_constant) tensor_destroy(one_minus_beta_1_constant);
+    if(one_minus_beta_2_constant) tensor_destroy(one_minus_beta_2_constant);
+    if(beta_1_constant_squared) tensor_destroy(beta_1_constant_squared);
+    if(beta_2_constant_squared) tensor_destroy(beta_2_constant_squared);
+    if(first_moment_part_1) tensor_destroy(first_moment_part_1);
+    if(first_moment_part_2) tensor_destroy(first_moment_part_2);
+    if(gradient_squared) tensor_destroy(gradient_squared);
+    if(second_moment_part_1) tensor_destroy(second_moment_part_1);
+    if(second_moment_part_2) tensor_destroy(second_moment_part_2);
+    if(first_momentum_telda) tensor_destroy(first_momentum_telda);
+    if(second_momentum_telda) tensor_destroy(second_momentum_telda);
+    if(epsilon_constant) tensor_destroy(epsilon_constant);
+    if(square_root_max_moment) tensor_destroy(square_root_max_moment);
+    if(square_root_plus_epsilon) tensor_destroy(square_root_plus_epsilon);
+    if(modified_learning_rate) tensor_destroy(modified_learning_rate);
+    if(parameter_update) tensor_destroy(parameter_update);
+    parameters->gradient = NULL;
+    return error;
+
+cleanup:
+    if(learning_rate) tensor_destroy(learning_rate);
+    if(weight_decay) tensor_destroy(weight_decay);
+    if(weight_decay_product) tensor_destroy(weight_decay_product);
+    if(beta_1_constant) tensor_destroy(beta_1_constant);
+    if(beta_2_constant) tensor_destroy(beta_2_constant);
+    if(one_minus_beta_1_constant) tensor_destroy(one_minus_beta_1_constant);
+    if(one_minus_beta_2_constant) tensor_destroy(one_minus_beta_2_constant);
+    if(beta_1_constant_squared) tensor_destroy(beta_1_constant_squared);
+    if(beta_2_constant_squared) tensor_destroy(beta_2_constant_squared);
+    if(first_moment_part_1) tensor_destroy(first_moment_part_1);
+    if(first_moment_part_2) tensor_destroy(first_moment_part_2);
+    if(gradient_squared) tensor_destroy(gradient_squared);
+    if(second_moment_part_1) tensor_destroy(second_moment_part_1);
+    if(second_moment_part_2) tensor_destroy(second_moment_part_2);
+    if(first_momentum_telda) tensor_destroy(first_momentum_telda);
+    if(second_momentum_telda) tensor_destroy(second_momentum_telda);
+    if(epsilon_constant) tensor_destroy(epsilon_constant);
+    if(square_root_max_moment) tensor_destroy(square_root_max_moment);
+    if(square_root_plus_epsilon) tensor_destroy(square_root_plus_epsilon);
+    if(modified_learning_rate) tensor_destroy(modified_learning_rate);
+    if(parameter_update) tensor_destroy(parameter_update);
+    parameters->gradient = NULL;
+    return error;
+    
 }

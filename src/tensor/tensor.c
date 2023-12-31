@@ -469,6 +469,81 @@ nw_error_t *tensor_compare_greater(const tensor_t *x, const tensor_t *y, tensor_
     return NULL;
 }
 
+nw_error_t *tensor_max(const tensor_t *x, const tensor_t *y, tensor_t **z)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(z, "z");
+
+    nw_error_t *error = NULL;
+    tensor_t *compare_x_y = NULL;
+    tensor_t *compare_y_x = NULL;
+    tensor_t *x_max = NULL;
+    tensor_t *y_max = NULL;
+
+    with_no_gradient(true);
+    
+    error = tensor_compare_greater(x, y, &compare_x_y);
+    if (error)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to compare greater tensors."), error);
+    }
+
+    error = tensor_compare_greater(y, x, &compare_y_x);
+    if (error)
+    {
+        tensor_destroy(compare_x_y);
+        return ERROR(ERROR_FORWARD, string_create("failed to compare greater tensors."), error);
+    }
+
+    error = tensor_multiplication(x, compare_x_y, &x_max);
+    if (error)
+    {
+        tensor_destroy(compare_x_y);
+        tensor_destroy(compare_y_x);
+        return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+    }
+
+    error = tensor_multiplication(y, compare_y_x, &y_max);
+    if (error)
+    {
+        tensor_destroy(compare_x_y);
+        tensor_destroy(compare_y_x);
+        tensor_destroy(x_max);
+        return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+    }
+
+    error = tensor_addition(x_max, y_max, z);
+    if (error)
+    {
+        tensor_destroy(compare_x_y);
+        tensor_destroy(compare_y_x);
+        tensor_destroy(x_max);
+        tensor_destroy(y_max);
+        return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+    }
+
+    tensor_destroy(compare_x_y);
+    tensor_destroy(compare_y_x);
+    tensor_destroy(x_max);
+    tensor_destroy(y_max);
+
+    with_no_gradient(false);
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINTLN_DEBUG_TENSOR("z", *z);
+    PRINT_DEBUG_NEWLINE;
+
+    return NULL;
+}
+
 nw_error_t *tensor_power(const tensor_t *x, const tensor_t *y, tensor_t **z)
 {
     PRINTLN_DEBUG_LOCATION("input");
