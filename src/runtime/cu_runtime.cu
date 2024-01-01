@@ -22,7 +22,9 @@ extern "C" {
 
 #define NW_WARP_SIZE 32
 
-#define ILP_LEVEL 3
+// TODO: We might be able to set this programmatically from cmake if it is
+// hardware dependent.
+#define ILP_LEVEL 1
 
 // CUDA defns.
 static cublasHandle_t cublas_handle = NULL;
@@ -103,17 +105,17 @@ __global__ static void cu_exponential_float32(int n, const float32_t *x_data, in
     int i = (blockDim.x * blockIdx.x) + threadIdx.x;
     if (i < t)
     {
-        #pragma unroll 3
+        #pragma unroll
         for (int j = 0; j < ILP_LEVEL; ++j)
         {
-            y_data[(i + j) * y_stride] = expf(x_data[(i + j) * x_stride]);
+            y_data[((i * ILP_LEVEL) + j) * y_stride] = expf(x_data[((i * ILP_LEVEL) + j) * x_stride]);
         }
     } else if (i == t)
     {
-        #pragma unroll 3
+        #pragma unroll
         for (int j = 0; j < r; ++j)
         {
-            y_data[(i + j) * y_stride] = expf(x_data[(i + j) * x_stride]);
+            y_data[((i * ILP_LEVEL) + j) * y_stride] = expf(x_data[((i * ILP_LEVEL) + j) * x_stride]);
         }
     }
 }
@@ -125,26 +127,23 @@ __global__ static void cu_exponential_float64(int n, const float64_t *x_data, in
     int i = (blockDim.x * blockIdx.x) + threadIdx.x;
     if (i < t)
     {
-        #pragma unroll 3
+        #pragma unroll
         for (int j = 0; j < ILP_LEVEL; ++j)
         {
-            y_data[(i + j) * y_stride] = exp(x_data[(i + j) * x_stride]);
+            y_data[((i * ILP_LEVEL) + j) * y_stride] = exp(x_data[((i * ILP_LEVEL) + j) * x_stride]);
         }
     } else if (i == t)
     {
-        #pragma unroll 3
+        #pragma unroll
         for (int j = 0; j < r; ++j)
         {
-            y_data[(i + j) * y_stride] = exp(x_data[(i + j) * x_stride]);
+            y_data[((i * ILP_LEVEL) + j) * y_stride] = exp(x_data[((i * ILP_LEVEL) + j) * x_stride]);
         }
     }
 }
 
 extern "C" void cu_exponential(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset)
 {
-    // TODO: Temporary
-    PRINTLN_DEBUG_LOCATION("cu_exponential");
-    PRINTF_DEBUG("datatype %s\n", datatype_string(datatype));
     // CUDA devs want us using ints here for minor optimization purposes, and
     // presumably because we know we're not going to overflow.
     int block_size;
@@ -155,7 +154,7 @@ extern "C" void cu_exponential(datatype_t datatype, int64_t n, const void *x_dat
     case FLOAT32:
         block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(num_mp * 2, (((int) n / ILP_LEVEL) + block_size - 1) / block_size);
+        grid_size = MAX(num_mp * 2, (((int) n / ILP_LEVEL) + block_size) / block_size);
 
         cu_exponential_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
 
@@ -166,7 +165,7 @@ extern "C" void cu_exponential(datatype_t datatype, int64_t n, const void *x_dat
     case FLOAT64:
         block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(num_mp * 2, (((int) n / ILP_LEVEL) + block_size - 1) / block_size);
+        grid_size = MAX(num_mp * 2, (((int) n / ILP_LEVEL) + block_size) / block_size);
 
         cu_exponential_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
 
