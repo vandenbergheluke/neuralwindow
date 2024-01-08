@@ -28,13 +28,10 @@ typedef struct adam_t
     void *beta_2;
     void *weight_decay;
     void *epsilon; 
-    bool_t amsgrad;
-    bool_t maximize;
     uint64_t iteration;
     uint64_t buffer_size;
     tensor_t **first_moment;
     tensor_t **second_moment;
-    tensor_t **second_moment_max;
 } adam_t;
 
 typedef struct rms_prop_t
@@ -129,9 +126,7 @@ nw_error_t *optimizer_adam_create(optimizer_t **optimizer,
                                         void *beta_1,
                                         void *beta_2,
                                         void *weight_decay,
-                                        void *epsilon, 
-                                        bool_t amsgrad,
-                                        bool_t maximize);
+                                        void *epsilon);
 nw_error_t *adam_create(adam_t **adam,
                             block_t *params,
                             datatype_t datatype,
@@ -139,8 +134,6 @@ nw_error_t *adam_create(adam_t **adam,
                             void *beta_1,
                             void *beta_2,
                             void *weight_decay,
-                            void *epsilon, 
-                            bool_t amsgrad,
-                            bool_t maximize);
+                            void *epsilon);
 void adam_destroy(adam_t *adam);
 #endif

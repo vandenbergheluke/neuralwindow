@@ -32,26 +32,37 @@ torch::Tensor b_torch;
 torch::Tensor m_torch;
 torch::Tensor w_torch_zeros;
 
-void initialize_out()
+void initialize_xwm(datatype_t type)
 {
-    out1 = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
-    out2 = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
-    out3 = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
-    out4 = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
-}
-
-void initialize_xwm()
-{
-    x_torch = torch::randn({1, 4}, torch::TensorOptions().requires_grad(true).dtype(torch::kFloat32));
-    w_torch = torch::randn({4, 4}, torch::TensorOptions().requires_grad(true).dtype(torch::kFloat32));
-    b_torch = torch::zeros({1, 4}, torch::TensorOptions().requires_grad(true).dtype(torch::kFloat32));
-    m_torch = torch::randn({1, 4}, torch::TensorOptions().requires_grad(false).dtype(torch::kFloat32));
-    w_torch_zeros = torch::zeros({4, 4}, torch::TensorOptions().requires_grad(false).dtype(torch::kFloat32));
-    
-    x = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
-    w = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT32);
-    b = torch_to_tensor(b_torch, MKL_RUNTIME, FLOAT32);
-    m = torch_to_tensor(m_torch, MKL_RUNTIME, FLOAT32);
+    switch(type) 
+    {
+        case FLOAT32:
+            x_torch = torch::randn({1, 4}, torch::TensorOptions().requires_grad(true).dtype(torch::kFloat32));
+            w_torch = torch::randn({4, 4}, torch::TensorOptions().requires_grad(true).dtype(torch::kFloat32));
+            b_torch = torch::zeros({1, 4}, torch::TensorOptions().requires_grad(true).dtype(torch::kFloat32));
+            m_torch = torch::randn({1, 4}, torch::TensorOptions().requires_grad(false).dtype(torch::kFloat32));
+            w_torch_zeros = torch::zeros({4, 4}, torch::TensorOptions().requires_grad(false).dtype(torch::kFloat32));
+            
+            x = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
+            w = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT32);
+            b = torch_to_tensor(b_torch, MKL_RUNTIME, FLOAT32);
+            m = torch_to_tensor(m_torch, MKL_RUNTIME, FLOAT32);
+            break;
+        case FLOAT64:
+            x_torch = torch::randn({1, 4}, torch::TensorOptions().requires_grad(true).dtype(torch::kFloat64));
+            w_torch = torch::randn({4, 4}, torch::TensorOptions().requires_grad(true).dtype(torch::kFloat64));
+            b_torch = torch::zeros({1, 4}, torch::TensorOptions().requires_grad(true).dtype(torch::kFloat64));
+            m_torch = torch::randn({1, 4}, torch::TensorOptions().requires_grad(false).dtype(torch::kFloat64));
+            w_torch_zeros = torch::zeros({4, 4}, torch::TensorOptions().requires_grad(false).dtype(torch::kFloat64));
+            
+            x = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT64);
+            w = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT64);
+            b = torch_to_tensor(b_torch, MKL_RUNTIME, FLOAT64);
+            m = torch_to_tensor(m_torch, MKL_RUNTIME, FLOAT64);
+            break;
+        default:
+            ck_abort_msg("unknown datatype.");
+    }
 }
 
 void forwardNW()
@@ -147,32 +158,64 @@ void setup_params()
     ck_assert_ptr_nonnull(model);
 }
 
-void take_step_SGD(float32_t learning_rate, float32_t momentum, float32_t dampening, float32_t weight_decay, bool_t nesterov, int steps)
+void take_step_SGD(void *learning_rate, void *momentum, void *dampening, void *weight_decay, bool_t nesterov, int steps, datatype_t type)
 {
-    initialize_xwm();
+    initialize_xwm(type);
 
     stochastic_gradient_descent_t *SGD = NULL;
 
     setup_params();
     ck_assert_ptr_nonnull(model);
 
-    error = stochastic_gradient_descent_create(&SGD,
-                                            model->block,
-                                            FLOAT32,
-                                            &learning_rate,
-                                            &momentum,
-                                            &dampening,
-                                            &weight_decay,
-                                            nesterov);
-    ck_assert_ptr_null(error);
+    std::unique_ptr<torch::optim::SGD> optim_ptr;
 
-    torch::optim::SGDOptions sgdOptions(learning_rate);
-    sgdOptions.momentum(momentum)
-              .dampening(dampening)
-              .weight_decay(weight_decay)
-              .nesterov(nesterov);
+    switch (type) {
+        case FLOAT32: {
+            error = stochastic_gradient_descent_create(&SGD,
+                                                    model->block,
+                                                    FLOAT32,
+                                                    learning_rate,
+                                                    momentum,
+                                                    dampening,
+                                                    weight_decay,
+                                                    nesterov);
 
-    torch::optim::SGD optim = torch::optim::SGD({x_torch, w_torch}, sgdOptions);
+            torch::optim::SGDOptions sgdOptions(*(float32_t *)learning_rate);
+            sgdOptions.momentum(*(float32_t *)momentum)
+                    .dampening(*(float32_t *)dampening)
+                    .weight_decay(*(float32_t *)weight_decay)
+                    .nesterov(nesterov);
+
+            optim_ptr = std::make_unique<torch::optim::SGD>(
+                std::initializer_list<torch::Tensor>{x_torch, w_torch},
+                sgdOptions);
+            break;
+        }
+        case FLOAT64: {
+            error = stochastic_gradient_descent_create(&SGD,
+                                                    model->block,
+                                                    FLOAT64,
+                                                    learning_rate,
+                                                    momentum,
+                                                    dampening,
+                                                    weight_decay,
+                                                    nesterov);
+
+            torch::optim::SGDOptions sgdOptions(*(float64_t *)learning_rate);
+            sgdOptions.momentum(*(float64_t *)momentum)
+                    .dampening(*(float64_t *)dampening)
+                    .weight_decay(*(float64_t *)weight_decay)
+                    .nesterov(nesterov);
+
+            optim_ptr = std::make_unique<torch::optim::SGD>(
+                std::initializer_list<torch::Tensor>{x_torch, w_torch},
+                sgdOptions);
+            break;
+        }
+        default:
+            ck_abort_msg("unknown datatype.");
+    }
+    torch::optim::SGD& optim = *optim_ptr;
 
     for (int i = 0; i < steps; i++)
     {
@@ -201,10 +244,23 @@ void take_step_SGD(float32_t learning_rate, float32_t momentum, float32_t dampen
         zero_grad();
     }
 
-    tensor_t *x_torch_tensor = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
+    tensor_t *x_torch_tensor;
+    tensor_t *w_torch_tensor;
+    switch (type)
+    {
+    case FLOAT32:
+        x_torch_tensor = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
+        w_torch_tensor = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT32);
+        break;
+    case FLOAT64:
+        x_torch_tensor = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT64);
+        w_torch_tensor = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT64);
+        break;
+    default:
+        ck_abort_msg("unknown datatype.");
+        break;
+    }
     ck_assert_tensor_equiv(x, x_torch_tensor);
-   
-    tensor_t *w_torch_tensor = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT32);
     ck_assert_tensor_equiv(w, w_torch_tensor);
 
     tensor_destroy(x_torch_tensor);
@@ -213,34 +269,68 @@ void take_step_SGD(float32_t learning_rate, float32_t momentum, float32_t dampen
     stochastic_gradient_descent_destroy(SGD);
 }
 
-void take_step_RMS_PROP(float32_t learning_rate, float32_t momentum, float32_t alpha, float32_t weight_decay, float32_t epsilon, bool_t centered, int steps)
+void take_step_RMS_PROP(void *learning_rate, void *momentum, void *alpha, void *weight_decay, void *epsilon, bool_t centered, int steps, datatype_t type)
 {
-    initialize_xwm();
+    initialize_xwm(type);
 
     rms_prop_t *RMS = NULL;
 
     setup_params();
     ck_assert_ptr_nonnull(model);
 
-    error = rms_prop_create(&RMS,
-                            model->block,
-                            FLOAT32,
-                            &learning_rate,
-                            &momentum,
-                            &alpha,
-                            &weight_decay,
-                            &epsilon,
-                            centered);
-    ck_assert_ptr_null(error);
+    std::unique_ptr<torch::optim::RMSprop> optim_ptr;
 
-    torch::optim::RMSpropOptions rms_prop_options(learning_rate);
-    rms_prop_options.momentum(momentum)
-                    .alpha(alpha)
-                    .weight_decay(weight_decay)
-                    .eps(epsilon)
-                    .centered(centered);
+    switch (type) {
+        case FLOAT32: {
+        error = rms_prop_create(&RMS,
+                                model->block,
+                                FLOAT32,
+                                learning_rate,
+                                momentum,
+                                alpha,
+                                weight_decay,
+                                epsilon,
+                                centered);
 
-    torch::optim::RMSprop optim = torch::optim::RMSprop({x_torch, w_torch}, rms_prop_options);
+            torch::optim::RMSpropOptions rms_prop_options(*(float32_t *)learning_rate);
+            rms_prop_options.momentum(*(float32_t *)momentum)
+                            .alpha(*(float32_t *)alpha)
+                            .weight_decay(*(float32_t *)weight_decay)
+                            .eps(*(float32_t *)epsilon)
+                            .centered(centered);
+
+            optim_ptr = std::make_unique<torch::optim::RMSprop>(
+                std::initializer_list<torch::Tensor>{x_torch, w_torch},
+                rms_prop_options);
+            break;
+        }
+        case FLOAT64: {
+            error = rms_prop_create(&RMS,
+                                    model->block,
+                                    FLOAT64,
+                                    learning_rate,
+                                    momentum,
+                                    alpha,
+                                    weight_decay,
+                                    epsilon,
+                                    centered);
+
+            torch::optim::RMSpropOptions rms_prop_options(*(float64_t *)learning_rate);
+            rms_prop_options.momentum(*(float64_t *)momentum)
+                            .alpha(*(float64_t *)alpha)
+                            .weight_decay(*(float64_t *)weight_decay)
+                            .eps(*(float64_t *)epsilon)
+                            .centered(centered);
+
+            optim_ptr = std::make_unique<torch::optim::RMSprop>(
+                std::initializer_list<torch::Tensor>{x_torch, w_torch},
+                rms_prop_options);
+            break;
+        }
+        default:
+            ck_abort_msg("unknown datatype.");
+    }
+    torch::optim::RMSprop& optim = *optim_ptr;
 
     for (int i = 0; i < steps; i++)
     {
@@ -259,11 +349,6 @@ void take_step_RMS_PROP(float32_t learning_rate, float32_t momentum, float32_t a
         ck_assert_ptr_null(error);
 
         error = rms_prop(RMS, x, 0);
-        if (error)
-        {
-            error_print(error);
-            error_destroy(error); 
-        }
         ck_assert_ptr_null(error);
 
         error = rms_prop(RMS, w, 1);
@@ -273,11 +358,22 @@ void take_step_RMS_PROP(float32_t learning_rate, float32_t momentum, float32_t a
         zero_grad();
     }
 
-    tensor_t *x_torch_tensor = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
-    ck_assert_tensor_equiv(x, x_torch_tensor);
-   
-    tensor_t *w_torch_tensor = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT32);
-    ck_assert_tensor_equiv(w, w_torch_tensor);
+    tensor_t *x_torch_tensor;
+    tensor_t *w_torch_tensor;
+    switch (type)
+    {
+    case FLOAT32:
+        x_torch_tensor = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
+        w_torch_tensor = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT32);
+        break;
+    case FLOAT64:
+        x_torch_tensor = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT64);
+        w_torch_tensor = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT64);
+        break;
+    default:
+        ck_abort_msg("unknown datatype.");
+        break;
+    }
 
     tensor_destroy(x_torch_tensor);
     tensor_destroy(w_torch_tensor);
@@ -285,34 +381,64 @@ void take_step_RMS_PROP(float32_t learning_rate, float32_t momentum, float32_t a
     rms_prop_destroy(RMS);
 }
 
-void take_step_ADAM(float32_t learning_rate, float32_t beta_1, float32_t beta_2, float32_t weight_decay, float32_t epsilon, bool_t amsgrad, bool_t maximize, int steps)
+void take_step_ADAM(void *learning_rate, void *beta_1, void * beta_2, void * weight_decay, void * epsilon, int steps, datatype_t type)
 {
-    initialize_xwm();
+    initialize_xwm(type);
 
     adam_t *adam_optimizer = NULL;
 
     setup_params();
     ck_assert_ptr_nonnull(model);
 
-    error = adam_create(&adam_optimizer,
-                        model->block,
-                        FLOAT32,
-                        &learning_rate,
-                        &beta_1,
-                        &beta_2,
-                        &weight_decay,
-                        &epsilon,
-                        amsgrad,
-                        maximize);
-    ck_assert_ptr_null(error);
 
-    torch::optim::AdamOptions adam_options(learning_rate);
-    adam_options.betas({beta_1, beta_2})
-                .weight_decay(weight_decay)
-                .eps(epsilon)
-                .amsgrad(amsgrad);
 
-    torch::optim::Adam optim = torch::optim::Adam({x_torch, w_torch}, adam_options);
+    std::unique_ptr<torch::optim::Adam> optim_ptr;
+
+    switch (type) {
+        case FLOAT32: {
+            error = adam_create(&adam_optimizer,
+                    model->block,
+                    FLOAT32,
+                    learning_rate,
+                    beta_1,
+                    beta_2,
+                    weight_decay,
+                    epsilon);
+
+            torch::optim::AdamOptions adam_options(*(float32_t *)learning_rate);
+            adam_options.betas({*(float32_t *)beta_1, *(float32_t *)beta_2})
+                        .weight_decay(*(float32_t *)weight_decay)
+                        .eps(*(float32_t *)epsilon);
+
+            optim_ptr = std::make_unique<torch::optim::Adam>(
+                std::initializer_list<torch::Tensor>{x_torch, w_torch},
+                adam_options);
+            break;
+        }
+        case FLOAT64: {
+            error = adam_create(&adam_optimizer,
+                    model->block,
+                    FLOAT64,
+                    learning_rate,
+                    beta_1,
+                    beta_2,
+                    weight_decay,
+                    epsilon);
+
+            torch::optim::AdamOptions adam_options(*(float64_t *)learning_rate);
+            adam_options.betas({*(float64_t *)beta_1, *(float64_t *)beta_2})
+                        .weight_decay(*(float64_t *)weight_decay)
+                        .eps(*(float64_t *)epsilon);
+
+            optim_ptr = std::make_unique<torch::optim::Adam>(
+                std::initializer_list<torch::Tensor>{x_torch, w_torch},
+                adam_options);
+            break;
+        }
+        default:
+            ck_abort_msg("unknown datatype.");
+    }
+    torch::optim::Adam& optim = *optim_ptr;
 
     for (int i = 0; i < steps; i++)
     {
@@ -330,12 +456,7 @@ void take_step_ADAM(float32_t learning_rate, float32_t beta_1, float32_t beta_2,
         error = tensor_backward(outNW, NULL);
         ck_assert_ptr_null(error);
 
-        //error = adam(adam_optimizer, x, 0);
-        if (error)
-        {
-            error_print(error);
-            error_destroy(error); 
-        }
+        error = adam(adam_optimizer, x, 0);
         ck_assert_ptr_null(error);
 
         error = adam(adam_optimizer, w, 1);
@@ -343,12 +464,26 @@ void take_step_ADAM(float32_t learning_rate, float32_t beta_1, float32_t beta_2,
 
         outNW = NULL;
         zero_grad();
+        adam_optimizer->iteration++;
     }
 
-    tensor_t *x_torch_tensor = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
-    //ck_assert_tensor_equiv(x, x_torch_tensor);
-   
-    tensor_t *w_torch_tensor = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT32);
+    tensor_t *x_torch_tensor;
+    tensor_t *w_torch_tensor;
+    switch (type)
+    {
+    case FLOAT32:
+        x_torch_tensor = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT32);
+        w_torch_tensor = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT32);
+        break;
+    case FLOAT64:
+        x_torch_tensor = torch_to_tensor(x_torch, MKL_RUNTIME, FLOAT64);
+        w_torch_tensor = torch_to_tensor(w_torch, MKL_RUNTIME, FLOAT64);
+        break;
+    default:
+        ck_abort_msg("unknown datatype.");
+        break;
+    }
+    ck_assert_tensor_equiv(x, x_torch_tensor);
     ck_assert_tensor_equiv(w, w_torch_tensor);
 
     tensor_destroy(x_torch_tensor);
@@ -363,265 +498,843 @@ void teardown(void){}
 
 START_TEST(test_SGD)
 {
-   take_step_SGD(0.001, 0.0, 0.0, 0.0, false, 1);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.0;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.0;
+   take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 1, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.0;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.0;
+   take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 1, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_sgd_high_lr)
 {
-   take_step_SGD(10, 0.0, 0.0, 0.0, false, 1);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.0;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.0;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 1, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.0;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.0;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 1, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_sgd_wd)
 {
-   take_step_SGD(0.001, 0.0, 0.0, 0.1, false, 1);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.0;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.1;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 1, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.0;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.1;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 1, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_sgd_high_lr_wd)
 {
-   take_step_SGD(10, 0.0, 0.0, 0.1, false, 1);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.0;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.1;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 1, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.0;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.1;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 1, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd)
 {
-   take_step_SGD(0.001, 0.0, 0.0, 0.0, false, 10);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.0;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.0;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.0;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.0;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_high_lr)
 {
-   take_step_SGD(10, 0.0, 0.0, 0.0, false, 10);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.0;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.0;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.0;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.0;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_wd)
 {
-    take_step_SGD(0.001, 0.0, 0.0, 0.1, false, 10);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.0;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.1;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.0;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.1;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_high_lr_wd)
 {
-    take_step_SGD(9, 0.0, 0.0, 0.1, false, 10);
+    float32_t lr_32 = 9.0;
+    float32_t momentum_32 = 0.0;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.1;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 9.0;
+    float64_t momentum_64 = 0.0;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.1;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_momentum)
 {
-    take_step_SGD(0.001, 0.9, 0.0, 0.0, false, 2);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.9;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.0;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 2, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.9;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.0;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 2, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_high_lr_momentum)
 {
-    take_step_SGD(10, 0.9, 0.0, 0.0, false, 10);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.9;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.0;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.9;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.0;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_momentum_wd)
 {
-    take_step_SGD(0.001, 0.9, 0.0, 0.1, false, 10);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.9;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.1;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.9;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.1;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_high_lr_momentum_wd)
 {
-    take_step_SGD(10, 0.9, 0.0, 0.1, false, 10);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.9;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.2;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.9;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.2;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_momentum_damp)
 {
-    take_step_SGD(0.001, 0.9, 0.2, 0.0, false, 2);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.9;
+    float32_t damp_32 = 0.2;
+    float32_t wd_32 = 0.0;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 2, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.9;
+    float64_t damp_64 = 0.2;
+    float64_t wd_64 = 0.0;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 2, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_high_lr_momentum_damp)
 {
-    take_step_SGD(10, 0.9, 0.2, 0.0, false, 10);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.9;
+    float32_t damp_32 = 0.2;
+    float32_t wd_32 = 0.0;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.9;
+    float64_t damp_64 = 0.2;
+    float64_t wd_64 = 0.0;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_momentum_wd_damp)
 {
-    take_step_SGD(0.001, 0.9, 0.2, 0.1, false, 10);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.9;
+    float32_t damp_32 = 0.2;
+    float32_t wd_32 = 0.1;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.9;
+    float64_t damp_64 = 0.2;
+    float64_t wd_64 = 0.1;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_high_lr_momentum_wd_damp)
 {
-    take_step_SGD(9, 0.9, 0.8, 0.1, false, 10);
+    float32_t lr_32 = 9.0;
+    float32_t momentum_32 = 0.9;
+    float32_t damp_32 = 0.8;
+    float32_t wd_32 = 0.1;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 9.0;
+    float64_t momentum_64 = 0.9;
+    float64_t damp_64 = 0.8;
+    float64_t wd_64 = 0.1;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, false, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_nesterov_momentum)
 {
-    take_step_SGD(0.001, 0.9, 0.0, 0.0, true, 10);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.9;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.0;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, true, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.9;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.0;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, true, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_high_lr_nesterov_momentum)
 {
-    take_step_SGD(10, 0.9, 0.0, 0.0, true, 10);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.9;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.0;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, true, 10, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.9;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.0;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, true, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_nesterov_momentum_wd)
 {
-    take_step_SGD(0.001, 0.9, 0.0, 0.1, true, 10);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.9;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.1;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, true, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.9;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.1;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, true, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_sgd_high_lr_nesterov_momentum_wd)
 {
-    take_step_SGD(9, 0.9, 0.0, 0.1, true, 10);
+    float32_t lr_32 = 9.0;
+    float32_t momentum_32 = 0.9;
+    float32_t damp_32 = 0.0;
+    float32_t wd_32 = 0.1;
+    take_step_SGD(&lr_32, &momentum_32, &damp_32, &wd_32, true, 10, FLOAT32);
+
+    float64_t lr_64 = 9.0;
+    float64_t momentum_64 = 0.9;
+    float64_t damp_64 = 0.0;
+    float64_t wd_64 = 0.1;
+    take_step_SGD(&lr_64, &momentum_64, &damp_64, &wd_64, true, 10, FLOAT64);
 }
 END_TEST
 
+// RMS PROP
 START_TEST(test_RMS)
 {
-   take_step_RMS_PROP(0.001, 0.0, 0.8, 0.0, 0.0001, false, 1);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.0;
+    float32_t alpha_32 = 0.8;
+    float32_t wd_32 = 0.0;
+    float32_t epsilon_32 = 0.0;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, false, 1, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.0;
+    float64_t alpha_64 = 0.8;
+    float64_t wd_64 = 0.0;
+    float64_t epsilon_64 = 0.0;
+   take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, false, 1, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_rms_prop_high_lr)
 {
-    take_step_RMS_PROP(10, 0.0, 0.8, 0.0, 0.0001, false, 1);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.0;
+    float32_t alpha_32 = 0.8;
+    float32_t wd_32 = 0.0;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, false, 1, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.0;
+    float64_t alpha_64 = 0.8;
+    float64_t wd_64 = 0.0;
+    float64_t epsilon_64 = 0.0001;
+
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, false, 1, FLOAT64);
+
 }
 END_TEST
 
 START_TEST(test_rms_prop_wd)
 {
-   take_step_RMS_PROP(0.001, 0.0, 0.8, 0.1, 0.0001, false, 1);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.0;
+    float32_t alpha_32 = 0.8;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, false, 1, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.0;
+    float64_t alpha_64 = 0.8;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, false, 1, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_rms_prop_high_lr_wd)
 {
-    take_step_RMS_PROP(10, 0.0, 0.8, 0.1, 0.0001, false, 1);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.0;
+    float32_t alpha_32 = 0.8;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, false, 1, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.0;
+    float64_t alpha_64 = 0.8;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, false, 1, FLOAT64);
+
 }
 END_TEST
 
 START_TEST(test_multistep_rms_prop)
 {
-   take_step_RMS_PROP(0.001, 0.0, 0.8, 0.0, 0.0001, false, 10);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.0;
+    float32_t alpha_32 = 0.8;
+    float32_t wd_32 = 0.0;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.0;
+    float64_t alpha_64 = 0.8;
+    float64_t wd_64 = 0.0;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, false, 10, FLOAT64);
+
 }
 END_TEST
 
 START_TEST(test_multistep_rms_high_lr)
 {
-   take_step_RMS_PROP(10, 0.0, 0.8, 0.0, 0.0001, false, 10);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.0;
+    float32_t alpha_32 = 0.8;
+    float32_t wd_32 = 0.0;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.0;
+    float64_t alpha_64 = 0.8;
+    float64_t wd_64 = 0.0;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, false, 10, FLOAT64);
+
 }
 END_TEST
 
 START_TEST(test_multistep_rms_wd)
 {
-   take_step_RMS_PROP(0.001, 0.0, 0.8, 0.1, 0.0001, false, 10);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.0;
+    float32_t alpha_32 = 0.8;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.0;
+    float64_t alpha_64 = 0.8;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, false, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_rms_high_lr_wd)
 {
-   take_step_RMS_PROP(10, 0.0, 0.8, 0.1, 0.0001, false, 10);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.0;
+    float32_t alpha_32 = 0.8;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.0;
+    float64_t alpha_64 = 0.8;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, false, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_rms_momentum)
 {
-   take_step_RMS_PROP(0.001, 0.9, 0.8, 0.0, 0.0001, false, 10);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.9;
+    float32_t alpha_32 = 0.8;
+    float32_t wd_32 = 0.0;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.9;
+    float64_t alpha_64 = 0.8;
+    float64_t wd_64 = 0.0;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, false, 10, FLOAT64);
+
 }
 END_TEST
 
 START_TEST(test_multistep_rms_high_lr_momentum)
 {
-   take_step_RMS_PROP(10, 0.9, 0.8, 0.0, 0.0001, false, 10);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.9;
+    float32_t alpha_32 = 0.8;
+    float32_t wd_32 = 0.0;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, false, 10, FLOAT32);  
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.9;
+    float64_t alpha_64 = 0.8;
+    float64_t wd_64 = 0.0;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, false, 10, FLOAT64);
+
 }
 END_TEST
 
 START_TEST(test_multistep_rms_momentum_wd)
 {
-   take_step_RMS_PROP(0.001, 0.9, 0.8, 0.1, 0.0001, false, 10);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.9;
+    float32_t alpha_32 = 0.8;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.9;
+    float64_t alpha_64 = 0.8;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, false, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_rms_high_lr_momentum_wd)
 {
-   take_step_RMS_PROP(10, 0.9, 0.8, 0.1, 0.0001, false, 10);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.9;
+    float32_t alpha_32 = 0.8;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, false, 10, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.9;
+    float64_t alpha_64 = 0.8;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, false, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_rms_centered)
 {
-    take_step_RMS_PROP(0.001, 0.0, 0.9, 0.1, 0.0001, true, 10);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.0;
+    float32_t alpha_32 = 0.9;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, true, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.0;
+    float64_t alpha_64 = 0.9;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, true, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_rms_high_lr_centered)
 {
-    take_step_RMS_PROP(10, 0.0, 0.9, 0.1, 0.0001, true, 10);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.0;
+    float32_t alpha_32 = 0.9;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, true, 10, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.0;
+    float64_t alpha_64 = 0.9;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, true, 10, FLOAT64);
+
 }
 END_TEST
 
 START_TEST(test_multistep_rms_high_lr_centered_wd)
 {
-    take_step_RMS_PROP(9, 0.0, 0.9, 0.1, 0.0001, true, 10);
+    float32_t lr_32 = 9.0;
+    float32_t momentum_32 = 0.0;
+    float32_t alpha_32 = 0.9;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, true, 10, FLOAT32);
+
+    float64_t lr_64 = 9.0;
+    float64_t momentum_64 = 0.0;
+    float64_t alpha_64 = 0.9;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, true, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_rms_centered_wd)
 {
-    take_step_RMS_PROP(0.001, 0.0, 0.9, 0.1, 0.0001, true, 10);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.0;
+    float32_t alpha_32 = 0.9;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, true, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.0;
+    float64_t alpha_64 = 0.9;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, true, 10, FLOAT64);
+
 }
 END_TEST
 
 START_TEST(test_multistep_rms_momentum_centered)
 {
-    take_step_RMS_PROP(0.001, 0.9, 0.9, 0.0, 0.0001, true, 10);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.9;
+    float32_t alpha_32 = 0.9;
+    float32_t wd_32 = 0.0;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, true, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.9;
+    float64_t alpha_64 = 0.9;
+    float64_t wd_64 = 0.0;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, true, 10, FLOAT64);
+
 }
 END_TEST
 
 START_TEST(test_multistep_rms_high_lr_momentum_centered)
 {
-    take_step_RMS_PROP(10, 0.9, 0.9, 0.0, 0.0001, true, 10);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.9;
+    float32_t alpha_32 = 0.9;
+    float32_t wd_32 = 0.0;
+    float32_t epsilon_32 = 0.0001;
+
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, true, 10, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.9;
+    float64_t alpha_64 = 0.9;
+    float64_t wd_64 = 0.0;
+    float64_t epsilon_64 = 0.0001;
+
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, true, 10, FLOAT64);
+
 }
 END_TEST
 
 START_TEST(test_multistep_rms_high_lr_momentum_wd_centered)
 {
-    take_step_RMS_PROP(10, 0.9, 0.9, 0.1, 0.0001, true, 10);
+    float32_t lr_32 = 10.0;
+    float32_t momentum_32 = 0.9;
+    float32_t alpha_32 = 0.9;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, true, 10, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t momentum_64 = 0.9;
+    float64_t alpha_64 = 0.9;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, true, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_multistep_rms_momentum_wd_centered)
 {
-    take_step_RMS_PROP(0.001, 0.9, 0.9, 0.1, 0.0001, true, 10);
+    float32_t lr_32 = 0.001;
+    float32_t momentum_32 = 0.9;
+    float32_t alpha_32 = 0.9;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_RMS_PROP(&lr_32, &momentum_32, &alpha_32, &wd_32, &epsilon_32, true, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t momentum_64 = 0.9;
+    float64_t alpha_64 = 0.9;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_RMS_PROP(&lr_64, &momentum_64, &alpha_64, &wd_64, &epsilon_64, true, 10, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_adam)
 {
-   take_step_ADAM(0.001, 0.9, 0.995, 0.0, 0.0001, false, false, 1);
+   float32_t lr_32 = 0.001;
+   float32_t beta1_32 = 0.9;
+   float32_t beta2_32 = 0.995;
+   float32_t wd_32 = 0.0;
+   float32_t epsilon_32 = 0.0001;
+   take_step_ADAM(&lr_32, &beta1_32, &beta2_32, &wd_32, &epsilon_32, 1, FLOAT32);
+
+   float64_t lr_64 = 0.001;
+   float64_t beta1_64 = 0.9;
+   float64_t beta2_64 = 0.995;
+   float64_t wd_64 = 0.0;
+   float64_t epsilon_64 = 0.0001;
+   take_step_ADAM(&lr_64, &beta1_64, &beta2_64, &wd_64, &epsilon_64, 1, FLOAT64);
 }
 END_TEST
 
 START_TEST(test_adam_high_lr)
 {
-    take_step_ADAM(10, 0.9, 0.995, 0.0, 0.0001, false, false, 1);
+    float32_t lr_32 = 10.0;
+    float32_t beta1_32 = 0.9;
+    float32_t beta2_32 = 0.995;
+    float32_t wd_32 = 0.0;
+    float32_t epsilon_32 = 0.0001;
+    take_step_ADAM(&lr_32, &beta1_32, &beta2_32, &wd_32, &epsilon_32, 1, FLOAT32);
+    
+    float64_t lr_64 = 10.0;
+    float64_t beta1_64 = 0.9;
+    float64_t beta2_64 = 0.995;
+    float64_t wd_64 = 0.0;
+    float64_t epsilon_64 = 0.0001;
+    take_step_ADAM(&lr_64, &beta1_64, &beta2_64, &wd_64, &epsilon_64, 1, FLOAT64);
+
 }
 END_TEST
 
 START_TEST(test_adam_wd)
 {
-   take_step_ADAM(0.001, 0.9, 0.995, 0.1, 0.0001, false, false, 1);
+    float32_t lr_32 = 0.001;
+    float32_t beta1_32 = 0.9;
+    float32_t beta2_32 = 0.995;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_ADAM(&lr_32, &beta1_32, &beta2_32, &wd_32, &epsilon_32, 1, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t beta1_64 = 0.9;
+    float64_t beta2_64 = 0.995;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_ADAM(&lr_64, &beta1_64, &beta2_64, &wd_64, &epsilon_64, 1, FLOAT64);
+
 }
 END_TEST
 
 START_TEST(test_adam_high_lr_wd)
 {
-    take_step_ADAM(10, 0.9, 0.995, 0.1, 0.0001, false, false, 1);
+    float32_t lr_32 = 10.0;
+    float32_t beta1_32 = 0.9;
+    float32_t beta2_32 = 0.995;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_ADAM(&lr_32, &beta1_32, &beta2_32, &wd_32, &epsilon_32, 1, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t beta1_64 = 0.9;
+    float64_t beta2_64 = 0.995;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_ADAM(&lr_64, &beta1_64, &beta2_64, &wd_64, &epsilon_64, 1, FLOAT64);
+}
+END_TEST
+
+START_TEST(test_multistep_adam)
+{
+    float32_t lr_32 = 0.001;
+    float32_t beta1_32 = 0.9;
+    float32_t beta2_32 = 0.995;
+    float32_t wd_32 = 0.0;
+    float32_t epsilon_32 = 0.0001;
+    take_step_ADAM(&lr_32, &beta1_32, &beta2_32, &wd_32, &epsilon_32, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t beta1_64 = 0.9;
+    float64_t beta2_64 = 0.995;
+    float64_t wd_64 = 0.0;
+    float64_t epsilon_64 = 0.0001;
+    take_step_ADAM(&lr_64, &beta1_64, &beta2_64, &wd_64, &epsilon_64, 10, FLOAT64);
+}
+END_TEST
+
+START_TEST(test_multistep_adam_high_lr)
+{
+    float32_t lr_32 = 10.0;
+    float32_t beta1_32 = 0.9;
+    float32_t beta2_32 = 0.995;
+    float32_t wd_32 = 0.0;
+    float32_t epsilon_32 = 0.0001;
+    take_step_ADAM(&lr_32, &beta1_32, &beta2_32, &wd_32, &epsilon_32, 10, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t beta1_64 = 0.9;
+    float64_t beta2_64 = 0.995;
+    float64_t wd_64 = 0.0;
+    float64_t epsilon_64 = 0.0001;
+    take_step_ADAM(&lr_64, &beta1_64, &beta2_64, &wd_64, &epsilon_64, 10, FLOAT64);
+
+}
+END_TEST
+
+START_TEST(test_multistep_adam_wd)
+{
+    float32_t lr_32 = 0.001;
+    float32_t beta1_32 = 0.9;
+    float32_t beta2_32 = 0.995;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_ADAM(&lr_32, &beta1_32, &beta2_32, &wd_32, &epsilon_32, 10, FLOAT32);
+
+    float64_t lr_64 = 0.001;
+    float64_t beta1_64 = 0.9;
+    float64_t beta2_64 = 0.995;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_ADAM(&lr_64, &beta1_64, &beta2_64, &wd_64, &epsilon_64, 10, FLOAT64);
+}
+END_TEST
+
+START_TEST(test_multistep_adam_high_lr_wd)
+{
+    float32_t lr_32 = 10.0;
+    float32_t beta1_32 = 0.9;
+    float32_t beta2_32 = 0.995;
+    float32_t wd_32 = 0.1;
+    float32_t epsilon_32 = 0.0001;
+    take_step_ADAM(&lr_32, &beta1_32, &beta2_32, &wd_32, &epsilon_32, 10, FLOAT32);
+
+    float64_t lr_64 = 10.0;
+    float64_t beta1_64 = 0.9;
+    float64_t beta2_64 = 0.995;
+    float64_t wd_64 = 0.1;
+    float64_t epsilon_64 = 0.0001;
+    take_step_ADAM(&lr_64, &beta1_64, &beta2_64, &wd_64, &epsilon_64, 10, FLOAT64);
 }
 END_TEST
 
@@ -634,63 +1347,67 @@ Suite *make_ptimizers_suite(void)
 
     tc_unary = tcase_create("Optimizers Case");
 
-    // tcase_add_test(tc_unary, test_SGD);
-    // tcase_add_test(tc_unary, test_sgd_high_lr);
-    // tcase_add_test(tc_unary, test_sgd_wd); 
-    // tcase_add_test(tc_unary, test_sgd_high_lr_wd); 
+    tcase_add_test(tc_unary, test_SGD);
+    tcase_add_test(tc_unary, test_sgd_high_lr);
+    tcase_add_test(tc_unary, test_sgd_wd); 
+    tcase_add_test(tc_unary, test_sgd_high_lr_wd); 
 
-    // tcase_add_test(tc_unary, test_multistep_sgd);
-    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr);
-    // tcase_add_test(tc_unary, test_multistep_sgd_wd); 
-    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_wd);
+    tcase_add_test(tc_unary, test_multistep_sgd);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr);
+    tcase_add_test(tc_unary, test_multistep_sgd_wd); 
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_wd);
 
-    // tcase_add_test(tc_unary, test_multistep_sgd_momentum);
-    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum);
-    // tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd);
-    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd);
+    tcase_add_test(tc_unary, test_multistep_sgd_momentum);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum);
+    tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd);
 
-    // tcase_add_test(tc_unary, test_multistep_sgd_momentum_damp);
-    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_damp);
-    // tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd_damp);
-    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd_damp);
+    tcase_add_test(tc_unary, test_multistep_sgd_momentum_damp);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_damp);
+    tcase_add_test(tc_unary, test_multistep_sgd_momentum_wd_damp);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_momentum_wd_damp);
 
-    // tcase_add_test(tc_unary, test_multistep_sgd_nesterov_momentum);
-    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_nesterov_momentum);
-    // tcase_add_test(tc_unary, test_multistep_sgd_nesterov_momentum_wd);
-    // tcase_add_test(tc_unary, test_multistep_sgd_high_lr_nesterov_momentum_wd);
+    tcase_add_test(tc_unary, test_multistep_sgd_nesterov_momentum);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_nesterov_momentum);
+    tcase_add_test(tc_unary, test_multistep_sgd_nesterov_momentum_wd);
+    tcase_add_test(tc_unary, test_multistep_sgd_high_lr_nesterov_momentum_wd);
 
-    // // // RMS PROP
-    // tcase_add_test(tc_unary, test_RMS);
-    // tcase_add_test(tc_unary, test_rms_prop_high_lr);
-    // tcase_add_test(tc_unary, test_rms_prop_wd); 
-    // tcase_add_test(tc_unary, test_rms_prop_high_lr_wd); 
+    // // RMS PROP
+    tcase_add_test(tc_unary, test_RMS);
+    tcase_add_test(tc_unary, test_rms_prop_high_lr);
+    tcase_add_test(tc_unary, test_rms_prop_wd); 
+    tcase_add_test(tc_unary, test_rms_prop_high_lr_wd); 
 
-    // tcase_add_test(tc_unary, test_multistep_rms_prop);
-    // tcase_add_test(tc_unary, test_multistep_rms_high_lr);
-    // tcase_add_test(tc_unary, test_multistep_rms_wd); 
-    // tcase_add_test(tc_unary, test_multistep_rms_high_lr_wd);
+    tcase_add_test(tc_unary, test_multistep_rms_prop);
+    tcase_add_test(tc_unary, test_multistep_rms_high_lr);
+    tcase_add_test(tc_unary, test_multistep_rms_wd); 
+    tcase_add_test(tc_unary, test_multistep_rms_high_lr_wd);
 
-    // tcase_add_test(tc_unary, test_multistep_rms_momentum);
-    // tcase_add_test(tc_unary, test_multistep_rms_high_lr_momentum);
-    // tcase_add_test(tc_unary, test_multistep_rms_high_lr_momentum_wd);
-    // tcase_add_test(tc_unary, test_multistep_rms_momentum_wd);
+    tcase_add_test(tc_unary, test_multistep_rms_momentum);
+    tcase_add_test(tc_unary, test_multistep_rms_high_lr_momentum);
+    tcase_add_test(tc_unary, test_multistep_rms_high_lr_momentum_wd);
+    tcase_add_test(tc_unary, test_multistep_rms_momentum_wd);
 
-    // tcase_add_test(tc_unary, test_multistep_rms_centered);
-    // tcase_add_test(tc_unary, test_multistep_rms_high_lr_centered);
-    // tcase_add_test(tc_unary, test_multistep_rms_centered_wd);
-    // tcase_add_test(tc_unary, test_multistep_rms_high_lr_centered_wd);
+    tcase_add_test(tc_unary, test_multistep_rms_centered);
+    tcase_add_test(tc_unary, test_multistep_rms_high_lr_centered);
+    tcase_add_test(tc_unary, test_multistep_rms_centered_wd);
+    tcase_add_test(tc_unary, test_multistep_rms_high_lr_centered_wd);
 
-    // tcase_add_test(tc_unary, test_multistep_rms_momentum_centered);
-    // tcase_add_test(tc_unary, test_multistep_rms_high_lr_momentum_centered);
-    // tcase_add_test(tc_unary, test_multistep_rms_high_lr_momentum_wd_centered);
-    // tcase_add_test(tc_unary, test_multistep_rms_momentum_wd_centered);
+    tcase_add_test(tc_unary, test_multistep_rms_momentum_centered);
+    tcase_add_test(tc_unary, test_multistep_rms_high_lr_momentum_centered);
+    tcase_add_test(tc_unary, test_multistep_rms_high_lr_momentum_wd_centered);
+    tcase_add_test(tc_unary, test_multistep_rms_momentum_wd_centered);
 
     // ADAM
     tcase_add_test(tc_unary, test_adam);
-    // tcase_add_test(tc_unary, test_adam_high_lr);
-    // tcase_add_test(tc_unary, test_adam_wd); 
-    // tcase_add_test(tc_unary, test_adam_high_lr_wd); 
+    tcase_add_test(tc_unary, test_adam_high_lr);
+    tcase_add_test(tc_unary, test_adam_wd); 
+    tcase_add_test(tc_unary, test_adam_high_lr_wd); 
 
+    tcase_add_test(tc_unary, test_multistep_adam); 
+    tcase_add_test(tc_unary, test_multistep_adam_high_lr);
+    tcase_add_test(tc_unary, test_multistep_adam_wd); 
+    tcase_add_test(tc_unary, test_multistep_adam_high_lr_wd); 
 
     suite_add_tcase(s, tc_unary);
 

@@ -56,18 +56,6 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
     {
         if (!optimizer->momentum_buffer[index])
         {
-            // iteration 0
-            // error = tensor_zeroes_like(parameters->gradient, &optimizer->momentum_buffer[index], false, true, true);
-            // if (error)
-            // {
-            //     return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
-            // }
-
-            // error = tensor_addition(optimizer->momentum_buffer[index], parameters->gradient, &optimizer->momentum_buffer[index]);
-            // if (error)
-            // {
-            //     return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
-            // }
             error = tensor_from_data(&optimizer->momentum_buffer[index], parameters->gradient->buffer->storage->data, parameters->gradient->buffer->storage->runtime, 
                                     parameters->gradient->buffer->storage->datatype, parameters->gradient->buffer->view->rank, parameters->gradient->buffer->view->shape, 
                                     parameters->gradient->buffer->view->strides, parameters->gradient->buffer->view->offset, true, false, true);
@@ -85,9 +73,21 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
             {
                 return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
             }
-            
-            float32_t dampening_alpha = (float32_t) 1 - *(float32_t *) (optimizer->dampening);
-            error = tensor_constant(&dampening_alpha, datatype, runtime, false, false, &dampening_constant);
+
+            switch(datatype)
+            {
+                case FLOAT32:
+                    float32_t dampening_alpha_32 = (float32_t) 1 - *(float32_t *) (optimizer->dampening);
+                    error = tensor_constant(&dampening_alpha_32, datatype, runtime, false, false, &dampening_constant);
+                    break;
+                case FLOAT64:
+                    float64_t dampening_alpha_64 = (float64_t) 1 - *(float64_t *) (optimizer->dampening);
+                    error = tensor_constant(&dampening_alpha_64, datatype, runtime, false, false, &dampening_constant);
+                    break;
+                default:
+                    error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int)datatype), NULL);
+                    break;
+            }
             if (error)
             {
                 return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -1117,9 +1117,7 @@ nw_error_t *adam_create(adam_t **adam,
                             void *beta_1,
                             void *beta_2,
                             void *weight_decay,
-                            void *epsilon, 
-                            bool_t amsgrad,
-                            bool_t maximize)
+                            void *epsilon)
 {
     CHECK_NULL_ARGUMENT(adam, "adam");
 
@@ -1138,9 +1136,7 @@ nw_error_t *adam_create(adam_t **adam,
     (*adam)->beta_1 = NULL;
     (*adam)->beta_2 = NULL;
     (*adam)->weight_decay = NULL;
-    (*adam)->amsgrad = amsgrad;
     (*adam)->epsilon = NULL;
-    (*adam)->maximize = maximize; 
     (*adam)->iteration = 1;
 
     size_t size = datatype_size(datatype);
@@ -1245,26 +1241,6 @@ nw_error_t *adam_create(adam_t **adam,
         goto cleanup;
     }
 
-    if ((*adam)->amsgrad)
-    {
-        (*adam)->second_moment_max = (tensor_t **)malloc(num_params * sizeof(tensor_t *));
-        if (!(*adam)->second_moment_max)
-        {
-            error = ERROR(ERROR_MEMORY_ALLOCATION,
-                            string_create("failed to allocate average gradient buffer of size %lu.",
-                                        (unsigned long)(num_params * sizeof(tensor_t *))),
-                            NULL);
-            goto cleanup;
-        }
-
-        error = initialize_zero_buffer(params, (*adam)->second_moment_max, 0);
-        if (error)
-        {
-            error = ERROR(ERROR_CREATE, string_create("failed to create second momentum max buffer tensor for null layer."), NULL);
-            goto cleanup;
-        }
-
-    }
     return error;
 
 cleanup:
@@ -1276,15 +1252,6 @@ void adam_destroy(adam_t *adam)
 {
     if (adam)
     {
-        if (adam->amsgrad)
-        {
-            for (uint64_t i=0; i < adam->buffer_size; ++i)
-            {
-                tensor_destroy(adam->second_moment_max[i]);
-            }
-            free(adam->second_moment_max);
-        }
-
         for (uint64_t i=0; i < adam->buffer_size; ++i)
         {
             tensor_destroy(adam->first_moment[i]);
@@ -1310,9 +1277,7 @@ nw_error_t *optimizer_adam_create(optimizer_t **optimizer,
                                         void *beta_1,
                                         void *beta_2,
                                         void *weight_decay,
-                                        void *epsilon, 
-                                        bool_t amsgrad,
-                                        bool_t maximize)
+                                        void *epsilon)
 {
     CHECK_NULL_ARGUMENT(optimizer, "optimizer");
 
@@ -1321,7 +1286,7 @@ nw_error_t *optimizer_adam_create(optimizer_t **optimizer,
     algorithm_t *algorithm = NULL;
     algorithm_type_t algorithm_type = ADAM;
 
-    error = adam_create(&adam, params, datatype, learning_rate, beta_1, beta_2, weight_decay, epsilon, amsgrad, maximize);
+    error = adam_create(&adam, params, datatype, learning_rate, beta_1, beta_2, weight_decay, epsilon);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create adam instance."), error);
@@ -1383,15 +1348,6 @@ nw_error_t *adam(adam_t *optimizer, tensor_t *parameters, uint64_t index)
     }
 
     with_no_gradient(true);
-
-    if (optimizer->maximize)
-    {
-        error = tensor_negation(parameters->gradient, &parameters->gradient);
-        if (error)
-        {
-            return ERROR(ERROR_NEGATION, string_create("failed to negate tensors."), error);
-        }
-    }
 
     error = tensor_constant(optimizer->weight_decay, datatype, runtime, false, false, &weight_decay);
     if (error)
@@ -1457,6 +1413,8 @@ nw_error_t *adam(adam_t *optimizer, tensor_t *parameters, uint64_t index)
         return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
     }
 
+    tensor_destroy(optimizer->first_moment[index]);
+    optimizer->first_moment[index] = NULL;
     error = tensor_addition(first_moment_part_1, first_moment_part_2, &optimizer->first_moment[index]);
     if (error)
     {
@@ -1482,6 +1440,8 @@ nw_error_t *adam(adam_t *optimizer, tensor_t *parameters, uint64_t index)
         return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
     }
 
+    tensor_destroy(optimizer->second_moment[index]);
+    optimizer->second_moment[index] = NULL;
     error = tensor_addition(second_moment_part_1, second_moment_part_2, &optimizer->second_moment[index]);
     if (error)
     {
@@ -1507,40 +1467,16 @@ nw_error_t *adam(adam_t *optimizer, tensor_t *parameters, uint64_t index)
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
-    if (optimizer->amsgrad)
+    error = tensor_square_root(second_momentum_telda, &square_root_max_moment);
+    if (error)
     {
-        error = tensor_max(optimizer->second_moment_max[index], second_momentum_telda, &optimizer->second_moment_max[index]);
-        if (error)
-        {
-            return ERROR(ERROR_MAX, string_create("failed perfrom max binary operation on tensors."), error);
-        }
-
-        error = tensor_square_root(optimizer->second_moment_max[index], &square_root_max_moment);
-        if (error)
-        {
-            return ERROR(ERROR_SQUARE_ROOT, string_create("failed to perfrom square root on tensor."), error);
-        }
-
-        error = tensor_addition(square_root_max_moment, epsilon_constant, &square_root_plus_epsilon);
-        if (error)
-        {
-            return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
-        }
-
+        return ERROR(ERROR_SQUARE_ROOT, string_create("failed to perfrom square root on tensor."), error);
     }
-    else
+ 
+    error = tensor_addition(square_root_max_moment, epsilon_constant, &square_root_plus_epsilon);
+    if (error)
     {
-        error = tensor_square_root(second_momentum_telda, &square_root_max_moment);
-        if (error)
-        {
-            return ERROR(ERROR_SQUARE_ROOT, string_create("failed to perfrom square root on tensor."), error);
-        }
-
-        error = tensor_addition(square_root_max_moment, epsilon_constant, &square_root_plus_epsilon);
-        if (error)
-        {
-            return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
-        }
+        return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
     }
 
     error = tensor_multiplication(learning_rate, first_momentum_telda, &modified_learning_rate);
