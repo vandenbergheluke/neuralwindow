@@ -1347,6 +1347,7 @@ Suite *make_ptimizers_suite(void)
 
     tc_unary = tcase_create("Optimizers Case");
 
+    // SGD
     tcase_add_test(tc_unary, test_SGD);
     tcase_add_test(tc_unary, test_sgd_high_lr);
     tcase_add_test(tc_unary, test_sgd_wd); 
@@ -1372,7 +1373,7 @@ Suite *make_ptimizers_suite(void)
     tcase_add_test(tc_unary, test_multistep_sgd_nesterov_momentum_wd);
     tcase_add_test(tc_unary, test_multistep_sgd_high_lr_nesterov_momentum_wd);
 
-    // // RMS PROP
+    // RMS PROP
     tcase_add_test(tc_unary, test_RMS);
     tcase_add_test(tc_unary, test_rms_prop_high_lr);
     tcase_add_test(tc_unary, test_rms_prop_wd); 
