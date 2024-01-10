@@ -25,10 +25,9 @@ typedef struct view_t
     int64_t rank; /** The rank of the tensor. (The length of shape) */ 
     int64_t *strides; /** The strides are the jumps necessary to go from one element to the next one in storage along each dimension. (not bytes) */
     int64_t offset; /** The offset in the underlying storage in terms of number of storage elements. (not bytes) */
-    int64_t *mask; /** The shape of the tensor before padding. */
 } view_t;
 
-nw_error_t *view_create(view_t **view, int64_t offset, int64_t rank, const int64_t *shape, const int64_t *strides, const int64_t *mask);
+nw_error_t *view_create(view_t **view, int64_t offset, int64_t rank, const int64_t *shape, const int64_t *strides);
 void view_destroy(view_t *view);
 bool_t is_contiguous(const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset);
 nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t rank);
@@ -72,35 +71,6 @@ nw_error_t *matrix_multiplication_broadcast_shapes(const int64_t *x_original_sha
                                                    int64_t *y_broadcasted_shape,
                                                    int64_t broadcasted_rank);
 nw_error_t *matrix_multiplication_shape(int64_t *x_shape, int64_t *y_shape, int64_t *z_shape, int64_t rank);
-nw_error_t *slice_shape(const int64_t *original_shape,
-                     int64_t original_rank,
-                     int64_t *slice_shape,
-                     int64_t slice_rank,
-                     const int64_t *arguments,
-                     int64_t length);
-nw_error_t *slice_offset(const int64_t *original_strides,
-                      int64_t original_rank,
-                      int64_t *offset,
-                      const int64_t *arguments,
-                      int64_t length);
-nw_error_t *reverse_slice(const int64_t *original_shape,
-                       int64_t original_rank,
-                       const int64_t *arguments,
-                       int64_t length,
-                       int64_t *new_arguments,
-                       int64_t new_length);
-nw_error_t *padding(const int64_t *original_shape,
-                 int64_t original_rank,
-                 int64_t *padding_shape,
-                 int64_t padding_rank,
-                 const int64_t *arguments,
-                 int64_t length);
-nw_error_t *reverse_padding(const int64_t *original_shape,
-                         int64_t original_rank,
-                         const int64_t *arguments,
-                         int64_t length,
-                         int64_t *new_arguments,
-                         int64_t new_length);
 nw_error_t *reduce_axis(const int64_t *original_shape,
                                 int64_t original_rank,
                                 const int64_t *broadcasted_shape,

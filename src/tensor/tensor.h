@@ -55,8 +55,6 @@ nw_error_t *tensor_broadcast_matrix_multiplication(const tensor_t *x_original, c
 nw_error_t *tensor_expand(const tensor_t *x, const int64_t *shape, int64_t length, tensor_t **y);
 nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const int64_t *shape, int64_t length);
 nw_error_t *tensor_permute(const tensor_t *x, tensor_t **y, int64_t *axis, int64_t length);
-nw_error_t *tensor_slice(const tensor_t *x, tensor_t **y, int64_t *arguments, int64_t length);
-nw_error_t *tensor_padding(const tensor_t *x, tensor_t **y, int64_t *arguments, int64_t length);
 bool_t tensor_is_contiguous(const tensor_t *x);
 int64_t tensor_number_of_elements(const tensor_t *x);
 nw_error_t *tensor_transpose(const tensor_t *x, tensor_t **y, int64_t axis1, int64_t axis2);

@@ -2001,129 +2001,6 @@ cleanup:
     return error;
 }
 
-static nw_error_t *slice_operation_forward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *result)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(arguments, "arguments");
-    CHECK_NULL_ARGUMENT(result, "result");
-
-    nw_error_t *error = NULL;
-
-    error = buffer_structure(SLICE_OPERATION, x->buffer, arguments, length, &result->buffer);
-    if (error)
-    {
-        return ERROR(ERROR_SLICE, string_create("failed to slice buffer."), error);
-    }
-
-    return error;
-}
-
-static nw_error_t *slice_operation_backward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *gradient)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
-    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
-    CHECK_NULL_ARGUMENT(gradient, "gradient");
-
-    nw_error_t *error = NULL;
-    tensor_t *x_gradient = NULL;
-    int64_t *shape = x->buffer->view->shape;
-    int64_t rank = x->buffer->view->rank;
-    int64_t padding_arguments[length];
-
-    if (x->requires_gradient)
-    {
-        error = reverse_slice(shape, rank, arguments, length, padding_arguments, length);
-        if (error)
-        {
-            error = ERROR(ERROR_PADDING, string_create("failed to compute padding arguments."), error);
-            goto cleanup;
-        }
-
-        error = tensor_padding(gradient, &x_gradient, padding_arguments, length);
-        if (error)
-        {
-            error = ERROR(ERROR_PADDING, string_create("failed to pad tensor."), error);
-            goto cleanup;
-        }
-
-        error = tensor_accumulate_gradient(x, x_gradient);
-        if (error) 
-        {
-            error = ERROR(ERROR_ADDITION, string_create("failed to accumulate gradient."), error);
-            goto cleanup;
-        }
-    }
-
-cleanup:
-
-    tensor_destroy(x_gradient);
-
-    return error;
-}
-
-static nw_error_t *padding_operation_forward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *result)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(arguments, "arguments");
-    CHECK_NULL_ARGUMENT(result, "result");
-
-    nw_error_t *error = NULL;
-
-    error = buffer_structure(PADDING_OPERATION, x->buffer, arguments, length, &result->buffer);
-    if (error)
-    {
-        return ERROR(ERROR_PADDING, string_create("failed to pad buffer."), error);
-    }
-
-    return error;
-}
-
-static nw_error_t *padding_operation_backward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *gradient)
-{
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
-    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
-    CHECK_NULL_ARGUMENT(arguments, "arguments");
-    CHECK_NULL_ARGUMENT(gradient, "gradient");
-
-    nw_error_t *error = NULL;
-    tensor_t *x_gradient = NULL;
-    int64_t *shape = x->buffer->view->shape;
-    int64_t rank = x->buffer->view->rank;
-    int64_t slice_arguments[length];
-
-    if (x->requires_gradient)
-    {
-        error = reverse_padding(shape, rank, arguments, length, slice_arguments, length);
-        if (error)
-        {
-            error = ERROR(ERROR_SLICE, string_create("failed to get slice arguments."), error);
-            goto cleanup;
-        }
-
-        error = tensor_slice(gradient, &x_gradient, slice_arguments, length);
-        if (error)
-        {
-            error = ERROR(ERROR_SLICE, string_create("failed to slice tensor."), error);
-            goto cleanup;
-        }
-
-        error = tensor_accumulate_gradient(x, x_gradient);
-        if (error) 
-        {
-            error = ERROR(ERROR_ADDITION, string_create("failed to accumulate gradient."), error);
-            goto cleanup;
-        }
-    }
-
-cleanup:
-
-    tensor_destroy(x_gradient);
-
-    return error;
-}
-
 /**
  * @brief Apply structure operation forward.
  * @param structure_operation Structure operation to execute.
@@ -2148,12 +2025,6 @@ static nw_error_t *structure_operation_forward(structure_operation_t *structure_
         break;
     case RESHAPE_OPERATION:
         error = reshape_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
-        break;
-    case SLICE_OPERATION:
-        error = slice_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
-        break;
-    case PADDING_OPERATION:
-        error = padding_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
         break;
     default:
         error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) structure_operation->operation_type), NULL);
@@ -2197,12 +2068,6 @@ static nw_error_t *structure_operation_backward(structure_operation_t *structure
         break;
     case RESHAPE_OPERATION:
         error = reshape_operation_backward(structure_operation->x, gradient);
-        break;
-    case SLICE_OPERATION:
-        error = slice_operation_backward(structure_operation->x, structure_operation->arguments, structure_operation->length, gradient);
-        break;
-    case PADDING_OPERATION:
-        error = padding_operation_backward(structure_operation->x, structure_operation->arguments, structure_operation->length, gradient);
         break;
     default:
         error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) structure_operation->operation_type), NULL);

@@ -314,7 +314,6 @@ void ck_assert_view_eq(const view_t *returned_view, const view_t *expected_view)
     for (int64_t i = 0; i < expected_view->rank; ++i)
     {
         ck_assert_int_eq(expected_view->shape[i], returned_view->shape[i]);
-        ck_assert_int_eq(expected_view->mask[i], returned_view->mask[i]);
         
         if (expected_view->shape[i] == 1)
         {

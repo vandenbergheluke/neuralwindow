@@ -1061,7 +1061,7 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
             return ERROR(ERROR_EXPAND, string_create("failed to expand strides"), error);
         }
 
-        error = view_create(&view, x->view->offset, length, arguments, strides, NULL);
+        error = view_create(&view, x->view->offset, length, arguments, strides);
         if (error)
         {
             return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
@@ -1077,34 +1077,7 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
     }
     else if (structure_operation_type == RESHAPE_OPERATION)
     {
-        error = view_create(&view, x->view->offset, length, arguments, NULL, NULL);
-        if (error)
-        {
-            return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
-        }
-    }
-    else if (structure_operation_type == SLICE_OPERATION)
-    {
-        int64_t offset = x->view->offset;
-        int64_t rank = x->view->rank;
-        int64_t *shape = x->view->shape;
-        int64_t *strides = x->view->strides;
-        int64_t sliced_shape[rank];
-        int64_t sliced_offset = offset;
-
-        error = slice_offset(strides, rank, &sliced_offset, arguments, length);
-        if (shape == NULL)
-        {
-            return ERROR(ERROR_SLICE, string_create("failed to compute slice offset." ), NULL);
-        }
-
-        error = slice_shape(shape, rank, sliced_shape, rank, arguments, length);
-        if (shape == NULL)
-        {
-            return ERROR(ERROR_SLICE, string_create("failed to compute slice shape." ), NULL);
-        }
-
-        error = view_create(&view, sliced_offset, rank, sliced_shape, strides, NULL);
+        error = view_create(&view, x->view->offset, length, arguments, NULL);
         if (error)
         {
             return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
@@ -1131,7 +1104,7 @@ static nw_error_t *buffer_create_empty(buffer_t **buffer, const int64_t *shape, 
     storage_t *storage = NULL;
     int64_t n = 0;
 
-    error = view_create(&view, offset, rank, shape, strides, NULL);
+    error = view_create(&view, offset, rank, shape, strides);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create view."), error);
@@ -1180,7 +1153,7 @@ static nw_error_t *buffer_create_nonempty(buffer_t **buffer, const int64_t *shap
     storage_t *storage = NULL;
     int64_t n = 0;
 
-    error = view_create(&view, offset, rank, shape, strides, NULL);
+    error = view_create(&view, offset, rank, shape, strides);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create view."), error);

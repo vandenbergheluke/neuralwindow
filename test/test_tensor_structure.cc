@@ -17,15 +17,11 @@ typedef enum tensor_structure_type_t
     TENSOR_EXPAND,
     TENSOR_PERMUTE,
     TENSOR_RESHAPE,
-    TENSOR_SLICE,
-    TENSOR_PADDING,
 } tensor_structure_type_t;
 
 #define EXPAND_CASES 1
 #define PERMUTE_CASES 1
 #define RESHAPE_CASES 1
-#define SLICE_CASES 1
-#define PADDING_CASES 1
 #define OPERATIONS 5
 
 nw_error_t *error = NULL;
@@ -55,20 +51,6 @@ std::vector<int64_t> reshape_shapes[RESHAPE_CASES] = {
 };
 std::vector<int64_t> reshape_arguments[RESHAPE_CASES] = {
     {6},
-};
-
-std::vector<int64_t> slice_shapes[SLICE_CASES] = {
-    {2},
-};
-std::vector<int64_t> slice_arguments[SLICE_CASES] = {
-    {1, 2},
-};
-
-std::vector<int64_t> padding_shapes[PADDING_CASES] = {
-    {1},
-};
-std::vector<int64_t> padding_arguments[PADDING_CASES] = {
-    {1, 1},
 };
 
 void setup(tensor_structure_type_t tensor_structure_type, std::vector<int64_t> *shapes, int cases)
@@ -109,12 +91,12 @@ void teardown(tensor_structure_type_t tensor_structure_type, int cases)
             for (int k = 0; k < cases; k++)
             {
                 tensor_destroy(tensors[tensor_structure_type][i][j][k]);
-                // tensor_destroy(expected_tensors[tensor_structure_type][i][j][k]);
-                // tensor_destroy(expected_gradient[tensor_structure_type][i][j][k]);
+                tensor_destroy(expected_tensors[tensor_structure_type][i][j][k]);
+                tensor_destroy(expected_gradient[tensor_structure_type][i][j][k]);
             }
             tensors[tensor_structure_type][i][j].clear();
             expected_tensors[tensor_structure_type][i][j].clear();
-    //         // expected_gradient[tensor_structure_type][i][j].clear();
+            expected_gradient[tensor_structure_type][i][j].clear();
         }
     }
     error_print(error);
@@ -131,7 +113,6 @@ void test_structure(tensor_structure_type_t tensor_structure_type, std::vector<i
             {
                 torch::Tensor expected_tensor;
 
-                void *original = NULL;
                 switch (tensor_structure_type)
                 {
                 case TENSOR_EXPAND:
@@ -142,18 +123,6 @@ void test_structure(tensor_structure_type_t tensor_structure_type, std::vector<i
                     break;
                 case TENSOR_RESHAPE:
                     expected_tensor = torch_tensors[tensor_structure_type][i][j][k].reshape(arguments[k]);
-                    break;
-                case TENSOR_SLICE:
-                    expected_tensor = torch_tensors[tensor_structure_type][i][j][k];
-                    original = expected_tensor.storage().data_ptr().get();
-                    for (int64_t l = 0; l < expected_tensor.ndimension(); l++)
-                    {
-                        expected_tensor = expected_tensor.slice(l, arguments[k][2 * l], arguments[k][2 * l + 1]);
-                    }
-                    printf("%s\n", (expected_tensor.storage().data_ptr().get() == original) ? "true" : "false");
-                    break;
-                case TENSOR_PADDING:
-                    expected_tensor = torch::nn::functional::pad(torch_tensors[tensor_structure_type][i][j][k], torch::nn::functional::PadFuncOptions(arguments[k]));
                     break;
                 default:
                     ck_abort_msg("unknown structure type.");
@@ -181,18 +150,6 @@ void test_structure(tensor_structure_type_t tensor_structure_type, std::vector<i
                                            (int64_t *) arguments[k].data(),
                                            (int64_t) arguments[k].size());
                     break;
-                case TENSOR_SLICE:
-                    error = tensor_slice(tensors[tensor_structure_type][i][j][k],
-                                         &returned_tensors[tensor_structure_type][i][j][k],
-                                         (int64_t *) arguments[k].data(),
-                                         (int64_t) arguments[k].size());
-                    break;
-                case TENSOR_PADDING:
-                    error = tensor_padding(tensors[tensor_structure_type][i][j][k],
-                                           &returned_tensors[tensor_structure_type][i][j][k],
-                                           (int64_t *) arguments[k].data(),
-                                           (int64_t) arguments[k].size());
-                    break;
                 default:
                     ck_abort_msg("unknown structure type.");
                 }
@@ -201,15 +158,15 @@ void test_structure(tensor_structure_type_t tensor_structure_type, std::vector<i
                 ck_assert_tensor_equiv(returned_tensors[tensor_structure_type][i][j][k], expected_tensors[tensor_structure_type][i][j][k]);
 
                 // Back prop
-                // expected_tensor.sum().backward();
-                // expected_gradient[tensor_structure_type][i][j].push_back(torch_to_tensor(torch_tensors[tensor_structure_type][i][j][k].grad(), (runtime_t) i, (datatype_t) j));
-                // tensor_t *cost = NULL;
-                // error = tensor_summation(returned_tensors[tensor_structure_type][i][j][k], &cost, NULL, 1, false);
-                // ck_assert_ptr_null(error);
-                // error = tensor_backward(cost, NULL);
-                // ck_assert_ptr_null(error);
+                expected_tensor.sum().backward();
+                expected_gradient[tensor_structure_type][i][j].push_back(torch_to_tensor(torch_tensors[tensor_structure_type][i][j][k].grad(), (runtime_t) i, (datatype_t) j));
+                tensor_t *cost = NULL;
+                error = tensor_summation(returned_tensors[tensor_structure_type][i][j][k], &cost, NULL, 0, false);
+                ck_assert_ptr_null(error);
+                error = tensor_backward(cost, NULL);
+                ck_assert_ptr_null(error);
 
-                // ck_assert_tensor_equiv(tensors[tensor_structure_type][i][j][k]->gradient, expected_gradient[tensor_structure_type][i][j][k]);
+                ck_assert_tensor_equiv(tensors[tensor_structure_type][i][j][k]->gradient, expected_gradient[tensor_structure_type][i][j][k]);
             }
         }
     }
@@ -263,37 +220,6 @@ START_TEST(test_reshape)
 }
 END_TEST
 
-void setup_slice(void)
-{
-    setup(TENSOR_SLICE, slice_shapes, SLICE_CASES);
-}
-
-void teardown_slice(void)
-{
-    teardown(TENSOR_SLICE, SLICE_CASES);
-}
-
-START_TEST(test_slice)
-{
-   test_structure(TENSOR_SLICE, slice_arguments, SLICE_CASES);
-}
-END_TEST
-
-void setup_padding(void)
-{
-    setup(TENSOR_PADDING, padding_shapes, PADDING_CASES);
-}
-
-void teardown_padding(void)
-{
-    teardown(TENSOR_PADDING, PADDING_CASES);
-}
-
-START_TEST(test_padding)
-{
-   test_structure(TENSOR_PADDING, padding_arguments, PADDING_CASES);
-}
-END_TEST
 
 Suite *make_structure_suite(void)
 {
@@ -301,33 +227,23 @@ Suite *make_structure_suite(void)
     TCase *tc_expand;
     TCase *tc_permute;
     TCase *tc_reshape;
-    TCase *tc_slice;
-    TCase *tc_padding;
 
     s = suite_create("Test structure Tensor Suite");
     tc_expand = tcase_create("Test Expand Tensor Case");
     tc_permute = tcase_create("Test Permute Tensor Case");
     tc_reshape = tcase_create("Test Reshape Tensor Case");
-    // tc_slice = tcase_create("Test Slice Tensor Case");
-    // tc_padding = tcase_create("Test Padding Tensor Case");
 
     tcase_add_checked_fixture(tc_expand, setup_expand, teardown_expand);
     tcase_add_checked_fixture(tc_permute, setup_permute, teardown_permute);
     tcase_add_checked_fixture(tc_reshape, setup_reshape, teardown_reshape);
-    // tcase_add_checked_fixture(tc_slice, setup_slice, teardown_slice);
-    // tcase_add_checked_fixture(tc_padding, setup_padding, teardown_padding);
 
     tcase_add_test(tc_expand, test_expand);
     tcase_add_test(tc_permute, test_permute);
     tcase_add_test(tc_reshape, test_reshape);
-    // tcase_add_test(tc_slice, test_slice);
-    // tcase_add_test(tc_padding, test_padding);
 
     suite_add_tcase(s, tc_expand);
     suite_add_tcase(s, tc_permute);
     suite_add_tcase(s, tc_reshape);
-    // suite_add_tcase(s, tc_slice);
-    // suite_add_tcase(s, tc_padding);
 
     return s;
 }

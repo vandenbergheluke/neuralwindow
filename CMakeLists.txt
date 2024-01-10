@@ -33,7 +33,7 @@ endif()
 
 if (DEFINED ENV{DEBUG})
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDEBUG")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
 list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")

@@ -17,6 +17,7 @@ set(TEST_C
 )
 
 set(TEST_CXX
+    test_tensor_structure
     test_tensor_reduction
     test_tensor_unary
     test_tensor_binary

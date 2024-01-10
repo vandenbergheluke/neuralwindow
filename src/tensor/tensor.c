@@ -1157,7 +1157,7 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const int64_t *shape
 
 
 
-    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("x", x);
     PRINTLN_DEBUG_TENSOR("y", *y);
     PRINT_DEBUG_NEWLINE;
@@ -1236,60 +1236,6 @@ nw_error_t *tensor_transpose(const tensor_t *x, tensor_t **y, int64_t axis1, int
         return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
     }
 
-    PRINTLN_DEBUG_LOCATION("output");
-    PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_TENSOR("y", *y);
-    PRINT_DEBUG_NEWLINE;
-
-    return error;
-}
-
-nw_error_t *tensor_slice(const tensor_t *x, tensor_t **y, int64_t *arguments, int64_t length)
-{
-    PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_INT64_ARRAY("arguments", arguments, length);
-    PRINT_DEBUG_NEWLINE;
-
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
-    CHECK_NULL_ARGUMENT(arguments, "arguments");
-
-    nw_error_t *error = NULL;
-
-    error = apply_operation_structure(SLICE_OPERATION, x, arguments, length, y);
-    if (error)
-    {
-        return ERROR(ERROR_FORWARD, string_create("failed to slice tensor."), error);
-    }
-    
-    PRINTLN_DEBUG_LOCATION("output");
-    PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_TENSOR("y", *y);
-    PRINT_DEBUG_NEWLINE;
-
-    return error;
-}
-
-nw_error_t *tensor_padding(const tensor_t *x, tensor_t **y, int64_t *arguments, int64_t length)
-{
-    PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_INT64_ARRAY("arguments", arguments, length);
-    PRINT_DEBUG_NEWLINE;
-
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
-    CHECK_NULL_ARGUMENT(arguments, "arguments");
-
-    nw_error_t *error = NULL;
-
-    error = apply_operation_structure(PADDING_OPERATION, x, arguments, length, y);
-    if (error)
-    {
-        return ERROR(ERROR_FORWARD, string_create("failed to pad tensor."), error);
-    }
-    
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("x", x);
     PRINTLN_DEBUG_TENSOR("y", *y);

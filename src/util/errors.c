@@ -85,8 +85,6 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_SQUARE_ROOT";
     case ERROR_RESHAPE:
         return "ERROR_RESHAPE";
-    case ERROR_SLICE:
-        return "ERROR_SLICE";
     case ERROR_BINARY:
         return "ERROR_BINARY";
     case ERROR_REDUCTION:
@@ -111,8 +109,6 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_COMPARE_EQUAL";
     case ERROR_COMPARE_GREATER:
         return "ERROR_COMPARE_GREATER";
-    case ERROR_PADDING:
-        return "ERROR_PADDING";
     case ERROR_RECTIFIED_LINEAR:
         return "ERROR_RECTIFIED_LINEAR";
     case ERROR_AXIS:
