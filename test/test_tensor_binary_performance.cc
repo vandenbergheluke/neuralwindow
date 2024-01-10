@@ -22,8 +22,9 @@ extern "C"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-}
 #include <test_helper.h>
+}
+#include <test_helper_torch.h>
 
 // Take average over UT_MEASUREMENT_ITERS iterations.
 #ifndef UT_MEASUREMENT_ITERS
@@ -241,10 +242,10 @@ void performance_test(std::string op_name, datatype_t datatype,
                 // each runtime.
                 for (int j = 0; j < UT_MEASUREMENT_ITERS; ++j)
                 {
-                    uint64_t torch_start, torch_end;
-                    uint64_t torch_completion_time;
-                    uint64_t nw_start, nw_end;
-                    uint64_t nw_completion_time;
+                    int64_t torch_start, torch_end;
+                    int64_t torch_completion_time;
+                    int64_t nw_start, nw_end;
+                    int64_t nw_completion_time;
 
                     torch::Tensor torch_tensor_x;
                     torch::Tensor torch_tensor_y;
@@ -412,7 +413,7 @@ void performance_test(std::string op_name, datatype_t datatype,
         int rank, int max_shape_exp8,
         std::function<torch::Tensor(torch::Tensor, torch::Tensor)> torch_op,
         std::function<nw_error_t *(tensor_t *, tensor_t *, tensor_t **)> nw_op,
-        std::function<uint64_t(uint64_t)> flop_calc)
+        std::function<int64_t(int64_t)> flop_calc)
 {
     ck_assert(0 < rank && rank <= 5);
     // Limited to 7 because of dim values stored as 64 bit signed int.
@@ -505,10 +506,10 @@ void performance_test(std::string op_name, datatype_t datatype,
                 // each runtime.
                 for (int j = 0; j < UT_MEASUREMENT_ITERS; ++j)
                 {
-                    uint64_t torch_start, torch_end;
-                    uint64_t torch_completion_time;
-                    uint64_t nw_start, nw_end;
-                    uint64_t nw_completion_time;
+                    int64_t torch_start, torch_end;
+                    int64_t torch_completion_time;
+                    int64_t nw_start, nw_end;
+                    int64_t nw_completion_time;
 
                     torch::Tensor torch_tensor_x;
                     torch::Tensor torch_tensor_y;

@@ -1,8 +1,3 @@
-/**@file datatype.h
- * @brief Provides common datatypes and utilities that interact with them.
- *
- */
-
 #ifndef DATATYPE_H
 #define DATATYPE_H
 

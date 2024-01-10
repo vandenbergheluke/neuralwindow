@@ -123,6 +123,8 @@ sudo apt-get install lcov
 Install MathGL
 
 ```bash
+sudo apt-get install zlib1g-dev
+sudo apt-get install libpng-dev
 wget -O mathgl-8.0.1.tar.gz "https://gigenet.dl.sourceforge.net/project/mathgl/mathgl/mathgl%208.0/mathgl-8.0.1.tar.gz"
 tar -xvzf mathgl-8.0.1.tar.gz
 cd mathgl-8.0.1
@@ -140,20 +142,20 @@ To build neuralwindow run
 ```bash
 mkdir build
 cd build
-cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
+cmake ..
 make
 ```
 
 To build and test without CUDA define enviroment variable `CPU_ONLY=1`.
 
 ```bash
-CPU_ONLY=1 cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
+CPU_ONLY=1 cmake ..
 ```
 
 Display Debug information by defining the enviroment variable `DEBUG=1`.
 
 ```bash
-DEBUG=1 cmake -DCMAKE_PREFIX_PATH=../libtorch/ ..
+DEBUG=1 cmake ..
 ```
 
 ## Test

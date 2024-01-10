@@ -7,8 +7,9 @@ extern "C"
 #include <buffer.h>
 #include <tensor.h>
 #include <function.h>
-}
 #include <test_helper.h>
+}
+#include <test_helper_torch.h>
 
 
 #define BINARY_ELEMENTWISE_CASES_0_0 9

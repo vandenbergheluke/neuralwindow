@@ -63,9 +63,24 @@ void tensor_destroy(tensor_t *tensor)
     {
         buffer_destroy(tensor->buffer);
         tensor_destroy(tensor->gradient);
-        function_destroy(tensor->context);
+        function_destroy(tensor->context, true);
         free(tensor);
     }
+}
+
+nw_error_t *tensor_create_null(tensor_t **tensor)
+{
+    CHECK_NULL_ARGUMENT(tensor, "tensor");
+
+    nw_error_t *error = NULL;
+
+    error  = tensor_create(tensor, NULL, NULL, NULL, false, false);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    return error;
 }
 
 void with_no_gradient(bool_t flag)
@@ -79,7 +94,7 @@ void with_no_gradient(bool_t flag)
     }
     else
     {
-        if (previous)
+        if (previous > 0)
         {
             --previous; 
             if (!previous)
@@ -90,17 +105,15 @@ void with_no_gradient(bool_t flag)
     }
 }
 
-nw_error_t *tensor_from_data(tensor_t **x, void *data, runtime_t runtime, datatype_t datatype, uint64_t rank, const uint64_t *shape, 
-                             const uint64_t *strides, uint64_t offset, bool_t copy, bool_t requires_gradient, bool_t persist)
+nw_error_t *tensor_from_data(tensor_t **x, void *data, runtime_t runtime, datatype_t datatype, int64_t rank, 
+                             const int64_t *shape, bool_t copy, bool_t requires_gradient, bool_t persist)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", *x);
-    PRINTLN_DEBUG_UINT64_ARRAY("shape", shape, rank);
-    PRINTLN_DEBUG_UINT64_ARRAY("strides", strides, rank);
+    PRINTLN_DEBUG_INT64_ARRAY("shape", shape, rank);
     PRINTLN_DEBUG_BOOLEAN("copy", copy);
     PRINTLN_DEBUG_BOOLEAN("requires_gradient", requires_gradient);
     PRINTLN_DEBUG_BOOLEAN("persist", persist);
-    PRINTF_DEBUG("offset %lu\n", offset);
     PRINTF_DEBUG("runtime %s\n", runtime_string(runtime));
     PRINTF_DEBUG("datatype %s\n", datatype_string(datatype));
     PRINT_DEBUG_NEWLINE;
@@ -112,7 +125,7 @@ nw_error_t *tensor_from_data(tensor_t **x, void *data, runtime_t runtime, dataty
     nw_error_t *error = NULL;
 
     creation_operation_type_t operation_type = (copy) ? COPY_OPERATION : FROM_OPERATION;
-    error = apply_function_creation(operation_type, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, NULL, 0, data, x);
+    error = apply_operation_creation(operation_type, shape, rank, runtime, datatype, requires_gradient, persist, NULL, 0, data, x);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -142,12 +155,12 @@ nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_origi
     CHECK_NULL_ARGUMENT(y_broadcasted, "y_broadcasted");
 
     nw_error_t *error = NULL;
-    uint64_t *x_shape = x_original->buffer->view->shape; 
-    uint64_t x_rank = x_original->buffer->view->rank; 
-    uint64_t *y_shape = y_original->buffer->view->shape; 
-    uint64_t y_rank = y_original->buffer->view->rank; 
-    uint64_t broadcasted_rank = MAX(x_rank, y_rank);
-    uint64_t broadcasted_shape[broadcasted_rank];
+    int64_t *x_shape = x_original->buffer->view->shape; 
+    int64_t x_rank = x_original->buffer->view->rank; 
+    int64_t *y_shape = y_original->buffer->view->shape; 
+    int64_t y_rank = y_original->buffer->view->rank; 
+    int64_t broadcasted_rank = MAX(x_rank, y_rank);
+    int64_t broadcasted_shape[broadcasted_rank];
 
     error = broadcast_shapes(x_shape, x_rank, y_shape, y_rank, broadcasted_shape, broadcasted_rank);
     if (error)
@@ -197,13 +210,13 @@ nw_error_t *tensor_broadcast_matrix_multiplication(const tensor_t *x_original,
     CHECK_NULL_ARGUMENT(y_broadcasted, "y_broadcasted");
 
     nw_error_t *error = NULL;
-    uint64_t *x_shape = x_original->buffer->view->shape; 
-    uint64_t x_rank = x_original->buffer->view->rank; 
-    uint64_t *y_shape = y_original->buffer->view->shape; 
-    uint64_t y_rank = y_original->buffer->view->rank; 
-    uint64_t broadcasted_rank = MAX(x_rank, y_rank);
-    uint64_t x_broadcasted_shape[broadcasted_rank];
-    uint64_t y_broadcasted_shape[broadcasted_rank];
+    int64_t *x_shape = x_original->buffer->view->shape; 
+    int64_t x_rank = x_original->buffer->view->rank; 
+    int64_t *y_shape = y_original->buffer->view->shape; 
+    int64_t y_rank = y_original->buffer->view->rank; 
+    int64_t broadcasted_rank = MAX(x_rank, y_rank);
+    int64_t x_broadcasted_shape[broadcasted_rank];
+    int64_t y_broadcasted_shape[broadcasted_rank];
 
     error = matrix_multiplication_broadcast_shapes(x_shape, x_rank, y_shape, y_rank, x_broadcasted_shape, y_broadcasted_shape, broadcasted_rank);
     if (error)
@@ -244,7 +257,7 @@ nw_error_t *tensor_sigmoid(const tensor_t *x, tensor_t **y)
 
     nw_error_t *error = NULL;
 
-    error = apply_function_unary(SIGMOID_OPERATION, x, y);
+    error = apply_operation_unary(SIGMOID_OPERATION, x, y);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to apply sigmoid to tensor."), error);
@@ -258,11 +271,11 @@ nw_error_t *tensor_sigmoid(const tensor_t *x, tensor_t **y)
     return error;
 }
 
-nw_error_t *tensor_expand(const tensor_t *x, const uint64_t *shape, uint64_t length, tensor_t **y)
+nw_error_t *tensor_expand(const tensor_t *x, const int64_t *shape, int64_t length, tensor_t **y)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_UINT64_ARRAY("shape", shape, length);
+    PRINTLN_DEBUG_INT64_ARRAY("shape", shape, length);
     PRINT_DEBUG_NEWLINE;
 
     CHECK_NULL_ARGUMENT(x, "x");
@@ -279,7 +292,7 @@ nw_error_t *tensor_expand(const tensor_t *x, const uint64_t *shape, uint64_t len
     }
     else
     {
-        error = apply_function_structure(EXPAND_OPERATION, x, shape, length, y);
+        error = apply_operation_structure(EXPAND_OPERATION, x, shape, length, y);
         if (error)
         {
             return ERROR(ERROR_FORWARD, string_create("failed to expand tensor."), error);
@@ -289,7 +302,7 @@ nw_error_t *tensor_expand(const tensor_t *x, const uint64_t *shape, uint64_t len
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("x", x);
     PRINTLN_DEBUG_TENSOR("y", *y);
-    PRINTLN_DEBUG_UINT64_ARRAY("shape", shape, length);
+    PRINTLN_DEBUG_INT64_ARRAY("shape", shape, length);
     PRINT_DEBUG_NEWLINE;
 
     return error;
@@ -308,7 +321,7 @@ nw_error_t *tensor_addition(const tensor_t *x, const tensor_t *y, tensor_t **z)
 
     nw_error_t *error = NULL;
 
-    error = apply_function_binary(ADDITION_OPERATION, x, y, z);
+    error = apply_operation_binary(ADDITION_OPERATION, x, y, z);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to add tensors."), error);
@@ -336,7 +349,7 @@ nw_error_t *tensor_subtraction(const tensor_t *x, const tensor_t *y, tensor_t **
 
     nw_error_t *error = NULL;
 
-    error = apply_function_binary(SUBTRACTION_OPERATION, x, y, z);
+    error = apply_operation_binary(SUBTRACTION_OPERATION, x, y, z);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to subtract tensors."), error);
@@ -364,7 +377,7 @@ nw_error_t *tensor_division(const tensor_t *x, const tensor_t *y, tensor_t **z)
 
     nw_error_t *error = NULL;
 
-    error = apply_function_binary(DIVISION_OPERATION, x, y, z);
+    error = apply_operation_binary(DIVISION_OPERATION, x, y, z);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to divide tensors."), error);
@@ -392,7 +405,7 @@ nw_error_t *tensor_multiplication(const tensor_t *x, const tensor_t *y, tensor_t
 
     nw_error_t *error = NULL;
 
-    error = apply_function_binary(MULTIPLICATION_OPERATION, x, y, z);
+    error = apply_operation_binary(MULTIPLICATION_OPERATION, x, y, z);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to multiply tensors."), error);
@@ -421,7 +434,7 @@ nw_error_t *tensor_compare_equal(const tensor_t *x, const tensor_t *y, tensor_t 
     nw_error_t *error = NULL;
     with_no_gradient(true);
 
-    error = apply_function_binary(COMPARE_EQUAL_OPERATION, x, y, z);
+    error = apply_operation_binary(COMPARE_EQUAL_OPERATION, x, y, z);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to compare equal tensors."), error);
@@ -452,7 +465,7 @@ nw_error_t *tensor_compare_greater(const tensor_t *x, const tensor_t *y, tensor_
     nw_error_t *error = NULL;
     with_no_gradient(true);
 
-    error = apply_function_binary(COMPARE_GREATER_OPERATION, x, y, z);
+    error = apply_operation_binary(COMPARE_GREATER_OPERATION, x, y, z);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to compare greater tensors."), error);
@@ -481,7 +494,7 @@ nw_error_t *tensor_power(const tensor_t *x, const tensor_t *y, tensor_t **z)
 
     nw_error_t *error = NULL;
 
-    error = apply_function_binary(POWER_OPERATION, x, y, z);
+    error = apply_operation_binary(POWER_OPERATION, x, y, z);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to power tensors."), error);
@@ -525,7 +538,7 @@ nw_error_t *tensor_matrix_multiplication(const tensor_t *x, const tensor_t *y, t
         goto cleanup;
     }
 
-    error = apply_function_binary(MATRIX_MULTIPLICATION_OPERATION, x_contiguous, y_contiguous, z);
+    error = apply_operation_binary(MATRIX_MULTIPLICATION_OPERATION, x_contiguous, y_contiguous, z);
     if (error)
     {
         error = ERROR(ERROR_FORWARD, string_create("failed to matrix multiply tensors."), error);
@@ -553,11 +566,11 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_summation(const tensor_t *x, tensor_t **y, const uint64_t *axis, uint64_t length, bool_t keep_dimension)
+nw_error_t *tensor_summation(const tensor_t *x, tensor_t **y, const int64_t *axis, int64_t length, bool_t keep_dimension)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_UINT64_ARRAY("axis", axis, length);
+    PRINTLN_DEBUG_INT64_ARRAY("axis", axis, length);
     PRINTLN_DEBUG_BOOLEAN("keep_dimension", keep_dimension);
     PRINT_DEBUG_NEWLINE;
 
@@ -566,7 +579,7 @@ nw_error_t *tensor_summation(const tensor_t *x, tensor_t **y, const uint64_t *ax
 
     nw_error_t *error = NULL;
     
-    error = apply_function_reduction(SUMMATION_OPERATION, x, axis, length, keep_dimension, y);
+    error = apply_operation_reduction(SUMMATION_OPERATION, x, axis, length, keep_dimension, y);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to sum tensor."), error);
@@ -580,11 +593,11 @@ nw_error_t *tensor_summation(const tensor_t *x, tensor_t **y, const uint64_t *ax
     return error;
 }
 
-nw_error_t *tensor_maximum(const tensor_t *x, tensor_t **y, const uint64_t *axis, uint64_t length, bool_t keep_dimension)
+nw_error_t *tensor_maximum(const tensor_t *x, tensor_t **y, const int64_t *axis, int64_t length, bool_t keep_dimension)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_UINT64_ARRAY("axis", axis, length);
+    PRINTLN_DEBUG_INT64_ARRAY("axis", axis, length);
     PRINTLN_DEBUG_BOOLEAN("keep_dimension", keep_dimension);
     PRINT_DEBUG_NEWLINE;
 
@@ -595,7 +608,7 @@ nw_error_t *tensor_maximum(const tensor_t *x, tensor_t **y, const uint64_t *axis
 
     nw_error_t *error = NULL;
 
-    error = apply_function_reduction(MAXIMUM_OPERATION, x, axis, length, keep_dimension, y);
+    error = apply_operation_reduction(MAXIMUM_OPERATION, x, axis, length, keep_dimension, y);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to max tensor."), error);
@@ -620,7 +633,7 @@ nw_error_t *tensor_item(const tensor_t *x, void *value)
 
     if (x->buffer->view->rank)
     {
-        return ERROR(ERROR_RANK_CONFLICT, string_create("tensor must be rank zero."), NULL);
+        return ERROR(ERROR_RANK, string_create("tensor must be rank zero."), NULL);
     }
 
     switch (x->buffer->storage->datatype)
@@ -638,11 +651,11 @@ nw_error_t *tensor_item(const tensor_t *x, void *value)
     return NULL;
 }
 
-nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t axis, bool_t keep_dimension)
+nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, int64_t axis, bool_t keep_dimension)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTF_DEBUG("axis: %lu\n", axis);
+    PRINTF_DEBUG("axis: %ld\n", axis);
     PRINTLN_DEBUG_BOOLEAN("keep_dimension", keep_dimension);
     PRINT_DEBUG_NEWLINE;
 
@@ -653,8 +666,8 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t ax
     CHECK_NULL_ARGUMENT(x->buffer->view->shape, "x->buffer->view->shape");
     CHECK_NULL_ARGUMENT(y, "y");
     nw_error_t *error = NULL;
-    uint64_t *shape = x->buffer->view->shape;
-    uint64_t rank = x->buffer->view->rank;
+    int64_t *shape = x->buffer->view->shape;
+    int64_t rank = x->buffer->view->rank;
 
     if ((!rank && axis) || (rank && axis >= rank))
     {
@@ -664,11 +677,11 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t ax
     with_no_gradient(true);
     runtime_t runtime = x->buffer->storage->runtime;
     datatype_t datatype = x->buffer->storage->datatype;
-    uint64_t dimension = (rank) ? shape[axis] : 1;
-    uint64_t new_rank = rank - axis;
-    uint64_t new_shape[new_rank];
-    uint64_t *reduce_axis = (rank) ? ((uint64_t[]) {axis}) : ((uint64_t[]){});
-    uint64_t reduce_rank = (rank) ? 1 : 0;
+    int64_t dimension = (rank) ? shape[axis] : 1;
+    int64_t new_rank = rank - axis;
+    int64_t new_shape[new_rank];
+    int64_t *reduce_axis = (rank) ? ((int64_t[]) {axis}) : ((int64_t[]){});
+    int64_t reduce_rank = (rank) ? 1 : 0;
     size_t size = datatype_size(datatype);
     void *value = NULL;
     void *start = NULL;
@@ -732,9 +745,9 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, uint64_t ax
     if (new_rank)
     {
         new_shape[0] = dimension;
-        for (uint64_t i = 1; i < new_rank; ++i)
+        for (int64_t i = 1; i < new_rank; ++i)
         {
-            new_shape[i] = (uint64_t) 1;
+            new_shape[i] = (int64_t) 1;
         }
     }
 
@@ -826,7 +839,7 @@ cleanup:
     return error;
 }
 
-inline uint64_t tensor_number_of_elements(const tensor_t *x)
+inline int64_t tensor_number_of_elements(const tensor_t *x)
 {
     return (x && x->buffer && x->buffer->view) ? shape_size(x->buffer->view->shape, x->buffer->view->rank) : 0;
 }
@@ -838,7 +851,7 @@ nw_error_t *tensor_constant(void *constant, datatype_t datatype, runtime_t runti
 
     nw_error_t *error = NULL;
 
-    error = tensor_from_data(x, constant, runtime, datatype, 0, (uint64_t[]){}, NULL, 0, true, requires_gradient, persist);
+    error = tensor_from_data(x, constant, runtime, datatype, 0, (int64_t[]){}, true, requires_gradient, persist);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -847,11 +860,11 @@ nw_error_t *tensor_constant(void *constant, datatype_t datatype, runtime_t runti
     return error;
 }
 
-nw_error_t *tensor_mean(const tensor_t *x, tensor_t **y, const uint64_t *axis, uint64_t length, bool_t keep_dimension)
+nw_error_t *tensor_mean(const tensor_t *x, tensor_t **y, const int64_t *axis, int64_t length, bool_t keep_dimension)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_UINT64_ARRAY("axis", axis, length);
+    PRINTLN_DEBUG_INT64_ARRAY("axis", axis, length);
     PRINTLN_DEBUG_BOOLEAN("keep_dimension", keep_dimension);
     PRINT_DEBUG_NEWLINE;
 
@@ -929,11 +942,11 @@ cleanup:
     return error;
 }
 
-static nw_error_t *softmax(const tensor_t *x, tensor_t **y_max, tensor_t **y_num, tensor_t **y_den, uint64_t axis)
+static nw_error_t *softmax(const tensor_t *x, tensor_t **y_max, tensor_t **y_num, tensor_t **y_den, int64_t axis)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTF_DEBUG("axis %lu\n", axis);
+    PRINTF_DEBUG("axis %ld\n", axis);
     PRINT_DEBUG_NEWLINE;
 
     CHECK_NULL_ARGUMENT(x, "x");
@@ -945,9 +958,9 @@ static nw_error_t *softmax(const tensor_t *x, tensor_t **y_max, tensor_t **y_num
 
     nw_error_t *error = NULL;
     tensor_t *x_i = NULL;
-    uint64_t rank = x->buffer->view->rank;
-    uint64_t *reduce_axis = (rank) ? ((uint64_t[]) {axis}) : ((uint64_t[]){});
-    uint64_t reduce_rank = (rank) ? 1 : 0;
+    int64_t rank = x->buffer->view->rank;
+    int64_t *reduce_axis = (rank) ? ((int64_t[]) {axis}) : ((int64_t[]){});
+    int64_t reduce_rank = (rank) ? 1 : 0;
 
     error = tensor_maximum(x, &x_i, reduce_axis, reduce_rank, true);
     if (error)
@@ -997,11 +1010,11 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_softmax(const tensor_t *x, tensor_t **y, uint64_t axis)
+nw_error_t *tensor_softmax(const tensor_t *x, tensor_t **y, int64_t axis)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTF_DEBUG("axis %lu\n", axis);
+    PRINTF_DEBUG("axis %ld\n", axis);
     PRINT_DEBUG_NEWLINE;
 
     CHECK_NULL_ARGUMENT(x, "x");
@@ -1046,11 +1059,11 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_logsoftmax(const tensor_t *x, tensor_t **y, uint64_t axis)
+nw_error_t *tensor_logsoftmax(const tensor_t *x, tensor_t **y, int64_t axis)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTF_DEBUG("axis %lu\n", axis);
+    PRINTF_DEBUG("axis %ld\n", axis);
     PRINT_DEBUG_NEWLINE;
 
     CHECK_NULL_ARGUMENT(x, "x");
@@ -1108,11 +1121,11 @@ bool_t tensor_is_contiguous(const tensor_t *x)
                          x->buffer->view->strides, x->buffer->view->offset);
 }
 
-nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const uint64_t *shape, uint64_t length)
+nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const int64_t *shape, int64_t length)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_UINT64_ARRAY("shape", shape, length);
+    PRINTLN_DEBUG_INT64_ARRAY("shape", shape, length);
     PRINT_DEBUG_NEWLINE;
 
     CHECK_NULL_ARGUMENT(x, "x");
@@ -1134,7 +1147,7 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const uint64_t *shap
             goto cleanup;
         }
 
-        error = apply_function_structure(RESHAPE_OPERATION, x_contiguous, shape, length, y);
+        error = apply_operation_structure(RESHAPE_OPERATION, x_contiguous, shape, length, y);
         if (error)
         {
             error = ERROR(ERROR_FORWARD, string_create("failed to reshape tensor."), error);
@@ -1144,7 +1157,7 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const uint64_t *shap
 
 
 
-    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("x", x);
     PRINTLN_DEBUG_TENSOR("y", *y);
     PRINT_DEBUG_NEWLINE;
@@ -1159,11 +1172,11 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_permute(const tensor_t *x, tensor_t **y, uint64_t *axis, uint64_t length)
+nw_error_t *tensor_permute(const tensor_t *x, tensor_t **y, int64_t *axis, int64_t length)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_UINT64_ARRAY("axis", axis, length);
+    PRINTLN_DEBUG_INT64_ARRAY("axis", axis, length);
     PRINT_DEBUG_NEWLINE;
 
     CHECK_NULL_ARGUMENT(x, "x");
@@ -1172,7 +1185,7 @@ nw_error_t *tensor_permute(const tensor_t *x, tensor_t **y, uint64_t *axis, uint
 
     nw_error_t *error = NULL;
 
-    error = apply_function_structure(PERMUTE_OPERATION, x, axis, length, y);
+    error = apply_operation_structure(PERMUTE_OPERATION, x, axis, length, y);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
@@ -1193,11 +1206,11 @@ bool_t tensor_shapes_equal(const tensor_t *x, const tensor_t *y)
                         y->buffer->view->shape, y->buffer->view->rank);
 }
 
-nw_error_t *tensor_transpose(const tensor_t *x, tensor_t **y, uint64_t axis1, uint64_t axis2)
+nw_error_t *tensor_transpose(const tensor_t *x, tensor_t **y, int64_t axis1, int64_t axis2)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTF_DEBUG("(axis1: %lu, axis2: %lu)\n", axis1, axis2);
+    PRINTF_DEBUG("(axis1: %ld, axis2: %ld)\n", axis1, axis2);
     PRINT_DEBUG_NEWLINE;
 
     CHECK_NULL_ARGUMENT(x, "x");
@@ -1207,76 +1220,22 @@ nw_error_t *tensor_transpose(const tensor_t *x, tensor_t **y, uint64_t axis1, ui
 
     nw_error_t *error = NULL;
 
-    uint64_t rank = x->buffer->view->rank;
-    uint64_t axis[rank];
-    for (uint64_t i = 0; i < rank; ++i)
+    int64_t rank = x->buffer->view->rank;
+    int64_t axis[rank];
+    for (int64_t i = 0; i < rank; ++i)
     {
         axis[i] = i;
     }
-    uint64_t temp = axis[axis2];
+    int64_t temp = axis[axis2];
     axis[axis2] = axis[axis1];
     axis[axis1] = temp;
 
-    error = apply_function_structure(PERMUTE_OPERATION, x, axis, rank, y);
+    error = apply_operation_structure(PERMUTE_OPERATION, x, axis, rank, y);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
     }
 
-    PRINTLN_DEBUG_LOCATION("output");
-    PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_TENSOR("y", *y);
-    PRINT_DEBUG_NEWLINE;
-
-    return error;
-}
-
-nw_error_t *tensor_slice(const tensor_t *x, tensor_t **y, uint64_t *arguments, uint64_t length)
-{
-    PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_UINT64_ARRAY("arguments", arguments, length);
-    PRINT_DEBUG_NEWLINE;
-
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
-    CHECK_NULL_ARGUMENT(arguments, "arguments");
-
-    nw_error_t *error = NULL;
-
-    error = apply_function_structure(SLICE_OPERATION, x, arguments, length, y);
-    if (error)
-    {
-        return ERROR(ERROR_FORWARD, string_create("failed to slice tensor."), error);
-    }
-    
-    PRINTLN_DEBUG_LOCATION("output");
-    PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_TENSOR("y", *y);
-    PRINT_DEBUG_NEWLINE;
-
-    return error;
-}
-
-nw_error_t *tensor_padding(const tensor_t *x, tensor_t **y, uint64_t *arguments, uint64_t length)
-{
-    PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_UINT64_ARRAY("arguments", arguments, length);
-    PRINT_DEBUG_NEWLINE;
-
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
-    CHECK_NULL_ARGUMENT(arguments, "arguments");
-
-    nw_error_t *error = NULL;
-
-    error = apply_function_structure(PADDING_OPERATION, x, arguments, length, y);
-    if (error)
-    {
-        return ERROR(ERROR_FORWARD, string_create("failed to pad tensor."), error);
-    }
-    
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("x", x);
     PRINTLN_DEBUG_TENSOR("y", *y);
@@ -1302,7 +1261,7 @@ nw_error_t *tensor_contiguous(const tensor_t *x, tensor_t **y)
     }
     else
     {
-        error = apply_function_unary(CONTIGUOUS_OPERATION, x, y);
+        error = apply_operation_unary(CONTIGUOUS_OPERATION, x, y);
         if (error)
         {
             return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
@@ -1328,7 +1287,7 @@ nw_error_t *tensor_logarithm(const tensor_t *x, tensor_t **y)
 
     nw_error_t *error = NULL;
 
-    error = apply_function_unary(LOGARITHM_OPERATION, x, y);
+    error = apply_operation_unary(LOGARITHM_OPERATION, x, y);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to log tensor."), error);
@@ -1353,7 +1312,7 @@ nw_error_t *tensor_sine(const tensor_t *x, tensor_t **y)
 
     nw_error_t *error = NULL;
 
-    error = apply_function_unary(SINE_OPERATION, x, y);
+    error = apply_operation_unary(SINE_OPERATION, x, y);
     if (error)
     { 
         return ERROR(ERROR_FORWARD, string_create("failed to sine tensor."), error);
@@ -1378,7 +1337,7 @@ nw_error_t *tensor_cosine(const tensor_t *x, tensor_t **y)
 
     nw_error_t *error = NULL;
 
-    error = apply_function_unary(COSINE_OPERATION, x, y);
+    error = apply_operation_unary(COSINE_OPERATION, x, y);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to cosine tensor."), error);
@@ -1403,7 +1362,7 @@ nw_error_t *tensor_exponential(const tensor_t *x, tensor_t **y)
 
     nw_error_t *error = NULL;
 
-    error = apply_function_unary(EXPONENTIAL_OPERATION, x, y);
+    error = apply_operation_unary(EXPONENTIAL_OPERATION, x, y);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to exponentiate tensor."), error);
@@ -1428,7 +1387,7 @@ nw_error_t *tensor_square_root(const tensor_t *x, tensor_t **y)
 
     nw_error_t *error = NULL;
 
-    error = apply_function_unary(SQUARE_ROOT_OPERATION, x, y);
+    error = apply_operation_unary(SQUARE_ROOT_OPERATION, x, y);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to square root tensor."), error);
@@ -1453,7 +1412,7 @@ nw_error_t *tensor_reciprocal(const tensor_t *x, tensor_t **y)
 
     nw_error_t *error = NULL;
 
-    error = apply_function_unary(RECIPROCAL_OPERATION, x, y);
+    error = apply_operation_unary(RECIPROCAL_OPERATION, x, y);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to get reciprocal of tensor."), error);
@@ -1478,7 +1437,7 @@ nw_error_t *tensor_negation(const tensor_t *x, tensor_t **y)
 
     nw_error_t *error = NULL;
 
-    error = apply_function_unary(NEGATION_OPERATION, x, y);
+    error = apply_operation_unary(NEGATION_OPERATION, x, y);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to negate tensor."), error);
@@ -1503,7 +1462,7 @@ nw_error_t *tensor_rectified_linear(const tensor_t *x, tensor_t **y)
 
     nw_error_t *error = NULL;
 
-    error = apply_function_unary(RECTIFIED_LINEAR_OPERATION, x, y);
+    error = apply_operation_unary(RECTIFIED_LINEAR_OPERATION, x, y);
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to get rectified linear of tensor."), error);
@@ -1529,7 +1488,7 @@ static nw_error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *t
     CHECK_NULL_ARGUMENT(tensors, "tensors");
 
     nw_error_t *error = NULL;
-    string_t id = string_create("%ld", tensor->id);
+    string_t id = string_create("%lu", tensor->id);
     function_t *context = tensor->context;
 
     if (map_contains(visited, id))
@@ -1592,7 +1551,7 @@ static nw_error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *t
             // Leaf node
             break;
         default:
-            error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
+            error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) operation_type), NULL);
             break;
         }
 
@@ -1637,26 +1596,24 @@ nw_error_t *tensor_arange(tensor_t **x, void *start, void *stop, void *step, run
     CHECK_NULL_ARGUMENT(step, "step");
 
     nw_error_t *error = NULL;
-    uint64_t offset = 0;
-    uint64_t *strides = NULL;
-    uint64_t rank = 1;
-    uint64_t shape[rank];
+    int64_t rank = 1;
+    int64_t shape[rank];
     const void *arguments[] = {start, stop, step};
-    uint64_t length = 3;
+    int64_t length = 3;
     
     switch (datatype)
     {
     case FLOAT32:
-        *shape = (uint64_t) ((*(float32_t *) stop - *(float32_t *) start) / *(float32_t *) step);
+        *shape = (int64_t) ((*(float32_t *) stop - *(float32_t *) start) / *(float32_t *) step);
         break;
     case FLOAT64:
-        *shape = (uint64_t) ((*(float64_t *) stop - *(float64_t *) start) / *(float64_t *) step);
+        *shape = (int64_t) ((*(float64_t *) stop - *(float64_t *) start) / *(float64_t *) step);
         break;
     default:
         return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
     } 
 
-    error = apply_function_creation(ARANGE_OPERATION, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, arguments, length, NULL, x);
+    error = apply_operation_creation(ARANGE_OPERATION, shape, rank, runtime, datatype, requires_gradient, persist, arguments, length, NULL, x);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -1668,7 +1625,7 @@ nw_error_t *tensor_arange(tensor_t **x, void *start, void *stop, void *step, run
     return error;
 }
 
-nw_error_t *tensor_zeroes_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t persist, bool_t preserve_memory_format)
+nw_error_t *tensor_zeroes_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t persist)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -1677,14 +1634,12 @@ nw_error_t *tensor_zeroes_like(const tensor_t *x, tensor_t **y, bool_t requires_
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
-    uint64_t *shape = x->buffer->view->shape;
-    uint64_t rank = x->buffer->view->rank;
-    uint64_t *strides = (preserve_memory_format) ? x->buffer->view->strides : NULL;
-    uint64_t offset = (preserve_memory_format) ? x->buffer->view->offset : 0;
+    int64_t *shape = x->buffer->view->shape;
+    int64_t rank = x->buffer->view->rank;
     datatype_t datatype = x->buffer->storage->datatype;
     runtime_t runtime = x->buffer->storage->runtime;
 
-    error = tensor_create_zeroes(y, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist);
+    error = tensor_create_zeroes(y, shape, rank, runtime, datatype, requires_gradient, persist);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -1693,7 +1648,7 @@ nw_error_t *tensor_zeroes_like(const tensor_t *x, tensor_t **y, bool_t requires_
     return error;
 }
 
-nw_error_t *tensor_ones_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t persist, bool_t preserve_memory_format)
+nw_error_t *tensor_ones_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t persist)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
@@ -1702,14 +1657,12 @@ nw_error_t *tensor_ones_like(const tensor_t *x, tensor_t **y, bool_t requires_gr
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
-    uint64_t *shape = x->buffer->view->shape;
-    uint64_t rank = x->buffer->view->rank;
-    uint64_t *strides = (preserve_memory_format) ? x->buffer->view->strides : NULL;
-    uint64_t offset = (preserve_memory_format) ? x->buffer->view->offset : 0;
+    int64_t *shape = x->buffer->view->shape;
+    int64_t rank = x->buffer->view->rank;
     datatype_t datatype = x->buffer->storage->datatype;
     runtime_t runtime = x->buffer->storage->runtime;
 
-    error = tensor_create_ones(y, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist);
+    error = tensor_create_ones(y, shape, rank, runtime, datatype, requires_gradient, persist);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -1718,15 +1671,14 @@ nw_error_t *tensor_ones_like(const tensor_t *x, tensor_t **y, bool_t requires_gr
     return error;
 }
 
-nw_error_t *tensor_create_zeroes(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime,
-                                 datatype_t datatype, bool_t requires_gradient, bool_t persist)
+nw_error_t *tensor_create_zeroes(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
     nw_error_t *error = NULL;
 
-    error = apply_function_creation(ZEROES_OPERATION, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, NULL, 0, NULL, x);
+    error = apply_operation_creation(ZEROES_OPERATION, shape, rank, runtime, datatype, requires_gradient, persist, NULL, 0, NULL, x);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -1735,15 +1687,14 @@ nw_error_t *tensor_create_zeroes(tensor_t **x, const uint64_t *shape, uint64_t r
     return error;
 }
 
-nw_error_t *tensor_create_ones(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, 
-                               runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist)
+nw_error_t *tensor_create_ones(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(shape, "shape");
 
     nw_error_t *error = NULL;
 
-    error = apply_function_creation(ONES_OPERATION, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, NULL, 0, NULL, x);
+    error = apply_operation_creation(ONES_OPERATION, shape, rank, runtime, datatype, requires_gradient, persist, NULL, 0, NULL, x);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -1752,8 +1703,8 @@ nw_error_t *tensor_create_ones(tensor_t **x, const uint64_t *shape, uint64_t ran
     return error;
 }
 
-nw_error_t *tensor_create_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime,
-                                  datatype_t datatype, bool_t requires_gradient, bool_t persist, void *lower_bound, void *upper_bound)
+nw_error_t *tensor_create_uniform(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, 
+                                  bool_t requires_gradient, bool_t persist, void *lower_bound, void *upper_bound)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -1762,9 +1713,9 @@ nw_error_t *tensor_create_uniform(tensor_t **x, const uint64_t *shape, uint64_t 
 
     nw_error_t *error = NULL;
     const void *arguments[] = {lower_bound, upper_bound};
-    uint64_t length = 2;
+    int64_t length = 2;
 
-    error = apply_function_creation(UNIFORM_OPERATION, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, arguments, length, NULL, x);
+    error = apply_operation_creation(UNIFORM_OPERATION, shape, rank, runtime, datatype, requires_gradient, persist, arguments, length, NULL, x);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -1773,8 +1724,8 @@ nw_error_t *tensor_create_uniform(tensor_t **x, const uint64_t *shape, uint64_t 
     return error;
 }
 
-nw_error_t *tensor_create_normal(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime,
-                                 datatype_t datatype, bool_t requires_gradient, bool_t persist, void *mean, void *standard_deviation)
+nw_error_t *tensor_create_normal(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype,
+                                 bool_t requires_gradient, bool_t persist, void *mean, void *standard_deviation)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -1783,9 +1734,9 @@ nw_error_t *tensor_create_normal(tensor_t **x, const uint64_t *shape, uint64_t r
 
     nw_error_t *error = NULL;
     const void *arguments[] = {mean, standard_deviation};
-    uint64_t length = 2;
+    int64_t length = 2;
 
-    error = apply_function_creation(NORMAL_OPERATION, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, arguments, length, NULL, x);
+    error = apply_operation_creation(NORMAL_OPERATION, shape, rank, runtime, datatype, requires_gradient, persist, arguments, length, NULL, x);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -1794,7 +1745,7 @@ nw_error_t *tensor_create_normal(tensor_t **x, const uint64_t *shape, uint64_t r
     return error;
 }
 
-nw_error_t *tensor_create_kaiming_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime,
+nw_error_t *tensor_create_kaiming_uniform(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime,
                                           datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan)
 {
     CHECK_NULL_ARGUMENT(x, "x");
@@ -1836,7 +1787,7 @@ nw_error_t *tensor_create_kaiming_uniform(tensor_t **x, const uint64_t *shape, u
         goto cleanup;
     }
 
-    error = tensor_create_uniform(x, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, lower_bound, upper_bound);
+    error = tensor_create_uniform(x, shape, rank, runtime, datatype, requires_gradient, persist, lower_bound, upper_bound);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -1851,7 +1802,7 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_create_kaiming_normal(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime,
+nw_error_t *tensor_create_kaiming_normal(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime,
                                          datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan)
 {
     CHECK_NULL_ARGUMENT(x, "x");
@@ -1894,7 +1845,7 @@ nw_error_t *tensor_create_kaiming_normal(tensor_t **x, const uint64_t *shape, ui
         goto cleanup;
     }
 
-    error = tensor_create_normal(x, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, mean, standard_deviation);
+    error = tensor_create_normal(x, shape, rank, runtime, datatype, requires_gradient, persist, mean, standard_deviation);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -1909,8 +1860,8 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_create_glorot_uniform(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime,
-                                         datatype_t datatype, bool_t requires_gradient, bool_t perist, void *gain, void *fan_in, void *fan_out)
+nw_error_t *tensor_create_glorot_uniform(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype,
+                                         bool_t requires_gradient, bool_t perist, void *gain, void *fan_in, void *fan_out)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -1952,7 +1903,7 @@ nw_error_t *tensor_create_glorot_uniform(tensor_t **x, const uint64_t *shape, ui
         goto cleanup;
     }
 
-    error = tensor_create_uniform(x, shape, rank, strides, offset, runtime, datatype, requires_gradient, perist, lower_bound, upper_bound);
+    error = tensor_create_uniform(x, shape, rank, runtime, datatype, requires_gradient, perist, lower_bound, upper_bound);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -1967,8 +1918,8 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_create_glorot_normal(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, runtime_t runtime,
-                                        datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan_in, void *fan_out)
+nw_error_t *tensor_create_glorot_normal(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype,
+                                        bool_t requires_gradient, bool_t persist, void *gain, void *fan_in, void *fan_out)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(shape, "shape");
@@ -2011,7 +1962,7 @@ nw_error_t *tensor_create_glorot_normal(tensor_t **x, const uint64_t *shape, uin
         goto cleanup;
     }
 
-    error = tensor_create_normal(x, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, mean, standard_deviation);
+    error = tensor_create_normal(x, shape, rank, runtime, datatype, requires_gradient, persist, mean, standard_deviation);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -2026,12 +1977,11 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t persist, bool_t preserve_memory_format)
+nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t persist)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
     PRINTLN_DEBUG_TENSOR("y", *y);
-    PRINTLN_DEBUG_BOOLEAN("preserve_memory_format", preserve_memory_format);
     PRINTLN_DEBUG_BOOLEAN("requires_gradient", requires_gradient);
     PRINTLN_DEBUG_BOOLEAN("persist", persist);
     PRINT_DEBUG_NEWLINE;
@@ -2043,14 +1993,12 @@ nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_g
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
-    uint64_t *shape = x->buffer->view->shape;
-    uint64_t rank = x->buffer->view->rank;
-    uint64_t *strides = (preserve_memory_format) ? x->buffer->view->strides : NULL;
-    uint64_t offset = (preserve_memory_format) ? x->buffer->view->offset : 0;
+    int64_t *shape = x->buffer->view->shape;
+    int64_t rank = x->buffer->view->rank;
     datatype_t datatype = x->buffer->storage->datatype;
     runtime_t runtime = x->buffer->storage->runtime;
 
-    error = tensor_create_empty(y, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist);
+    error = tensor_create_empty(y, shape, rank, runtime, datatype, requires_gradient, persist);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -2064,16 +2012,13 @@ nw_error_t *tensor_empty_like(const tensor_t *x, tensor_t **y, bool_t requires_g
     return error;
 }
 
-nw_error_t *tensor_create_empty(tensor_t **x, const uint64_t *shape, uint64_t rank, const uint64_t *strides, uint64_t offset, 
-                                runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist)
+nw_error_t *tensor_create_empty(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", *x);
-    PRINTLN_DEBUG_UINT64_ARRAY("shape", shape, rank);
-    PRINTLN_DEBUG_UINT64_ARRAY("strides", strides, rank);
+    PRINTLN_DEBUG_INT64_ARRAY("shape", shape, rank);
     PRINTLN_DEBUG_BOOLEAN("requires_gradient", requires_gradient);
     PRINTLN_DEBUG_BOOLEAN("persist", persist);
-    PRINTF_DEBUG("offset %lu\n", offset);
     PRINTF_DEBUG("runtime %s\n", runtime_string(runtime));
     PRINTF_DEBUG("datatype %s\n", datatype_string(datatype));
     PRINT_DEBUG_NEWLINE;
@@ -2083,7 +2028,7 @@ nw_error_t *tensor_create_empty(tensor_t **x, const uint64_t *shape, uint64_t ra
 
     nw_error_t *error = NULL;
 
-    error = apply_function_creation(EMPTY_OPERATION, shape, rank, strides, offset, runtime, datatype, requires_gradient, persist, NULL, 0, NULL, x);
+    error = apply_operation_creation(EMPTY_OPERATION, shape, rank, runtime, datatype, requires_gradient, persist, NULL, 0, NULL, x);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -2118,10 +2063,10 @@ nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
     {
         if (x->buffer->view->rank)
         {
-            return ERROR(ERROR_RANK_CONFLICT, string_create("gradient only implicitly created for scalars"), NULL);
+            return ERROR(ERROR_RANK, string_create("gradient only implicitly created for scalars"), NULL);
         }
 
-        error = tensor_ones_like(x, &x->gradient, false, false, false);
+        error = tensor_ones_like(x, &x->gradient, false, false);
         if (error)
         {
             return ERROR(ERROR_CREATE, string_create("failed to create tensor of ones."), error);
@@ -2160,7 +2105,7 @@ nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient)
 
         if (y->context)
         {
-            error = function_backward(y->context, y->gradient);
+            error = apply_backward(y);
             if (error)
             {
                 error = ERROR(ERROR_BACKWARD, string_create("failed to do backward pass."), error);
@@ -2191,7 +2136,7 @@ nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y)
 
     nw_error_t *error = NULL;
 
-    error = apply_function_unary(AS_OPERATION, x, y);
+    error = apply_operation_unary(AS_OPERATION, x, y);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
