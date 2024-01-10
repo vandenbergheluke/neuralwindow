@@ -216,7 +216,7 @@ nw_error_t *update_helper(algorithm_t *algorithm, algorithm_type_t algorithm_typ
 
     nw_error_t *error = NULL;
 
-    for (uint64_t i = 0; i < block->depth; ++i)
+    for (int64_t i = 0; i < block->depth; ++i)
     {
         layer_t *layer = block->layers[i];
         if (!layer)
@@ -265,7 +265,7 @@ nw_error_t *update_helper(algorithm_t *algorithm, algorithm_type_t algorithm_typ
                 }
                 break;
             default:
-                return ERROR(ERROR_UNKNOWN_ALGORITHM, string_create("unknown algorithm %d.", (int) algorithm_type), error);
+                return ERROR(ERROR_ALGORITHM, string_create("unknown algorithm %d.", (int) algorithm_type), error);
             }
             break;
         case BLOCK:
@@ -276,7 +276,7 @@ nw_error_t *update_helper(algorithm_t *algorithm, algorithm_type_t algorithm_typ
             }
             break;
         default:
-            return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown layer type %d.", transform_type), error);
+            return ERROR(ERROR_LAYER_TYPE, string_create("unknown layer type %d.", transform_type), error);
         }
 
     }
@@ -466,7 +466,7 @@ nw_error_t *algorithm_create(algorithm_t **algorithm, algorithm_type_t algorithm
         break;
     default:
         free(*algorithm);
-        return ERROR(ERROR_UNKNOWN_ALGORITHM, string_create("unknown algorithm type %d.", (int) algorithm_type), NULL);
+        return ERROR(ERROR_ALGORITHM, string_create("unknown algorithm type %d.", (int) algorithm_type), NULL);
     }
 
     return NULL;
@@ -531,7 +531,7 @@ string_t algorithm_type_string(algorithm_type_t algorithm_type)
     case ADAM:
         return "ADAM";
     default:
-        return "UNKNOWN_ALGORITHM";
+        return "ALGORITHM";
     }
 }
 

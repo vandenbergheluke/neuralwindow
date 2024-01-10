@@ -1,4 +1,5 @@
 #include <view.h>
+#include <runtime.h>
 #include <buffer.h>
 #include <tensor.h>
 #include <function.h>
@@ -10,17 +11,24 @@
 #include <metric.h>
 #include <measure.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <mgl2/base_cf.h>
+#include <mgl2/canvas_cf.h>
+#include <mgl2/mgl_cf.h>
+
 typedef struct mnist_dataset_t
 {
     string_t images_path;
     string_t labels_path;
     FILE *images_file;
     FILE *labels_file;
-    uint64_t height;
-    uint64_t width;
-    uint64_t number_of_labels;
-    uint64_t image_offset;
-    uint64_t label_offset;
+    int64_t height;
+    int64_t width;
+    int64_t number_of_labels;
+    int64_t image_offset;
+    int64_t label_offset;
 } mnist_dataset_t;
 
 static uint32_t uint32_big_endian(uint8_t *buffer)
@@ -33,21 +41,125 @@ static uint32_t uint32_big_endian(uint8_t *buffer)
     return value;
 }
 
+void *plt_accuracies = NULL;
+void *plt_costs = NULL;
+float32_t *plt_count = NULL;
+
+
+nw_error_t *bounded_plot(string_t title, string_t save_path,
+          string_t x_str, void* x, int x_n,
+          string_t y_str, void* y, int y_n,
+          float64_t y_min, float64_t y_max,
+          datatype_t datatype)
+{
+    HMGL graph = mgl_create_graph(800,400);
+
+    HMDT x_mgl = mgl_create_data();
+    HMDT y_mgl = mgl_create_data();
+
+    mgl_data_set_float(x_mgl, x, x_n, 1, 1);
+    switch (datatype)
+    {
+    case FLOAT32:
+        mgl_data_set_float(y_mgl, (float32_t *) y, y_n, 1, 1);
+        break;
+    case FLOAT64:
+        mgl_data_set_double(y_mgl, (float64_t *) y, y_n, 1, 1);
+        break;
+    default:
+        mgl_delete_graph(graph);
+
+        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+    }
+
+    mgl_fill_background(graph, 1, 1, 1, 1);
+
+    //mgl_subplot(graph, 3, 3, 4, "");
+    mgl_inplot(graph, 0, 1, 0, 1);
+    mgl_title(graph, title, "", 5);
+    mgl_set_range_dat(graph, 'x', x_mgl, 0);
+    mgl_set_range_val(graph, 'y', y_min, y_max);
+    mgl_axis(graph, "xy", "", "");
+    // |    long dashed line
+    // h    grey
+    mgl_axis_grid(graph, "xy", "|h", "");
+    mgl_label(graph, 'x', x_str, 0, "");
+    mgl_label(graph, 'y', y_str, 0, "");
+    mgl_box(graph);
+    // u    blue purple
+    mgl_plot_xy(graph, x_mgl, y_mgl, "2u", "");
+
+    mgl_write_png(graph, save_path, "w");
+
+    mgl_delete_graph(graph);
+
+    return NULL;
+}
+
+nw_error_t *plot(string_t title, string_t save_path,
+          string_t x_str, void* x, int x_n,
+          string_t y_str, void* y, int y_n,
+          datatype_t datatype)
+{
+    HMGL graph = mgl_create_graph(800,400);
+
+    HMDT x_mgl = mgl_create_data();
+    HMDT y_mgl = mgl_create_data();
+
+    mgl_data_set_float(x_mgl, x, x_n, 1, 1);
+    switch (datatype)
+    {
+    case FLOAT32:
+        mgl_data_set_float(y_mgl, (float32_t *) y, y_n, 1, 1);
+        break;
+    case FLOAT64:
+        mgl_data_set_double(y_mgl, (float64_t *) y, y_n, 1, 1);
+        break;
+    default:
+        mgl_delete_graph(graph);
+
+        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+    }
+
+    mgl_fill_background(graph, 1, 1, 1, 1);
+
+    //mgl_subplot(graph, 3, 3, 4, "");
+    mgl_inplot(graph, 0, 1, 0, 1);
+    mgl_title(graph, title, "", 5);
+    mgl_set_range_dat(graph, 'x', x_mgl, 0);
+    mgl_set_range_dat(graph, 'y', y_mgl, 0);
+    mgl_axis(graph, "xy", "", "");
+    // |    long dashed line
+    // h    grey
+    mgl_axis_grid(graph, "xy", "|h", "");
+    mgl_label(graph, 'x', x_str, 0, "");
+    mgl_label(graph, 'y', y_str, 0, "");
+    mgl_box(graph);
+    // u    blue purple
+    mgl_plot_xy(graph, x_mgl, y_mgl, "2u", "");
+
+    mgl_write_png(graph, save_path, "w");
+
+    mgl_delete_graph(graph);
+
+    return NULL;
+}
+
 nw_error_t *mnist_metrics(dataset_type_t dataset_type, 
                           const tensor_t *y_true,
                           const tensor_t *y_pred,
                           const tensor_t *cost,
-                          uint64_t epoch,
-                          uint64_t epochs,
-                          uint64_t iteration,
-                          uint64_t iterations)
+                          int64_t epoch,
+                          int64_t epochs,
+                          int64_t iteration,
+                          int64_t iterations)
 {
     CHECK_NULL_ARGUMENT(y_pred, "y_pred");
     CHECK_NULL_ARGUMENT(y_true, "y_true");
     CHECK_NULL_ARGUMENT(y_true, "cost");
     static void *accuracy_data = NULL;
     static void *cost_data = NULL;
-    static uint64_t time = 0; 
+    static int64_t time = 0; 
     tensor_t *total_accuracy = NULL;
     tensor_t *total_cost = NULL;
     tensor_t *mean_accuracy = NULL;
@@ -123,17 +235,17 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
 
     if (iteration == iterations)
     {
-        uint64_t shape[] = {iterations};
-        uint64_t rank = 1;
+        int64_t shape[] = {iterations};
+        int64_t rank = 1;
         
-        error = tensor_from_data(&total_accuracy, accuracy_data, runtime, datatype, rank, shape, NULL, 0, false, false, false);
+        error = tensor_from_data(&total_accuracy, accuracy_data, runtime, datatype, rank, shape, false, false, false);
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
             goto cleanup;
         }
 
-        error = tensor_from_data(&total_cost, cost_data, runtime, datatype, rank, shape, NULL, 0, false, false, false);
+        error = tensor_from_data(&total_cost, cost_data, runtime, datatype, rank, shape, false, false, false);
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -152,6 +264,79 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
         {
             error = ERROR(ERROR_DIVISION, string_create("failed to get mean of tensor."), error);
             goto cleanup;
+        }
+
+        error = tensor_item(mean_accuracy, plt_accuracies + datatype_size(datatype) * (epoch - 1));
+        if (error)
+        {
+            error = ERROR(ERROR_ITEM, string_create("failed to get tensor item."), NULL);
+            goto cleanup;
+        }
+
+        error = tensor_item(mean_cost, plt_costs + datatype_size(datatype) * (epoch - 1));
+        if (error)
+        {
+            error = ERROR(ERROR_ITEM, string_create("failed to get tensor item."), NULL);
+            goto cleanup;
+        }
+
+        plt_count[epoch - 1] = epoch;
+
+        if (epoch == epochs) {
+            switch (dataset_type)
+            {
+            case TRAIN:
+                error = bounded_plot("MNIST Training Accuracy",
+                          "img/mnist_accuracy_train.png",
+                          "Epoch", plt_count, epochs,
+                          "Accuracy", plt_accuracies, epochs,
+                          0.0, 1.0, datatype);
+                if (error)
+                {
+                    error = ERROR(ERROR_METRICS, string_create("failed to plot accuracy."), error);
+                    goto cleanup;
+                }
+
+                error = plot("MNIST Training Cost",
+                          "img/mnist_cost_train.png",
+                          "Epoch", plt_count, epochs,
+                          "Cost", plt_costs, epochs,
+                          datatype);
+                if (error)
+                {
+                    error = ERROR(ERROR_METRICS, string_create("failed to plot cost."), error);
+                    goto cleanup;
+                }
+                break;
+            case VALID:
+                error = bounded_plot("MNIST Validation Accuracy",
+                          "img/mnist_accuracy_valid.png",
+                          "Epoch", plt_count, epochs,
+                          "Accuracy", plt_accuracies, epochs,
+                          0.0, 1.0, datatype);
+                if (error)
+                {
+                    error = ERROR(ERROR_METRICS, string_create("failed to plot accuracy."), error);
+                    goto cleanup;
+                }
+
+                error = plot("MNIST Validation Cost",
+                          "img/mnist_cost_valid.png",
+                          "Epoch", plt_count, epochs,
+                          "Cost", plt_costs, epochs,
+                          datatype);
+                if (error)
+                {
+                    error = ERROR(ERROR_METRICS, string_create("failed to plot cost."), error);
+                    goto cleanup;
+                }
+                break;
+            case TEST:
+                break;
+            default:
+                error = ERROR(ERROR_DATASET_TYPE, string_create("unknown dataset type %d.", dataset_type), NULL);
+                goto cleanup;
+            }
         }
 
         LOG("Dataset %s - %lu/%lu Epochs", dataset_type_string(dataset_type), epoch, epochs);
@@ -215,7 +400,7 @@ nw_error_t *mnist_setup(void *arguments)
     {
         ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
     }
-    mnist_dataset->height = (uint64_t) uint32_big_endian(buffer);
+    mnist_dataset->height = (int64_t) uint32_big_endian(buffer);
 
     // Width
     read = fread(buffer, sizeof(buffer), 1, mnist_dataset->images_file);
@@ -223,7 +408,7 @@ nw_error_t *mnist_setup(void *arguments)
     {
         ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
     }
-    mnist_dataset->width = (uint64_t) uint32_big_endian(buffer);
+    mnist_dataset->width = (int64_t) uint32_big_endian(buffer);
 
     mnist_dataset->number_of_labels = 10;
     mnist_dataset->image_offset = 16;
@@ -254,7 +439,7 @@ nw_error_t *mnist_teardown(void *arguments)
     return NULL;
 }
 
-nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
+nw_error_t *mnist_dataloader(int64_t index, batch_t *batch, void *arguments)
 {
     CHECK_NULL_ARGUMENT(arguments, "arguments");
     CHECK_NULL_ARGUMENT(batch, "batch");
@@ -263,11 +448,11 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
     size_t read;
     nw_error_t *error = NULL;
     mnist_dataset_t *mnist_dataset = (mnist_dataset_t *) arguments;
-    uint64_t number_of_pixels = mnist_dataset->height * mnist_dataset->width;
-    uint64_t number_of_labels = mnist_dataset->number_of_labels;
-    uint64_t batch_size = batch->batch_size;
-    uint64_t m = batch_size * number_of_labels;
-    uint64_t n = batch_size * number_of_pixels;
+    int64_t number_of_pixels = mnist_dataset->height * mnist_dataset->width;
+    int64_t number_of_labels = mnist_dataset->number_of_labels;
+    int64_t batch_size = batch->batch_size;
+    int64_t m = batch_size * number_of_labels;
+    int64_t n = batch_size * number_of_pixels;
     void *data = NULL;
     void *labels = NULL;
     datatype_t datatype = batch->datatype;
@@ -300,7 +485,7 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
         return ERROR(ERROR_FILE, string_create("failed to move to offset in file."), NULL);
     }
 
-    for (uint64_t i = 0; i < n; ++i)
+    for (int64_t i = 0; i < n; ++i)
     {
         read = fread(file_buffer, sizeof(file_buffer), 1, mnist_dataset->images_file);
         if (!read)
@@ -321,7 +506,7 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
         }
     }
 
-    for (uint64_t i = 0; i < batch_size; ++i)
+    for (int64_t i = 0; i < batch_size; ++i)
     {
         read = fread(file_buffer, sizeof(file_buffer), 1, mnist_dataset->labels_file);
         if (!read)
@@ -329,7 +514,7 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
             return ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
         }
 
-        for (uint64_t j = 0; j < number_of_labels; ++j)
+        for (int64_t j = 0; j < number_of_labels; ++j)
         {
             switch (datatype)
             {
@@ -345,13 +530,13 @@ nw_error_t *mnist_dataloader(uint64_t index, batch_t *batch, void *arguments)
         }
     }
 
-    error = tensor_from_data(&batch->x, data, runtime, datatype, 2, (uint64_t[]) {batch_size, number_of_pixels}, NULL, 0, copy, false, true);
+    error = tensor_from_data(&batch->x, data, runtime, datatype, 2, (int64_t[]) {batch_size, number_of_pixels}, copy, false, true);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
-    error = tensor_from_data(&batch->y, labels, runtime, datatype, 2, (uint64_t[]) {batch_size, number_of_labels}, NULL, 0, copy, false, true);
+    error = tensor_from_data(&batch->y, labels, runtime, datatype, 2, (int64_t[]) {batch_size, number_of_labels}, copy, false, true);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -440,7 +625,7 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         goto cleanup;
     }
 
-    error = logsoftmax_activation_create(&output_activation, (uint64_t) 1);
+    error = logsoftmax_activation_create(&output_activation, (int64_t) 1);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create softmax activation."), error);
@@ -512,13 +697,13 @@ int main(void)
     };
 
     nw_error_t *error = NULL;
-    uint64_t epochs = 200;
+    int64_t epochs = 200;
     model_t *model = NULL;
     runtime_t runtime = OPENBLAS_RUNTIME;
     datatype_t datatype = FLOAT32;
-    uint64_t number_of_samples = 60000;
+    int64_t number_of_samples = 60000;
     batch_t *batch = NULL;
-    uint64_t batch_size = 128;
+    int64_t batch_size = 128;
     bool_t shuffle = true;
     float32_t train_split = 0.7;
     float32_t valid_split = 0.2;
@@ -529,6 +714,12 @@ int main(void)
     float32_t dampening = 0.0;
     float32_t weight_decay = 0.0;
     bool_t nesterov = false;
+
+    mkdir("img", S_IRWXU);
+
+    plt_accuracies = malloc(epochs * datatype_size(datatype));
+    plt_costs = malloc(epochs * datatype_size(datatype));
+    plt_count = malloc(epochs * sizeof(float32_t));
 
     error = runtime_create_context(runtime);
     if (error)
@@ -567,6 +758,10 @@ int main(void)
     }
 
 cleanup:
+
+    free(plt_accuracies);
+    free(plt_costs);
+    free(plt_count);
 
     runtime_destroy_context(runtime);
     optimizer_destroy(optimizer);

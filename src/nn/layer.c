@@ -10,8 +10,8 @@
 extern bool_t no_gradient;
 
 nw_error_t *linear_layer_create(layer_t **layer, 
-                                uint64_t in_features,
-                                uint64_t out_features,
+                                int64_t in_features,
+                                int64_t out_features,
                                 runtime_t runtime,
                                 datatype_t datatype,
                                 bool_t requires_gradient,
@@ -30,10 +30,10 @@ nw_error_t *linear_layer_create(layer_t **layer,
     linear_t *linear = NULL;
     transform_t *transform = NULL;
     transform_type_t transform_type = LINEAR;
-    uint64_t *weight_shape = (uint64_t[]) {in_features, out_features};
-    uint64_t *bias_shape = (uint64_t[]) {out_features};
-    uint64_t weight_rank = 2;
-    uint64_t bias_rank = 1;
+    int64_t *weight_shape = (int64_t[]) {in_features, out_features};
+    int64_t *bias_shape = (int64_t[]) {out_features};
+    int64_t weight_rank = 2;
+    int64_t bias_rank = 1;
 
     error = initialize(&weights, weight_init, weight_shape, weight_rank, runtime, datatype, requires_gradient);
     if (error)
@@ -118,7 +118,7 @@ static nw_error_t *activation_forward(activation_t *activation, tensor_t *x, ten
         }
         break;
     default:
-        error = ERROR(ERROR_UKNOWN_OPERATION_TYPE, string_create("unknown activation function %d.", (int) activation_function_type), NULL);
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown activation function %d.", (int) activation_function_type), NULL);
         break;
     }
 
@@ -207,7 +207,7 @@ static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
     nw_error_t *error = NULL;
     tensor_t *feature_map = NULL;
 
-    for (uint64_t i = 0; i < block->depth; ++i)
+    for (int64_t i = 0; i < block->depth; ++i)
     {
         layer_t *layer = block->layers[i];
         if (!layer)
@@ -231,7 +231,7 @@ static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
             error = block_forward(transform->block, x, &feature_map);
             break;
         default:
-            error = ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
+            error = ERROR(ERROR_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
             break;
         }
 
@@ -303,7 +303,7 @@ static nw_error_t *block_requires_gradient(block_t *block, bool_t requires_gradi
 
     nw_error_t *error = NULL;
 
-    for (uint64_t i = 0; i < block->depth; ++i)
+    for (int64_t i = 0; i < block->depth; ++i)
     {
         layer_t *layer = block->layers[i];
         if (!layer)
@@ -327,7 +327,7 @@ static nw_error_t *block_requires_gradient(block_t *block, bool_t requires_gradi
             error = block_requires_gradient(transform->block, requires_gradient);
             break;
         default:
-            error = ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
+            error = ERROR(ERROR_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
             break;
         }
 
@@ -405,7 +405,7 @@ nw_error_t *transform_create(transform_t **transform, transform_type_t transform
         break;
     default:
         free(*transform);
-        return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
+        return ERROR(ERROR_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
     }
 
     return NULL;
@@ -444,7 +444,7 @@ string_t transform_type_string(transform_type_t transform_type)
     case BLOCK:
         return "BLOCK";
     default:
-        return "UNKNOWN_TRANSFORM_TYPE";
+        return "TRANSFORM_TYPE";
     }
 }
 
@@ -461,7 +461,7 @@ string_t activation_function_type_string(activation_function_type_t activation_f
     case ACTIVATION_LOGSOFTMAX:
         return "ACTIVATION_LOGSOFTMAX";
     default:
-        return "UNKNOWN_ACTIVATION_FUNCTION_TYPE";
+        return "ACTIVATION_FUNCTION_TYPE";
     }
 }
 
@@ -523,7 +523,7 @@ void dropout_destroy(dropout_t *dropout)
     }
 }
 
-nw_error_t *block_create(block_t **block, uint64_t depth, ...)
+nw_error_t *block_create(block_t **block, int64_t depth, ...)
 {
     CHECK_NULL_ARGUMENT(block, "block");
     
@@ -544,7 +544,7 @@ nw_error_t *block_create(block_t **block, uint64_t depth, ...)
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(depth * sizeof(layer_t *))), NULL);
     }
 
-    for (uint64_t i = 0; i < depth; ++i)
+    for (int64_t i = 0; i < depth; ++i)
     {
         (*block)->layers[i] = (layer_t *) va_arg(valist, layer_t *);
     }
@@ -560,7 +560,7 @@ void block_destroy(block_t *block)
     {
         if (block->layers)
         {
-            for (uint64_t i = 0; i < block->depth; ++i)
+            for (int64_t i = 0; i < block->depth; ++i)
             {
                 layer_destroy(block->layers[i]);
             }
@@ -570,7 +570,7 @@ void block_destroy(block_t *block)
     }
 }
 
-nw_error_t *softmax_create(softmax_t **softmax, uint64_t axis)
+nw_error_t *softmax_create(softmax_t **softmax, int64_t axis)
 {
     CHECK_NULL_ARGUMENT(softmax, "softmax");
 
@@ -715,7 +715,7 @@ nw_error_t *sigmoid_activation_create(activation_t **activation)
     return error;
 }
 
-static nw_error_t *softmax_activation_type_create(activation_t **activation, uint64_t axis, activation_function_type_t activation_function_type)
+static nw_error_t *softmax_activation_type_create(activation_t **activation, int64_t axis, activation_function_type_t activation_function_type)
 {
     CHECK_NULL_ARGUMENT(activation, "activation");
 
@@ -746,7 +746,7 @@ static nw_error_t *softmax_activation_type_create(activation_t **activation, uin
     return error;
 }
 
-nw_error_t *softmax_activation_create(activation_t **activation, uint64_t axis)
+nw_error_t *softmax_activation_create(activation_t **activation, int64_t axis)
 {
     CHECK_NULL_ARGUMENT(activation, "activation");
 
@@ -761,7 +761,7 @@ nw_error_t *softmax_activation_create(activation_t **activation, uint64_t axis)
     return error;
 }
 
-nw_error_t *logsoftmax_activation_create(activation_t **activation, uint64_t axis)
+nw_error_t *logsoftmax_activation_create(activation_t **activation, int64_t axis)
 {
     CHECK_NULL_ARGUMENT(activation, "activation");
 

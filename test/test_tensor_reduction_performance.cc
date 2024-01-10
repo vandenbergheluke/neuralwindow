@@ -22,9 +22,9 @@ extern "C"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-}
-
 #include <test_helper.h>
+}
+#include <test_helper_torch.h>
 
 // Take average over UT_MEASUREMENT_ITERS iterations.
 #ifndef UT_MEASUREMENT_ITERS
@@ -177,7 +177,7 @@ void plot_heuristics(std::string t, std::string save_path,
 void performance_test(std::string op_name, datatype_t datatype,
         int rank, int max_shape_exp8,
         std::function<torch::Tensor(torch::Tensor, std::vector<int64_t>, bool)> torch_op,
-        std::function<nw_error_t *(tensor_t *, tensor_t **, uint64_t *, uint64_t, bool_t)> nw_op,
+        std::function<nw_error_t *(tensor_t *, tensor_t **, int64_t *, int64_t, bool_t)> nw_op,
         std::vector<int64_t> axis, bool keep_dimension,
         std::function<uint64_t(uint64_t)> flop_calc)
 {
@@ -318,8 +318,8 @@ void performance_test(std::string op_name, datatype_t datatype,
                     nw_start = get_time_nanoseconds();
                     error = nw_op(tensor,
                             &returned_tensor,
-                            (uint64_t *) axis.data(),
-                            (uint64_t) axis.size(),
+                            (int64_t *) axis.data(),
+                            (int64_t) axis.size(),
                             keep_dimension);
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);

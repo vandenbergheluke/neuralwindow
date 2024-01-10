@@ -39,22 +39,20 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_MEMORY_ALLOCATION"; 
     case ERROR_MEMORY_FREE:
         return "ERROR_MEMORY_FREE";
-    case ERROR_UNKNOWN_RUNTIME:
-        return "ERROR_UNKNOWN_RUNTIME";
-    case ERROR_UKNOWN_OPERATION_TYPE:
-        return "ERROR_UKNOWN_OPERATION_TYPE";
-    case ERROR_UKNOWN_LAYER_TYPE:
-        return "ERROR_UKNOWN_LAYER_TYPE";
+    case ERROR_RUNTIME:
+        return "ERROR_RUNTIME";
+    case ERROR_OPERATION_TYPE:
+        return "ERROR_OPERATION_TYPE";
+    case ERROR_LAYER_TYPE:
+        return "ERROR_LAYER_TYPE";
     case ERROR_NULL:
         return "ERROR_NULL";
-    case ERROR_DATATYPE_CONFLICT:
-        return "ERROR_DATATYPE_CONFLICT";
-    case ERROR_SHAPE_CONFLICT:
-        return "ERROR_SHAPE_CONFLICT";
-    case ERROR_RUNTIME_CONFLICT:
-        return "ERROR_RUNTIME_CONFLICT";
-    case ERROR_RANK_CONFLICT:
-        return "ERROR_RANK_CONFLICT";
+    case ERROR_DATATYPE:
+        return "ERROR_DATATYPE";
+    case ERROR_SHAPE:
+        return "ERROR_SHAPE";
+    case ERROR_RANK:
+        return "ERROR_RANK";
     case ERROR_CREATE:
         return "ERROR_CREATE";
     case ERROR_DESTROY:
@@ -63,8 +61,6 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_BROADCAST";
     case ERROR_INITIALIZATION:
         return "ERROR_INITIALIZATION";
-    case ERROR_DATATYPE:
-        return "ERROR_DATATYPE";
     case ERROR_COPY:
         return "ERROR_COPY";
     case ERROR_ADDITION:
@@ -89,10 +85,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_SQUARE_ROOT";
     case ERROR_RESHAPE:
         return "ERROR_RESHAPE";
-    case ERROR_SLICE:
-        return "ERROR_SLICE";
-    case ERROR_BINARY_ELEMENTWISE:
-        return "ERROR_BINARY_ELEMENTWISE";
+    case ERROR_BINARY:
+        return "ERROR_BINARY";
     case ERROR_REDUCTION:
         return "ERROR_REDUCTION";
     case ERROR_EXPONENTIAL:
@@ -165,8 +159,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_VALID";
     case ERROR_TEST:
         return "ERROR_TEST";
-    case ERROR_UNKNOWN_ALGORITHM:
-        return "ERROR_UNKNOWN_ALGORITHM";
+    case ERROR_ALGORITHM:
+        return "ERROR_ALGORITHM";
     case ERROR_GAIN:
         return "ERROR_GAIN";
     case ERROR_UPDATE:
