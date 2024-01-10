@@ -56,7 +56,7 @@ START_TEST(test_queue)
        error_print(error);
        error_destroy(error); 
     }
-    ck_assert_int_eq(queue->size, 1);
+    ck_assert_uint_eq(queue->size, 1);
 
     error = queue_enqueue(queue, (void *) &test_case_2);
     if (error)
@@ -64,7 +64,7 @@ START_TEST(test_queue)
        error_print(error);
        error_destroy(error); 
     }
-    ck_assert_int_eq(queue->size, 2);
+    ck_assert_uint_eq(queue->size, 2);
 
     error = queue_enqueue(queue, (void *) &test_case_3);
     if (error)
@@ -72,7 +72,7 @@ START_TEST(test_queue)
        error_print(error);
        error_destroy(error); 
     }
-    ck_assert_int_eq(queue->size, 3);
+    ck_assert_uint_eq(queue->size, 3);
 
     int *test_case_ptr_1;
     int *test_case_ptr_2;
@@ -85,7 +85,7 @@ START_TEST(test_queue)
        error_print(error);
        error_destroy(error); 
     }
-    ck_assert_int_eq(queue->size, 2);
+    ck_assert_uint_eq(queue->size, 2);
     ck_assert_int_eq(test_case_1, *test_case_ptr_1);
 
     error = queue_dequeue(queue, (void **) &test_case_ptr_2);
@@ -94,7 +94,7 @@ START_TEST(test_queue)
        error_print(error);
        error_destroy(error); 
     }
-    ck_assert_int_eq(queue->size, 1);
+    ck_assert_uint_eq(queue->size, 1);
     ck_assert_int_eq(test_case_2, *test_case_ptr_2);
 
     error = queue_dequeue(queue, (void **) &test_case_ptr_3);
@@ -103,7 +103,7 @@ START_TEST(test_queue)
        error_print(error);
        error_destroy(error); 
     }
-    ck_assert_int_eq(queue->size, 0);
+    ck_assert_uint_eq(queue->size, 0);
     ck_assert_int_eq(test_case_3, *test_case_ptr_3);
     
     error = queue_enqueue(queue, (void *) NULL);
@@ -112,7 +112,7 @@ START_TEST(test_queue)
        error_print(error);
        error_destroy(error); 
     }
-    ck_assert_int_eq(queue->size, 1);
+    ck_assert_uint_eq(queue->size, 1);
 
     error = queue_dequeue(queue, (void **) &test_case_ptr_4);
     if (error)
@@ -120,7 +120,7 @@ START_TEST(test_queue)
        error_print(error);
        error_destroy(error); 
     }
-    ck_assert_int_eq(queue->size, 0);
+    ck_assert_uint_eq(queue->size, 0);
     ck_assert_ptr_null(test_case_ptr_4);
 }
 END_TEST
