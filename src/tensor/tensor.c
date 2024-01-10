@@ -1114,19 +1114,11 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_is_contiguous(const tensor_t *x, bool_t *is_contiguous)
+bool_t tensor_is_contiguous(const tensor_t *x)
 {
-    CHECK_NULL_ARGUMENT(x, "x");
-
-    nw_error_t *error = NULL;
-
-    error = view_is_contiguous(x->buffer->view, is_contiguous);
-    if (error)
-    {
-        return ERROR(ERROR_CONTIGUOUS, string_create("failed to determine if tensor is contiguous."), error);
-    }
-
-    return error;
+    return x && x->buffer && x->buffer->view &&
+           is_contiguous(x->buffer->view->shape, x->buffer->view->rank, 
+                         x->buffer->view->strides, x->buffer->view->offset);
 }
 
 nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const int64_t *shape, int64_t length)
@@ -1316,15 +1308,8 @@ nw_error_t *tensor_contiguous(const tensor_t *x, tensor_t **y)
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
-    bool_t is_contiguous;
 
-    error = tensor_is_contiguous(x, &is_contiguous);
-    if (error)
-    {
-        return ERROR(ERROR_CONTIGUOUS, string_create("failed to determine if tensor is contiguous."), error);
-    }
-
-    if (is_contiguous)
+    if (tensor_is_contiguous(x))
     {
         *y = (tensor_t *) x;
     }

@@ -1513,20 +1513,27 @@ static nw_error_t *summation_operation_backward(tensor_t *x, int64_t *axis, int6
     nw_error_t *error = NULL;
     tensor_t *x_gradient = NULL;
     tensor_t *x_gradient_i = NULL;
-    view_t *recovered_view = NULL;
+    int64_t rank = x->buffer->view->rank;
+    int64_t *shape = x->buffer->view->shape;
+    int64_t recovered_shape[rank];
+    int64_t recovered_strides[rank];
+    int64_t reduced_rank = gradient->buffer->view->rank;
+    int64_t *reduced_shape = gradient->buffer->view->shape;
+    int64_t *reduced_strides = gradient->buffer->view->strides;
 
     if (x->requires_gradient)
     {
         if (!keep_dimension)
         {
-            error = view_recover_dimensions(gradient->buffer->view, &recovered_view, axis, length);
+            error = reduce_recover_dimensions(reduced_shape, reduced_rank, reduced_strides,
+                                              recovered_shape, rank, recovered_strides, axis, length);
             if (error)
             {
-                error = ERROR(ERROR_REDUCTION, string_create("failed to recover dimensions."), error);
+                error = ERROR(ERROR_REDUCTION, string_create("failed to recover reduce dimensions."), error);
                 goto cleanup;
             }
 
-            error = tensor_reshape(gradient, &x_gradient_i, recovered_view->shape, recovered_view->rank);
+            error = tensor_reshape(gradient, &x_gradient_i, recovered_shape, rank);
             if (error)
             {
                 error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
@@ -1538,7 +1545,7 @@ static nw_error_t *summation_operation_backward(tensor_t *x, int64_t *axis, int6
             x_gradient_i = gradient;
         }
 
-        error = tensor_expand(x_gradient_i, x->buffer->view->shape, x->buffer->view->rank, &x_gradient);
+        error = tensor_expand(x_gradient_i, shape, rank, &x_gradient);
         if (error)
         {
             error = ERROR(ERROR_EXPAND, string_create("failed to expand gradient."), error);
@@ -1564,7 +1571,6 @@ cleanup:
     {
         tensor_destroy(x_gradient_i);
     }
-    view_destroy(recovered_view);
 
     return error; 
 }
@@ -1602,35 +1608,48 @@ static nw_error_t *maximum_operation_backward(tensor_t *x, int64_t *axis, int64_
     tensor_t *x_gradient_n = NULL;
     tensor_t *x_gradient_o = NULL;
     tensor_t *x_gradient_p = NULL;
-    view_t *recovered_result_view = NULL;
-    view_t *recovered_gradient_view = NULL;
+    int64_t rank = x->buffer->view->rank;
+    int64_t *shape = x->buffer->view->shape;
 
     if (x->requires_gradient)
     {
         if (!keep_dimension)
         {
-            error = view_recover_dimensions(result->buffer->view, &recovered_result_view, axis, length);
+            int64_t recovered_result_shape[rank];
+            int64_t recovered_result_strides[rank];
+            int64_t recovered_gradient_shape[rank];
+            int64_t recovered_gradient_strides[rank];
+            int64_t reduced_result_rank = result->buffer->view->rank;
+            int64_t *reduced_result_shape = result->buffer->view->shape;
+            int64_t *reduced_result_strides = result->buffer->view->strides;
+            int64_t reduced_gradient_rank = gradient->buffer->view->rank;
+            int64_t *reduced_gradient_shape = gradient->buffer->view->shape;
+            int64_t *reduced_gradient_strides = gradient->buffer->view->strides;
+
+            error = reduce_recover_dimensions(reduced_result_shape, reduced_result_rank, reduced_result_strides,
+                                              recovered_result_shape, rank, recovered_result_strides, axis, length);
             if (error)
             {
                 return ERROR(ERROR_REDUCTION, string_create("failed to recover from reduce dimensions."), error);
                 goto cleanup;
             }
 
-            error = view_recover_dimensions(gradient->buffer->view, &recovered_gradient_view, axis, length);
+            error = reduce_recover_dimensions(reduced_gradient_shape, reduced_gradient_rank, reduced_gradient_strides,
+                                              recovered_gradient_shape, rank, recovered_gradient_strides, axis, length);
             if (error)
             {
                 return ERROR(ERROR_REDUCTION, string_create("failed to recover from reduce dimensions."), error);
                 goto cleanup;
             }
 
-            error = tensor_reshape(result, &x_gradient_k, recovered_result_view->shape, recovered_result_view->rank);
+            error = tensor_reshape(result, &x_gradient_k, recovered_result_shape, rank);
             if (error)
             {
                 error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
                 goto cleanup;
             }
             
-            error = tensor_reshape(gradient, &x_gradient_l, recovered_gradient_view->shape, recovered_gradient_view->rank);
+            error = tensor_reshape(gradient, &x_gradient_l, recovered_gradient_shape, rank);
             if (error)
             {
                 error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
@@ -1643,7 +1662,7 @@ static nw_error_t *maximum_operation_backward(tensor_t *x, int64_t *axis, int64_
             x_gradient_l = gradient;
         }
 
-        error = tensor_expand(x_gradient_k, x->buffer->view->shape, x->buffer->view->rank, &x_gradient_m);
+        error = tensor_expand(x_gradient_k, shape, rank, &x_gradient_m);
         if (error)
         {
             error = ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
@@ -1707,8 +1726,6 @@ cleanup:
     tensor_destroy(x_gradient_o);    
     tensor_destroy(x_gradient_p);    
     tensor_destroy(x_gradient);    
-    view_destroy(recovered_result_view);
-    view_destroy(recovered_gradient_view);
 
     return error; 
 }

@@ -40,7 +40,9 @@ nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t r
     {
         if (!shape[i])
         {
-            return ERROR(ERROR_SHAPE, string_create("all shape dimensions must be greater than 0."), NULL);
+            return ERROR(ERROR_SHAPE,
+                         string_create("all shape dimensions must be greater than 0."),
+                         NULL);
         }
 
         if (!i)
@@ -373,63 +375,47 @@ nw_error_t *view_copy(const view_t *source_view, view_t **destination_view)
 }
 
 /**
- * @brief Given the view of a tensor determine it is contiguous. 
+ * @brief Determine if tensor is contiguous in memory. 
  *        Reference: https://pytorch.org/docs/stable/generated/torch.Tensor.is_contiguous.html
  *        Reference: https://github.com/tinygrad/tinygrad/blob/master/tinygrad/shape/shapetracker.py 
- * @param[in] view The view of a tensor being checked for contiguous property. 
- * @param[out] is_contiguous True if tensor is contiguous, False if the tensor is not contiguous.
- * @return Error if argument if `view` or `is_contiguous` is NULL.
- *         Error if strides failed to initialize. 
- *         NULL if contiguous check was successful.
+ * @param[in] shape The dimensions of the tenors. 
+ * @param[in] rank  Represents rank of the tensor. The number of elements in
+ *                  `shape` and `strides`. Needs to be in closed interval `[0, MAX_RANK]`.
+ * @param[in] strides The strides are the jumps necessary to go from one element 
+ *                    to the next one in storage along each dimension.
+ * @param[in] offset The offset is the number of elements to skip in the memory block
+ *                   to arrive at the first element of the tensor.
+ * @return True if the tensor memory is contiguous and False if it isn't.
+ *         If any argument is NULL, or `rank` does not satisfy `0 <= rank <= MAX_RANK`
+ *         false is returned. If error occured while computing contiguous tensor
+ *         strides false is also returned.
  */
-nw_error_t *view_is_contiguous(const view_t *view, bool_t *is_contiguous)
+bool_t is_contiguous(const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset)
 {
-    CHECK_NULL_ARGUMENT(view, "view");
-    CHECK_NULL_ARGUMENT(is_contiguous, "is_contiguous");
-
-    nw_error_t *error = NULL;
-    int64_t strides[view->rank];
-
-    if (view->offset)
+    if (!shape || !strides || rank > MAX_RANK || offset)
     {
-        *is_contiguous = false;
-        return error;
+        return false;
     }
 
-    error = strides_from_shape(strides, view->shape, view->rank);
+    int64_t contiguous_strides[rank];    
+    nw_error_t *error = strides_from_shape(contiguous_strides, shape, rank);
     if (error)
     {
-        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize strides."), error);
+        error_destroy(error);
+        return false;
     }
 
-    for (int64_t i = 0; i < view->rank; ++i)
+    for (int64_t i = 0; i < rank; ++i)
     {
-        if (view->strides[i] != strides[i] && view->shape[i] != 1)
+        if (strides[i] != contiguous_strides[i] && shape[i] != 1)
         {
-            *is_contiguous = false;
-            return error;
+            return false;
         }
     }
 
-    *is_contiguous = true;
-
-    return error;
+    return true;
 }
 
-/**
- * @brief Permute the dimensions of a tensor.
- *        Reference: https://pytorch.org/docs/stable/generated/torch.permute.html
- * @param[in] original_view The original view of the tensor. 
- * @param[out] permuted_view The view of the tensor with its dimensions reordered.
- * @param[in] axis Index array containing the order of dimensions.
- * @param[in] length Number of elements in `axis`. Should be in closed interval [0, MAX_RANK].
- * @return Error if length does not satisfy 0 <= length or length == rank.
- *         Error if any argument is NULL.
- *         Error if dimension index in `axis` is greater than length (out of range).
- *         Error if not all indicies in `axis` are unique.
- *         NULL if dimensions of the tensor were successfully permuted to the 
- *         new order specified by axis.
- */
 nw_error_t *view_permute(const view_t *original_view, view_t **permuted_view, const int64_t *axis, int64_t length)
 {
     CHECK_NULL_ARGUMENT(original_view, "original_view");
@@ -468,69 +454,112 @@ nw_error_t *view_permute(const view_t *original_view, view_t **permuted_view, co
 }
 
 /**
- * @brief Given a view of a tensor that has been reduced without keeping
- *        the dimensions, recover the dimensions of the tensor such that
- *        the recovered shape, strides, and mask are equal to the shape, strides, and mask of the
- *        tensor if it was reduced with keeping the dimensions respectively.
- * @param[in] reduced_view The view of a tensor reduced along dimensions specified by `axis` without keeping dimension.
- * @param[out] recovered_view The view of the reduced tensor if it was reduced with keeping dimension instead of without keeping dimension.
+ * @brief Given a the shape and strides of a tensor that has been reduced without keeping
+ *        the dimension, recover the shape and strides of the reduced tensor such that
+ *        the recovered shape and strides are equal to the shape and strides of the
+ *        tensor if it was reduced with keeping the dimension instead of without keeping dimension.
+ * @param[in] reduced_shape The shape of a tensor reduced along dimensions specified by `axis`
+ *                          without keeping dimension.
+ * @param[in] reduced_rank The rank of the reduced tensor. Number of elements in `reduced_shape`
+ *                         and `reduced_strides`.
+ * @param[in] reduced_strides The strides of the reduced tensor.
+ * @param[out] recovered_shape The shape of the reduced tensor if it was reduced with keeping dimension
+ *                             instead of without keeping dimension.
+ * @param[in] recovered_rank The rank of the original tensor before being reduced. Number of
+ *                           elements in `recovered_shape` and `recovered_strides`.
+ * @param[out] recovered_strides The strides of the recovered tensor.
  * @param[in] axis The indicies of the dimensions of the tensor that were reduced and removed.
  * @param[in] rank The number of elements in `axis`.
- * @return Error if `reduced_view`, `recovered_view`, or `axis` is NULL.
+ * @return Error if `reduced_shape`, `reduced_strides`, `recovered_shape`, `recovered_strides`, or `axis` is NULL.
+ *         Error if `reduced_rank` + `rank` is not equal to the `recovered_rank`.
+ *         Error if any of the `reduced_rank`, `recovered_rank`, or `rank` are not in [0, MAX_RANK].
+ *         Error if `axis` dimension index is out of range of the `recovered_rank`.
+ *         Error if any dimension in `reduced_shape` is 0.
  *         Error if not all dimension indices in `axis` are unique.
- *         Error if negative argument received for `length`.
- *         NULL if the view was recovered successfully.
+ *         NULL if the shape and strides were recovered successfully.
  */
-nw_error_t *view_recover_dimensions(const view_t *reduced_view, view_t **recovered_view, const int64_t *axis, int64_t length)
+nw_error_t *reduce_recover_dimensions(const int64_t *reduced_shape,
+                                      int64_t reduced_rank, 
+                                      const int64_t *reduced_strides,
+                                      int64_t *recovered_shape, 
+                                      int64_t recovered_rank,
+                                      int64_t *recovered_strides,
+                                      const int64_t *axis,
+                                      int64_t rank)
 {
-    CHECK_NULL_ARGUMENT(reduced_view, "reduced_view");
-    CHECK_NULL_ARGUMENT(recovered_view, "recovered_view");
+    CHECK_NULL_ARGUMENT(reduced_shape, "reduced_shape");
+    CHECK_NULL_ARGUMENT(reduced_strides, "reduced_strides");
+    CHECK_NULL_ARGUMENT(recovered_shape, "recovered_shape");
+    CHECK_NULL_ARGUMENT(recovered_strides , "recovered_strides");
     CHECK_NULL_ARGUMENT(axis, "axis");
-    CHECK_NEGATIVE_ARGUMENT(length, "length");
-    CHECK_UNIQUE(axis, length, "axis");
+    CHECK_UNIQUE(axis, rank, "axis");
 
-    if (!axis_in_range(axis, length, reduced_view->rank + length))
+    if (recovered_rank != reduced_rank + rank)
     {
-        return ERROR(ERROR_AXIS, string_create("axis dimensions out of range."), NULL);
+        return ERROR(ERROR_RANK, 
+                     string_create("conflicting ranks with reduced rank %ld, recovered rank %ld and axis length %ld.",
+                     reduced_rank, recovered_rank, rank),
+                     NULL);
     }
 
-    nw_error_t *error = NULL;
-    int64_t recovered_rank = reduced_view->rank + length;
-    int64_t recovered_shape[recovered_rank];
-    int64_t recovered_strides[recovered_rank];
-    int64_t recovered_mask[recovered_rank];
-    int64_t recovered_offset = reduced_view->offset;
-    int64_t k = 0;
+    if (reduced_rank > MAX_RANK || recovered_rank > MAX_RANK || rank > MAX_RANK)
+    {
+        return ERROR(ERROR_RANK,
+                     string_create("reduced rank %ld, recovered rank %ld and axis length %ld must be less than or equal to %d.",
+                     reduced_rank, recovered_rank, rank, (int) MAX_RANK),
+                     NULL);
+    }
 
+    for (int64_t i = 0; i < rank; ++i)
+    {
+        if (axis[i] >= recovered_rank)
+        {
+            return ERROR(ERROR_RANK,
+                         string_create("recovered rank %ld must be greater than the axis dimension index %ld.",
+                         recovered_rank, axis[i]),
+                         NULL);
+        }
+    }
+
+    int64_t k = 0;
     for (int64_t i = 0; i < recovered_rank; ++i)
     {
-        if (array_contains(axis, length, i) || array_contains(axis, length, i - recovered_rank))
+        bool_t reduced = false;
+        for (int64_t j = 0; j < rank; ++j)
         {
-            recovered_shape[i] = 1;
-            recovered_mask[i] = 1;
-            recovered_strides[i] = 0;
-        }
-        else
-        {
-            if (k >= reduced_view->rank)
+            if (axis[j] == i)
             {
-                return ERROR(ERROR_RANK, string_create("error index %ld out of range of reduced rank %ld.", k, reduced_view->rank), NULL);
+                recovered_shape[i] = 1;
+                recovered_strides[i] = 0;
+                reduced = true;
+                break;
+            }
+        }
+    
+        if (!reduced)
+        {
+            if (k >= reduced_rank)
+            {
+                return ERROR(ERROR_RANK,
+                             string_create("error index %ld out of range of reduced rank %ld.",
+                             k, reduced_rank),
+                             NULL);
             }
 
-            recovered_shape[i] = reduced_view->shape[k];
-            recovered_mask[i] = reduced_view->mask[k];
-            recovered_strides[i] = reduced_view->strides[k];
+            if (!reduced_shape[k])
+            {
+                return ERROR(ERROR_SHAPE,
+                             string_create("all reduced shape dimensions must be greater than 0."),
+                             NULL);
+            }
+
+            recovered_shape[i] = reduced_shape[k];
+            recovered_strides[i] = reduced_strides[k];
             ++k;
         }
     }
 
-    error = view_create(recovered_view, recovered_offset, recovered_rank, recovered_shape, recovered_strides, recovered_mask);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
-    }
-
-    return error;
+    return NULL;
 }
 
 /**

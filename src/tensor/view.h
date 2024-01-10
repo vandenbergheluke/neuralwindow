@@ -30,10 +30,9 @@ typedef struct view_t
 
 nw_error_t *view_create(view_t **view, int64_t offset, int64_t rank, const int64_t *shape, const int64_t *strides, const int64_t *mask);
 void view_destroy(view_t *view);
-nw_error_t *view_is_contiguous(const view_t *view, bool_t *is_contiguous);
+bool_t is_contiguous(const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset);
 nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t rank);
 nw_error_t *view_permute(const view_t *original_view, view_t **permuted_view, const int64_t *axis, int64_t length);
-nw_error_t *view_recover_dimensions(const view_t *reduced_view, view_t **recovered_view, const int64_t *axis, int64_t length);
 nw_error_t *reduce(const int64_t *original_shape,
                 int64_t original_rank,
                 const int64_t *original_strides, 
@@ -43,6 +42,14 @@ nw_error_t *reduce(const int64_t *original_shape,
                 const int64_t *axis,
                 int64_t rank,
                 bool_t keep_dimensions);
+nw_error_t *reduce_recover_dimensions(const int64_t *reduced_shape,
+                                      int64_t reduced_rank, 
+                                      const int64_t *reduced_strides,
+                                      int64_t *recovered_shape, 
+                                      int64_t recovered_rank,
+                                      int64_t *recovered_strides,
+                                      const int64_t *axis,
+                                      int64_t rank);
 bool_t shapes_equal(const int64_t *x_shape, int64_t x_rank, const int64_t *y_shape, int64_t y_rank);
 int64_t shape_size(const int64_t *shape, int64_t rank);
 nw_error_t *broadcast_strides(const int64_t *original_shape,

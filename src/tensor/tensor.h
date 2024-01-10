@@ -57,7 +57,7 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const int64_t *shape
 nw_error_t *tensor_permute(const tensor_t *x, tensor_t **y, int64_t *axis, int64_t length);
 nw_error_t *tensor_slice(const tensor_t *x, tensor_t **y, int64_t *arguments, int64_t length);
 nw_error_t *tensor_padding(const tensor_t *x, tensor_t **y, int64_t *arguments, int64_t length);
-nw_error_t *tensor_is_contiguous(const tensor_t *x, bool_t *is_contiguous);
+bool_t tensor_is_contiguous(const tensor_t *x);
 int64_t tensor_number_of_elements(const tensor_t *x);
 nw_error_t *tensor_transpose(const tensor_t *x, tensor_t **y, int64_t axis1, int64_t axis2);
 bool_t tensor_shapes_equal(const tensor_t *x, const tensor_t *y);
