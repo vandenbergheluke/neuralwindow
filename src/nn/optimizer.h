@@ -16,7 +16,7 @@ typedef struct stochastic_gradient_descent_t
     void *dampening;
     void *weight_decay;
     bool_t nesterov;
-    uint64_t momentum_buffer_size;
+    int64_t momentum_buffer_size;
     tensor_t **momentum_buffer;
 } stochastic_gradient_descent_t;
 
@@ -28,8 +28,8 @@ typedef struct adam_t
     void *beta_2;
     void *weight_decay;
     void *epsilon; 
-    uint64_t iteration;
-    uint64_t buffer_size;
+    int64_t iteration;
+    int64_t buffer_size;
     tensor_t **first_moment;
     tensor_t **second_moment;
 } adam_t;
@@ -43,7 +43,7 @@ typedef struct rms_prop_t
     void *weight_decay;
     void *epsilon; 
     bool_t centered;
-    uint64_t buffer_size;
+    int64_t buffer_size;
     tensor_t **square_average;
     tensor_t **average_gradient;
     tensor_t **momentum_buffer;
@@ -94,10 +94,10 @@ void stochastic_gradient_descent_destroy(stochastic_gradient_descent_t *stochast
 nw_error_t *algorithm_create(algorithm_t **algorithm, algorithm_type_t algorithm_type, void *type_algorithm);
 void algorithm_destroy(algorithm_t *algorithm, algorithm_type_t algorithm_type);
 nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, block_t *block);
-nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer, tensor_t *parameters, uint64_t index);
-nw_error_t *initialize_momentum_buffer(block_t *param, tensor_t **buffer, uint64_t index);
-nw_error_t *update_helper(algorithm_t *algorithm, algorithm_type_t algorithm_type, block_t *block, uint64_t index);
-nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index);
+nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer, tensor_t *parameters, int64_t index);
+nw_error_t *initialize_momentum_buffer(block_t *param, tensor_t **buffer, int64_t index);
+nw_error_t *update_helper(algorithm_t *algorithm, algorithm_type_t algorithm_type, block_t *block, int64_t index);
+nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, int64_t index);
 nw_error_t *optimizer_rms_prop_create(optimizer_t **optimizer,
                                         block_t *params,
                                         datatype_t datatype,
@@ -117,8 +117,8 @@ nw_error_t *rms_prop_create(rms_prop_t **rms_prop,
                             void *epsilon,
                             bool_t centered);
 void rms_prop_destroy(rms_prop_t *rms_prop);
-const nw_error_t *initialize_zero_buffer(block_t *param, tensor_t **buffer, uint64_t index);
-nw_error_t *adam(adam_t *optimizer, tensor_t *parameters, uint64_t index);
+const nw_error_t *initialize_zero_buffer(block_t *param, tensor_t **buffer, int64_t index);
+nw_error_t *adam(adam_t *optimizer, tensor_t *parameters, int64_t index);
 nw_error_t *optimizer_adam_create(optimizer_t **optimizer,
                                         block_t *params,
                                         datatype_t datatype,

@@ -6,7 +6,7 @@
 #include <optimizer.h>
 #include <math.h>
 
-nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer, tensor_t *parameters, uint64_t index)
+nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer, tensor_t *parameters, int64_t index)
 {
     CHECK_NULL_ARGUMENT(optimizer, "optimizer");
     CHECK_NULL_ARGUMENT(parameters, "parameters");
@@ -62,7 +62,7 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
         {
             error = tensor_from_data(&optimizer->momentum_buffer[index], parameters->gradient->buffer->storage->data, parameters->gradient->buffer->storage->runtime, 
                                     parameters->gradient->buffer->storage->datatype, parameters->gradient->buffer->view->rank, parameters->gradient->buffer->view->shape, 
-                                    parameters->gradient->buffer->view->strides, parameters->gradient->buffer->view->offset, true, false, true);
+                                    true, false, true);
             if (error)
             {
                 goto cleanup;
@@ -208,7 +208,7 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
 
 }
 
-nw_error_t *update_helper(algorithm_t *algorithm, algorithm_type_t algorithm_type, block_t *block, uint64_t index)
+nw_error_t *update_helper(algorithm_t *algorithm, algorithm_type_t algorithm_type, block_t *block, int64_t index)
 {
     CHECK_NULL_ARGUMENT(algorithm, "algorithm");
     CHECK_NULL_ARGUMENT(block, "block");
@@ -387,7 +387,7 @@ nw_error_t *stochastic_gradient_descent_create(stochastic_gradient_descent_t **s
 
     if (*(float32_t *) (*stochastic_gradient_descent)->momentum != 0.f)
     {
-        uint64_t num_params = 0;
+        int64_t num_params = 0;
       
         error = block_num_params(params, &num_params);
         if (error)
@@ -428,7 +428,7 @@ void stochastic_gradient_descent_destroy(stochastic_gradient_descent_t *stochast
     {
         if (*(float32_t *) stochastic_gradient_descent->momentum != 0.f)
         {
-            for (uint64_t i=0; i < stochastic_gradient_descent->momentum_buffer_size; ++i)
+            for (int64_t i=0; i < stochastic_gradient_descent->momentum_buffer_size; ++i)
             {
                 tensor_destroy(stochastic_gradient_descent->momentum_buffer[i]);
             }
@@ -663,7 +663,7 @@ nw_error_t *rms_prop_create(rms_prop_t **rms_prop,
         goto cleanup;
     }
     
-    uint64_t num_params = 0;
+    int64_t num_params = 0;
       
     error = block_num_params(params, &num_params);
     if (error)
@@ -673,7 +673,7 @@ nw_error_t *rms_prop_create(rms_prop_t **rms_prop,
     }
     (*rms_prop)->buffer_size = num_params;
 
-    (*rms_prop)->square_average = (tensor_t **)malloc(num_params * sizeof(tensor_t *));
+    (*rms_prop)->square_average = (tensor_t *)malloc(num_params * sizeof(tensor_t *));
     if (!(*rms_prop)->square_average)
     {
         error = ERROR(ERROR_MEMORY_ALLOCATION,
@@ -691,6 +691,12 @@ nw_error_t *rms_prop_create(rms_prop_t **rms_prop,
                                     (unsigned long)(num_params * sizeof(tensor_t *))),
                         NULL);
         goto cleanup;
+    }
+
+    for (int64_t i = 0; i < num_params; ++i)
+    {
+        (*rms_prop)->square_average[i] = NULL;
+        (*rms_prop)->average_gradient[i] = NULL;
     }
 
     error = initialize_zero_buffer(params, (*rms_prop)->square_average, 0);
@@ -719,6 +725,11 @@ nw_error_t *rms_prop_create(rms_prop_t **rms_prop,
             goto cleanup;
         }
 
+        for (int64_t i = 0; i < num_params; ++i)
+        {
+            (*rms_prop)->momentum_buffer[i] = NULL;
+        }
+
         error = initialize_zero_buffer(params, (*rms_prop)->momentum_buffer, 0);
         if (error)
         {
@@ -740,14 +751,14 @@ void rms_prop_destroy(rms_prop_t *rms_prop)
     {
         if (*(float32_t *) rms_prop->momentum != 0.f)
         {
-            for (uint64_t i=0; i < rms_prop->buffer_size; ++i)
+            for (int64_t i=0; i < rms_prop->buffer_size; ++i)
             {
                 tensor_destroy(rms_prop->momentum_buffer[i]);
             }
             free(rms_prop->momentum_buffer);
         }
 
-        for (uint64_t i=0; i < rms_prop->buffer_size; ++i)
+        for (int64_t i=0; i < rms_prop->buffer_size; ++i)
         {
             tensor_destroy(rms_prop->square_average[i]);
             tensor_destroy(rms_prop->average_gradient[i]);
@@ -765,11 +776,11 @@ void rms_prop_destroy(rms_prop_t *rms_prop)
 }
 
 
-const nw_error_t *initialize_zero_buffer(block_t *param, tensor_t **buffer, uint64_t index)
+const nw_error_t *initialize_zero_buffer(block_t *param, tensor_t **buffer, int64_t index)
 {
     nw_error_t *error = NULL;
 
-    for (uint64_t i = 0; i < param->depth; ++i)
+    for (int64_t i = 0; i < param->depth; ++i)
     {
         layer_t *layer = param->layers[i];
         if (!layer)
@@ -787,9 +798,9 @@ const nw_error_t *initialize_zero_buffer(block_t *param, tensor_t **buffer, uint
         switch (transform_type)
         {
         case LINEAR:
-            tensor_zeroes_like(transform->linear->weights, &buffer[index], false, true, true);
+            tensor_zeroes_like(transform->linear->weights, &buffer[index], false, true);
             index++;
-            tensor_zeroes_like(transform->linear->bias, &buffer[index], false, true, true);
+            tensor_zeroes_like(transform->linear->bias, &buffer[index], false, true);
             index++;
             break;
         case BLOCK:
@@ -800,7 +811,7 @@ const nw_error_t *initialize_zero_buffer(block_t *param, tensor_t **buffer, uint
             }
             break;
         default:
-            return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown layer type %d.", transform_type), error);
+            return ERROR(ERROR_LAYER_TYPE, string_create("unknown layer type %d.", transform_type), error);
         }
     }
     return error;
@@ -846,7 +857,7 @@ nw_error_t *optimizer_rms_prop_create(optimizer_t **optimizer,
     return error;
 }
 
-nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index)
+nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, int64_t index)
 {
     CHECK_NULL_ARGUMENT(optimizer, "optimizer");
     CHECK_NULL_ARGUMENT(parameters, "parameters");
@@ -971,7 +982,8 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index
     }
 
     tensor_destroy(optimizer->square_average[index]); 
-    error = tensor_zeroes_like(square_average_telda, &optimizer->square_average[index], false, true, true);
+    optimizer->square_average[index] = NULL;
+    error = tensor_zeroes_like(square_average_telda, &optimizer->square_average[index], false, true);
     if (error)
     {
         error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
@@ -985,6 +997,7 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index
         goto cleanup;
     }
     tensor_destroy(optimizer->square_average[index]);
+    optimizer->square_average[index] = NULL;
     optimizer->square_average[index] = temp_optimizer_square_average;
 
     if (optimizer->centered)
@@ -1078,6 +1091,7 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters, uint64_t index
             goto cleanup;
         }
         tensor_destroy(optimizer->momentum_buffer[index]);
+        optimizer->momentum_buffer[index] = NULL;
         optimizer->momentum_buffer[index] = updated_momentum;
 
         error = tensor_multiplication(learning_rate, updated_momentum, &parameter_update);
@@ -1229,7 +1243,7 @@ nw_error_t *adam_create(adam_t **adam,
         goto cleanup;
     }
 
-    uint64_t num_params = 0;
+    int64_t num_params = 0;
       
     error = block_num_params(params, &num_params);
     if (error)
@@ -1259,6 +1273,12 @@ nw_error_t *adam_create(adam_t **adam,
         goto cleanup;
     }
 
+    for (int64_t i = 0; i < num_params; ++i)
+    {
+        (*adam)->first_moment[i] = NULL;
+        (*adam)->second_moment[i] = NULL;
+    }
+
     error = initialize_zero_buffer(params, (*adam)->first_moment, 0);
     if (error)
     {
@@ -1284,7 +1304,7 @@ void adam_destroy(adam_t *adam)
 {
     if (adam)
     {
-        for (uint64_t i=0; i < adam->buffer_size; ++i)
+        for (int64_t i=0; i < adam->buffer_size; ++i)
         {
             tensor_destroy(adam->first_moment[i]);
             tensor_destroy(adam->second_moment[i]);
@@ -1341,7 +1361,7 @@ nw_error_t *optimizer_adam_create(optimizer_t **optimizer,
     return error;
 }
 
-nw_error_t *adam(adam_t *optimizer, tensor_t *parameters, uint64_t index)
+nw_error_t *adam(adam_t *optimizer, tensor_t *parameters, int64_t index)
 {
     CHECK_NULL_ARGUMENT(optimizer, "optimizer");
     CHECK_NULL_ARGUMENT(parameters, "parameters");

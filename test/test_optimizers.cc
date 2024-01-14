@@ -11,8 +11,9 @@ extern "C"
 #include <optimizer.h>
 #include <layer.h>
 #include <function.h>
-}
 #include <test_helper.h>
+}
+#include <test_helper_torch.h>
 
 nw_error_t *error = NULL;
 
@@ -339,7 +340,7 @@ void take_step_RMS_PROP(void *learning_rate, void *momentum, void *alpha, void *
         out.backward();
         optim.step();
     }
-
+    
     for (int j = 0; j < steps; j++) 
     {
         forwardNW();

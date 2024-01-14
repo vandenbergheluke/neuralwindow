@@ -776,11 +776,11 @@ nw_error_t *logsoftmax_activation_create(activation_t **activation, int64_t axis
     return error;
 }
 
-nw_error_t *block_num_params(block_t *block, uint64_t *size)
+nw_error_t *block_num_params(block_t *block, int64_t *size)
 {
     nw_error_t *error = NULL;
 
-    for (uint64_t i = 0; i < block->depth; ++i)
+    for (int64_t i = 0; i < block->depth; ++i)
     {
         layer_t *layer = block->layers[i];
         if (!layer)
@@ -808,7 +808,7 @@ nw_error_t *block_num_params(block_t *block, uint64_t *size)
             }
             break;
         default:
-            return ERROR(ERROR_UKNOWN_LAYER_TYPE, string_create("unknown layer type %d.", transform_type), error);
+            return ERROR(ERROR_LAYER_TYPE, string_create("unknown layer type %d.", transform_type), error);
         }
     }
     return error;
