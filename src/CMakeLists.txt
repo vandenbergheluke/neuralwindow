@@ -73,6 +73,7 @@ set(
     openblas
     mkl_core
     mkl_rt
+    mkl_sequential
 )
 
 set(

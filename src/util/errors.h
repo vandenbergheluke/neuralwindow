@@ -649,6 +649,10 @@ typedef enum nw_error_type_t
     ERROR_DATASET_TYPE,
     ERROR_ARGUMENTS,
     ERROR_ITEM,
+    ERROR_POOLING,
+    ERROR_CONVOLUTION,
+    ERROR_IMAGE_TO_COLUMN,
+    ERROR_COLUMN_TO_IMAGE
 } nw_error_type_t;
 
 typedef struct nw_error_t

@@ -61,5 +61,6 @@ jobs:
         make valgrind_test_tensor_reduction
         make valgrind_test_tensor_unary
         make valgrind_test_tensor_structure
+        make valgrind_test_tensor_ternary
         make valgrind_test_autograd
         make valgrind_test_view

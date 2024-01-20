@@ -173,6 +173,14 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_ARGUMENTS";
     case ERROR_ITEM:
         return "ERROR_ITEM";
+    case ERROR_POOLING:
+        return "ERROR_POOLING";
+    case ERROR_CONVOLUTION:
+        return "ERROR_CONVOLUTION";
+    case ERROR_IMAGE_TO_COLUMN:
+        return "ERROR_IMAGE_TO_COLUMN";
+    case ERROR_COLUMN_TO_IMAGE:
+        return "ERROR_COLUMN_TO_IMAGE";
     default:
         return "ERROR";
     }

@@ -2001,6 +2001,119 @@ cleanup:
     return error;
 }
 
+static nw_error_t *image_to_column_operation_forward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *result)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    nw_error_t *error = NULL;
+
+    error = buffer_structure(IMAGE_TO_COLUMN_OPERATION, x->buffer, arguments, length, &result->buffer);
+    if (error)
+    {
+        return ERROR(ERROR_IMAGE_TO_COLUMN, string_create("failed to apply image to column."), error);
+    }
+
+    return error;
+}
+
+static nw_error_t *image_to_column_operation_backward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *gradient)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(gradient, "gradient");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_gradient = NULL;
+    int64_t channels = x->buffer->view->shape[1];
+    int64_t height = x->buffer->view->shape[2];
+    int64_t width = x->buffer->view->shape[3];
+
+    if (x->requires_gradient)
+    {
+       error = tensor_column_to_image(gradient, &x_gradient, arguments[0], arguments[1], arguments[2], channels, height, width);
+       if (error)
+       {
+           error = ERROR(ERROR_COLUMN_TO_IMAGE, string_create("failed to apply column to image."), error);
+           goto cleanup;
+       }
+
+        error = tensor_accumulate_gradient(x, x_gradient);
+        if (error)
+        {
+            error = ERROR(ERROR_ADDITION, string_create("failed to add gradient."), error);
+            goto cleanup;
+        }
+    }
+
+cleanup:
+
+    if (gradient != x_gradient)
+    {
+        tensor_destroy(x_gradient);
+    }
+
+    return error;
+}
+
+static nw_error_t *column_to_image_operation_forward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *result)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    nw_error_t *error = NULL;
+
+    error = buffer_structure(COLUMN_TO_IMAGE_OPERATION, x->buffer, arguments, length, &result->buffer);
+    if (error)
+    {
+        return ERROR(ERROR_COLUMN_TO_IMAGE, string_create("failed to apply column to image."), error);
+    }
+
+    return error;
+}
+
+static nw_error_t *column_to_image_operation_backward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *gradient)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(gradient, "gradient");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_gradient = NULL;
+
+    if (x->requires_gradient)
+    {
+       error = tensor_image_to_column(gradient, &x_gradient, arguments[0], arguments[1], arguments[2]);
+       if (error)
+       {
+           error = ERROR(ERROR_IMAGE_TO_COLUMN, string_create("failed to apply image to column."), error);
+           goto cleanup;
+       }
+
+        error = tensor_accumulate_gradient(x, x_gradient);
+        if (error)
+        {
+            error = ERROR(ERROR_ADDITION, string_create("failed to add gradient."), error);
+            goto cleanup;
+        }
+    }
+
+cleanup:
+
+    if (gradient != x_gradient)
+    {
+        tensor_destroy(x_gradient);
+    }
+
+    return error;
+}
+
 /**
  * @brief Apply structure operation forward.
  * @param structure_operation Structure operation to execute.
@@ -2025,6 +2138,12 @@ static nw_error_t *structure_operation_forward(structure_operation_t *structure_
         break;
     case RESHAPE_OPERATION:
         error = reshape_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
+        break;
+    case IMAGE_TO_COLUMN_OPERATION:
+        error = image_to_column_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
+        break;
+    case COLUMN_TO_IMAGE_OPERATION:
+        error = column_to_image_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
         break;
     default:
         error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) structure_operation->operation_type), NULL);
@@ -2068,6 +2187,12 @@ static nw_error_t *structure_operation_backward(structure_operation_t *structure
         break;
     case RESHAPE_OPERATION:
         error = reshape_operation_backward(structure_operation->x, gradient);
+        break;
+    case IMAGE_TO_COLUMN_OPERATION:
+        error = image_to_column_operation_backward(structure_operation->x, structure_operation->arguments, structure_operation->length, gradient);
+        break;
+    case COLUMN_TO_IMAGE_OPERATION:
+        error = column_to_image_operation_backward(structure_operation->x, structure_operation->arguments, structure_operation->length, gradient);
         break;
     default:
         error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) structure_operation->operation_type), NULL);
