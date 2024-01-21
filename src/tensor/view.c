@@ -889,100 +889,76 @@ nw_error_t *view_matrix_multiplication(const view_t *view_a, const view_t *view_
     return error;
 }
 
-nw_error_t *reduce_axis_length(const int64_t *original_shape,
-                               int64_t original_rank,
-                               const int64_t *broadcasted_shape,
-                               int64_t broadcasted_rank, 
-                               int64_t *length_keep_dimension,
-                               int64_t *length_remove_dimension)
+nw_error_t *view_reduce_axis(const view_t *original_view, 
+                             const int64_t *broadcasted_shape, int64_t broadcasted_rank,
+                             int64_t **axis_keep_dimension, int64_t *length_keep_dimension,
+                             int64_t **axis_remove_dimension, int64_t *length_remove_dimension)
 {
-    CHECK_NULL_ARGUMENT(original_shape, "original_shape");
-    CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
-    CHECK_NULL_ARGUMENT(length_keep_dimension, "length_keep_dimension");
-    CHECK_NULL_ARGUMENT(length_remove_dimension, "length_remove_dimension");
-    
-    if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
-    {
-        return ERROR(ERROR_RANK, 
-                     string_create("original rank %ld and broadcasted rank %ld must be less than or equal to %d.", 
-                     original_rank, broadcasted_rank, (int) MAX_RANK),
-                     NULL);
-    }
-
-    if (!is_expandable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
-    {
-        return ERROR(ERROR_BROADCAST,
-                     string_create("cannot broadcast shapes."),
-                     NULL);
-    }
-
-    *length_keep_dimension = 0;
-    *length_remove_dimension = 0;
-    for (int64_t i = 0; i < broadcasted_rank; ++i)
-    {
-        if (original_rank >= (i + 1))
-        {
-            if (original_shape[original_rank - (i + 1)] != 
-                broadcasted_shape[broadcasted_rank - (i + 1)])
-            {
-                ++(*length_keep_dimension);
-            }
-        }
-        else
-        {
-            ++(*length_remove_dimension);
-        }
-    }
-
-    return NULL;
-}
-
-nw_error_t *reduce_axis(const int64_t *original_shape,
-                        int64_t original_rank,
-                        const int64_t *broadcasted_shape,
-                        int64_t broadcasted_rank, 
-                        int64_t *axis_keep_dimension,
-                        int64_t *axis_remove_dimension)
-{
-    CHECK_NULL_ARGUMENT(original_shape, "original_shape");
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
     CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
     CHECK_NULL_ARGUMENT(axis_keep_dimension, "axis_keep_dimension");
     CHECK_NULL_ARGUMENT(axis_remove_dimension, "axis_remove_dimension");
-
-    if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
+    CHECK_NULL_ARGUMENT(length_keep_dimension, "length_keep_dimension");
+    CHECK_NULL_ARGUMENT(length_remove_dimension, "length_remove_dimension");
+    
+    if (original_view->rank > MAX_RANK || broadcasted_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK, 
                      string_create("original rank %ld and broadcasted rank %ld must be less than or equal to %d.", 
-                     original_rank, 
-                     broadcasted_rank,
-                     (int) MAX_RANK),
+                     original_view->rank, broadcasted_rank, (int) MAX_RANK),
                      NULL);
     }
 
-    if (!is_expandable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
+    if (!is_expandable(original_view->shape, original_view->rank, broadcasted_shape, broadcasted_rank))
     {
         return ERROR(ERROR_BROADCAST,
                      string_create("cannot broadcast shapes."),
                      NULL);
     }
 
-    int64_t j = 0;
-    int64_t k = 0;
-    for (int64_t i = 0; i < broadcasted_rank; ++i)
+
+    for (int i = 0; i < 2; ++i)
     {
-        if (original_rank >= (i + 1))
+        if (i)
         {
-            if (original_shape[original_rank - (i + 1)] != 
-                broadcasted_shape[broadcasted_rank - (i + 1)])
+            *axis_keep_dimension = (int64_t *) malloc((*length_keep_dimension) * sizeof(int64_t));
+            if (!*axis_keep_dimension)
             {
-                axis_keep_dimension[j] = broadcasted_rank - (i + 1);
-                ++j;
+                return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", (*length_keep_dimension) * sizeof(int64_t)), NULL);
+            }
+            *axis_remove_dimension = (int64_t *) malloc((*length_remove_dimension) * sizeof(int64_t));
+            if (!*axis_remove_dimension)
+            {
+                free(*axis_keep_dimension);
+                *axis_keep_dimension = NULL;
+                return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", (*length_remove_dimension) * sizeof(int64_t)), NULL);
             }
         }
-        else
+        *length_keep_dimension = 0;
+        *length_remove_dimension = 0;
+
+        for (int64_t j = 0; j < broadcasted_rank; ++j)
         {
-            axis_remove_dimension[k] = broadcasted_rank - (i + 1);
-            ++k;
+            if (original_view->rank >= (j + 1))
+            {
+                if (original_view->shape[original_view->rank - (j + 1)] != 
+                    broadcasted_shape[broadcasted_rank - (j + 1)])
+                {
+                    if (i)
+                    {
+                        (*axis_keep_dimension)[*length_keep_dimension] = broadcasted_rank - (j + 1);
+                    }
+                    ++(*length_keep_dimension);
+                }
+            }
+            else
+            {
+                if (i)
+                {
+                    (*axis_remove_dimension)[*length_remove_dimension] = broadcasted_rank - (j + 1);
+                }
+                ++(*length_remove_dimension);
+            }
         }
     }
 

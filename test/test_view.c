@@ -1114,17 +1114,17 @@ START_TEST(test_view_logical_size)
         60,
     };
     
-    int64_t returned_n[number_of_cases];
 
     for (int64_t i = 0; i < number_of_cases; i++)
     {
         view_t *view = NULL;
+        int64_t returned_n;
 
         error = view_create(&view, offsets[i], ranks[i], shapes[i], strides[i]);
         ck_assert_ptr_null(error);
-        error = view_logical_size(view, &returned_n[i]);
+        error = view_logical_size(view, &returned_n);
         ck_assert_ptr_null(error);
-        ck_assert_int_eq(returned_n[i], expected_n[i]);
+        ck_assert_int_eq(returned_n, expected_n[i]);
 
         view_destroy(view);
     }
@@ -1501,28 +1501,27 @@ START_TEST(test_view_broadcast)
         5,
     };
 
-    int64_t *returned_broadcasted_shapes[number_of_cases];
-    int64_t returned_broadcasted_ranks[number_of_cases];
-
     for (int64_t i = 0; i < number_of_cases; i++)
     {
         view_t *x_view = NULL;
         view_t *y_view = NULL;
+        int64_t *returned_broadcasted_shape = NULL;
+        int64_t returned_broadcasted_rank;
 
         error = view_create(&x_view, 0, x_original_ranks[i], x_original_shapes[i], NULL);
         ck_assert_ptr_null(error);
         error = view_create(&y_view, 0, y_original_ranks[i], y_original_shapes[i], NULL);
         ck_assert_ptr_null(error);
-        error = view_broadcast(x_view, y_view, &returned_broadcasted_shapes[i], &returned_broadcasted_ranks[i]);
+        error = view_broadcast(x_view, y_view, &returned_broadcasted_shape, &returned_broadcasted_rank);
         ck_assert_ptr_null(error);
-        ck_assert_int_eq(broadcasted_ranks[i], returned_broadcasted_ranks[i]);
+        ck_assert_int_eq(broadcasted_ranks[i], returned_broadcasted_rank);
         for (int64_t j = 0; j < broadcasted_ranks[i]; j++)
         {
-            ck_assert_int_eq(returned_broadcasted_shapes[i][j],
+            ck_assert_int_eq(returned_broadcasted_shape[j],
                               expected_broadcasted_shapes[i][j]);
         }
 
-        free(returned_broadcasted_shapes[i]);
+        free(returned_broadcasted_shape);
         view_destroy(x_view);
         view_destroy(y_view);
     }
@@ -1573,270 +1572,27 @@ START_TEST(test_view_broadcast_error)
         ERROR_BROADCAST,
     };
 
-    int64_t *returned_broadcasted_shapes[number_of_cases];
-    int64_t returned_broadcasted_ranks[number_of_cases];
 
     for (int64_t i = 0; i < number_of_cases; i++)
     {
         view_t *x_view = NULL;
         view_t *y_view = NULL;
+        int64_t *returned_broadcasted_shape = NULL;
+        int64_t returned_broadcasted_rank;
 
         error = view_create(&x_view, 0, x_original_ranks[i], x_original_shapes[i], NULL);
         ck_assert_ptr_null(error);
         error = view_create(&y_view, 0, y_original_ranks[i], y_original_shapes[i], NULL);
         ck_assert_ptr_null(error);
-        error = view_broadcast(x_view, y_view, &returned_broadcasted_shapes[i], &returned_broadcasted_ranks[i]);
+        error = view_broadcast(x_view, y_view, &returned_broadcasted_shape, &returned_broadcasted_rank);
         ck_assert_ptr_nonnull(error);
         ck_assert_int_eq(error->error_type, error_types[i]);
         error_destroy(error);
         error = NULL;
 
-        free(returned_broadcasted_shapes[i]);
+        free(returned_broadcasted_shape);
         view_destroy(x_view);
         view_destroy(y_view);
-    }
-}
-END_TEST
-
-START_TEST(test_reduce_axis_length)
-{
-    int64_t number_of_cases = 17;
-
-    int64_t *original_shapes[] = {
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {2},
-        (int64_t[]) {1},
-        (int64_t[]) {3},
-        (int64_t[]) {1},
-        (int64_t[]) {8, 1, 6, 1},
-        (int64_t[]) {7, 1, 5},
-        (int64_t[]) {4},
-        (int64_t[]) {15, 3, 5},
-        (int64_t[]) {15, 1, 5},
-        (int64_t[]) {3, 5},
-        (int64_t[]) {3, 1},
-    };
-
-    int64_t original_ranks[] = {
-        0,
-        0,
-        0,
-        0,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        4,
-        3,
-        1,
-        3,
-        3,
-        2,
-        2,
-    };
-
-    int64_t *broadcasted_shapes[] = {
-        (int64_t[]) {},
-        (int64_t[]) {1},
-        (int64_t[]) {1, 1, 1, 1, 1},
-        (int64_t[]) {6, 5, 4, 3, 2},
-        (int64_t[]) {1},
-        (int64_t[]) {2},
-        (int64_t[]) {2},
-        (int64_t[]) {5, 4},
-        (int64_t[]) {256, 256, 3},
-        (int64_t[]) {256, 256, 3},
-        (int64_t[]) {8, 7, 6, 5},
-        (int64_t[]) {8, 7, 6, 5},
-        (int64_t[]) {5, 4},
-        (int64_t[]) {15, 3, 5},
-        (int64_t[]) {15, 3, 5},
-        (int64_t[]) {15, 3, 5},
-        (int64_t[]) {15, 3, 5},
-    };
-
-    int64_t broadcasted_ranks[] = {
-        0,
-        1,
-        5,
-        5,
-        1,
-        1,
-        1,
-        2,
-        3,
-        3,
-        4,
-        4,
-        2,
-        3,
-        3,
-        3,
-        3,
-    };
-
-    int64_t expected_length_keep_dimensions[] = {
-        0,
-        0,
-        0,
-        0,
-        0,
-        1,
-        0,
-        1,
-        0,
-        1,
-        2,
-        1,
-        0,
-        0,
-        1,
-        0,
-        1,
-    };
-
-    int64_t expected_length_remove_dimensions[] = {
-        0,
-        1,
-        5,
-        5,
-        0,
-        0,
-        0,
-        1,
-        2,
-        2,
-        0,
-        1,
-        1,
-        0,
-        0,
-        1,
-        1,
-    };
-
-    int64_t returned_length_keep_dimensions[number_of_cases];
-    int64_t returned_length_remove_dimensions[number_of_cases];
-
-    for (int64_t i = 0; i < number_of_cases; i++)
-    {
-        error = reduce_axis_length(original_shapes[i],
-                                   original_ranks[i],
-                                   broadcasted_shapes[i],
-                                   broadcasted_ranks[i],
-                                   &returned_length_keep_dimensions[i],
-                                   &returned_length_remove_dimensions[i]);
-        ck_assert_ptr_null(error);
-        ck_assert_int_eq(returned_length_keep_dimensions[i],
-                          expected_length_keep_dimensions[i]);
-        ck_assert_int_eq(returned_length_remove_dimensions[i],
-                          expected_length_remove_dimensions[i]);
-        error_destroy(error);
-        error = NULL;
-    }
-}
-END_TEST
-
-START_TEST(test_reduce_axis_length_error)
-{
-    int64_t number_of_cases = 8;
-
-    int64_t *original_shapes[] = {
-        NULL,
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {3},
-        (int64_t[]) {2, 1},
-    };
-
-    int64_t original_ranks[] = {
-        0,
-        0,
-        0,
-        0,
-        MAX_RANK + 1,
-        0,
-        1,
-        2,
-    };
-
-    int64_t *broadcasted_shapes[] = {
-        (int64_t[]) {},
-        NULL,
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {4},
-        (int64_t[]) {8, 4, 3},
-    };
-
-    int64_t broadcasted_ranks[] = {
-        0,
-        0,
-        0,
-        0,
-        0,
-        MAX_RANK + 1,
-        1,
-        3,
-    };
-
-    int64_t *length_keep_dimensions[] = {
-        (int64_t[]) {},
-        (int64_t[]) {},
-        NULL,
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-    };
-
-    int64_t *length_remove_dimensions[] = {
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        NULL,
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-    };
-
-    nw_error_type_t error_types[] = {
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_RANK,
-        ERROR_RANK,
-        ERROR_BROADCAST,
-        ERROR_BROADCAST,
-    };
-
-    for (int64_t i = 0; i < number_of_cases; i++)
-    {
-        error = reduce_axis_length(original_shapes[i],
-                                   original_ranks[i],
-                                   broadcasted_shapes[i],
-                                   broadcasted_ranks[i],
-                                   length_keep_dimensions[i],
-                                   length_remove_dimensions[i]);
-        ck_assert_ptr_nonnull(error);
-        ck_assert_int_eq(error->error_type, error_types[i]);
-        error_destroy(error);
-        error = NULL;
     }
 }
 END_TEST
@@ -1846,7 +1602,7 @@ static int compare_uint64(const void * a, const void * b)
     return ( *((int64_t *) a) > *((int64_t *) b) );
 }
 
-START_TEST(test_reduce_axis)
+START_TEST(test_view_reduce_axis)
 {
     int64_t number_of_cases = 11;
 
@@ -1934,7 +1690,7 @@ START_TEST(test_reduce_axis)
         (int64_t[]) {0},
     };
 
-    int64_t length_keep_dimensions[] = {
+    int64_t expected_length_keep_dimensions[] = {
         0,
         0,
         0,
@@ -1948,7 +1704,7 @@ START_TEST(test_reduce_axis)
         1,
     };
 
-    int64_t length_remove_dimensions[] = {
+    int64_t expected_length_remove_dimensions[] = {
         0,
         1,
         1,
@@ -1962,51 +1718,55 @@ START_TEST(test_reduce_axis)
         1,
     };
 
-    int64_t returned_axis_keep_dimensions[number_of_cases][MAX_RANK];
-    int64_t returned_axis_remove_dimensions[number_of_cases][MAX_RANK];
 
     for (int64_t i = 0; i < number_of_cases; i++)
     {
-        error = reduce_axis(original_shapes[i],
-                            original_ranks[i],
-                            broadcasted_shapes[i],
-                            broadcasted_ranks[i],
-                            returned_axis_keep_dimensions[i],
-                            returned_axis_remove_dimensions[i]);
+        view_t *original_view = NULL;        
+        int64_t *returned_axis_keep_dimensions = NULL;
+        int64_t *returned_axis_remove_dimensions = NULL;
+        int64_t returned_length_keep_dimensions;
+        int64_t returned_length_remove_dimensions;
+
+        error = view_create(&original_view, 0, original_ranks[i], original_shapes[i], NULL);
         ck_assert_ptr_null(error);
-        qsort(returned_axis_keep_dimensions[i],
-              (size_t) length_keep_dimensions[i],
-              sizeof(int64_t),
-              compare_uint64);
-        qsort(returned_axis_remove_dimensions[i],
-              (size_t) length_remove_dimensions[i],
-              sizeof(int64_t),
-              compare_uint64);
-        for (int64_t j = 0; j < length_keep_dimensions[i]; j++)
+
+        error = view_reduce_axis(original_view, broadcasted_shapes[i], broadcasted_ranks[i],
+                                 &returned_axis_keep_dimensions, &returned_length_keep_dimensions,
+                                 &returned_axis_remove_dimensions, &returned_length_remove_dimensions);
+        ck_assert_ptr_null(error);
+
+        ck_assert_int_eq(returned_length_keep_dimensions, expected_length_keep_dimensions[i]);
+        ck_assert_int_eq(returned_length_remove_dimensions, expected_length_remove_dimensions[i]);
+
+        qsort(returned_axis_keep_dimensions, (size_t) returned_length_keep_dimensions,
+              sizeof(int64_t), compare_uint64);
+        qsort(returned_axis_remove_dimensions, (size_t) returned_length_remove_dimensions,
+              sizeof(int64_t), compare_uint64);
+
+        for (int64_t j = 0; j < returned_length_keep_dimensions; j++)
         {
-            ck_assert_int_eq(returned_axis_keep_dimensions[i][j],
+            ck_assert_int_eq(returned_axis_keep_dimensions[j],
                               expected_axis_keep_dimensions[i][j]);
         }
 
-        for (int64_t j = 0; j < length_remove_dimensions[i]; j++)
+        for (int64_t j = 0; j < returned_length_remove_dimensions; j++)
         {
-            ck_assert_int_eq(returned_axis_remove_dimensions[i][j],
+            ck_assert_int_eq(returned_axis_remove_dimensions[j],
                               expected_axis_remove_dimensions[i][j]);
         }
+
+        view_destroy(original_view);
+        free(returned_axis_keep_dimensions);
+        free(returned_axis_remove_dimensions);
     }
 }
 END_TEST
 
-START_TEST(test_reduce_axis_error)
+START_TEST(test_view_reduce_axis_error)
 {
-    int64_t number_of_cases = 9;
+    int64_t number_of_cases = 4;
 
     int64_t *original_shapes[] = {
-        NULL,
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
         (int64_t[]) {},
         (int64_t[]) {3},
         (int64_t[]) {2, 1},
@@ -2015,11 +1775,6 @@ START_TEST(test_reduce_axis_error)
 
     int64_t original_ranks[] = {
         0,
-        0,
-        0,
-        0,
-        MAX_RANK + 1,
-        0,
         1,
         2,
         2,
@@ -2027,58 +1782,19 @@ START_TEST(test_reduce_axis_error)
 
     int64_t *broadcasted_shapes[] = {
         (int64_t[]) {},
-        NULL,
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
         (int64_t[]) {4},
         (int64_t[]) {8, 4, 3},
         (int64_t[]) {8, 4, 3},
     };
 
     int64_t broadcasted_ranks[] = {
-        0,
-        0,
-        0,
-        0,
-        0,
         MAX_RANK + 1,
         1,
         3,
         3,
     };
 
-    int64_t *axis_keep_dimensions[] = {
-        (int64_t[]) {},
-        (int64_t[]) {},
-        NULL,
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-    };
-
-    int64_t *axis_remove_dimensions[] = {
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        NULL,
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-    };
-
     nw_error_type_t error_types[] = {
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_RANK,
         ERROR_RANK,
         ERROR_BROADCAST,
         ERROR_BROADCAST,
@@ -2087,16 +1803,26 @@ START_TEST(test_reduce_axis_error)
 
     for (int64_t i = 0; i < number_of_cases; i++)
     {
-        error = reduce_axis(original_shapes[i],
-                            original_ranks[i],
-                            broadcasted_shapes[i],
-                            broadcasted_ranks[i],
-                            axis_keep_dimensions[i],
-                            axis_remove_dimensions[i]);
+        view_t *original_view = NULL;        
+        int64_t *returned_axis_keep_dimensions = NULL;
+        int64_t *returned_axis_remove_dimensions = NULL;
+        int64_t returned_length_keep_dimensions;
+        int64_t returned_length_remove_dimensions;
+
+        error = view_create(&original_view, 0, original_ranks[i], original_shapes[i], NULL);
+        ck_assert_ptr_null(error);
+
+        error = view_reduce_axis(original_view, broadcasted_shapes[i], broadcasted_ranks[i],
+                                 &returned_axis_keep_dimensions, &returned_length_keep_dimensions,
+                                 &returned_axis_remove_dimensions, &returned_length_remove_dimensions);
         ck_assert_ptr_nonnull(error);
         ck_assert_int_eq(error->error_type, error_types[i]);
         error_destroy(error);
         error = NULL;
+
+        view_destroy(original_view);
+        free(returned_axis_keep_dimensions);
+        free(returned_axis_remove_dimensions);
     }
 }
 END_TEST
@@ -2235,10 +1961,8 @@ Suite *make_view_suite(void)
     tcase_add_test(tc, test_view_expand_error);
     tcase_add_test(tc, test_view_broadcast);
     tcase_add_test(tc, test_view_broadcast_error);
-    tcase_add_test(tc, test_reduce_axis_length);
-    tcase_add_test(tc, test_reduce_axis_length_error);
-    tcase_add_test(tc, test_reduce_axis);
-    tcase_add_test(tc, test_reduce_axis_error);
+    tcase_add_test(tc, test_view_reduce_axis);
+    tcase_add_test(tc, test_view_reduce_axis_error);
     tcase_add_test(tc, test_view_physical_size);
     suite_add_tcase(s, tc);
 

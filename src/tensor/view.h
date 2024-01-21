@@ -44,16 +44,8 @@ nw_error_t *view_expand(const view_t *original_view, view_t **expanded_view, con
 nw_error_t *view_broadcast(const view_t *view_a, const view_t *view_b, int64_t **shape, int64_t *rank);
 nw_error_t *view_broadcast_matrix_multiplication(const view_t *view_a, const view_t *view_b, int64_t **shape_a, int64_t **shape_b, int64_t *rank);
 nw_error_t *view_matrix_multiplication(const view_t *view_a, const view_t *view_b, view_t **view_c);
-nw_error_t *reduce_axis(const int64_t *original_shape,
-                                int64_t original_rank,
-                                const int64_t *broadcasted_shape,
-                                int64_t broadcasted_rank, 
-                                int64_t *axis_keep_dimension,
-                                int64_t *axis_remove_dimension);
-nw_error_t *reduce_axis_length(const int64_t *original_shape,
-                                  int64_t original_rank,
-                                  const int64_t *broadcasted_shape,
-                                  int64_t broadcasted_rank, 
-                                  int64_t *length_keep_dimension,
-                                  int64_t *length_remove_dimension);
+nw_error_t *view_reduce_axis(const view_t *original_view, 
+                             const int64_t *broadcasted_shape, int64_t broadcasted_rank,
+                             int64_t **axis_keep_dimension, int64_t *length_keep_dimension,
+                             int64_t **axis_remove_dimension, int64_t *length_remove_dimension);
 #endif

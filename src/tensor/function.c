@@ -1798,22 +1798,14 @@ static nw_error_t *expand_operation_backward(tensor_t *x, int64_t *shape, int64_
     nw_error_t *error = NULL;
     int64_t length_keep_dimension = 0;
     int64_t length_remove_dimension = 0;
+    int64_t *axis_keep_dimension = NULL;
+    int64_t *axis_remove_dimension = NULL;
     tensor_t *x_gradient = NULL;
     tensor_t *x_gradient_i = NULL;
 
     if (x->requires_gradient)
     {
-        error = reduce_axis_length(x->buffer->view->shape, x->buffer->view->rank, shape, length, &length_keep_dimension, &length_remove_dimension);
-        if (error)
-        {
-            error = ERROR(ERROR_REDUCTION, string_create("failed to get reduction axis lengths."), error);
-            goto cleanup;
-        }
-
-        int64_t axis_keep_dimension[length_keep_dimension];
-        int64_t axis_remove_dimension[length_remove_dimension];
-
-        error = reduce_axis(x->buffer->view->shape, x->buffer->view->rank, shape, length, axis_keep_dimension, axis_remove_dimension);
+        error = view_reduce_axis(x->buffer->view, shape, length, &axis_keep_dimension, &length_keep_dimension, &axis_remove_dimension, &length_remove_dimension);
         if (error)
         {
             error = ERROR(ERROR_REDUCTION, string_create("failed to get reduction axes."), error);
@@ -1867,6 +1859,9 @@ cleanup:
     {
         tensor_destroy(x_gradient_i);
     }
+
+    free(axis_keep_dimension);
+    free(axis_remove_dimension);
 
     return error;
 }
