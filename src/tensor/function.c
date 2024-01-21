@@ -2010,16 +2010,17 @@ static nw_error_t *image_to_column_operation_backward(tensor_t *x, int64_t *argu
     CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
+    if (length != 6)
+    {
+        return ERROR(ERROR_ARGUMENTS, string_create("invalid number of arguments."), NULL);
+    }
 
     nw_error_t *error = NULL;
     tensor_t *x_gradient = NULL;
-    int64_t channels = x->buffer->view->shape[1];
-    int64_t height = x->buffer->view->shape[2];
-    int64_t width = x->buffer->view->shape[3];
 
     if (x->requires_gradient)
     {
-       error = tensor_column_to_image(gradient, &x_gradient, arguments[0], arguments[1], arguments[2], channels, height, width);
+       error = tensor_column_to_image(gradient, &x_gradient, arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5]);
        if (error)
        {
            error = ERROR(ERROR_COLUMN_TO_IMAGE, string_create("failed to apply column to image."), error);
@@ -2061,23 +2062,24 @@ static nw_error_t *column_to_image_operation_forward(tensor_t *x, int64_t *argum
     return error;
 }
 
-static nw_error_t *column_to_image_operation_backward(tensor_t *x, tensor_t *result, int64_t *arguments, int64_t length, tensor_t *gradient)
+static nw_error_t *column_to_image_operation_backward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
     CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
+    if (length != 6)
+    {
+        return ERROR(ERROR_ARGUMENTS, string_create("invalid number of arguments."), NULL);
+    }
 
     nw_error_t *error = NULL;
     tensor_t *x_gradient = NULL;
-    int64_t channels = result->buffer->view->shape[1];
-    int64_t height = result->buffer->view->shape[2];
-    int64_t width = result->buffer->view->shape[3];
 
     if (x->requires_gradient)
     {
-       error = tensor_image_to_column(gradient, &x_gradient, arguments[0], arguments[1], arguments[2], channels, height, width);
+       error = tensor_image_to_column(gradient, &x_gradient, arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5]);
        if (error)
        {
            error = ERROR(ERROR_IMAGE_TO_COLUMN, string_create("failed to apply image to column."), error);
@@ -2158,7 +2160,7 @@ static nw_error_t *structure_operation_forward(structure_operation_t *structure_
  *         NULL if `structure_operation` successfully executed.
  *         NULL if the gradient of the structure operation with respect to the operand was successfully computed.
  */
-static nw_error_t *structure_operation_backward(structure_operation_t *structure_operation, tensor_t *result, tensor_t *gradient)
+static nw_error_t *structure_operation_backward(structure_operation_t *structure_operation, tensor_t *gradient)
 {
     CHECK_NULL_ARGUMENT(structure_operation, "structure_operation");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
@@ -2180,7 +2182,7 @@ static nw_error_t *structure_operation_backward(structure_operation_t *structure
         error = image_to_column_operation_backward(structure_operation->x, structure_operation->arguments, structure_operation->length, gradient);
         break;
     case COLUMN_TO_IMAGE_OPERATION:
-        error = column_to_image_operation_backward(structure_operation->x, result, structure_operation->arguments, structure_operation->length, gradient);
+        error = column_to_image_operation_backward(structure_operation->x, structure_operation->arguments, structure_operation->length, gradient);
         break;
     default:
         error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) structure_operation->operation_type), NULL);
@@ -2856,7 +2858,7 @@ static nw_error_t *operation_backward(operation_t *operation, operation_type_t o
         error = reduction_operation_backward(operation->reduction_operation, result, gradient);
         break;
     case STRUCTURE_OPERATION:
-        error = structure_operation_backward(operation->structure_operation, result, gradient);
+        error = structure_operation_backward(operation->structure_operation, gradient);
         break;
     case CREATION_OPERATION:
         break;
@@ -3157,14 +3159,12 @@ nw_error_t *apply_operation_reduction(reduction_operation_type_t reduction_opera
     CHECK_NULL_ARGUMENT(result, "result");
 
     nw_error_t *error = NULL;
-    int64_t rank = x->buffer->view->rank;
-    int64_t *shape = x->buffer->view->shape;
     reduction_operation_t *reduction_operation = NULL;
     int64_t reduce_length = length ? length : x->buffer->view->rank;
     int64_t reduce_axis[reduce_length];
     view_t *reduced_view = NULL;
 
-    if (rank < reduce_length)
+    if (x->buffer->view->rank < reduce_length)
     {
         error = ERROR(ERROR_RANK, string_create("reduce axis length greater than rank of tensor."), NULL);
         goto cleanup;
@@ -3172,7 +3172,7 @@ nw_error_t *apply_operation_reduction(reduction_operation_type_t reduction_opera
 
     for (int64_t i = 0; i < reduce_length; ++i)
     {
-        reduce_axis[i] = (!axis || !length) ? i : dimension_to_index(axis[i], rank);
+        reduce_axis[i] = (!axis || !length) ? i : dimension_to_index(axis[i], x->buffer->view->rank);
     }
 
     CHECK_UNIQUE(reduce_axis, reduce_length, "reduce_axis");
@@ -3184,7 +3184,7 @@ nw_error_t *apply_operation_reduction(reduction_operation_type_t reduction_opera
         goto cleanup;
     }
 
-    if (shapes_equal(shape, rank, reduced_view->shape, reduced_view->rank))
+    if (view_shapes_equal(reduced_view, x->buffer->view))
     {
         *result = (tensor_t *) x;
     }

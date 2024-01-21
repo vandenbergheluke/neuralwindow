@@ -286,7 +286,7 @@ nw_error_t *tensor_expand(const tensor_t *x, const int64_t *shape, int64_t lengt
 
     nw_error_t *error = NULL;
 
-    if (shapes_equal(x->buffer->view->shape, x->buffer->view->rank, shape, length))
+    if (view_has_shape(x->buffer->view, shape, length))
     {
         *y = (tensor_t *) x;
     }
@@ -1174,9 +1174,21 @@ cleanup:
     return error;
 }
 
-inline int64_t tensor_number_of_elements(const tensor_t *x)
+nw_error_t *tensor_number_of_elements(const tensor_t *x, int64_t *n)
 {
-    return (x && x->buffer && x->buffer->view) ? shape_size(x->buffer->view->shape, x->buffer->view->rank) : 0;
+    CHECK_NULL_ARGUMENT(x, "x");    
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");    
+    CHECK_NULL_ARGUMENT(n, "n");    
+
+    nw_error_t *error = NULL;
+
+    error = view_logical_size(x->buffer->view, n);
+    if (error)
+    {
+        return ERROR(ERROR_N, string_create("failed to get logical size of view."), error);
+    }
+
+    return error;
 }
 
 nw_error_t *tensor_constant(void *constant, datatype_t datatype, runtime_t runtime, bool_t requires_gradient, bool_t persist, tensor_t **x)
@@ -1230,13 +1242,29 @@ nw_error_t *tensor_mean(const tensor_t *x, tensor_t **y, const int64_t *axis, in
         goto cleanup;
     }
 
+    int64_t n, n_i;
+
+    error = tensor_number_of_elements(x_i, &n_i);
+    if (error)
+    {
+        error = ERROR(ERROR_N, string_create("failed to get number of elements of tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_number_of_elements(x, &n);
+    if (error)
+    {
+        error = ERROR(ERROR_N, string_create("failed to get number of elements of tensor."), error);
+        goto cleanup;
+    }
+
     switch (datatype)
     {
     case FLOAT32:
-        *(float32_t *) value = (float32_t) tensor_number_of_elements(x_i) / (float32_t) tensor_number_of_elements(x);
+        *(float32_t *) value = (float32_t) n_i / (float32_t) n;
         break;
     case FLOAT64:
-        *(float64_t *) value = (float64_t) tensor_number_of_elements(x_i) / (float64_t) tensor_number_of_elements(x);
+        *(float64_t *) value = (float64_t) n_i / (float64_t) n;
         break;
     default:
         error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
@@ -1479,7 +1507,7 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const int64_t *shape
 
     nw_error_t *error = NULL;
     tensor_t *x_contiguous = NULL;
-    if (shapes_equal(x->buffer->view->shape, x->buffer->view->rank, shape, length))
+    if (view_has_shape(x->buffer->view, shape, length))
     {
         *y = (tensor_t *) x;
     }
@@ -1545,8 +1573,7 @@ nw_error_t *tensor_permute(const tensor_t *x, tensor_t **y, int64_t *axis, int64
 bool_t tensor_shapes_equal(const tensor_t *x, const tensor_t *y)
 {
     return x && y && x->buffer && y->buffer && x->buffer->view && y->buffer->view &&
-           shapes_equal(x->buffer->view->shape, x->buffer->view->rank,
-                        y->buffer->view->shape, y->buffer->view->rank);
+           view_shapes_equal(x->buffer->view, y->buffer->view);
 }
 
 nw_error_t *tensor_transpose(const tensor_t *x, tensor_t **y, int64_t axis1, int64_t axis2)

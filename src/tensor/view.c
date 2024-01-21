@@ -574,51 +574,34 @@ nw_error_t *view_reduce(const view_t *original_view, view_t **reduced_view, cons
 }
 
 /**
- * @brief Given the shape and strides of a tensor, compute the required
+ * @brief Given the view of a tensor, compute the required
  *        number of tensor data elements that need to be stored in memory.
- * @param[in] shape The dimensions of the tensor.
- * @param[in] strides The strides of the tensor.
- * @param[in] rank The number of dimensions in `shape`.
- * @param[out] n The number of elements that are required to be stored in 
- *               memory to represent the tensor.
- * @return Error if `shape`, `strides`, or `n` is NULL.
- *         Error if any of the dimensions is zero.
- *         Error if `rank` greater than max rank.
- *         NULL if `n` is computed successfully.
+ * @param[in] view The view of the tensor.
+ * @param[out] size The number of elements that are required to be stored in 
+    *               memory to represent the tensor.
+ * @return Error if `view` or `size` is NULL.
+ *         Error if any of the dimensions are zero.
+ *         NULL if `size` is computed successfully.
  */
-nw_error_t *n_from_shape_and_strides(const int64_t *shape, const int64_t *strides, int64_t rank, int64_t *n)
+nw_error_t *view_physical_size(const view_t *view, int64_t *size)
 {
-    CHECK_NULL_ARGUMENT(shape, "shape");
-    CHECK_NULL_ARGUMENT(strides, "strides");
-    CHECK_NULL_ARGUMENT(n, "n");
+    CHECK_NULL_ARGUMENT(view, "view");
+    CHECK_NULL_ARGUMENT(view->strides, "view->strides");
+    CHECK_NULL_ARGUMENT(size, "size");
 
-    if (rank > MAX_RANK)
-    {
-        return ERROR(ERROR_RANK,
-                     string_create("rank %ld must be less than or equal to %d.",
-                     rank, (int) MAX_RANK),
-                     NULL);
-    }
+    *size = array_product(view->shape, view->rank);
 
-    *n = shape_size(shape, rank);
-    if (!(*n))
+    for (int64_t i = 0; i < view->rank; ++i)
     {
-        ++(*n);
-    }
-
-    for (int64_t i = 0; i < rank; ++i)
-    {
-        if (!strides[i])
+        if (!view->strides[i])
         {
-            if (shape[i])
+            if (view->shape[i])
             {
-                *n /= shape[i];
+                *size /= view->shape[i];
             }
             else
             {
-                return ERROR(ERROR_SHAPE,
-                             string_create("all dimensions of the tensor must be greater than 0."),
-                             NULL);
+                return ERROR(ERROR_SHAPE, string_create("all dimensions of the tensor must be greater than 0."), NULL);
             }
         }
     }
@@ -626,65 +609,35 @@ nw_error_t *n_from_shape_and_strides(const int64_t *shape, const int64_t *stride
     return NULL;
 }
 
-
 /**
- * @brief Given the shape and rank of two tensors, determine if both tensors have same rank and dimensions. 
- * @param[in] x_shape An array of size `x_rank` representing the dimensions of a tensor.
- * @param[in] x_rank The order of the tensor. Gives number of elements in `x_shape`.
- * @param[in] y_shape An array of size `y_rank` representing the dimensions of a tensor.
- * @param[in] y_rank The order of the tensor. Gives number of elements in `y_shape`.
- * @return False if either shapes are NULL, ranks are not equal, or shape dimensions at a common index are not equal. 
- *         True if ranks are equal and shape dimensions are equal.
+ * @brief Given the view of a tensor, find the logical number of elements in the tensor.
+ *        Note that this is just the percieved number of elements in the tensor and 
+ *        may not be equal to the number of elements physically stored in memory.
+ *        For the number of elements stored in memory use `view_physical_size`. 
+ *        Reference: https://pytorch.org/docs/stable/generated/torch.numel.html
+ * @param[in] view The view of the tensor.
+ * @param[out] size The logical number of elements in the tensor.
+ * @return Error if `view` or `size` is NULL.
+ *         NULL if `size` is successfully computed.
  */
-bool_t shapes_equal(const int64_t *x_shape, int64_t x_rank, const int64_t *y_shape, int64_t y_rank)
+nw_error_t *view_logical_size(const view_t *view, int64_t *size)
 {
-    if (!x_shape || !y_shape || x_rank != y_rank)
-    {
-        return false;
-    }
+    CHECK_NULL_ARGUMENT(view, "view");
+    CHECK_NULL_ARGUMENT(size, "size");
 
-    for (int64_t i = 0; i < x_rank; ++i)
-    {
-        if (x_shape[i] != y_shape[i])
-        {
-            return false;
-        }
-    }
+    *size = array_product(view->shape, view->rank);
 
-    return true;
+    return NULL;
 }
 
-/**
- * @brief Given the shape and rank of a tensor, find the total number of elements in the tensor.
- *        Note that this is just the percieved number of elements in the tensor and 
- *        may not be equal to the number of elements actually stored in memory.
- *        The actual number of elements stored in memory is defined by `n` in `buffer`. 
- *        Reference: https://pytorch.org/docs/stable/generated/torch.numel.html
- * @param[in] shape An array of size rank representing the dimensions of a tensor.
- * @param[in] rank The order of the tensor. Gives number of elements in shape.
- * @return The percieved number of elements in the tensor.
- *         Returns 0 if shape is NULL.
- */
-int64_t shape_size(const int64_t *shape, int64_t rank)
+bool_t view_shapes_equal(const view_t *view_a, const view_t *view_b)
 {
-    int64_t total = 1;
+    return view_a && view_b && arrays_equal(view_a->shape, view_a->rank, view_b->shape, view_b->rank);
+}
 
-    if (!shape)
-    {
-        return total;
-    }
-
-    for (int64_t i = 0; i < rank; ++i)
-    {
-        if (!shape[i])
-        {
-            continue;
-        }
-
-        total *= shape[i];
-    }
-    
-    return total;
+bool_t view_has_shape(const view_t *view, const int64_t *shape, int64_t rank)
+{
+    return view && shape && arrays_equal(view->shape, view->rank, shape, rank);
 }
 
 /**
@@ -1053,15 +1006,4 @@ nw_error_t *reduce_axis(const int64_t *original_shape,
     }
 
     return NULL;
-}
-
-bool_t is_valid_reshape(const int64_t *original_shape, int64_t original_rank,
-                        const int64_t *new_shape, int64_t new_rank)
-{
-    if (!original_shape || !new_shape)
-    {
-        return false;
-    }
-
-    return shape_size(original_shape, original_rank) != shape_size(new_shape, new_rank);
 }

@@ -494,7 +494,7 @@ static nw_error_t *buffer_binary_elementwise(binary_operation_type_t binary_oper
 
     if (!overwrite)
     {
-        if (!shapes_equal(x_buffer->view->shape, x_buffer->view->rank, y_buffer->view->shape, y_buffer->view->rank))
+        if (!view_shapes_equal(x_buffer->view, y_buffer->view))
         {
             error = ERROR(ERROR_SHAPE, string_create("incompatible tensor shapes."), NULL);
             goto cleanup;
@@ -1138,7 +1138,7 @@ static nw_error_t *buffer_create_empty(buffer_t **buffer, const int64_t *shape, 
         goto cleanup;
     }
 
-    error = n_from_shape_and_strides(view->shape, view->strides, view->rank, &n);
+    error = view_physical_size(view, &n);
     if (error)
     {
         error = ERROR(ERROR_N, string_create("failed to obtain storage size."), error);
@@ -1187,7 +1187,7 @@ static nw_error_t *buffer_create_nonempty(buffer_t **buffer, const int64_t *shap
         goto cleanup;
     }
 
-    error = n_from_shape_and_strides(view->shape, view->strides, view->rank, &n);
+    error = view_physical_size(view, &n);
     if (error)
     {
         error = ERROR(ERROR_N, string_create("failed to obtain storage size."), error);
