@@ -1083,32 +1083,7 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
             return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
         }
     }
-    else if (structure_operation_type == IMAGE_TO_COLUMN_OPERATION)
-    {
-        int64_t batch_size = x->view->shape[0];
-        int64_t channels = x->view->shape[1];
-        int64_t height = x->view->shape[2];
-        int64_t width = x->view->shape[3];
-        int64_t kernel_size = arguments[0];
-        int64_t stride = arguments[1];
-        int64_t padding = arguments[2];
-        int64_t output_height = (height + 2 * padding - kernel_size) / stride + 1;
-        int64_t output_width = (width + 2 * padding - kernel_size) / stride + 1;
-        runtime_t runtime = x->storage->runtime;
-        datatype_t datatype = x->storage->datatype;
-        error = buffer_creation(EMPTY_OPERATION, result, 
-                                (int64_t[]){batch_size, channels * kernel_size * kernel_size, output_height * output_width}, 
-                                3, NULL, 0, runtime, datatype, NULL, 0, NULL);
-        if (error)
-        {
-            return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-        }
-
-        runtime_image_to_column(datatype, x->storage->data, batch_size, channels, height, width, kernel_size, 
-                                output_height, output_width, stride, padding, (*result)->storage->data);
-        return error;
-    }
-    else if (structure_operation_type == COLUMN_TO_IMAGE_OPERATION)
+    else if (structure_operation_type == IMAGE_TO_COLUMN_OPERATION || structure_operation_type == COLUMN_TO_IMAGE_OPERATION)
     {
         int64_t batch_size = x->view->shape[0];
         int64_t kernel_size = arguments[0];
@@ -1121,18 +1096,34 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
         int64_t output_width = (width + 2 * padding - kernel_size) / stride + 1;
         runtime_t runtime = x->storage->runtime;
         datatype_t datatype = x->storage->datatype;
-        error = buffer_creation(ZEROES_OPERATION, result, 
-                                (int64_t[]){batch_size, channels, height, width}, 
-                                4, NULL, 0, runtime, datatype, NULL, 0, NULL);
-        if (error)
+        if (structure_operation_type == IMAGE_TO_COLUMN_OPERATION)
         {
-            return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
-        }
+            error = buffer_creation(EMPTY_OPERATION, result, 
+                                    (int64_t[]){batch_size, channels * kernel_size * kernel_size, output_height * output_width}, 
+                                    3, NULL, 0, runtime, datatype, NULL, 0, NULL);
+            if (error)
+            {
+                return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+            }
 
-        runtime_column_to_image( datatype, x->storage->data, batch_size, channels, height, width, kernel_size, 
-                                output_height, output_width, stride, padding, (*result)->storage->data);
+            runtime_image_to_column(datatype, x->storage->data, batch_size, channels, height, width, kernel_size, 
+                                    output_height, output_width, stride, padding, (*result)->storage->data);
+        }
+        else if (structure_operation_type == COLUMN_TO_IMAGE_OPERATION)
+        {
+            error = buffer_creation(ZEROES_OPERATION, result, 
+                                    (int64_t[]){batch_size, channels, height, width}, 
+                                    4, NULL, 0, runtime, datatype, NULL, 0, NULL);
+            if (error)
+            {
+                return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+            }
+
+            runtime_column_to_image( datatype, x->storage->data, batch_size, channels, height, width, kernel_size, 
+                                    output_height, output_width, stride, padding, (*result)->storage->data);
+        } 
         return error;
-    } 
+    }
 
     error = buffer_create(result, view, x->storage, false);
     if (error)

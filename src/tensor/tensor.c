@@ -622,28 +622,48 @@ nw_error_t *tensor_maximum(const tensor_t *x, tensor_t **y, const int64_t *axis,
     return error;
 }
 
-nw_error_t *tensor_image_to_column(const tensor_t *x, tensor_t **y, int64_t kernel_size, int64_t stride, int64_t padding)
+nw_error_t *tensor_image_to_column(const tensor_t *x, tensor_t **y, int64_t kernel_size, int64_t stride, int64_t padding,
+                                   int64_t channels, int64_t height, int64_t width)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_INT64_ARRAY("arguments", ((int64_t[]){kernel_size, stride, padding}), 3);
+    PRINTLN_DEBUG_INT64_ARRAY("arguments", ((int64_t[]){kernel_size, stride, padding, channels, height, width}), 6);
     PRINT_DEBUG_NEWLINE;
 
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
+    tensor_t *x_contiguous = NULL;
 
-    error = apply_operation_structure(IMAGE_TO_COLUMN_OPERATION, x, (int64_t[]){kernel_size, stride, padding}, 3, y);
+    error = tensor_contiguous(x, &x_contiguous);
     if (error)
     {
-        return ERROR(ERROR_IMAGE_TO_COLUMN, string_create("failed to convert image to column."), error);
+        error = ERROR(ERROR_CONTIGUOUS, string_create("failed to make tensor contiguous."), error);
+        goto cleanup;
+    }
+
+    error = apply_operation_structure(IMAGE_TO_COLUMN_OPERATION, x_contiguous, (int64_t[]){kernel_size, stride, padding, channels, height, width}, 6, y);
+    if (error)
+    {
+        error = ERROR(ERROR_IMAGE_TO_COLUMN, string_create("failed to convert image to column."), error);
+        goto cleanup;
     }
 
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("x", x);
     PRINTLN_DEBUG_TENSOR("y", *y);
     PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    if (!x->requires_gradient || no_gradient)
+    {
+        if (x_contiguous != x)
+        {
+            tensor_destroy(x_contiguous);
+        }
+    }
 
     return error;
 }
@@ -660,17 +680,36 @@ nw_error_t *tensor_column_to_image(const tensor_t *x, tensor_t **y, int64_t kern
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
+    tensor_t *x_contiguous = NULL;
 
-    error = apply_operation_structure(COLUMN_TO_IMAGE_OPERATION, x, (int64_t[]){kernel_size, stride, padding, channels, height, width}, 6, y);
+    error = tensor_contiguous(x, &x_contiguous);
     if (error)
     {
-        return ERROR(ERROR_IMAGE_TO_COLUMN, string_create("failed to convert image to column."), error);
+        error = ERROR(ERROR_CONTIGUOUS, string_create("failed to make tensor contiguous."), error);
+        goto cleanup;
+    }
+
+    error = apply_operation_structure(COLUMN_TO_IMAGE_OPERATION, x_contiguous, (int64_t[]){kernel_size, stride, padding, channels, height, width}, 6, y);
+    if (error)
+    {
+        error = ERROR(ERROR_IMAGE_TO_COLUMN, string_create("failed to convert image to column."), error);
+        goto cleanup;
     }
 
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("x", x);
     PRINTLN_DEBUG_TENSOR("y", *y);
     PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    if (!x->requires_gradient || no_gradient)
+    {
+        if (x_contiguous != x)
+        {
+            tensor_destroy(x_contiguous);
+        }
+    }
 
     return error;
 }
@@ -686,7 +725,7 @@ nw_error_t *tensor_convolution(const tensor_t *w, const tensor_t *x, const tenso
     PRINTLN_DEBUG_TENSOR("w", w);
     PRINTLN_DEBUG_TENSOR("x", x);
     PRINTLN_DEBUG_TENSOR("y", y);
-    PRINTLN_DEBUG_INT64_ARRAY("arguments", ((int64_t[]){stride, padding}), 3);
+    PRINTLN_DEBUG_INT64_ARRAY("arguments", ((int64_t[]){stride, padding}), 2);
     PRINT_DEBUG_NEWLINE;
 
     nw_error_t *error = NULL;
@@ -702,7 +741,7 @@ nw_error_t *tensor_convolution(const tensor_t *w, const tensor_t *x, const tenso
     int64_t out_channels = x->buffer->view->shape[0];
     int64_t kernel_size = x->buffer->view->shape[2];
 
-    error = tensor_image_to_column(w, &w_toeplitz, kernel_size, stride, padding);
+    error = tensor_image_to_column(w, &w_toeplitz, kernel_size, stride, padding, in_channels, height, width);
     if (error)
     {
         error = ERROR(ERROR_IMAGE_TO_COLUMN, string_create("failed to convert image to column."), error);
@@ -790,6 +829,128 @@ cleanup:
     if ((!x->requires_gradient && !w->requires_gradient) || no_gradient)
     {
         tensor_destroy(v);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_convolution_transpose(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding)
+{
+    CHECK_NULL_ARGUMENT(w, "w");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(z, "z");
+
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("w", w);
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINTLN_DEBUG_INT64_ARRAY("arguments", ((int64_t[]){stride, padding}), 2);
+    PRINT_DEBUG_NEWLINE;
+
+    nw_error_t *error = NULL;
+    tensor_t *w_reshape = NULL;
+    tensor_t *x_reshape = NULL;
+    tensor_t *x_transpose = NULL;
+    tensor_t *y_reshape = NULL;
+    tensor_t *v = NULL;
+    tensor_t *u = NULL;
+    int64_t batch_size = w->buffer->view->shape[0];
+    int64_t in_height = w->buffer->view->shape[2];
+    int64_t in_width = w->buffer->view->shape[3];
+    int64_t in_channels = x->buffer->view->shape[0];
+    int64_t out_channels = x->buffer->view->shape[1];
+    int64_t kernel_size = x->buffer->view->shape[2];
+    int64_t out_height = (in_height - 1) * stride - 2 * padding + (kernel_size - 1) + 1;
+    int64_t out_width = (in_width - 1) * stride - 2 * padding + (kernel_size - 1) + 1;
+
+    error = tensor_reshape(w, &w_reshape, (int64_t[]){batch_size, in_channels, in_height * in_width}, (int64_t) 3);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_reshape(x, &x_reshape, (int64_t[]){in_channels, out_channels * kernel_size * kernel_size}, (int64_t) 2);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_transpose(x_reshape, &x_transpose, 0, 1);
+    if (error)
+    {
+        error = ERROR(ERROR_TRANSPOSE, string_create("failed to transpose tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_matrix_multiplication(x_transpose, w_reshape, &v);
+    if (error)
+    {
+        error = ERROR(ERROR_MATRIX_MULTIPLICATION, string_create("failed to matrix multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_column_to_image(v, &u, kernel_size, stride, padding, out_channels, out_height, out_width);
+    if (error)
+    {
+        error = ERROR(ERROR_COLUMN_TO_IMAGE, string_create("failed to covert columns to image."), error);
+        goto cleanup;
+    }
+
+    error = tensor_reshape(y, &y_reshape, (int64_t[]){out_channels, 1, 1}, 3);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_addition(u, y_reshape, z);
+    if (error)
+    {
+        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("w", w);
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINTLN_DEBUG_TENSOR("z", *z);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    if (!x_transpose->requires_gradient || no_gradient)
+    {
+        if (x != x_reshape)
+        {
+            tensor_destroy(x_reshape);
+        }
+    }
+
+    if ((!w_reshape->requires_gradient && !x_transpose->requires_gradient) || no_gradient)
+    {
+        if (w_reshape != w)
+        {
+            tensor_destroy(w_reshape);
+        }
+        tensor_destroy(x_transpose);
+    }
+
+    if (!v->requires_gradient || no_gradient)
+    {
+        tensor_destroy(v);
+    }
+
+    if ((!u->requires_gradient && !y_reshape->requires_gradient) || no_gradient)
+    {
+        tensor_destroy(u);
+        if (y != y_reshape)
+        {
+            tensor_destroy(y_reshape);
+        }
     }
 
     return error;

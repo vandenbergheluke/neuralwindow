@@ -73,6 +73,31 @@ nw_error_t *linear_layer_create(layer_t **layer,
     return error;
 }
 
+nw_error_t *convolution_transpose_layer_create(layer_t **layer,
+                                               int64_t kernel_size, int64_t padding, int64_t stride,
+                                               int64_t in_channels, int64_t out_channels,
+                                               runtime_t runtime, datatype_t datatype,
+                                               bool_t requires_gradient, 
+                                               activation_t *activation,
+                                               parameter_init_t *kernel_init,
+                                               parameter_init_t *bias_init)
+{
+    nw_error_t *error = NULL;
+
+    error = convolution_layer_create(layer, kernel_size, padding, stride,
+                                     in_channels, out_channels, runtime, datatype,
+                                     requires_gradient, activation, kernel_init,
+                                     bias_init);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create convolution layer."), error);
+    }
+
+    (*layer)->transform_type = CONVOLUTION_TRANSPOSE;
+
+    return error;
+}
+
 nw_error_t *convolution_layer_create(layer_t **layer,
                                      int64_t kernel_size, int64_t padding, int64_t stride,
                                      int64_t in_channels, int64_t out_channels,
@@ -301,6 +326,52 @@ cleanup:
     return error;
 }
 
+static nw_error_t *convolution_transpose_forward(convolution_t *convolution, tensor_t *x, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(convolution, "convolution");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_i = NULL;
+    tensor_t *kernel = convolution->kernel;
+    tensor_t *bias = convolution->bias;
+    int64_t stride = convolution->stride;
+    int64_t padding = convolution->padding;
+    activation_t *activation = convolution->activation;
+
+    error = tensor_convolution_transpose(x, kernel, bias, &x_i, stride, padding);
+    if (error)
+    {
+        error = ERROR(ERROR_CONVOLUTION, string_create("failed to apply convolution."), error);
+        goto cleanup;
+    }
+
+    error = activation_forward(activation, x_i, y);
+    if (error)
+    {
+        error = ERROR(ERROR_FORWARD, string_create("failed to apply activation function."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    if (!(x->requires_gradient || kernel->requires_gradient) || no_gradient)
+    {
+        tensor_destroy(x_i);
+    }
+
+    return error;
+}
+
 static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
 {
     PRINTLN_DEBUG_LOCATION("input");
@@ -338,6 +409,9 @@ static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
             break;
         case CONVOLUTION:
             error = convolution_forward(transform->convolution, x, &feature_map);
+            break;
+        case CONVOLUTION_TRANSPOSE:
+            error = convolution_transpose_forward(transform->convolution, x, &feature_map);
             break;
         case BLOCK:
             error = block_forward(transform->block, x, &feature_map);
@@ -396,77 +470,6 @@ nw_error_t *model_forward(model_t *model, tensor_t *x, tensor_t **y)
     return error;
 }
 
-static nw_error_t *linear_requires_gradient(linear_t *linear, bool_t requires_gradient)
-{
-    CHECK_NULL_ARGUMENT(linear, "linear");
-    CHECK_NULL_ARGUMENT(linear->weights, "linear->weights");
-    CHECK_NULL_ARGUMENT(linear->bias, "linear->bias");
-
-    linear->weights->requires_gradient = requires_gradient;
-    linear->bias->requires_gradient = requires_gradient;
-
-    return NULL;
-}
-
-static nw_error_t *block_requires_gradient(block_t *block, bool_t requires_gradient)
-{
-    CHECK_NULL_ARGUMENT(block, "block");
-    CHECK_NULL_ARGUMENT(block->layers, "block->layers");
-
-    nw_error_t *error = NULL;
-
-    for (int64_t i = 0; i < block->depth; ++i)
-    {
-        layer_t *layer = block->layers[i];
-        if (!layer)
-        {
-            return ERROR(ERROR_NULL, string_create("layer is null."), NULL);
-        }
-
-        transform_type_t transform_type = layer->transform_type;
-        transform_t *transform = layer->transform;
-        if (!transform)
-        {
-            return ERROR(ERROR_NULL, string_create("transform is null."), NULL);
-        }
-
-        switch (transform_type)
-        {
-        case LINEAR:
-            error = linear_requires_gradient(transform->linear, requires_gradient);
-            break;
-        case BLOCK:
-            error = block_requires_gradient(transform->block, requires_gradient);
-            break;
-        default:
-            error = ERROR(ERROR_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
-            break;
-        }
-
-        if (error)
-        {
-            return ERROR(ERROR_REQUIRES_GRADIENT, string_create("failed to modify requires gradient flag."), error);
-        }
-    }
-
-    return error;
-}
-
-nw_error_t *model_requires_gradient(model_t *model, bool_t requires_gradient)
-{
-    CHECK_NULL_ARGUMENT(model, "model");
-
-    nw_error_t *error = NULL;
-
-    error = block_requires_gradient(model->block, requires_gradient);
-    if (error)
-    {
-        return ERROR(ERROR_REQUIRES_GRADIENT, string_create("failed to modify requires gradient flag."), error);
-    }
-
-    return error;
-}
-
 nw_error_t *layer_create(layer_t **layer, transform_t *transform, transform_type_t transform_type)
 {
     CHECK_NULL_ARGUMENT(layer, "layer");
@@ -509,6 +512,10 @@ nw_error_t *transform_create(transform_t **transform, transform_type_t transform
     case LINEAR:
         (*transform)->linear = (linear_t *) type_transform;
         break;
+    case CONVOLUTION:
+    case CONVOLUTION_TRANSPOSE:
+        (*transform)->convolution = (convolution_t *) type_transform;
+        break;
     case DROPOUT:
         (*transform)->dropout = (dropout_t *) type_transform;
         break;
@@ -532,6 +539,10 @@ void transform_destroy(transform_t *transform, transform_type_t transform_type)
         case LINEAR:
             linear_destroy(transform->linear);
             break;
+        case CONVOLUTION:
+        case CONVOLUTION_TRANSPOSE:
+            convolution_destroy(transform->convolution);
+            break;
         case DROPOUT:
             dropout_destroy(transform->dropout);
             break;
@@ -551,6 +562,10 @@ string_t transform_type_string(transform_type_t transform_type)
     {
     case LINEAR:
         return "LINEAR";
+    case CONVOLUTION:
+        return "CONVOLUTION";
+    case CONVOLUTION_TRANSPOSE:
+        return "CONVOLUTION_TRANSPOSE";
     case DROPOUT:
         return "DROPOUT";
     case BLOCK:

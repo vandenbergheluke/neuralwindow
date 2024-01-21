@@ -70,6 +70,7 @@ typedef enum transform_type_t
 {
     LINEAR,
     CONVOLUTION,
+    CONVOLUTION_TRANSPOSE,
     DROPOUT,
     BLOCK
 } transform_type_t;
@@ -92,7 +93,6 @@ typedef struct model_t
 } model_t;
 
 nw_error_t *model_forward(model_t *model, tensor_t *x, tensor_t **y);
-nw_error_t *model_requires_gradient(model_t *model, bool_t requires_gradient);
 nw_error_t *layer_create(layer_t **layer, transform_t *transform, transform_type_t transform_type);
 void layer_destroy(layer_t *layer);
 nw_error_t *transform_create(transform_t **transform, transform_type_t transform_type, void *type_transform);
@@ -141,5 +141,13 @@ nw_error_t *convolution_layer_create(layer_t **layer,
                                      activation_t *activation,
                                      parameter_init_t *kernel_init,
                                      parameter_init_t *bias_init);
+nw_error_t *convolution_transpose_layer_create(layer_t **layer,
+                                               int64_t kernel_size, int64_t padding, int64_t stride,
+                                               int64_t in_channels, int64_t out_channels,
+                                               runtime_t runtime, datatype_t datatype,
+                                               bool_t requires_gradient, 
+                                               activation_t *activation,
+                                               parameter_init_t *kernel_init,
+                                               parameter_init_t *bias_init);
 
 #endif

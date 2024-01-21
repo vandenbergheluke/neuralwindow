@@ -11,36 +11,67 @@ extern "C"
 }
 #include <test_helper_torch.h>
 
-#define CASES 3
+#define CONVOLUTION_CASES 3
+#define CONVOLUTION_TRANSPOSE_CASES 3
 
-std::vector<int64_t> shapes_w[CASES] = {
+std::vector<int64_t> convolution_shapes_w[CONVOLUTION_CASES] = {
     {5, 3, 6, 7},
     {1, 1, 9, 7},
     {10, 9, 9, 11},
 };
 
-std::vector<int64_t> shapes_x[CASES] = {
+std::vector<int64_t> convolution_shapes_x[CONVOLUTION_CASES] = {
     {5, 3, 3, 3},
     {10, 1, 4, 4},
     {11, 9, 1, 1},
 };
 
-std::vector<int64_t> shapes_y[CASES] = {
+std::vector<int64_t> convolution_shapes_y[CONVOLUTION_CASES] = {
     {5},
     {10},
     {11},
 };
 
-int64_t stride[CASES] = {
+int64_t convolution_stride[CONVOLUTION_CASES] = {
     2,
     1,
     3,
 };
 
-int64_t padding[CASES] = {
+int64_t convolution_padding[CONVOLUTION_CASES] = {
     1,
     3,
     0,
+};
+
+std::vector<int64_t> convolution_transpose_shapes_w[CONVOLUTION_TRANSPOSE_CASES] = {
+    {5, 3, 6, 7},
+    {10, 4, 7, 7},
+    {2, 5, 3, 8},
+};
+
+std::vector<int64_t> convolution_transpose_shapes_x[CONVOLUTION_TRANSPOSE_CASES] = {
+    {3, 2, 3, 3},
+    {4, 3, 2, 2},
+    {5, 1, 5, 5},
+};
+
+std::vector<int64_t> convolution_transpose_shapes_y[CONVOLUTION_TRANSPOSE_CASES] = {
+    {2},
+    {3},
+    {1},
+};
+
+int64_t convolution_transpose_stride[CONVOLUTION_TRANSPOSE_CASES] = {
+    2,
+    2,
+    1,
+};
+
+int64_t convolution_transpose_padding[CONVOLUTION_TRANSPOSE_CASES] = {
+    1,
+    2,
+    3,
 };
 
 nw_error_t *error = NULL;
@@ -61,10 +92,90 @@ std::vector<torch::Tensor> torch_tensors_y[RUNTIMES][DATATYPES];
 typedef enum tensor_ternary_operation_type_t
 {
     TENSOR_CONVOLUTION,
+    TENSOR_CONVOLUTION_TRANSPOSE,
 } tensor_reduction_operation_type_t;
 
-void setup(void)
+int cases(tensor_ternary_operation_type_t tensor_ternary_operation_type)
 {
+    switch(tensor_ternary_operation_type)
+    {
+    case TENSOR_CONVOLUTION:
+        return CONVOLUTION_CASES;
+    case TENSOR_CONVOLUTION_TRANSPOSE:
+        return CONVOLUTION_TRANSPOSE_CASES;
+    default:
+        return 0;
+    }
+}
+
+std::vector<int64_t> shapes_w(tensor_ternary_operation_type_t tensor_ternary_operation_type, int i)
+{
+    switch(tensor_ternary_operation_type)
+    {
+    case TENSOR_CONVOLUTION:
+        return convolution_shapes_w[i];
+    case TENSOR_CONVOLUTION_TRANSPOSE:
+        return convolution_transpose_shapes_w[i];
+    default:
+        return std::vector<int64_t>{};
+    }
+}
+
+std::vector<int64_t> shapes_x(tensor_ternary_operation_type_t tensor_ternary_operation_type, int i)
+{
+    switch(tensor_ternary_operation_type)
+    {
+    case TENSOR_CONVOLUTION:
+        return convolution_shapes_x[i];
+    case TENSOR_CONVOLUTION_TRANSPOSE:
+        return convolution_transpose_shapes_x[i];
+    default:
+        return std::vector<int64_t>{};
+    }
+}
+
+std::vector<int64_t> shapes_y(tensor_ternary_operation_type_t tensor_ternary_operation_type, int i)
+{
+    switch(tensor_ternary_operation_type)
+    {
+    case TENSOR_CONVOLUTION:
+        return convolution_shapes_y[i];
+    case TENSOR_CONVOLUTION_TRANSPOSE:
+        return convolution_transpose_shapes_y[i];
+    default:
+        return std::vector<int64_t>{};
+    }
+}
+
+int64_t stride(tensor_ternary_operation_type_t tensor_ternary_operation_type, int i)
+{
+    switch(tensor_ternary_operation_type)
+    {
+    case TENSOR_CONVOLUTION:
+        return convolution_stride[i];
+    case TENSOR_CONVOLUTION_TRANSPOSE:
+        return convolution_transpose_stride[i];
+    default:
+        return 0;
+    }
+}
+
+int64_t padding(tensor_ternary_operation_type_t tensor_ternary_operation_type, int i)
+{
+    switch(tensor_ternary_operation_type)
+    {
+    case TENSOR_CONVOLUTION:
+        return convolution_padding[i];
+    case TENSOR_CONVOLUTION_TRANSPOSE:
+        return convolution_transpose_padding[i];
+    default:
+        return 0;
+    }
+}
+
+void setup(tensor_ternary_operation_type_t tensor_ternary_operation_type)
+{
+    const int CASES = cases(tensor_ternary_operation_type);
     for (int i = 0; i < RUNTIMES; ++i)
     {
         runtime_create_context((runtime_t) i);
@@ -96,29 +207,29 @@ void setup(void)
                 switch ((datatype_t) j)
                 {
                 case FLOAT32:
-                    torch_tensors_w[i][j][k] = torch::randn(shapes_w[k],
+                    torch_tensors_w[i][j][k] = torch::randn(shapes_w(tensor_ternary_operation_type, k),
                                                             torch::TensorOptions()
                                                             .dtype(torch::kFloat32)
                                                             .requires_grad(true));
-                    torch_tensors_x[i][j][k] = torch::randn(shapes_x[k],
+                    torch_tensors_x[i][j][k] = torch::randn(shapes_x(tensor_ternary_operation_type, k),
                                                             torch::TensorOptions()
                                                             .dtype(torch::kFloat32)
                                                             .requires_grad(true));
-                    torch_tensors_y[i][j][k] = torch::randn(shapes_y[k],
+                    torch_tensors_y[i][j][k] = torch::randn(shapes_y(tensor_ternary_operation_type, k),
                                                             torch::TensorOptions()
                                                             .dtype(torch::kFloat32)
                                                             .requires_grad(true));
                     break;
                 case FLOAT64:
-                    torch_tensors_w[i][j][k] = torch::randn(shapes_w[k],
+                    torch_tensors_w[i][j][k] = torch::randn(shapes_w(tensor_ternary_operation_type, k),
                                                             torch::TensorOptions()
                                                             .dtype(torch::kFloat64)
                                                             .requires_grad(true));
-                    torch_tensors_x[i][j][k] = torch::randn(shapes_x[k],
+                    torch_tensors_x[i][j][k] = torch::randn(shapes_x(tensor_ternary_operation_type, k),
                                                             torch::TensorOptions()
                                                             .dtype(torch::kFloat64)
                                                             .requires_grad(true));
-                    torch_tensors_y[i][j][k] = torch::randn(shapes_y[k],
+                    torch_tensors_y[i][j][k] = torch::randn(shapes_y(tensor_ternary_operation_type, k),
                                                             torch::TensorOptions()
                                                             .dtype(torch::kFloat64)
                                                             .requires_grad(true));
@@ -138,8 +249,9 @@ void setup(void)
     }
 }
 
-void teardown(void)
+void teardown(tensor_ternary_operation_type_t tensor_ternary_operation_type)
 {
+    const int CASES = cases(tensor_ternary_operation_type);
     for (int i = 0; i < RUNTIMES; i++)
     {
         runtime_destroy_context((runtime_t) i);
@@ -164,6 +276,7 @@ void teardown(void)
 
 void test_ternary(tensor_ternary_operation_type_t tensor_ternary_operation_type)
 {
+    const int CASES = cases(tensor_ternary_operation_type);
     for (int i = 0; i < RUNTIMES; i++)
     {
         for (int j = 0; j < DATATYPES; j++)
@@ -177,9 +290,16 @@ void test_ternary(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                 case TENSOR_CONVOLUTION:
                     expected_tensor = torch::nn::functional::conv2d(torch_tensors_w[i][j][k], 
                                                                     torch_tensors_x[i][j][k], 
-                                                                    torch::nn::functional::Conv2dFuncOptions().padding(padding[k])
-                                                                                                              .stride(stride[k])
+                                                                    torch::nn::functional::Conv2dFuncOptions().padding(padding(tensor_ternary_operation_type, k))
+                                                                                                              .stride(stride(tensor_ternary_operation_type, k))
                                                                                                               .bias(torch_tensors_y[i][j][k]));
+                    break;
+                case TENSOR_CONVOLUTION_TRANSPOSE:
+                    expected_tensor = torch::nn::functional::conv_transpose2d(torch_tensors_w[i][j][k], 
+                                                                            torch_tensors_x[i][j][k], 
+                                                                            torch::nn::functional::ConvTranspose2dFuncOptions().padding(padding(tensor_ternary_operation_type, k))
+                                                                                                                                .stride(stride(tensor_ternary_operation_type, k))
+                                                                                                                                .bias(torch_tensors_y[i][j][k]));
                     break;
                 default:
                     ck_abort_msg("unsupported binary operation type.");
@@ -190,7 +310,14 @@ void test_ternary(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                 switch (tensor_ternary_operation_type)
                 {
                 case TENSOR_CONVOLUTION:
-                    error = tensor_convolution(tensors_w[i][j][k], tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k], stride[k], padding[k]);
+                    error = tensor_convolution(tensors_w[i][j][k], tensors_x[i][j][k], tensors_y[i][j][k], 
+                                               &returned_tensors[i][j][k], stride(tensor_ternary_operation_type, k),
+                                               padding(tensor_ternary_operation_type, k));
+                    break;
+                case TENSOR_CONVOLUTION_TRANSPOSE:
+                    error = tensor_convolution_transpose(tensors_w[i][j][k], tensors_x[i][j][k], tensors_y[i][j][k], 
+                                                         &returned_tensors[i][j][k], stride(tensor_ternary_operation_type, k), 
+                                                         padding(tensor_ternary_operation_type, k));
                     break;
                 default:
                     ck_abort_msg("unsupported binary operation type.");
@@ -218,23 +345,56 @@ void test_ternary(tensor_ternary_operation_type_t tensor_ternary_operation_type)
     }
 }
 
+void setup_convolution(void)
+{
+    setup(TENSOR_CONVOLUTION);
+}
+
+void setup_convolution_transpose(void)
+{
+    setup(TENSOR_CONVOLUTION_TRANSPOSE);
+}
+
+void teardown_convolution(void)
+{
+    teardown(TENSOR_CONVOLUTION);
+}
+
+void teardown_convolution_transpose(void)
+{
+    teardown(TENSOR_CONVOLUTION_TRANSPOSE);
+}
+
 START_TEST(test_tensor_convolution)
 {
     test_ternary(TENSOR_CONVOLUTION);
 }
 END_TEST
 
+START_TEST(test_tensor_convolution_transpose)
+{
+    test_ternary(TENSOR_CONVOLUTION_TRANSPOSE);
+}
+END_TEST
+
 Suite *make_ternary_suite(void)
 {
     Suite *s;
-    TCase *tc;
+    TCase *tc_convolution;
+    TCase *tc_convolution_transpose;
 
     s = suite_create("Test Ternary Tensor Suite");
 
-    tc = tcase_create("Test Ternary Case");
-    tcase_add_checked_fixture(tc, setup, teardown);
-    tcase_add_test(tc, test_tensor_convolution);
-    suite_add_tcase(s, tc);
+    tc_convolution = tcase_create("Test Convolution Case");
+    tcase_add_checked_fixture(tc_convolution, setup_convolution, teardown_convolution);
+    tcase_add_test(tc_convolution, test_tensor_convolution);
+
+    tc_convolution_transpose = tcase_create("Test Convolution Transpose Case");
+    tcase_add_checked_fixture(tc_convolution_transpose, setup_convolution_transpose, teardown_convolution_transpose);
+    tcase_add_test(tc_convolution_transpose, test_tensor_convolution_transpose);
+
+    suite_add_tcase(s, tc_convolution);
+    suite_add_tcase(s, tc_convolution_transpose);
 
     return s;
 }
