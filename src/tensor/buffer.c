@@ -942,33 +942,27 @@ nw_error_t *buffer_reduction(reduction_operation_type_t reduction_operation_type
     datatype_t datatype = x->storage->datatype;
     runtime_t runtime = x->storage->runtime;
     buffer_t *intermediate_buffer = NULL;
+    view_t *reduced_view = NULL;
     int64_t sorted_axis[length];
 
     if (!overwrite)
     {
-        int64_t reduced_rank = (keep_dimension) ? x->view->rank : (x->view->rank - length); 
-        int64_t reduced_shape[reduced_rank];
-        int64_t reduced_strides[reduced_rank];
-
-        if (reduced_rank < 0)
-        {
-            error = ERROR(ERROR_RANK, string_create("reduction axis length greater than rank of tensor."), NULL);
-            goto cleanup;
-        }
-
-        error = reduce(x->view->shape, x->view->rank, x->view->strides, reduced_shape, reduced_rank, reduced_strides, axis, length, keep_dimension);
+        error = view_reduce(x->view, &reduced_view, axis, length, keep_dimension);
         if (error)
         {
             error = ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
             goto cleanup;
         }
 
-        error = buffer_creation(EMPTY_OPERATION, result, reduced_shape, reduced_rank, reduced_strides, 0, x->storage->runtime, x->storage->datatype, NULL, 0, NULL);
+        error = buffer_creation(EMPTY_OPERATION, result, reduced_view->shape, reduced_view->rank, reduced_view->strides, reduced_view->offset, x->storage->runtime, x->storage->datatype, NULL, 0, NULL);
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
             goto cleanup;
         }
+
+        view_destroy(reduced_view);
+        reduced_view = NULL;
     }
 
     error = descending_sort(axis, length, sorted_axis);
@@ -978,23 +972,9 @@ nw_error_t *buffer_reduction(reduction_operation_type_t reduction_operation_type
         goto cleanup;
     }
 
-    int64_t reduced_rank = x->view->rank; 
-
     for (int64_t i = 0; i < length; ++i)
     {
-        if (!keep_dimension)
-        {
-            --reduced_rank;
-        }
-
-        int64_t *shape = x->view->shape;
-        int64_t *strides = x->view->strides;
-        int64_t offset = x->view->offset;
-        int64_t rank = x->view->rank;
-        int64_t reduced_shape[reduced_rank];
-        int64_t reduced_strides[reduced_rank];
-
-        error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, &sorted_axis[i], (int64_t) 1, keep_dimension);
+        error = view_reduce(x->view, &reduced_view, &sorted_axis[i], (int64_t) 1, keep_dimension);
         if (error)
         {
             error = ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
@@ -1003,7 +983,8 @@ nw_error_t *buffer_reduction(reduction_operation_type_t reduction_operation_type
 
         if (i + 1 < length)
         {
-            error = buffer_creation(EMPTY_OPERATION, &intermediate_buffer, reduced_shape, reduced_rank, reduced_strides, offset, runtime, datatype, NULL, 0, NULL);
+            error = buffer_creation(EMPTY_OPERATION, &intermediate_buffer, reduced_view->shape, reduced_view->rank, 
+                                    reduced_view->strides, reduced_view->offset, runtime, datatype, NULL, 0, NULL);
             if (error)
             {
                 error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
@@ -1028,6 +1009,9 @@ nw_error_t *buffer_reduction(reduction_operation_type_t reduction_operation_type
         }
 
         x = intermediate_buffer;
+
+        view_destroy(reduced_view);
+        reduced_view = NULL;
     }
 
     return error; 
@@ -1043,6 +1027,8 @@ cleanup:
     {
         buffer_destroy(*result);
     }
+
+    view_destroy(reduced_view);
 
     return error;
 }
@@ -1107,7 +1093,7 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
             }
 
             runtime_image_to_column(datatype, x->storage->data, batch_size, channels, height, width, kernel_size, 
-                                    output_height, output_width, stride, padding, (*result)->storage->data);
+                                    output_height, output_width, stride, padding, (*result)->storage->data, false);
         }
         else if (structure_operation_type == COLUMN_TO_IMAGE_OPERATION)
         {
@@ -1119,8 +1105,8 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
                 return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
             }
 
-            runtime_column_to_image( datatype, x->storage->data, batch_size, channels, height, width, kernel_size, 
-                                    output_height, output_width, stride, padding, (*result)->storage->data);
+            runtime_image_to_column( datatype, x->storage->data, batch_size, channels, height, width, kernel_size, 
+                                    output_height, output_width, stride, padding, (*result)->storage->data, true);
         } 
         return error;
     }

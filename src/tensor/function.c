@@ -3174,13 +3174,10 @@ nw_error_t *apply_operation_reduction(reduction_operation_type_t reduction_opera
     nw_error_t *error = NULL;
     int64_t rank = x->buffer->view->rank;
     int64_t *shape = x->buffer->view->shape;
-    int64_t *strides = x->buffer->view->strides;
     reduction_operation_t *reduction_operation = NULL;
     int64_t reduce_length = length ? length : x->buffer->view->rank;
     int64_t reduce_axis[reduce_length];
-    int64_t reduced_rank = (keep_dimension) ? rank : (rank - reduce_length); 
-    int64_t reduced_shape[reduced_rank];
-    int64_t reduced_strides[reduced_rank];
+    view_t *reduced_view = NULL;
 
     if (rank < reduce_length)
     {
@@ -3190,19 +3187,19 @@ nw_error_t *apply_operation_reduction(reduction_operation_type_t reduction_opera
 
     for (int64_t i = 0; i < reduce_length; ++i)
     {
-        reduce_axis[i] = (!axis || !length) ? i : axis[i];
+        reduce_axis[i] = (!axis || !length) ? i : dimension_to_index(axis[i], rank);
     }
 
     CHECK_UNIQUE(reduce_axis, reduce_length, "reduce_axis");
 
-    error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, reduce_axis, reduce_length, keep_dimension);
+    error = view_reduce(x->buffer->view, &reduced_view, reduce_axis, reduce_length, keep_dimension);
     if (error)
     {
         error = ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
         goto cleanup;
     }
 
-    if (shapes_equal(shape, rank, reduced_shape, reduced_rank))
+    if (shapes_equal(shape, rank, reduced_view->shape, reduced_view->rank))
     {
         *result = (tensor_t *) x;
     }
@@ -3223,11 +3220,14 @@ nw_error_t *apply_operation_reduction(reduction_operation_type_t reduction_opera
         }
     }
 
+    view_destroy(reduced_view);
+
     return error;
 
 cleanup:
 
     reduction_operation_destroy(reduction_operation);
+    view_destroy(reduced_view);
 
     return error;
 }

@@ -1002,6 +1002,7 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, int64_t axi
     nw_error_t *error = NULL;
     int64_t *shape = x->buffer->view->shape;
     int64_t rank = x->buffer->view->rank;
+    axis = dimension_to_index(axis, rank);
 
     if ((!rank && axis) || (rank && axis >= rank))
     {

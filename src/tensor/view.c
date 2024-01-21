@@ -66,7 +66,7 @@ nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t r
     return NULL;
 }
 
-static inline int64_t dimension_to_index(int64_t dimension, int64_t rank)
+int64_t dimension_to_index(int64_t dimension, int64_t rank)
 {
     return (dimension < 0) ? (rank + dimension) : dimension;
 }
@@ -541,114 +541,61 @@ nw_error_t *reduce_recover_dimensions(const int64_t *reduced_shape,
 }
 
 /**
- * @brief Given the shape, rank, and strides of a tensor, find the resulting
- *        shape and strides of the tensor after it is reduced.
- * @param[in] original_shape The original dimensions of the tensor before it is reduced.
- * @param[in] original_rank The original rank of the tensor before it is reduced. 
- *                          The number of elements in `original_shape` and `original_strides`.
- * @param[in] original_strides The original strides of the tensor before it is reduced.
- * @param[out] reduced_shape The dimensions of the tensor after it is reduced.
- * @param[in] reduced_rank The rank of the tensor after it is reduced. 
- *                         The number of elements in `reduced_shape` and `reduced_strides`.
- * @param[out] reduced_strides The strides of the tensor after it is reduced.
+ * @brief Given a view of a tensor and collection of dimensions to reduce, 
+ *        find the resultant view of the tensor after reduction is applied 
+ *        over the selected dimensions.
+ * @param[in] original_view The view of the tensor before reduction.
+ * @param[out] reduced_view The view of the reduced tensor.
  * @param[in] axis An array of inidices of tensor dimensions to reduce.
  * @param[in] rank The number of indices in `axis`.
  * @param[in] keep_dimensions A flag to indicate whether the dimensions are retained (true)
  *                            after reduction or removed (false).
- * @return Error if `original_shape`, `original_strides`, `reduced_shape`, `reduced_strides`,
- *         or `axis` are NULL.
- *         Error if `reduced_shape` or `reduced_strides` failed to be computed.
- *         Error if not all dimension indices in `axis` are unique.
- *         NULL if reduced shape and strides were successfully computed.
+ * @return Error if `original_view`, `reduced_view`, or `axis` are NULL.
+ *         Error if not all dimension indices in `axis` are unique or in range of tensor rank.
+ *         Error if view failed to be allocated and initialized.
+ *         NULL if reduced view was successfully determined.
  */
-nw_error_t *reduce(const int64_t *original_shape,
-                   int64_t original_rank,
-                   const int64_t *original_strides, 
-                   int64_t *reduced_shape,
-                   int64_t reduced_rank,
-                   int64_t *reduced_strides,
-                   const int64_t *axis,
-                   int64_t rank,
-                   bool_t keep_dimensions)
+nw_error_t *view_reduce(const view_t *original_view, view_t **reduced_view, const int64_t *axis, int64_t length, bool_t keep_dimensions)
 {
-    CHECK_NULL_ARGUMENT(original_shape, "original_shape");
-    CHECK_NULL_ARGUMENT(original_strides , "original_strides");
-    CHECK_NULL_ARGUMENT(reduced_shape, "reduced_shape");
-    CHECK_NULL_ARGUMENT(reduced_strides, "reduced_strides");
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
+    CHECK_NULL_ARGUMENT(reduced_view , "reduced_view");
     CHECK_NULL_ARGUMENT(axis, "axis");
-    CHECK_UNIQUE(axis, rank, "axis");
+    CHECK_NEGATIVE_ARGUMENT(length, "length");
+    CHECK_UNIQUE(axis, length, "axis");
 
-    if (rank > original_rank || original_rank > MAX_RANK || reduced_rank > MAX_RANK)
+    if (length > original_view->rank)
     {
-        return ERROR(ERROR_RANK,
-                     string_create("original rank %ld, reduced rank %ld and axis length %ld must be less than or equal to %d and rank <= original rank.",
-                     original_rank, reduced_rank, rank, (int) MAX_RANK),
-                     NULL);
+        return ERROR(ERROR_RANK, string_create("number of dimensions being reduced %ld is greater than rank of tensor %ld.", length, original_view->rank), NULL);
     }
 
-    if (keep_dimensions && original_rank != reduced_rank)
+    if (!axis_in_range(axis, length, original_view->rank))
     {
-        return ERROR(ERROR_RANK,
-                     string_create("conflicting ranks with original rank %ld and reduced rank %ld.",
-                     original_rank, reduced_rank), NULL);
+        return ERROR(ERROR_AXIS, string_create("axis dimensions out of range."), NULL);
     }
 
-    if (!keep_dimensions && reduced_rank != original_rank - rank)
-    {
-        return ERROR(ERROR_RANK,
-                     string_create("conflicting ranks with expected reduced rank %ld and reduced rank %ld.", 
-                     (original_rank - rank), reduced_rank), NULL);
-    }
-
-
-    for (int64_t i = 0; i < rank; ++i)
-    {
-        if (axis[i] >= original_rank)
-        {
-            return ERROR(ERROR_RANK,
-                         string_create("original rank %ld must be greater than axis dimension index %ld.",
-                         original_rank, axis[i]),
-                         NULL);
-        }
-    }
-
-    if (!reduced_rank || !original_rank)
-    {
-        return NULL;
-    }
-
+    nw_error_t *error = NULL;
+    int64_t reduced_rank = keep_dimensions ? original_view->rank : original_view->rank - length;
+    int64_t reduced_strides[reduced_rank];
+    int64_t reduced_shape[reduced_rank];
+    int64_t reduced_offset = 0;
     int64_t k = reduced_rank - 1;
     int64_t stride = 1;
 
-    for (int64_t i = original_rank - 1; ; i--)
+    for (int64_t i = original_view->rank - 1; i >= 0; i--)
     {
-        bool_t reduce_dimension = false;
-        for (int64_t j = 0; j < rank; ++j)
+        if (array_contains(axis, length, i) || array_contains(axis, length, i - original_view->rank))
         {
-            if (axis[j] == i)
+            if (keep_dimensions)
             {
-                reduce_dimension = true;
-                break;
+                reduced_shape[k] = 1;
+                reduced_strides[k] = 0;
+                k--;
             }
         }
-
-        if (original_shape[i] == 0)
+        else
         {
-            return ERROR(ERROR_SHAPE,
-                         string_create("The dimensions of the original shape must all be greater than 0"),
-                         NULL);
-        }
-
-        if (reduce_dimension && keep_dimensions)
-        {
-            reduced_shape[k] = 1;
-            reduced_strides[k] = 0;
-            k--;
-        }
-        else if (!reduce_dimension)
-        {
-            reduced_shape[k] = original_shape[i];
-            if (original_strides[i] == 0)
+            reduced_shape[k] = original_view->shape[i];
+            if (!original_view->strides[i])
             {
                 reduced_strides[k] = 0;
             }
@@ -659,14 +606,15 @@ nw_error_t *reduce(const int64_t *original_shape,
             }
             k--;
         }
-
-        if (i == 0)
-        {
-            break;
-        }
     }
 
-    return NULL;
+   error = view_create(reduced_view, reduced_offset, reduced_rank, reduced_shape, reduced_strides);
+   if (error)
+   {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+   }
+
+    return error;
 }
 
 /**
