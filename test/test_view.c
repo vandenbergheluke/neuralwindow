@@ -152,23 +152,96 @@ START_TEST(test_view_create)
 }
 END_TEST
 
-START_TEST(test_is_contiguous)
+START_TEST(test_view_is_contiguous)
 {
-    ck_assert(is_contiguous((int64_t[]) {2, 2, 3}, 3, (int64_t[]) {6, 3, 1}, 0));
-    ck_assert(!is_contiguous(NULL, 3, (int64_t[]) {1, 2, 3}, 0));
-    ck_assert(!is_contiguous((int64_t[]) {1, 2, 3}, 3, NULL, 0));
-    ck_assert(!is_contiguous(NULL, 3, NULL, 0));
-    ck_assert(is_contiguous((int64_t[]) {}, 0, (int64_t[]) {}, 0));
-    ck_assert(!is_contiguous(NULL, 0, NULL, 0));
-    ck_assert(is_contiguous((int64_t[]) {1}, 1, (int64_t[]) {1}, 0));
-    ck_assert(is_contiguous((int64_t[]) {1}, 1, (int64_t[]) {0}, 0));
-    ck_assert(is_contiguous((int64_t[]) {1, 2, 1, 5}, 4, (int64_t[]) {0, 5, 5, 1}, 0));
-    ck_assert(is_contiguous((int64_t[]) {1, 2, 1, 5}, 4, (int64_t[]) {10, 5, 0, 1}, 0));
-    ck_assert(is_contiguous((int64_t[]) {1, 2, 1, 5}, 4, (int64_t[]) {0, 5, 0, 1}, 0));
-    ck_assert(is_contiguous((int64_t[]) {5, 1, 2, 1, 5}, 5, (int64_t[]) {10, 0, 5, 0, 1}, 0));
-    ck_assert(is_contiguous((int64_t[]) {1, 2, 3, 4, 5}, 5, (int64_t[]) {120, 60, 20, 5, 1}, 0));
-    ck_assert(is_contiguous((int64_t[]) {1, 2, 3, 4, 5}, 5, (int64_t[]) {0, 60, 20, 5, 1}, 0));
-    ck_assert(!is_contiguous((int64_t[]) {1, 2, 3, 4, 5}, 5, (int64_t[]) {0, 60, 20, 5, 1}, 10));
+    int64_t number_of_cases = 12;
+    int64_t offsets[] = {
+        0, 
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        -120,
+        120,
+        0
+    };
+    int64_t ranks[] = {
+        3,
+        0,
+        1,
+        4,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+    };
+    int64_t *shapes[] = {
+        (int64_t[]) {2, 2, 3},
+        (int64_t[]) {},
+        (int64_t[]) {1},
+        (int64_t[]) {1, 2, 1, 5},
+        (int64_t[]) {1, 2, 1, 5},
+        (int64_t[]) {1, 2, 1, 5},
+        (int64_t[]) {5, 1, 2, 1, 5},
+        (int64_t[]) {1, 2, 3, 4, 5},
+        (int64_t[]) {1, 2, 3, 4, 5},
+        (int64_t[]) {2, 2, 3, 4, 5},
+        (int64_t[]) {1, 1, 3, 4, 5},
+        (int64_t[]) {1, 2, 3, 5, 4},
+    };
+    int64_t *strides[] = {
+        (int64_t[]) {6, 3, 1},
+        (int64_t[]) {},
+        (int64_t[]) {1},
+        (int64_t[]) {0, 5, 5, 1},
+        (int64_t[]) {10, 5, 0, 1},
+        (int64_t[]) {0, 5, 0, 1},
+        (int64_t[]) {10, 0, 5, 0, 1}, 
+        (int64_t[]) {120, 60, 20, 5, 1},
+        (int64_t[]) {0, 60, 20, 5, 1},
+        (int64_t[]) {120, 60, 20, 5, 1},
+        (int64_t[]) {120, 60, 20, 5, 1},
+        (int64_t[]) {120, 60, 20, 1, 5},
+    };
+    bool_t expected_is_contiguous[] = {
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+    };
+
+    for (int64_t i = 0; i < number_of_cases; i++)
+    {
+        printf("%ld\n", i);
+        bool_t returned_is_contiguous;
+
+        error = view_create(&returned_view, offsets[i], ranks[i], shapes[i], strides[i]);
+        ck_assert_ptr_null(error);
+
+        error = view_is_contiguous(returned_view, &returned_is_contiguous);
+        ck_assert_ptr_null(error);
+
+        ck_assert(expected_is_contiguous[i] == returned_is_contiguous);
+
+        view_destroy(returned_view);
+        returned_view = NULL;
+    }
 }
 END_TEST
 
@@ -2116,7 +2189,7 @@ Suite *make_view_suite(void)
     tcase_add_test(tc, test_view_create);
     tcase_add_test(tc, test_view_create_error);
     tcase_add_test(tc, test_view_permute);
-    tcase_add_test(tc, test_is_contiguous);
+    tcase_add_test(tc, test_view_is_contiguous);
     tcase_add_test(tc, test_strides_from_shape);
     tcase_add_test(tc, test_strides_from_shape_error);
     tcase_add_test(tc, test_view_recover_dimensions);

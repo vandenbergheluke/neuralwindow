@@ -354,45 +354,47 @@ nw_error_t *view_copy(const view_t *source_view, view_t **destination_view)
 }
 
 /**
- * @brief Determine if tensor is contiguous in memory. 
+ * @brief Given the view of a tensor determine it is contiguous. 
  *        Reference: https://pytorch.org/docs/stable/generated/torch.Tensor.is_contiguous.html
  *        Reference: https://github.com/tinygrad/tinygrad/blob/master/tinygrad/shape/shapetracker.py 
- * @param[in] shape The dimensions of the tenors. 
- * @param[in] rank  Represents rank of the tensor. The number of elements in
- *                  `shape` and `strides`. Needs to be in closed interval `[0, MAX_RANK]`.
- * @param[in] strides The strides are the jumps necessary to go from one element 
- *                    to the next one in storage along each dimension.
- * @param[in] offset The offset is the number of elements to skip in the memory block
- *                   to arrive at the first element of the tensor.
- * @return True if the tensor memory is contiguous and False if it isn't.
- *         If any argument is NULL, or `rank` does not satisfy `0 <= rank <= MAX_RANK`
- *         false is returned. If error occured while computing contiguous tensor
- *         strides false is also returned.
+ * @param[in] view The view of a tensor being checked for contiguous property. 
+ * @param[out] is_contiguous True if tensor is contiguous, False if the tensor is not contiguous.
+ * @return Error if argument if `view` or `is_contiguous` is NULL.
+ *         Error if strides failed to initialize. 
+ *         NULL if contiguous check was successful.
  */
-bool_t is_contiguous(const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset)
+nw_error_t *view_is_contiguous(const view_t *view, bool_t *is_contiguous)
 {
-    if (!shape || !strides || rank > MAX_RANK || offset)
+    CHECK_NULL_ARGUMENT(view, "view");
+    CHECK_NULL_ARGUMENT(is_contiguous, "is_contiguous");
+
+    nw_error_t *error = NULL;
+    int64_t strides[view->rank];
+
+    if (view->offset)
     {
-        return false;
+        *is_contiguous = false;
+        return error;
     }
 
-    int64_t contiguous_strides[rank];    
-    nw_error_t *error = strides_from_shape(contiguous_strides, shape, rank);
+    error = strides_from_shape(strides, view->shape, view->rank);
     if (error)
     {
-        error_destroy(error);
-        return false;
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize strides."), error);
     }
 
-    for (int64_t i = 0; i < rank; ++i)
+    for (int64_t i = 0; i < view->rank; ++i)
     {
-        if (strides[i] != contiguous_strides[i] && shape[i] != 1)
+        if (view->strides[i] != strides[i] && view->shape[i] != 1)
         {
-            return false;
+            *is_contiguous = false;
+            return error;
         }
     }
 
-    return true;
+    *is_contiguous = true;
+
+    return error;
 }
 
 nw_error_t *view_permute(const view_t *original_view, view_t **permuted_view, const int64_t *axis, int64_t length)
