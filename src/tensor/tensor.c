@@ -155,29 +155,28 @@ nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_origi
     CHECK_NULL_ARGUMENT(y_broadcasted, "y_broadcasted");
 
     nw_error_t *error = NULL;
-    int64_t *x_shape = x_original->buffer->view->shape; 
-    int64_t x_rank = x_original->buffer->view->rank; 
-    int64_t *y_shape = y_original->buffer->view->shape; 
-    int64_t y_rank = y_original->buffer->view->rank; 
-    int64_t broadcasted_rank = MAX(x_rank, y_rank);
-    int64_t broadcasted_shape[broadcasted_rank];
+    int64_t *broadcasted_shape = NULL;
+    int64_t broadcasted_rank;
 
-    error = broadcast_shapes(x_shape, x_rank, y_shape, y_rank, broadcasted_shape, broadcasted_rank);
+    error = view_broadcast(x_original->buffer->view, y_original->buffer->view, &broadcasted_shape, &broadcasted_rank);
     if (error)
     {
-        return ERROR(ERROR_BROADCAST, string_create("failed to broadcast tensor shapes."), error);
+        error = ERROR(ERROR_BROADCAST, string_create("failed to broadcast tensor shapes."), error);
+        goto cleanup;
     }
 
     error = tensor_expand(x_original, broadcasted_shape, broadcasted_rank, x_broadcasted);
     if (error)
     {
-        return ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
+        error = ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
+        goto cleanup;
     }
 
     error = tensor_expand(y_original, broadcasted_shape, broadcasted_rank, y_broadcasted);
     if (error)
     {
-        return ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
+        error = ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
+        goto cleanup;
     }
 
     PRINTLN_DEBUG_LOCATION("output");
@@ -186,6 +185,10 @@ nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_origi
     PRINTLN_DEBUG_TENSOR("x_broadcasted", *x_broadcasted);
     PRINTLN_DEBUG_TENSOR("y_broadcasted", *y_broadcasted);
     PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    free(broadcasted_shape);
 
     return error;
 }
@@ -210,30 +213,30 @@ nw_error_t *tensor_broadcast_matrix_multiplication(const tensor_t *x_original,
     CHECK_NULL_ARGUMENT(y_broadcasted, "y_broadcasted");
 
     nw_error_t *error = NULL;
-    int64_t *x_shape = x_original->buffer->view->shape; 
-    int64_t x_rank = x_original->buffer->view->rank; 
-    int64_t *y_shape = y_original->buffer->view->shape; 
-    int64_t y_rank = y_original->buffer->view->rank; 
-    int64_t broadcasted_rank = MAX(x_rank, y_rank);
-    int64_t x_broadcasted_shape[broadcasted_rank];
-    int64_t y_broadcasted_shape[broadcasted_rank];
+    int64_t broadcasted_rank;
+    int64_t *x_broadcasted_shape = NULL;
+    int64_t *y_broadcasted_shape = NULL;
 
-    error = matrix_multiplication_broadcast_shapes(x_shape, x_rank, y_shape, y_rank, x_broadcasted_shape, y_broadcasted_shape, broadcasted_rank);
+    error = view_broadcast_matrix_multiplication(x_original->buffer->view, y_original->buffer->view, 
+                                                 &x_broadcasted_shape, &y_broadcasted_shape, &broadcasted_rank);
     if (error)
     {
-        return ERROR(ERROR_BROADCAST, string_create("failed to broadcast tensor shapes."), error);
+        error = ERROR(ERROR_BROADCAST, string_create("failed to broadcast tensor shapes."), error);
+        goto cleanup;
     }
 
     error = tensor_expand(x_original, x_broadcasted_shape, broadcasted_rank, x_broadcasted);
     if (error)
     {
-        return ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
+        error = ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
+        goto cleanup;
     }
 
     error = tensor_expand(y_original, y_broadcasted_shape, broadcasted_rank, y_broadcasted);
     if (error)
     {
-        return ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
+        error = ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
+        goto cleanup;
     }
 
     PRINTLN_DEBUG_LOCATION("output");
@@ -242,6 +245,11 @@ nw_error_t *tensor_broadcast_matrix_multiplication(const tensor_t *x_original,
     PRINTLN_DEBUG_TENSOR("x_broadcasted", *x_broadcasted);
     PRINTLN_DEBUG_TENSOR("y_broadcasted", *y_broadcasted);
     PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    free(x_broadcasted_shape);
+    free(y_broadcasted_shape);
 
     return error;
 }

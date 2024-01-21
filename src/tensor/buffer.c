@@ -300,8 +300,7 @@ static nw_error_t *buffer_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_
 
     nw_error_t *error = NULL;
     bool_t overwrite = (bool_t) *z_buffer;
-    int64_t rank = MAX(x_buffer->view->rank, y_buffer->view->rank);
-    int64_t shape[rank];
+    view_t *view = NULL;
     runtime_t runtime;
     datatype_t datatype;
 
@@ -327,14 +326,15 @@ static nw_error_t *buffer_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_
 
     if (!overwrite)
     {
-        error = matrix_multiplication_shape(x_buffer->view->shape, y_buffer->view->shape, shape, rank);
+        error = view_matrix_multiplication(x_buffer->view, y_buffer->view, &view);
         if (error)
         {
             error = ERROR(ERROR_SHAPE, string_create("incompatible shapes for matrix multiplication."), error);
             goto cleanup;
         }
 
-        error = buffer_creation(EMPTY_OPERATION, z_buffer, shape, rank, NULL, 0, runtime, datatype, NULL, 0, NULL);
+        error = buffer_creation(EMPTY_OPERATION, z_buffer, view->shape, view->rank,
+                                view->strides, view->offset, runtime, datatype, NULL, 0, NULL);
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
@@ -354,7 +354,7 @@ static nw_error_t *buffer_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_
     int64_t y_offset;
     int64_t z_offset;
 
-    switch (rank)
+    switch (view->rank)
     {
     case 2:
         x_offset = x_buffer->view->offset;
@@ -437,6 +437,8 @@ static nw_error_t *buffer_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_
         goto cleanup;
     }
 
+    view_destroy(view);
+
     return error;
 
 cleanup:
@@ -445,6 +447,8 @@ cleanup:
     {
         buffer_destroy(*z_buffer);
     }
+
+    view_destroy(view);
 
     return error;
 }

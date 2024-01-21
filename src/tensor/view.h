@@ -41,20 +41,9 @@ bool_t view_shapes_equal(const view_t *view_a, const view_t *view_b);
 bool_t view_has_shape(const view_t *view, const int64_t *shape, int64_t rank);
 nw_error_t *view_is_contiguous(const view_t *view, bool_t *is_contiguous);
 nw_error_t *view_expand(const view_t *original_view, view_t **expanded_view, const int64_t *shape, int64_t rank);
-nw_error_t *broadcast_shapes(const int64_t *x_original_shape,
-                          int64_t x_original_rank,
-                          const int64_t *y_original_shape,
-                          int64_t y_original_rank, 
-                          int64_t *broadcasted_shape,
-                          int64_t broadcasted_rank);
-nw_error_t *matrix_multiplication_broadcast_shapes(const int64_t *x_original_shape,
-                                                   int64_t x_original_rank,
-                                                   const int64_t *y_original_shape,
-                                                   int64_t y_original_rank, 
-                                                   int64_t *x_broadcasted_shape,
-                                                   int64_t *y_broadcasted_shape,
-                                                   int64_t broadcasted_rank);
-nw_error_t *matrix_multiplication_shape(int64_t *x_shape, int64_t *y_shape, int64_t *z_shape, int64_t rank);
+nw_error_t *view_broadcast(const view_t *view_a, const view_t *view_b, int64_t **shape, int64_t *rank);
+nw_error_t *view_broadcast_matrix_multiplication(const view_t *view_a, const view_t *view_b, int64_t **shape_a, int64_t **shape_b, int64_t *rank);
+nw_error_t *view_matrix_multiplication(const view_t *view_a, const view_t *view_b, view_t **view_c);
 nw_error_t *reduce_axis(const int64_t *original_shape,
                                 int64_t original_rank,
                                 const int64_t *broadcasted_shape,

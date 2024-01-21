@@ -697,64 +697,50 @@ nw_error_t *view_expand(const view_t *original_view, view_t **expanded_view, con
 }
 
 /**
- * @brief Given the shape, rank, and strides of two tensors being combined via an elementwise binary operation, find
- *        the associated shape and rank to broadcast both tensors to perform the operation.   
- * @param[in] x_original_shape An array of size `x_original_rank` representing the dimensions of the original tensor being broadcasted.
- * @param[in] x_original_rank The order of the original tensor. Gives the number of elements in `x_original_shape`.
- * @param[in] y_original_shape An array of size `y_original_rank` representing the dimensions of the original tensor being broadcasted.
- * @param[in] y_original_rank The order of the original tensor. Gives the number of elements in `y_original_shape`.
- * @param[out] broadcasted_shape An array of size `broadcasted_rank` representing the dimensions of the target broadcasted tensor.
- * @param[in] broadcasted_rank The order of the broadcasted tensor. Gives the number of elements in `broadcasted_shape`.
- * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
- *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
+ * @brief Given the views of two tensors being combined via an elementwise binary operation, find
+ *        the associated shape and rank to expand both tensors to perform the operation.   
+ *        Reference: See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
+ * @param[in] view_a The view of the first tensor operand.
+ * @param[in] view_b The view of the second tensor operand.
+ * @param[out] shape An array of size `rank` representing the dimensions of the expanded tensor.
+ * @param[out] rank The order of the expanded tensor. Gives the number of elements in `shape`.
+ * @return NULL if operation was successful.
+ *         Error if any argument is NULL.
+ *         Error if view shapes cannot be broadcasted together.
  */
-nw_error_t *broadcast_shapes(const int64_t *x_original_shape,
-                             int64_t x_original_rank,
-                             const int64_t *y_original_shape,
-                             int64_t y_original_rank, 
-                             int64_t *broadcasted_shape,
-                             int64_t broadcasted_rank)
+nw_error_t *view_broadcast(const view_t *view_a, const view_t *view_b, int64_t **shape, int64_t *rank)
 {
-    CHECK_NULL_ARGUMENT(x_original_shape, "x_original_shape"); 
-    CHECK_NULL_ARGUMENT(y_original_shape, "y_original_shape"); 
-    CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape"); 
+    CHECK_NULL_ARGUMENT(view_a, "view_a"); 
+    CHECK_NULL_ARGUMENT(view_b, "view_b"); 
+    CHECK_NULL_ARGUMENT(shape, "shape"); 
+    CHECK_NULL_ARGUMENT(rank, "rank"); 
 
-    if (x_original_rank > MAX_RANK || y_original_rank > MAX_RANK)
+    *rank = MAX(view_a->rank, view_b->rank);
+    size_t size = *rank * sizeof(int64_t);
+    *shape = (int64_t *) malloc(size);
+    if (!*shape)
     {
-        return ERROR(ERROR_RANK, 
-                     string_create("x original rank %ld and y original rank %ld must be less than or equal to %d.", 
-                     x_original_rank, y_original_rank, (int) MAX_RANK),
-                     NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
     }
 
-    if (broadcasted_rank != MAX(x_original_rank, y_original_rank))
+    for (int64_t i = 1; i < *rank + 1; ++i)
     {
-        return ERROR(ERROR_RANK,
-                     string_create("broadcast rank %ld must be the max rank of {%ld, %ld}.",
-                     broadcasted_rank, x_original_rank, y_original_rank),
-                     NULL);
-    }
-
-    for (int64_t i = 1; i < broadcasted_rank + 1; ++i)
-    {
-        int64_t x_index = x_original_rank - i;
-        int64_t y_index = y_original_rank - i;
-        int64_t broadcast_index = broadcasted_rank - i;
-        if (i > x_original_rank || (i <= y_original_rank && x_original_shape[x_index] == 1))
+        int64_t index_a = view_a->rank - i;
+        int64_t index_b = view_b->rank - i;
+        int64_t index = *rank - i;
+        if (i > view_a->rank || (i <= view_b->rank && view_a->shape[index_a] == 1))
         {
-            broadcasted_shape[broadcast_index] = y_original_shape[y_index];
+            (*shape)[index] = view_b->shape[index_b];
         } 
-        else if (i > y_original_rank || 
-                 x_original_shape[x_index] == y_original_shape[y_index] || 
-                 y_original_shape[y_index] == 1)
+        else if (i > view_b->rank || view_a->shape[index_a] == view_b->shape[index_b] || view_b->shape[index_b] == 1)
         {
-            broadcasted_shape[broadcast_index] = x_original_shape[x_index];
+            (*shape)[index] = view_a->shape[index_a];
         }
         else
         {
-            return ERROR(ERROR_BROADCAST,
-                        string_create("cannot broadcast shapes."),
-                        NULL);
+            free(*shape);
+            *shape = NULL;
+            return ERROR(ERROR_BROADCAST, string_create("failed to broadcast shapes."), NULL);
         }
     }
 
@@ -762,105 +748,110 @@ nw_error_t *broadcast_shapes(const int64_t *x_original_shape,
 }
 
 /**
- * @brief Given the shape, rank, and strides of two tensors being combined via an matrix multiplication operation, find
- *        the associated shape and rank to broadcast both tensors to perform the operation.   
- * @param[in] x_original_shape An array of size `x_original_rank` representing the dimensions of the original tensor being broadcasted.
- * @param[in] x_original_rank The order of the original tensor. Gives the number of elements in `x_original_shape`.
- * @param[in] y_original_shape An array of size `y_original_rank` representing the dimensions of the original tensor being broadcasted.
- * @param[in] y_original_rank The order of the original tensor. Gives the number of elements in `y_original_shape`.
- * @param[out] x_broadcasted_shape An array of size `broadcasted_rank` representing the dimensions of the target broadcasted tensor of `x`.
- * @param[out] y_broadcasted_shape An array of size `broadcasted_rank` representing the dimensions of the target broadcasted tensor of `y`.
- * @param[in] broadcasted_rank The order of the broadcasted tensor. Gives the number of elements in `broadcasted_shape`.
+ * @brief Given the views of two tensors being combined via a matrix multiplication operation, find
+ *        the associated shapes and rank to expand the operands to.   
+ * @param[in] view_a The view of the first tensor operand.
+ * @param[in] view_b The view of the second tensor operand.
+ * @param[out] shape_a An array of size `rank` representing the target dimensions to expand the first tensor operand to.
+ * @param[out] shape_b An array of size `rank` representing the target dimensions to expand the second tensor operand to.
+ * @param[out] rank The order of the expanded tensors. Gives the number of elements in `shape_a` and `shape_b`.
  * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
  *         See broadcasting rules at https://pytorch.org/docs/stable/generated/torch.matmul.html.
  */
-nw_error_t *matrix_multiplication_broadcast_shapes(const int64_t *x_original_shape,
-                                                   int64_t x_original_rank,
-                                                   const int64_t *y_original_shape,
-                                                   int64_t y_original_rank, 
-                                                   int64_t *x_broadcasted_shape,
-                                                   int64_t *y_broadcasted_shape,
-                                                   int64_t broadcasted_rank)
+nw_error_t *view_broadcast_matrix_multiplication(const view_t *view_a, const view_t *view_b, int64_t **shape_a, int64_t **shape_b, int64_t *rank)
 {
-    CHECK_NULL_ARGUMENT(x_original_shape, "x_original_shape"); 
-    CHECK_NULL_ARGUMENT(y_original_shape, "y_original_shape"); 
-    CHECK_NULL_ARGUMENT(x_broadcasted_shape, "x_broadcasted_shape"); 
-    CHECK_NULL_ARGUMENT(y_broadcasted_shape, "y_broadcasted_shape"); 
+    CHECK_NULL_ARGUMENT(view_a, "view_a"); 
+    CHECK_NULL_ARGUMENT(view_b, "view_b"); 
+    CHECK_NULL_ARGUMENT(shape_a, "shape_a"); 
+    CHECK_NULL_ARGUMENT(shape_b, "shape_b"); 
 
-    if (x_original_rank > MAX_RANK ||
-        y_original_rank > MAX_RANK ||
-        x_original_rank < 2 ||
-        y_original_rank < 2)
+    nw_error_t *error = NULL;
+    *shape_a = NULL;
+    *shape_b = NULL;
+    *rank = MAX(view_a->rank, view_b->rank);
+    size_t size = *rank * sizeof(int64_t);
+
+    if (view_a->rank < 2 || view_b->rank < 2)
     {
-        return ERROR(ERROR_RANK, 
-                     string_create("x original rank %ld and y original rank %ld must be in the interval [2, %d].", 
-                     x_original_rank, y_original_rank, (int) MAX_RANK),
-                     NULL);
+        error = ERROR(ERROR_RANK, string_create("operands must be atleast rank 2 or above."), NULL);
+        goto cleanup;
     }
 
-    if (broadcasted_rank != MAX(x_original_rank, y_original_rank))
+    *shape_a = (int64_t *) malloc(size);
+    if (!*shape_a)
     {
-        return ERROR(ERROR_RANK,
-                     string_create("broadcast rank %ld must be the max rank of {%ld, %ld}.",
-                     broadcasted_rank, x_original_rank, y_original_rank),
-                     NULL);
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
     }
 
-    for (int64_t i = 1; i < broadcasted_rank + 1; ++i)
+    *shape_b = (int64_t *) malloc(size);
+    if (!*shape_b)
     {
-        int64_t x_index = x_original_rank - i;
-        int64_t y_index = y_original_rank - i;
-        int64_t broadcast_index = broadcasted_rank - i;
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    for (int64_t i = 1; i < *rank + 1; ++i)
+    {
+        int64_t index_a = view_a->rank - i;
+        int64_t index_b = view_b->rank - i;
+        int64_t index = *rank - i;
         if (i < 3)
         {
-            x_broadcasted_shape[broadcast_index] = x_original_shape[x_index];
-            y_broadcasted_shape[broadcast_index] = y_original_shape[y_index];
+            (*shape_a)[index] = view_a->shape[index_a];
+            (*shape_b)[index] = view_b->shape[index_b];
             continue;
         }
 
-        if (i > x_original_rank || (i <= y_original_rank && x_original_shape[x_index] == 1))
+        if (i > view_a->rank || (i <= view_b->rank && view_a->shape[index_a] == 1))
         {
-            x_broadcasted_shape[broadcast_index] = y_original_shape[y_index];
-            y_broadcasted_shape[broadcast_index] = y_original_shape[y_index];
+            (*shape_a)[index] = view_b->shape[index_b];
+            (*shape_b)[index] = view_b->shape[index_b];
         } 
-        else if (i > y_original_rank || 
-                 x_original_shape[x_index] == y_original_shape[y_index] || 
-                 y_original_shape[y_index] == 1)
+        else if (i > view_b->rank || view_a->shape[index_a] == view_b->shape[index_b] || view_b->shape[index_b] == 1)
         {
-            x_broadcasted_shape[broadcast_index] = x_original_shape[x_index];
-            y_broadcasted_shape[broadcast_index] = x_original_shape[x_index];
+            (*shape_a)[index] = view_a->shape[index_a];
+            (*shape_b)[index] = view_a->shape[index_a];
         }
         else
         {
-            return ERROR(ERROR_BROADCAST,
-                        string_create("cannot broadcast shapes."),
-                        NULL);
+            error = ERROR(ERROR_BROADCAST, string_create("failed to broadcast shapes."), NULL);
+            goto cleanup;
         }
     }
 
-    return NULL;
+    return error;
+
+cleanup:
+
+    free(*shape_a);
+    free(*shape_b);
+    *shape_a = NULL;
+    *shape_b = NULL;
+
+    return error;
 }
 
-nw_error_t *matrix_multiplication_shape(int64_t *x_shape, int64_t *y_shape, int64_t *z_shape, int64_t rank)
+nw_error_t *view_matrix_multiplication(const view_t *view_a, const view_t *view_b, view_t **view_c)
 {
-    CHECK_NULL_ARGUMENT(x_shape, "x_shape");
-    CHECK_NULL_ARGUMENT(y_shape, "y_shape");
-    CHECK_NULL_ARGUMENT(z_shape, "z_shape");
+    CHECK_NULL_ARGUMENT(view_a, "view_a");
+    CHECK_NULL_ARGUMENT(view_b, "view_b");
+    CHECK_NULL_ARGUMENT(view_c, "view_c");
 
-    if (rank < 2)
+    nw_error_t *error = NULL;
+    int64_t rank = MAX(view_a->rank, view_b->rank);
+    int64_t shape[rank];
+
+    if (view_a->rank < 2 || view_b->rank < 2)
     {
-        return ERROR(ERROR_RANK,
-                     string_create("rank %ld must be 2 or greater.",
-                     rank),
-                     NULL);
+        return ERROR(ERROR_RANK, string_create("operands must be atleast rank 2 or above."), NULL);
     }
 
-    if (x_shape[rank - 1] != y_shape[rank - 2])
+    if (view_a->shape[rank - 1] != view_b->shape[rank - 2])
     {
-        return ERROR(ERROR_SHAPE,
-                     string_create("number of columns in x %ld not equal to number of rows in y %ld.",
-                     x_shape[rank - 1], y_shape[rank - 1]),
-                     NULL);
+        return ERROR(ERROR_SHAPE, 
+                     string_create("number of columns in first operand %ld not equal to number of rows in second operand %ld.", 
+                     view_a->shape[rank - 1], view_b->shape[rank - 2]), NULL);
     }
 
     for (int64_t i = 1; i < rank + 1; ++i)
@@ -868,29 +859,34 @@ nw_error_t *matrix_multiplication_shape(int64_t *x_shape, int64_t *y_shape, int6
         int64_t j = rank - i;
         if (i == 1)
         {
-            z_shape[j] = y_shape[j];
+            shape[j] = view_b->shape[j];
         }
         else if (i == 2)
         {
-            z_shape[j] = x_shape[j];
+            shape[j] = view_a->shape[j];
         }
         else
         {
-            if (x_shape[j] != y_shape[j])
+            if (view_a->shape[j] == view_b->shape[j])
             {
-                return ERROR(ERROR_SHAPE,
-                             string_create("dimension in x %ld not equal to dimension in y $lu.",
-                             x_shape[j], y_shape[j]),
-                             NULL);
+                shape[j] = view_a->shape[j];
             }
             else
             {
-                z_shape[j] = x_shape[j];
+                return ERROR(ERROR_SHAPE,
+                             string_create("dimension in first operand %ld not equal to dimension in second operand %ld.",
+                             view_a->shape[j], view_b->shape[j]), NULL);
             }
         }
     }
 
-    return NULL;
+    error = view_create_contiguous(view_c, shape, rank);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    return error;
 }
 
 nw_error_t *reduce_axis_length(const int64_t *original_shape,
