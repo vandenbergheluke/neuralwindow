@@ -373,7 +373,7 @@ START_TEST(test_view_permute)
 }
 END_TEST
 
-START_TEST(test_reduce_recover_dimension)
+START_TEST(test_view_recover_dimensions)
 {
     int64_t number_of_cases = 13;
 
@@ -394,6 +394,8 @@ START_TEST(test_reduce_recover_dimension)
     };
 
     int64_t reduced_ranks[] = { 1, 1, 2, 2, 3, 4, 4, 5, 0, 0, 0, 0, 0 };
+
+    int64_t reduced_offsets[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
     int64_t *reduced_strides[] = {
         (int64_t[]) {0},
@@ -429,6 +431,8 @@ START_TEST(test_reduce_recover_dimension)
 
     int64_t recovered_ranks[] = { 1, 3, 5, 3, 5, 5, 5, 5, 1, 2, 3, 4, 5};
 
+    int64_t recovered_offsets[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
     int64_t *expected_recovered_strides[] = {
         (int64_t[]) {0},
         (int64_t[]) {0, 1, 0},
@@ -462,174 +466,24 @@ START_TEST(test_reduce_recover_dimension)
     };
 
     int64_t lengths[] = { 0, 2, 3, 1, 2, 1, 1, 0, 1, 2, 3, 4, 5 };
-    
-    int64_t returned_recovered_shapes[number_of_cases][MAX_RANK];
-    int64_t returned_recovered_strides[number_of_cases][MAX_RANK];
 
     for (int64_t i = 0; i < number_of_cases; i++)
     {
-        error = reduce_recover_dimensions(reduced_shapes[i],
-                                          reduced_ranks[i],
-                                          reduced_strides[i],
-                                          returned_recovered_shapes[i],
-                                          recovered_ranks[i],
-                                          returned_recovered_strides[i],
-                                          axis[i],
-                                          lengths[i]);
+        view_t *original_view = NULL;
+        view_t *expected_view = NULL;
+        view_t *returned_view = NULL;
+
+        error = view_create(&original_view, reduced_offsets[i], reduced_ranks[i], reduced_shapes[i], reduced_strides[i]);
         ck_assert_ptr_null(error);
-        for (int64_t j = 0; j < recovered_ranks[i]; j++)
-        {
-            ck_assert_int_eq(returned_recovered_shapes[i][j], expected_recovered_shapes[i][j]);
-            ck_assert_int_eq(returned_recovered_strides[i][j], expected_recovered_strides[i][j]);
-        }
-    }
-}
-END_TEST
+        error = view_create(&expected_view, recovered_offsets[i], recovered_ranks[i], expected_recovered_shapes[i], expected_recovered_strides[i]);
+        ck_assert_ptr_null(error);
+        error = view_recover_dimensions(original_view, &returned_view, axis[i], lengths[i]);
+        ck_assert_ptr_null(error);
+        ck_assert_view_eq(returned_view, expected_view);
 
-START_TEST(test_reduce_recover_dimension_error)
-{
-    int64_t number_of_cases = 11;
-
-    int64_t *reduced_shapes[] = {
-        NULL,
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {0},
-    };
-
-    int64_t reduced_ranks[] = {
-        1,
-        1,
-        1,
-        1,
-        1,
-        MAX_RANK + 1,
-        1,
-        1,
-        2,
-        1,
-        1,
-    };
-
-    int64_t *reduced_strides[] = {
-        (int64_t[]) {1},
-        NULL,
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-    };
-
-    int64_t *recovered_shapes[] = {
-        (int64_t[]) {2, 1},
-        (int64_t[]) {2, 1},
-        NULL,
-        (int64_t[]) {2, 1},
-        (int64_t[]) {2, 1},
-        (int64_t[]) {2, 1},
-        (int64_t[]) {2, 1},
-        (int64_t[]) {2, 1},
-        (int64_t[]) {2, 1},
-        (int64_t[]) {2, 1},
-        (int64_t[]) {2, 1},
-    };
-
-    int64_t recovered_ranks[] = {
-        2,
-        2,
-        2,
-        2,
-        2,
-        2,
-        MAX_RANK + 1,
-        2,
-        2,
-        2,
-        2,
-    };
-
-    int64_t *recovered_strides[] = {
-        (int64_t[]) {2, 0},
-        (int64_t[]) {2, 0},
-        (int64_t[]) {2, 0},
-        NULL,
-        (int64_t[]) {2, 0},
-        (int64_t[]) {2, 0},
-        (int64_t[]) {2, 0},
-        (int64_t[]) {2, 0},
-        (int64_t[]) {2, 0},
-        (int64_t[]) {2, 0},
-        (int64_t[]) {2, 0},
-    };
-
-    int64_t *axis[] = {
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        NULL,
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {0, 1, 2, 3, 4, 5, 6},
-        (int64_t[]) {1},
-        (int64_t[]) {2},
-        (int64_t[]) {1},
-    };
-
-    int64_t lengths[] = {
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        MAX_RANK + 1,
-        1,
-        1,
-        1,
-    };
-
-    nw_error_type_t error_types[] = {
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_RANK,
-        ERROR_RANK,
-        ERROR_RANK,
-        ERROR_RANK,
-        ERROR_RANK,
-        ERROR_SHAPE,
-    };
-
-    for (int64_t i = 0; i < number_of_cases; i++)
-    {
-        error = reduce_recover_dimensions(reduced_shapes[i],
-                                          reduced_ranks[i],
-                                          reduced_strides[i],
-                                          recovered_shapes[i],
-                                          recovered_ranks[i],
-                                          recovered_strides[i],
-                                          axis[i],
-                                          lengths[i]);
-        ck_assert_ptr_nonnull(error);
-        ck_assert_int_eq(error->error_type, error_types[i]);
-        error_destroy(error);
-        error = NULL;
+        view_destroy(original_view);
+        view_destroy(expected_view);
+        view_destroy(returned_view);
     }
 }
 END_TEST
@@ -2265,8 +2119,7 @@ Suite *make_view_suite(void)
     tcase_add_test(tc, test_is_contiguous);
     tcase_add_test(tc, test_strides_from_shape);
     tcase_add_test(tc, test_strides_from_shape_error);
-    tcase_add_test(tc, test_reduce_recover_dimension);
-    tcase_add_test(tc, test_reduce_recover_dimension_error);
+    tcase_add_test(tc, test_view_recover_dimensions);
     tcase_add_test(tc, test_view_reduce);
     tcase_add_test(tc, test_shapes_equal);
     tcase_add_test(tc, test_shapes_size);

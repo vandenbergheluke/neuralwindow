@@ -432,112 +432,66 @@ nw_error_t *view_permute(const view_t *original_view, view_t **permuted_view, co
 }
 
 /**
- * @brief Given a the shape and strides of a tensor that has been reduced without keeping
- *        the dimension, recover the shape and strides of the reduced tensor such that
- *        the recovered shape and strides are equal to the shape and strides of the
- *        tensor if it was reduced with keeping the dimension instead of without keeping dimension.
- * @param[in] reduced_shape The shape of a tensor reduced along dimensions specified by `axis`
- *                          without keeping dimension.
- * @param[in] reduced_rank The rank of the reduced tensor. Number of elements in `reduced_shape`
- *                         and `reduced_strides`.
- * @param[in] reduced_strides The strides of the reduced tensor.
- * @param[out] recovered_shape The shape of the reduced tensor if it was reduced with keeping dimension
- *                             instead of without keeping dimension.
- * @param[in] recovered_rank The rank of the original tensor before being reduced. Number of
- *                           elements in `recovered_shape` and `recovered_strides`.
- * @param[out] recovered_strides The strides of the recovered tensor.
+ * @brief Given a view of a tensor that has been reduced without keeping
+ *        the dimensions, recover the dimensions of the tensor such that
+ *        the recovered shape, strides, and mask are equal to the shape, strides, and mask of the
+ *        tensor if it was reduced with keeping the dimensions respectively.
+ * @param[in] reduced_view The view of a tensor reduced along dimensions specified by `axis` without keeping dimension.
+ * @param[out] recovered_view The view of the reduced tensor if it was reduced with keeping dimension instead of without keeping dimension.
  * @param[in] axis The indicies of the dimensions of the tensor that were reduced and removed.
  * @param[in] rank The number of elements in `axis`.
- * @return Error if `reduced_shape`, `reduced_strides`, `recovered_shape`, `recovered_strides`, or `axis` is NULL.
- *         Error if `reduced_rank` + `rank` is not equal to the `recovered_rank`.
- *         Error if any of the `reduced_rank`, `recovered_rank`, or `rank` are not in [0, MAX_RANK].
- *         Error if `axis` dimension index is out of range of the `recovered_rank`.
- *         Error if any dimension in `reduced_shape` is 0.
+ * @return Error if `reduced_view`, `recovered_view`, or `axis` is NULL.
  *         Error if not all dimension indices in `axis` are unique.
- *         NULL if the shape and strides were recovered successfully.
+ *         Error if negative argument received for `length`.
+ *         NULL if the view was recovered successfully.
  */
-nw_error_t *reduce_recover_dimensions(const int64_t *reduced_shape,
-                                      int64_t reduced_rank, 
-                                      const int64_t *reduced_strides,
-                                      int64_t *recovered_shape, 
-                                      int64_t recovered_rank,
-                                      int64_t *recovered_strides,
-                                      const int64_t *axis,
-                                      int64_t rank)
+nw_error_t *view_recover_dimensions(const view_t *reduced_view, view_t **recovered_view, const int64_t *axis, int64_t length)
 {
-    CHECK_NULL_ARGUMENT(reduced_shape, "reduced_shape");
-    CHECK_NULL_ARGUMENT(reduced_strides, "reduced_strides");
-    CHECK_NULL_ARGUMENT(recovered_shape, "recovered_shape");
-    CHECK_NULL_ARGUMENT(recovered_strides , "recovered_strides");
+    CHECK_NULL_ARGUMENT(reduced_view, "reduced_view");
+    CHECK_NULL_ARGUMENT(recovered_view, "recovered_view");
     CHECK_NULL_ARGUMENT(axis, "axis");
-    CHECK_UNIQUE(axis, rank, "axis");
+    CHECK_NEGATIVE_ARGUMENT(length, "length");
+    CHECK_UNIQUE(axis, length, "axis");
 
-    if (recovered_rank != reduced_rank + rank)
+    if (!axis_in_range(axis, length, reduced_view->rank + length))
     {
-        return ERROR(ERROR_RANK, 
-                     string_create("conflicting ranks with reduced rank %ld, recovered rank %ld and axis length %ld.",
-                     reduced_rank, recovered_rank, rank),
-                     NULL);
+        return ERROR(ERROR_AXIS, string_create("axis dimensions out of range."), NULL);
     }
 
-    if (reduced_rank > MAX_RANK || recovered_rank > MAX_RANK || rank > MAX_RANK)
-    {
-        return ERROR(ERROR_RANK,
-                     string_create("reduced rank %ld, recovered rank %ld and axis length %ld must be less than or equal to %d.",
-                     reduced_rank, recovered_rank, rank, (int) MAX_RANK),
-                     NULL);
-    }
-
-    for (int64_t i = 0; i < rank; ++i)
-    {
-        if (axis[i] >= recovered_rank)
-        {
-            return ERROR(ERROR_RANK,
-                         string_create("recovered rank %ld must be greater than the axis dimension index %ld.",
-                         recovered_rank, axis[i]),
-                         NULL);
-        }
-    }
-
+    nw_error_t *error = NULL;
+    int64_t recovered_rank = reduced_view->rank + length;
+    int64_t recovered_shape[recovered_rank];
+    int64_t recovered_strides[recovered_rank];
+    int64_t recovered_offset = reduced_view->offset;
     int64_t k = 0;
+
     for (int64_t i = 0; i < recovered_rank; ++i)
     {
-        bool_t reduced = false;
-        for (int64_t j = 0; j < rank; ++j)
+        if (array_contains(axis, length, i) || array_contains(axis, length, i - recovered_rank))
         {
-            if (axis[j] == i)
-            {
-                recovered_shape[i] = 1;
-                recovered_strides[i] = 0;
-                reduced = true;
-                break;
-            }
+            recovered_shape[i] = 1;
+            recovered_strides[i] = 0;
         }
-    
-        if (!reduced)
+        else
         {
-            if (k >= reduced_rank)
+            if (k >= reduced_view->rank)
             {
-                return ERROR(ERROR_RANK,
-                             string_create("error index %ld out of range of reduced rank %ld.",
-                             k, reduced_rank),
-                             NULL);
+                return ERROR(ERROR_RANK, string_create("error index %ld out of range of reduced rank %ld.", k, reduced_view->rank), NULL);
             }
 
-            if (!reduced_shape[k])
-            {
-                return ERROR(ERROR_SHAPE,
-                             string_create("all reduced shape dimensions must be greater than 0."),
-                             NULL);
-            }
-
-            recovered_shape[i] = reduced_shape[k];
-            recovered_strides[i] = reduced_strides[k];
+            recovered_shape[i] = reduced_view->shape[k];
+            recovered_strides[i] = reduced_view->strides[k];
             ++k;
         }
     }
 
-    return NULL;
+    error = view_create(recovered_view, recovered_offset, recovered_rank, recovered_shape, recovered_strides);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    return error;
 }
 
 /**

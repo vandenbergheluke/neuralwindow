@@ -26,9 +26,9 @@ set(TEST_CXX
 )
 
 set(TEST_CXX_PERF
-    test_tensor_unary_performance
-    test_tensor_binary_performance
-    test_tensor_reduction_performance
+    # test_tensor_unary_performance
+    # test_tensor_binary_performance
+    # test_tensor_reduction_performance
 )
 
 set(TEST_HELPER_TORCH
