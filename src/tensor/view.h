@@ -40,13 +40,7 @@ nw_error_t *view_logical_size(const view_t *view, int64_t *size);
 bool_t view_shapes_equal(const view_t *view_a, const view_t *view_b);
 bool_t view_has_shape(const view_t *view, const int64_t *shape, int64_t rank);
 nw_error_t *view_is_contiguous(const view_t *view, bool_t *is_contiguous);
-
-nw_error_t *broadcast_strides(const int64_t *original_shape,
-                           int64_t original_rank,
-                           const int64_t *original_strides,
-                           const int64_t *broadcasted_shape,
-                           int64_t broadcasted_rank,
-                           int64_t *broadcasted_strides);
+nw_error_t *view_expand(const view_t *original_view, view_t **expanded_view, const int64_t *shape, int64_t rank);
 nw_error_t *broadcast_shapes(const int64_t *x_original_shape,
                           int64_t x_original_rank,
                           const int64_t *y_original_shape,

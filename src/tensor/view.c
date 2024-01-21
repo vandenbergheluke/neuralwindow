@@ -641,74 +641,59 @@ bool_t view_has_shape(const view_t *view, const int64_t *shape, int64_t rank)
 }
 
 /**
- * @brief Given the shape, rank, and strides of a tensor, and the target shape and rank to broadcast the tensor to,
- *        get the strides required to broadcast the tensor to the target shape without copying memory.   
- * @param[in] original_shape An array of size original_rank representing the dimensions of the original tensor being broadcasted.
- * @param[in] original_rank The order of the original tensor. Gives the number of elements in original_shape.
- * @param[in] original_strides The memory strides to traverse elements of the original tensor.
- * @param[in] broadcasted_shape An array of size broadcasted_rank representing the dimensions of the target broadcasted tensor.
- * @param[in] broadcasted_rank The order of the broadcasted tensor. Gives the number of elements in broadcasted_shape.
- * @param[out] broadcasted_strides The memory strides to traverse elements of the broadcasted tensor.
- * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
- *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
+ * @brief Given the view of a tensor, and the target shape and rank to expand the tensor to,
+ *        get the resultant view of the tensor expanded to the target shape.   
+ *        Reference: See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
+ * @param[in] original_view The view of the original tensor being expanded.
+ * @param[out] expanded_view The view of the tensor expanded to the target shape.
+ * @param[in] shape An array of size `rank` representing the dimensions of the target expanded tensor.
+ * @param[in] rank The order of the expanded tensor. Gives the number of elements in `shape`.
+ * @return NULL if expansion was successful. 
+ *         Error if `original_view`, `expanded_view`, or `shape` are NULL.
+ *         Error if tensor cannot be expanded to target shape.
  */
-nw_error_t *broadcast_strides(const int64_t *original_shape,
-                              int64_t original_rank,
-                              const int64_t *original_strides,
-                              const int64_t *broadcasted_shape,
-                              int64_t broadcasted_rank,
-                              int64_t *broadcasted_strides)
+nw_error_t *view_expand(const view_t *original_view, view_t **expanded_view, const int64_t *shape, int64_t rank)
 {
-    CHECK_NULL_ARGUMENT(original_shape, "original_shape");
-    CHECK_NULL_ARGUMENT(original_strides, "original_strides");
-    CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
-    CHECK_NULL_ARGUMENT(broadcasted_strides, "broadcasted_strides");
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
+    CHECK_NULL_ARGUMENT(expanded_view, "expanded_view");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NEGATIVE_ARGUMENT(rank, "rank");
 
-    if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
+    if (!is_expandable(original_view->shape, original_view->rank, shape, rank))
     {
-        return ERROR(ERROR_RANK, 
-                     string_create("original rank %ld and broadcasted rank %ld must be less than or equal to %d.", 
-                     original_rank, broadcasted_rank, (int) MAX_RANK),
-                     NULL);
+        return ERROR(ERROR_EXPAND, string_create("failed to expand view."), NULL);
     }
 
-    if (!is_expandable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
-    {
-        return ERROR(ERROR_BROADCAST,
-                     string_create("cannot broadcast shapes."),
-                     NULL);
-    }
+    nw_error_t *error = NULL;
+    int64_t strides[rank];
 
-    for (int64_t i = 1; i < broadcasted_rank + 1; ++i)
+    for (int64_t i = 1; i < rank + 1; ++i)
     {   
-        int64_t original_index = original_rank - i;
-        int64_t broadcast_index = broadcasted_rank - i;
+        int64_t original_index = original_view->rank - i;
+        int64_t broadcast_index = rank - i;
 
-
-        if (i > original_rank || (original_shape[original_index] == 1))
+        if (i > original_view->rank || original_view->shape[original_index] == 1)
         {
-            broadcasted_strides[broadcast_index] = 0; 
+            strides[broadcast_index] = 0; 
         }
-        else if (original_shape[original_index] == broadcasted_shape[broadcast_index])
+        else if (original_view->shape[original_index] == shape[broadcast_index])
         {
-            if (!original_shape[original_index] || !broadcasted_shape[broadcast_index])
-            {
-                return ERROR(ERROR_SHAPE,
-                            string_create("all shape dimensions must be greater than 0."),
-                            NULL);
-            }
-
-            broadcasted_strides[broadcast_index] = original_strides[original_index];
+            strides[broadcast_index] = original_view->strides[original_index];
         }
         else
         {
-            return ERROR(ERROR_BROADCAST,
-                         string_create("cannot broadcast shape."),
-                         NULL);
+            return ERROR(ERROR_EXPAND, string_create("failed to expand view."), NULL);
         }
     }
 
-    return NULL;
+    error = view_create(expanded_view, original_view->offset, rank, shape, strides);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+
+    return error;
 }
 
 /**

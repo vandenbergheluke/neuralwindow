@@ -1132,7 +1132,7 @@ START_TEST(test_view_logical_size)
 }
 END_TEST
 
-START_TEST(test_broadcast_strides)
+START_TEST(test_view_expand)
 {
     int64_t number_of_cases = 14;
 
@@ -1170,6 +1170,23 @@ START_TEST(test_broadcast_strides)
         3,
     };
 
+    int64_t original_offsets[] = {
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    };
+
     int64_t *original_strides[] = {
         (int64_t[]) {},
         (int64_t[]) {},
@@ -1187,7 +1204,7 @@ START_TEST(test_broadcast_strides)
         (int64_t[]) {2, 0, 1},
     };
 
-    int64_t *broadcasted_shapes[] = {
+    int64_t *expanded_shapes[] = {
         (int64_t[]) {1},
         (int64_t[]) {10, 9, 8, 7, 6},
         (int64_t[]) {10, 9, 8, 7, 6},
@@ -1204,7 +1221,7 @@ START_TEST(test_broadcast_strides)
         (int64_t[]) {6, 5, 4, 3, 2},
     };
 
-    int64_t broadcasted_ranks[] = {
+    int64_t expanded_ranks[] = {
         1,
         5,
         5,
@@ -1221,7 +1238,24 @@ START_TEST(test_broadcast_strides)
         5,
     };
 
-    int64_t *expected_broadcasted_strides[] = {
+    int64_t expanded_offsets[] = {
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    };
+
+    int64_t *expanded_strides[] = {
         (int64_t[]) {0},
         (int64_t[]) {0, 0, 0, 0, 0},
         (int64_t[]) {0, 0, 0, 0, 0},
@@ -1238,112 +1272,84 @@ START_TEST(test_broadcast_strides)
         (int64_t[]) {0, 0, 2, 0, 1},
     };
 
-    int64_t returned_broadcasted_strides[number_of_cases][MAX_RANK];
-
     for (int64_t i = 0; i < number_of_cases; i++)
     {
-        error = broadcast_strides(original_shapes[i],
-                                  original_ranks[i],
-                                  original_strides[i],
-                                  broadcasted_shapes[i],
-                                  broadcasted_ranks[i],
-                                  returned_broadcasted_strides[i]);
+        view_t *original_view = NULL;
+        view_t *expected_view = NULL;
+        view_t *returned_view = NULL;
+
+        error = view_create(&original_view, original_offsets[i], original_ranks[i], original_shapes[i], original_strides[i]);
         ck_assert_ptr_null(error);
-        for (int64_t j = 0; j < broadcasted_ranks[i]; j++)
-        {
-            ck_assert_int_eq(returned_broadcasted_strides[i][j],
-                              expected_broadcasted_strides[i][j]);
-        }
+        error = view_create(&expected_view, expanded_offsets[i], expanded_ranks[i], expanded_shapes[i], expanded_strides[i]);
+        ck_assert_ptr_null(error);
+        error = view_expand(original_view, &returned_view, expanded_shapes[i], expanded_ranks[i]);
+        ck_assert_ptr_null(error);
+        ck_assert_view_eq(returned_view, expected_view);
+
+        view_destroy(original_view);
+        view_destroy(expected_view);
+        view_destroy(returned_view);
     }
 }
 END_TEST
 
-START_TEST(test_broadcast_strides_error)
+START_TEST(test_view_expand_error)
 {
-    int64_t number_of_cases = 7;
+    int64_t number_of_cases = 1;
 
     int64_t *original_shapes[] = {
-        NULL,
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
         (int64_t[]) {1, 2, 3, 4, 5},
     };
 
     int64_t original_ranks[] = {
-        0,
-        0,
-        0,
-        0,
-        MAX_RANK + 1,
-        0,
         5,
+    };
+
+    int64_t original_offsets[] = {
+        0,
     };
 
     int64_t *original_strides[] = {
-        (int64_t[]) {},
-        NULL,
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
-        (int64_t[]) {},
         (int64_t[]) {120, 60, 20, 5, 1},
     };
 
-    int64_t *broadcasted_shapes[] = {
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        NULL,
-        (int64_t[]) {1},
-        (int64_t[]) {1},
-        (int64_t[]) {1},
+    int64_t *expanded_shapes[] = {
         (int64_t[]) {5, 4, 3, 2, 1},
     };
 
-    int64_t broadcasted_ranks[] = {
-        1,
-        1,
-        1,
-        1,
-        1,
-        MAX_RANK + 1,
+    int64_t expanded_ranks[] = {
         5,
     };
 
-    int64_t *broadcasted_strides[] = {
-        (int64_t[]) {0},
-        (int64_t[]) {0},
-        (int64_t[]) {0},
-        NULL,
-        (int64_t[]) {0},
-        (int64_t[]) {0},
+    int64_t expanded_offsets[] = {
+        0,
+    };
+
+    int64_t *expanded_strides[] = {
         (int64_t[]) {24, 6, 2, 1, 1},
     };
 
     nw_error_type_t error_types[] = {
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_NULL,
-        ERROR_RANK,
-        ERROR_RANK,
-        ERROR_BROADCAST,
+        ERROR_EXPAND,
     };
 
     for (int64_t i = 0; i < number_of_cases; i++)
     {
-        error = broadcast_strides(original_shapes[i],
-                                  original_ranks[i],
-                                  original_strides[i],
-                                  broadcasted_shapes[i],
-                                  broadcasted_ranks[i],
-                                  broadcasted_strides[i]);
+        view_t *original_view = NULL;
+        view_t *returned_view = NULL;
+
+        error = view_create(&original_view, original_offsets[i], original_ranks[i], original_shapes[i], original_strides[i]);
+        ck_assert_ptr_null(error);
+        error = view_create(&expected_view, expanded_offsets[i], expanded_ranks[i], expanded_shapes[i], expanded_strides[i]);
+        ck_assert_ptr_null(error);
+        error = view_expand(original_view, &returned_view, expanded_shapes[i], expanded_ranks[i]);
         ck_assert_ptr_nonnull(error);
         ck_assert_int_eq(error->error_type, error_types[i]);
         error_destroy(error);
         error = NULL;
+
+        view_destroy(original_view);
+        view_destroy(returned_view);
     }
 }
 END_TEST
@@ -2267,8 +2273,8 @@ Suite *make_view_suite(void)
     tcase_add_test(tc, test_view_reduce);
     tcase_add_test(tc, test_view_shapes_equal);
     tcase_add_test(tc, test_view_logical_size);
-    tcase_add_test(tc, test_broadcast_strides);
-    tcase_add_test(tc, test_broadcast_strides_error);
+    tcase_add_test(tc, test_view_expand);
+    tcase_add_test(tc, test_view_expand_error);
     tcase_add_test(tc, test_broadcast_shapes);
     tcase_add_test(tc, test_broadcast_shapes_error);
     tcase_add_test(tc, test_reduce_axis_length);
