@@ -192,6 +192,117 @@ cleanup:
     return error;
 }
 
+nw_error_t *dropout_forward(dropout_t *dropout, tensor_t *x, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_DROPOUT("dropout", dropout);
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(dropout, "dropout");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *probability = NULL;
+    tensor_t *scale = NULL;
+    tensor_t *prob_mask_1 = NULL;
+    tensor_t *prob_mask_2 = NULL;
+    tensor_t *prob_mask_sum = NULL;
+    tensor_t *rand_tensor = NULL;
+    tensor_t *x_i = NULL;
+    float32_t min = 0;
+    float32_t max = 1;
+    datatype_t datatype = x->buffer->storage->datatype;
+    runtime_t runtime = x->buffer->storage->runtime;
+
+    error = tensor_constant(&dropout->probability, datatype, runtime, false, false, &probability);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    float32_t scale_32 = 1.0 / (1.0 - dropout->probability);
+    error = tensor_constant(&scale_32, datatype, runtime, false, false, &scale);
+    if (error)
+    {
+        tensor_destroy(probability);
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    error = tensor_create_uniform(&rand_tensor, x->buffer->view->shape, x->buffer->view->rank, runtime, datatype, false, true, &min, &max);
+    if (error)
+    {
+        tensor_destroy(probability);
+        tensor_destroy(scale);
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    error = tensor_compare_greater(rand_tensor, probability, &prob_mask_1);
+    if (error)
+    {
+        tensor_destroy(probability);
+        tensor_destroy(scale);
+        tensor_destroy(rand_tensor);
+        return ERROR(ERROR_COMPARE_GREATER, string_create("failed to create tensor."), error);
+    }
+
+    error = tensor_compare_equal(rand_tensor, probability, &prob_mask_2);
+    if (error)
+    {
+        tensor_destroy(probability);
+        tensor_destroy(scale);
+        tensor_destroy(rand_tensor);
+        tensor_destroy(prob_mask_1);
+        return ERROR(ERROR_COMPARE_EQUAL, string_create("failed to create tensor."), error);
+    }
+
+    error = tensor_addition(prob_mask_1, prob_mask_2, &prob_mask_sum);
+    if (error)
+    {
+        tensor_destroy(probability);
+        tensor_destroy(scale);
+        tensor_destroy(rand_tensor);
+        tensor_destroy(prob_mask_1);
+        tensor_destroy(prob_mask_2);
+        return ERROR(ERROR_COMPARE_EQUAL, string_create("failed to create tensor."), error);
+    }
+    tensor_destroy(prob_mask_1);
+    tensor_destroy(prob_mask_2);
+
+    error = tensor_multiplication(x, prob_mask_sum, &x_i);
+    if (error)
+    {
+        tensor_destroy(probability);
+        tensor_destroy(scale);
+        tensor_destroy(rand_tensor);
+        tensor_destroy(prob_mask_sum);
+        return ERROR(ERROR_MULTIPLICATION, string_create("failed to matrix multiply tensors."), error);
+    }
+
+    error = tensor_multiplication(x_i, scale, y);
+    if (error)
+    {
+        tensor_destroy(probability);
+        tensor_destroy(scale);
+        tensor_destroy(rand_tensor);
+        tensor_destroy(prob_mask_sum);
+        tensor_destroy(x_i);
+        return ERROR(ERROR_MULTIPLICATION, string_create("failed to matrix multiply tensors."), error);
+    }
+
+    tensor_destroy(probability);
+    tensor_destroy(scale);
+    tensor_destroy(rand_tensor);
+    tensor_destroy(prob_mask_sum);
+    tensor_destroy(x_i);
+    return NULL;
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+}
+
 static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
 {
     PRINTLN_DEBUG_LOCATION("input");
@@ -226,6 +337,9 @@ static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
         {
         case LINEAR:
             error = linear_forward(transform->linear, x, &feature_map);
+            break;
+        case DROPOUT:
+            error = dropout_forward(transform->dropout, x, &feature_map);
             break;
         case BLOCK:
             error = block_forward(transform->block, x, &feature_map);
@@ -322,6 +436,8 @@ static nw_error_t *block_requires_gradient(block_t *block, bool_t requires_gradi
         {
         case LINEAR:
             error = linear_requires_gradient(transform->linear, requires_gradient);
+            break;
+        case DROPOUT:
             break;
         case BLOCK:
             error = block_requires_gradient(transform->block, requires_gradient);

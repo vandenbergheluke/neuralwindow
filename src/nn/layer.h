@@ -116,5 +116,6 @@ nw_error_t *linear_layer_create(layer_t **layer,
                                 activation_t *activation,
                                 parameter_init_t *weight_init,
                                 parameter_init_t *bias_init);
+nw_error_t *dropout_forward(dropout_t *dropout, tensor_t *x, tensor_t **y);
 
 #endif
