@@ -138,6 +138,101 @@ nw_error_t *tensor_from_data(tensor_t **x, void *data, runtime_t runtime, dataty
     return error;
 }
 
+nw_error_t *concatenation(const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t axis)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(y->buffer, "y->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(y->buffer->view, "y->buffer->view");
+    CHECK_NULL_ARGUMENT(z, "z");
+
+    if (x->buffer->view->rank != y->buffer->view->rank)
+    {
+        return ERROR(ERROR_RANK, string_create("tensors not the same rank."), NULL);
+    }
+
+    for (int64_t i = 0; i < x->buffer->view->rank; ++i)
+    {
+        if (i != axis && x->buffer->view->shape[i] == y->buffer->view->shape[i])
+        {
+            return ERROR(ERROR_SHAPE, string_create("tensors do not have same shape along non-axis dimensions."), NULL);
+        }
+    }
+
+    axis = dimension_to_index(axis, x->buffer->view->rank);
+
+    if (axis < 0 || axis >= x->buffer->view->rank)
+    {
+        return ERROR(ERROR_AXIS, string_create("axis is out of range of tensor."), NULL);
+    }
+
+    int64_t length = 2 * x->buffer->view->rank;
+    int64_t x_arguments[length];
+    int64_t y_arguments[length];
+    tensor_t *x_padded = NULL;
+    tensor_t *y_padded = NULL;
+    nw_error_t *error = NULL;
+
+    for (int64_t i = 0; i < x->buffer->view->rank; ++i)
+    {
+        x_arguments[2 * i] = 0;
+        if (i == axis)
+        {
+            x_arguments[2 * i + 1] = y->buffer->view->shape[i];
+        }
+        else
+        {
+            x_arguments[2 * i + 1] = 0;
+        }
+    }
+
+    for (int64_t i = 0; i < y->buffer->view->rank; ++i)
+    {
+        y_arguments[2 * i + 1] = 0;
+        if (i == axis)
+        {
+            y_arguments[2 * i] = x->buffer->view->shape[i];
+        }
+        else
+        {
+            y_arguments[2 * i] = 0;
+        }
+    }
+
+    error = tensor_padding(x, &x_padded, x_arguments, length);
+    if (error)
+    {
+        error = ERROR(ERROR_PADDING, string_create("failed to pad tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_padding(y, &y_padded, y_arguments, length);
+    if (error)
+    {
+        error = ERROR(ERROR_PADDING, string_create("failed to pad tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_addition(x_padded, y_padded, z);
+    if (error)
+    {
+        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        goto cleanup;
+    }
+
+cleanup:
+
+    if ((!x_padded->requires_gradient && !y_padded->requires_gradient) || no_gradient)
+    {
+        tensor_destroy(x_padded);
+        tensor_destroy(y_padded);
+    }
+
+    return error;
+}
+
 nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_original, tensor_t **x_broadcasted, tensor_t **y_broadcasted)
 {
     PRINTLN_DEBUG_LOCATION("input");
@@ -1567,7 +1662,61 @@ nw_error_t *tensor_permute(const tensor_t *x, tensor_t **y, int64_t *axis, int64
     error = apply_operation_structure(PERMUTE_OPERATION, x, axis, length, y);
     if (error)
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to permute tensor."), error);
+        return ERROR(ERROR_PERMUTE, string_create("failed to permute tensor."), error);
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+    return error;
+}
+
+nw_error_t *tensor_slice(const tensor_t *x, tensor_t **y, int64_t *arguments, int64_t length)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_INT64_ARRAY("arguments", arguments, length);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+
+    nw_error_t *error = NULL;
+
+    error = apply_operation_structure(SLICE_OPERATION, x, arguments, length, y);
+    if (error)
+    {
+        return ERROR(ERROR_SLICE, string_create("failed to slice tensor."), error);
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+    return error;
+}
+
+nw_error_t *tensor_padding(const tensor_t *x, tensor_t **y, int64_t *arguments, int64_t length)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_INT64_ARRAY("arguments", arguments, length);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+
+    nw_error_t *error = NULL;
+
+    error = apply_operation_structure(PADDING_OPERATION, x, arguments, length, y);
+    if (error)
+    {
+        return ERROR(ERROR_PADDING, string_create("failed to pad tensor."), error);
     }
 
     PRINTLN_DEBUG_LOCATION("output");

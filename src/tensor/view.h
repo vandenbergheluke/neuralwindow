@@ -48,4 +48,8 @@ nw_error_t *view_reduce_axis(const view_t *original_view,
                              const int64_t *broadcasted_shape, int64_t broadcasted_rank,
                              int64_t **axis_keep_dimension, int64_t *length_keep_dimension,
                              int64_t **axis_remove_dimension, int64_t *length_remove_dimension);
+nw_error_t *view_slice(const view_t *original_view, view_t **sliced_view, const int64_t *arguments, int64_t length);
+nw_error_t *view_slice_padding_arguments(const view_t *original_view, const int64_t *slice_arguments, int64_t length, int64_t **padding_arguments);
+nw_error_t *view_padding(const view_t *original_view, view_t **padding_view, const int64_t *arguments, int64_t length);
+nw_error_t *view_padding_slice_arguments(const view_t *original_view, const int64_t *padding_arguments, int64_t length, int64_t **slice_arguments);
 #endif

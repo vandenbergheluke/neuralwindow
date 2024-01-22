@@ -55,6 +55,8 @@ nw_error_t *tensor_broadcast_matrix_multiplication(const tensor_t *x_original, c
 nw_error_t *tensor_expand(const tensor_t *x, const int64_t *shape, int64_t length, tensor_t **y);
 nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const int64_t *shape, int64_t length);
 nw_error_t *tensor_permute(const tensor_t *x, tensor_t **y, int64_t *axis, int64_t length);
+nw_error_t *tensor_slice(const tensor_t *x, tensor_t **y, int64_t *arguments, int64_t length);
+nw_error_t *tensor_padding(const tensor_t *x, tensor_t **y, int64_t *arguments, int64_t length);
 nw_error_t *tensor_image_to_column(const tensor_t *x, tensor_t **y, int64_t kernel_size, int64_t stride, int64_t padding, int64_t channels, int64_t height, int64_t width);
 nw_error_t *tensor_column_to_image(const tensor_t *x, tensor_t **y, int64_t kernel_size, int64_t stride, int64_t padding, int64_t channels, int64_t height, int64_t width);
 nw_error_t *tensor_is_contiguous(const tensor_t *x, bool_t *is_contiguous);
@@ -71,6 +73,7 @@ nw_error_t *tensor_power(const tensor_t *x, const tensor_t *y, tensor_t **z);
 nw_error_t *tensor_matrix_multiplication(const tensor_t *x, const tensor_t *y, tensor_t **z);
 nw_error_t *tensor_compare_equal(const tensor_t *x, const tensor_t *y, tensor_t **z);
 nw_error_t *tensor_compare_greater(const tensor_t *x, const tensor_t *y, tensor_t **z);
+nw_error_t *concatenation(const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t axis);
 
 // Ternary Operations
 nw_error_t *tensor_convolution(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding);

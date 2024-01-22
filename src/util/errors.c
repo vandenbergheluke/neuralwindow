@@ -181,6 +181,10 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_IMAGE_TO_COLUMN";
     case ERROR_COLUMN_TO_IMAGE:
         return "ERROR_COLUMN_TO_IMAGE";
+    case ERROR_PADDING:
+        return "ERROR_PADDING";
+    case ERROR_SLICE:
+        return "ERROR_SLICE";
     default:
         return "ERROR";
     }

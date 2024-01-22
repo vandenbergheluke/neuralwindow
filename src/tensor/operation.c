@@ -108,6 +108,10 @@ string_t structure_operation_type_string(structure_operation_type_t structure_op
         return "PERMUTE_OPERATION";
     case RESHAPE_OPERATION:
         return "RESHAPE_OPERATION";
+    case SLICE_OPERATION:
+        return "SLICE_OPERATION";
+    case PADDING_OPERATION:
+        return "PADDING_OPERATION";
     case IMAGE_TO_COLUMN_OPERATION:
         return "IMAGE_TO_COLUMN_OPERATION";
     case COLUMN_TO_IMAGE_OPERATION:

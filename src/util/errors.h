@@ -652,7 +652,9 @@ typedef enum nw_error_type_t
     ERROR_POOLING,
     ERROR_CONVOLUTION,
     ERROR_IMAGE_TO_COLUMN,
-    ERROR_COLUMN_TO_IMAGE
+    ERROR_COLUMN_TO_IMAGE,
+    ERROR_PADDING,
+    ERROR_SLICE,
 } nw_error_type_t;
 
 typedef struct nw_error_t

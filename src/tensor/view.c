@@ -40,9 +40,7 @@ nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t r
     {
         if (!shape[i])
         {
-            return ERROR(ERROR_SHAPE,
-                         string_create("all shape dimensions must be greater than 0."),
-                         NULL);
+            return ERROR(ERROR_SHAPE, string_create("all shape dimensions must be greater than 0."), NULL);
         }
 
         if (!i)
@@ -960,6 +958,127 @@ nw_error_t *view_reduce_axis(const view_t *original_view,
                 ++(*length_remove_dimension);
             }
         }
+    }
+
+    return NULL;
+}
+
+nw_error_t *view_slice(const view_t *original_view, view_t **sliced_view, const int64_t *arguments, int64_t length)
+{
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
+    CHECK_NULL_ARGUMENT(sliced_view, "sliced_view");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+
+    if (length % 2 != 0 || original_view->rank != length / 2)
+    {
+        return ERROR(ERROR_RANK, string_create("conflict between rank %ld and axis length %ld.", original_view->rank, length), NULL);
+    }
+
+    int64_t sliced_rank = original_view->rank;
+    int64_t sliced_shape[sliced_rank];
+    int64_t sliced_offset = 0;
+    int64_t *sliced_strides = original_view->strides;
+
+    for (int64_t i = 0; i < original_view->rank; ++i)
+    {
+        if (arguments[2 * i + 1] <= arguments[2 * i] || arguments[2 * i] < 0 || arguments[2 * i + 1] > original_view->shape[i])
+        {
+            return ERROR(ERROR_SHAPE, string_create("invalid slice arguments."), NULL);
+        }
+        sliced_shape[i] = arguments[2 * i + 1] - arguments[2 * i]; 
+    }
+
+    for (int64_t i = 0; i < length; i += 2)
+    {
+        sliced_offset += original_view->strides[i / 2] * arguments[i];
+    }
+
+    nw_error_t *error = view_create(sliced_view, sliced_offset, sliced_rank, sliced_shape, sliced_strides);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    return NULL;
+}
+
+nw_error_t *view_slice_padding_arguments(const view_t *original_view, const int64_t *slice_arguments, int64_t length, int64_t **padding_arguments)
+{
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
+    CHECK_NULL_ARGUMENT(slice_arguments, "slice_arguments");
+    CHECK_NULL_ARGUMENT(padding_arguments, "padding_arguments");
+
+    if (length % 2 != 0 || original_view->rank != length / 2)
+    {
+        return ERROR(ERROR_RANK, string_create("conflict between rank %ld and axis length %ld.", original_view->rank, length), NULL);
+    }
+
+    *padding_arguments = (int64_t *) malloc(length * sizeof(int64_t));
+    if (!*padding_arguments)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view of size %zu.", sizeof(int64_t) * length), NULL);
+    }
+
+    for (int64_t i = 0; i < length; i += 2)
+    {
+        (*padding_arguments)[i] = slice_arguments[i];
+        (*padding_arguments)[i + 1] = original_view->shape[i / 2] - slice_arguments[i + 1];
+    }
+
+    return NULL;
+}
+
+nw_error_t *view_padding(const view_t *original_view, view_t **padding_view, const int64_t *arguments, int64_t length)
+{
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
+    CHECK_NULL_ARGUMENT(padding_view, "padding_view");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+
+    if (length % 2 != 0 || original_view->rank != length / 2)
+    {
+        return ERROR(ERROR_RANK, string_create("conflict between rank %ld and axis length %ld.", original_view->rank, length), NULL);
+    }
+
+    int64_t padding_rank = original_view->rank;
+    int64_t padding_shape[padding_rank];
+    int64_t padding_offset = 0;
+    int64_t *padding_strides = NULL;
+
+    for (int64_t i = 0; i < original_view->rank; ++i)
+    {
+        padding_shape[i] = arguments[2 * i] + arguments[2 * i + 1] + original_view->shape[i]; 
+    }
+
+    nw_error_t *error = view_create(padding_view, padding_offset, padding_rank, padding_shape, padding_strides);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    return NULL;
+}
+
+nw_error_t *view_padding_slice_arguments(const view_t *original_view, const int64_t *padding_arguments, int64_t length, int64_t **slice_arguments)
+{
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
+    CHECK_NULL_ARGUMENT(padding_arguments, "padding_arguments");
+    CHECK_NULL_ARGUMENT(slice_arguments, "slice_arguments");
+
+    if (length % 2 != 0 || original_view->rank != length / 2)
+    {
+        return ERROR(ERROR_RANK, string_create("conflict between rank %ld and axis length %ld.", original_view->rank, length), NULL);
+    }
+
+    *slice_arguments = (int64_t *) malloc(length * sizeof(int64_t));
+    if (!*slice_arguments)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view of size %zu.", sizeof(int64_t) * length), NULL);
+    }
+
+    for (int64_t i = 0; i < length; i += 2)
+    {
+        (*slice_arguments)[i] = padding_arguments[i];
+        (*slice_arguments)[i + 1] = original_view->shape[i / 2] + padding_arguments[i];
     }
 
     return NULL;

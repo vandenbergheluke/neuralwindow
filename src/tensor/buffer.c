@@ -3,7 +3,7 @@
 #include <string.h>
 #include <sort.h>
 
-static nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, int64_t n, void *data, bool_t copy)
+nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, int64_t n, void *data, bool_t copy)
 {
     CHECK_NULL_ARGUMENT(storage, "storage");
 
@@ -49,7 +49,7 @@ static nw_error_t *storage_create(storage_t **storage, runtime_t runtime, dataty
     return NULL;
 }
 
-static void storage_destroy(storage_t *storage)
+void storage_destroy(storage_t *storage)
 {
     if (storage)
     {
@@ -354,7 +354,7 @@ static nw_error_t *buffer_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_
     int64_t y_offset;
     int64_t z_offset;
 
-    switch (view->rank)
+    switch ((*z_buffer)->view->rank)
     {
     case 2:
         x_offset = x_buffer->view->offset;
@@ -1037,6 +1037,40 @@ cleanup:
     return error;
 }
 
+static void runtime_padding(const buffer_t *x, buffer_t *y, int64_t *arguments, int64_t length, int64_t index, bool_t in_bounds, int64_t x_offset, int64_t y_offset)
+{
+    if (!x->view->rank)
+    {
+        return;
+    }
+
+    for (int64_t i  = 0; i < y->view->shape[index]; ++i)
+    {
+        int64_t offset_i = i - arguments[2 * index]; 
+        bool_t in_bounds_i = in_bounds && offset_i >= 0 && offset_i < x->view->shape[index];
+        int64_t x_offset_i = x_offset + offset_i * x->view->strides[index];
+        int64_t y_offset_i = y_offset + i * y->view->strides[index];
+        if (index == x->view->rank - 1)
+        {
+            switch (x->storage->datatype)
+            {
+            case FLOAT32:
+                ((float32_t *) y->storage->data)[y_offset_i] = (in_bounds_i) ? ((float32_t *) x->storage->data)[x_offset_i] : (float32_t) 0.0;
+                break;
+            case FLOAT64:
+                ((float64_t *) y->storage->data)[y_offset_i] = (in_bounds_i) ? ((float64_t *) x->storage->data)[x_offset_i] : (float64_t) 0.0;
+                break;
+            default:
+                break;
+            }
+        }
+        else
+        {
+            runtime_padding(x, y, arguments, length, index + 1, in_bounds_i, x_offset_i, y_offset_i);
+        }
+    }
+}
+
 nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type, buffer_t *x, int64_t *arguments, int64_t length, buffer_t **result)
 {
     nw_error_t *error = NULL;
@@ -1047,7 +1081,7 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
         error = view_expand(x->view, &view, arguments, length);
         if (error)
         {
-            return ERROR(ERROR_EXPAND, string_create("failed to expand strides"), error);
+            return ERROR(ERROR_EXPAND, string_create("failed to expand."), error);
         }
 
     }
@@ -1056,7 +1090,7 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
         error = view_permute(x->view, &view, arguments, length);
         if (error)
         {
-            return ERROR(ERROR_PERMUTE, string_create("failed to permute shape and strides."), error);
+            return ERROR(ERROR_PERMUTE, string_create("failed to permute."), error);
         }
     }
     else if (structure_operation_type == RESHAPE_OPERATION)
@@ -1066,6 +1100,33 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
         {
             return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
         }
+    }
+    else if (structure_operation_type == SLICE_OPERATION)
+    {
+        error = view_slice(x->view, &view, arguments, length);
+        if (error)
+        {
+            return ERROR(ERROR_SLICE, string_create("failed to slice."), error);
+        }
+    }
+    else if (structure_operation_type == PADDING_OPERATION)
+    {
+        error = view_padding(x->view, &view, arguments, length);
+        if (error)
+        {
+            return ERROR(ERROR_SLICE, string_create("failed to slice."), error);
+        }
+
+        error = buffer_creation(EMPTY_OPERATION, result, view->shape, view->rank, view->strides, view->offset, 
+                                x->storage->runtime, x->storage->datatype, NULL, 0, NULL);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+        }
+
+        runtime_padding(x, *result, arguments, length, 0, true, x->view->offset, (*result)->view->offset);
+
+        return error;
     }
     else if (structure_operation_type == IMAGE_TO_COLUMN_OPERATION || structure_operation_type == COLUMN_TO_IMAGE_OPERATION)
     {
