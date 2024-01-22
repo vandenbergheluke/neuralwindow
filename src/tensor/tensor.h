@@ -73,7 +73,7 @@ nw_error_t *tensor_power(const tensor_t *x, const tensor_t *y, tensor_t **z);
 nw_error_t *tensor_matrix_multiplication(const tensor_t *x, const tensor_t *y, tensor_t **z);
 nw_error_t *tensor_compare_equal(const tensor_t *x, const tensor_t *y, tensor_t **z);
 nw_error_t *tensor_compare_greater(const tensor_t *x, const tensor_t *y, tensor_t **z);
-nw_error_t *concatenation(const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t axis);
+nw_error_t *tensor_concatenation(const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t axis);
 
 // Ternary Operations
 nw_error_t *tensor_convolution(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding);

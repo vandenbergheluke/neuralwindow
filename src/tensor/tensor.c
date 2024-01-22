@@ -138,7 +138,7 @@ nw_error_t *tensor_from_data(tensor_t **x, void *data, runtime_t runtime, dataty
     return error;
 }
 
-nw_error_t *concatenation(const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t axis)
+nw_error_t *tensor_concatenation(const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t axis)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
@@ -155,7 +155,7 @@ nw_error_t *concatenation(const tensor_t *x, const tensor_t *y, tensor_t **z, in
 
     for (int64_t i = 0; i < x->buffer->view->rank; ++i)
     {
-        if (i != axis && x->buffer->view->shape[i] == y->buffer->view->shape[i])
+        if (i != axis && x->buffer->view->shape[i] != y->buffer->view->shape[i])
         {
             return ERROR(ERROR_SHAPE, string_create("tensors do not have same shape along non-axis dimensions."), NULL);
         }
