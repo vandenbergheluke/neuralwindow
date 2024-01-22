@@ -16,6 +16,8 @@ tensor_t *torch_to_tensor(torch::Tensor torch_tensor, runtime_t runtime, datatyp
 {
     nw_error_t *error = NULL;
     buffer_t *buffer = NULL;
+    storage_t *storage = NULL;
+    view_t *view = NULL;
     tensor_t *tensor = NULL;
 
     switch (datatype)
@@ -30,8 +32,21 @@ tensor_t *torch_to_tensor(torch::Tensor torch_tensor, runtime_t runtime, datatyp
         ck_abort_msg("invalid datatype.");
     }
 
-    error = buffer_creation(COPY_OPERATION, &buffer, torch_tensor.sizes().data(), torch_tensor.ndimension(), torch_tensor.strides().data(), 
-                            torch_tensor.storage_offset(), runtime, datatype, NULL, 0, (void *) torch_tensor.storage().data_ptr().get());
+    error = storage_create(&storage, runtime, datatype, torch_tensor.storage().nbytes() / datatype_size(datatype), (void *) torch_tensor.storage().data_ptr().get(), true);
+    if (error)
+    {
+        error_print(error);
+    }
+    ck_assert_ptr_null(error);
+    
+    error = view_create(&view, torch_tensor.storage_offset(), torch_tensor.ndimension(), torch_tensor.sizes().data(), torch_tensor.strides().data());
+    if (error)
+    {
+        error_print(error);
+    }
+    ck_assert_ptr_null(error);
+
+    error = buffer_create(&buffer, view, storage, false);
     if (error)
     {
         error_print(error);

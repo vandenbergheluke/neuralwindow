@@ -3,7 +3,7 @@
 #include <string.h>
 #include <sort.h>
 
-static nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, int64_t n, void *data, bool_t copy)
+nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, int64_t n, void *data, bool_t copy)
 {
     CHECK_NULL_ARGUMENT(storage, "storage");
 
@@ -49,7 +49,7 @@ static nw_error_t *storage_create(storage_t **storage, runtime_t runtime, dataty
     return NULL;
 }
 
-static void storage_destroy(storage_t *storage)
+void storage_destroy(storage_t *storage)
 {
     if (storage)
     {
@@ -300,8 +300,7 @@ static nw_error_t *buffer_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_
 
     nw_error_t *error = NULL;
     bool_t overwrite = (bool_t) *z_buffer;
-    int64_t rank = MAX(x_buffer->view->rank, y_buffer->view->rank);
-    int64_t shape[rank];
+    view_t *view = NULL;
     runtime_t runtime;
     datatype_t datatype;
 
@@ -327,14 +326,15 @@ static nw_error_t *buffer_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_
 
     if (!overwrite)
     {
-        error = matrix_multiplication_shape(x_buffer->view->shape, y_buffer->view->shape, shape, rank);
+        error = view_matrix_multiplication(x_buffer->view, y_buffer->view, &view);
         if (error)
         {
             error = ERROR(ERROR_SHAPE, string_create("incompatible shapes for matrix multiplication."), error);
             goto cleanup;
         }
 
-        error = buffer_creation(EMPTY_OPERATION, z_buffer, shape, rank, NULL, 0, runtime, datatype, NULL, 0, NULL);
+        error = buffer_creation(EMPTY_OPERATION, z_buffer, view->shape, view->rank,
+                                view->strides, view->offset, runtime, datatype, NULL, 0, NULL);
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
@@ -354,7 +354,7 @@ static nw_error_t *buffer_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_
     int64_t y_offset;
     int64_t z_offset;
 
-    switch (rank)
+    switch ((*z_buffer)->view->rank)
     {
     case 2:
         x_offset = x_buffer->view->offset;
@@ -437,6 +437,8 @@ static nw_error_t *buffer_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_
         goto cleanup;
     }
 
+    view_destroy(view);
+
     return error;
 
 cleanup:
@@ -445,6 +447,8 @@ cleanup:
     {
         buffer_destroy(*z_buffer);
     }
+
+    view_destroy(view);
 
     return error;
 }
@@ -494,7 +498,7 @@ static nw_error_t *buffer_binary_elementwise(binary_operation_type_t binary_oper
 
     if (!overwrite)
     {
-        if (!shapes_equal(x_buffer->view->shape, x_buffer->view->rank, y_buffer->view->shape, y_buffer->view->rank))
+        if (!view_shapes_equal(x_buffer->view, y_buffer->view))
         {
             error = ERROR(ERROR_SHAPE, string_create("incompatible tensor shapes."), NULL);
             goto cleanup;
@@ -942,33 +946,27 @@ nw_error_t *buffer_reduction(reduction_operation_type_t reduction_operation_type
     datatype_t datatype = x->storage->datatype;
     runtime_t runtime = x->storage->runtime;
     buffer_t *intermediate_buffer = NULL;
+    view_t *reduced_view = NULL;
     int64_t sorted_axis[length];
 
     if (!overwrite)
     {
-        int64_t reduced_rank = (keep_dimension) ? x->view->rank : (x->view->rank - length); 
-        int64_t reduced_shape[reduced_rank];
-        int64_t reduced_strides[reduced_rank];
-
-        if (reduced_rank < 0)
-        {
-            error = ERROR(ERROR_RANK, string_create("reduction axis length greater than rank of tensor."), NULL);
-            goto cleanup;
-        }
-
-        error = reduce(x->view->shape, x->view->rank, x->view->strides, reduced_shape, reduced_rank, reduced_strides, axis, length, keep_dimension);
+        error = view_reduce(x->view, &reduced_view, axis, length, keep_dimension);
         if (error)
         {
             error = ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
             goto cleanup;
         }
 
-        error = buffer_creation(EMPTY_OPERATION, result, reduced_shape, reduced_rank, reduced_strides, 0, x->storage->runtime, x->storage->datatype, NULL, 0, NULL);
+        error = buffer_creation(EMPTY_OPERATION, result, reduced_view->shape, reduced_view->rank, reduced_view->strides, reduced_view->offset, x->storage->runtime, x->storage->datatype, NULL, 0, NULL);
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
             goto cleanup;
         }
+
+        view_destroy(reduced_view);
+        reduced_view = NULL;
     }
 
     error = descending_sort(axis, length, sorted_axis);
@@ -978,23 +976,9 @@ nw_error_t *buffer_reduction(reduction_operation_type_t reduction_operation_type
         goto cleanup;
     }
 
-    int64_t reduced_rank = x->view->rank; 
-
     for (int64_t i = 0; i < length; ++i)
     {
-        if (!keep_dimension)
-        {
-            --reduced_rank;
-        }
-
-        int64_t *shape = x->view->shape;
-        int64_t *strides = x->view->strides;
-        int64_t offset = x->view->offset;
-        int64_t rank = x->view->rank;
-        int64_t reduced_shape[reduced_rank];
-        int64_t reduced_strides[reduced_rank];
-
-        error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, &sorted_axis[i], (int64_t) 1, keep_dimension);
+        error = view_reduce(x->view, &reduced_view, &sorted_axis[i], (int64_t) 1, keep_dimension);
         if (error)
         {
             error = ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
@@ -1003,7 +987,8 @@ nw_error_t *buffer_reduction(reduction_operation_type_t reduction_operation_type
 
         if (i + 1 < length)
         {
-            error = buffer_creation(EMPTY_OPERATION, &intermediate_buffer, reduced_shape, reduced_rank, reduced_strides, offset, runtime, datatype, NULL, 0, NULL);
+            error = buffer_creation(EMPTY_OPERATION, &intermediate_buffer, reduced_view->shape, reduced_view->rank, 
+                                    reduced_view->strides, reduced_view->offset, runtime, datatype, NULL, 0, NULL);
             if (error)
             {
                 error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
@@ -1028,6 +1013,9 @@ nw_error_t *buffer_reduction(reduction_operation_type_t reduction_operation_type
         }
 
         x = intermediate_buffer;
+
+        view_destroy(reduced_view);
+        reduced_view = NULL;
     }
 
     return error; 
@@ -1044,7 +1032,43 @@ cleanup:
         buffer_destroy(*result);
     }
 
+    view_destroy(reduced_view);
+
     return error;
+}
+
+static void runtime_padding(const buffer_t *x, buffer_t *y, int64_t *arguments, int64_t length, int64_t index, bool_t in_bounds, int64_t x_offset, int64_t y_offset)
+{
+    if (!x->view->rank)
+    {
+        return;
+    }
+
+    for (int64_t i  = 0; i < y->view->shape[index]; ++i)
+    {
+        int64_t offset_i = i - arguments[2 * index]; 
+        bool_t in_bounds_i = in_bounds && offset_i >= 0 && offset_i < x->view->shape[index];
+        int64_t x_offset_i = x_offset + offset_i * x->view->strides[index];
+        int64_t y_offset_i = y_offset + i * y->view->strides[index];
+        if (index == x->view->rank - 1)
+        {
+            switch (x->storage->datatype)
+            {
+            case FLOAT32:
+                ((float32_t *) y->storage->data)[y_offset_i] = (in_bounds_i) ? ((float32_t *) x->storage->data)[x_offset_i] : (float32_t) 0.0;
+                break;
+            case FLOAT64:
+                ((float64_t *) y->storage->data)[y_offset_i] = (in_bounds_i) ? ((float64_t *) x->storage->data)[x_offset_i] : (float64_t) 0.0;
+                break;
+            default:
+                break;
+            }
+        }
+        else
+        {
+            runtime_padding(x, y, arguments, length, index + 1, in_bounds_i, x_offset_i, y_offset_i);
+        }
+    }
 }
 
 nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type, buffer_t *x, int64_t *arguments, int64_t length, buffer_t **result)
@@ -1054,25 +1078,19 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
 
     if (structure_operation_type == EXPAND_OPERATION)
     {
-        int64_t strides[length];
-        error = broadcast_strides(x->view->shape, x->view->rank, x->view->strides, arguments, length, strides);
+        error = view_expand(x->view, &view, arguments, length);
         if (error)
         {
-            return ERROR(ERROR_EXPAND, string_create("failed to expand strides"), error);
+            return ERROR(ERROR_EXPAND, string_create("failed to expand."), error);
         }
 
-        error = view_create(&view, x->view->offset, length, arguments, strides);
-        if (error)
-        {
-            return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
-        }
     }
     else if (structure_operation_type == PERMUTE_OPERATION)
     {
         error = view_permute(x->view, &view, arguments, length);
         if (error)
         {
-            return ERROR(ERROR_PERMUTE, string_create("failed to permute shape and strides."), error);
+            return ERROR(ERROR_PERMUTE, string_create("failed to permute."), error);
         }
     }
     else if (structure_operation_type == RESHAPE_OPERATION)
@@ -1082,6 +1100,62 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
         {
             return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
         }
+    }
+    else if (structure_operation_type == SLICE_OPERATION)
+    {
+        error = view_slice(x->view, &view, arguments, length);
+        if (error)
+        {
+            return ERROR(ERROR_SLICE, string_create("failed to slice."), error);
+        }
+    }
+    else if (structure_operation_type == PADDING_OPERATION)
+    {
+        error = view_padding(x->view, &view, arguments, length);
+        if (error)
+        {
+            return ERROR(ERROR_SLICE, string_create("failed to slice."), error);
+        }
+
+        error = buffer_creation(EMPTY_OPERATION, result, view->shape, view->rank, view->strides, view->offset, 
+                                x->storage->runtime, x->storage->datatype, NULL, 0, NULL);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+        }
+
+        runtime_padding(x, *result, arguments, length, 0, true, x->view->offset, (*result)->view->offset);
+
+        view_destroy(view);
+
+        return error;
+    }
+    else if (structure_operation_type == IMAGE_TO_COLUMN_OPERATION || structure_operation_type == COLUMN_TO_IMAGE_OPERATION)
+    {
+        int64_t batch_size = x->view->shape[0];
+        int64_t kernel_size = arguments[0];
+        int64_t stride = arguments[1];
+        int64_t padding = arguments[2];
+        int64_t channels = arguments[3];
+        int64_t height = arguments[4];
+        int64_t width = arguments[5];
+        int64_t output_height = (height + 2 * padding - kernel_size) / stride + 1;
+        int64_t output_width = (width + 2 * padding - kernel_size) / stride + 1;
+        runtime_t runtime = x->storage->runtime;
+        datatype_t datatype = x->storage->datatype;
+        bool_t im2col = structure_operation_type == IMAGE_TO_COLUMN_OPERATION;
+        int64_t rank = (im2col) ? 3 : 4;
+        int64_t *shape = (im2col) ? 
+                          (int64_t[]){batch_size, channels * kernel_size * kernel_size, output_height * output_width} :
+                          (int64_t[]){batch_size, channels, height, width};
+        error = buffer_creation(ZEROES_OPERATION, result, shape, rank, NULL, 0, runtime, datatype, NULL, 0, NULL);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+        }
+        runtime_image_to_column(datatype, x->storage->data, batch_size, channels, height, width, kernel_size, 
+                                output_height, output_width, stride, padding, (*result)->storage->data, !im2col);
+        return error;
     }
 
     error = buffer_create(result, view, x->storage, false);
@@ -1111,7 +1185,7 @@ static nw_error_t *buffer_create_empty(buffer_t **buffer, const int64_t *shape, 
         goto cleanup;
     }
 
-    error = n_from_shape_and_strides(view->shape, view->strides, view->rank, &n);
+    error = view_physical_size(view, &n);
     if (error)
     {
         error = ERROR(ERROR_N, string_create("failed to obtain storage size."), error);
@@ -1160,7 +1234,7 @@ static nw_error_t *buffer_create_nonempty(buffer_t **buffer, const int64_t *shap
         goto cleanup;
     }
 
-    error = n_from_shape_and_strides(view->shape, view->strides, view->rank, &n);
+    error = view_physical_size(view, &n);
     if (error)
     {
         error = ERROR(ERROR_N, string_create("failed to obtain storage size."), error);

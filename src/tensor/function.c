@@ -1513,27 +1513,20 @@ static nw_error_t *summation_operation_backward(tensor_t *x, int64_t *axis, int6
     nw_error_t *error = NULL;
     tensor_t *x_gradient = NULL;
     tensor_t *x_gradient_i = NULL;
-    int64_t rank = x->buffer->view->rank;
-    int64_t *shape = x->buffer->view->shape;
-    int64_t recovered_shape[rank];
-    int64_t recovered_strides[rank];
-    int64_t reduced_rank = gradient->buffer->view->rank;
-    int64_t *reduced_shape = gradient->buffer->view->shape;
-    int64_t *reduced_strides = gradient->buffer->view->strides;
+    view_t *view = NULL;
 
     if (x->requires_gradient)
     {
         if (!keep_dimension)
         {
-            error = reduce_recover_dimensions(reduced_shape, reduced_rank, reduced_strides,
-                                              recovered_shape, rank, recovered_strides, axis, length);
+            error = view_recover_dimensions(gradient->buffer->view, &view, axis, length);
             if (error)
             {
                 error = ERROR(ERROR_REDUCTION, string_create("failed to recover reduce dimensions."), error);
                 goto cleanup;
             }
 
-            error = tensor_reshape(gradient, &x_gradient_i, recovered_shape, rank);
+            error = tensor_reshape(gradient, &x_gradient_i, view->shape, view->rank);
             if (error)
             {
                 error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
@@ -1545,7 +1538,7 @@ static nw_error_t *summation_operation_backward(tensor_t *x, int64_t *axis, int6
             x_gradient_i = gradient;
         }
 
-        error = tensor_expand(x_gradient_i, shape, rank, &x_gradient);
+        error = tensor_expand(x_gradient_i, x->buffer->view->shape, x->buffer->view->rank, &x_gradient);
         if (error)
         {
             error = ERROR(ERROR_EXPAND, string_create("failed to expand gradient."), error);
@@ -1571,6 +1564,8 @@ cleanup:
     {
         tensor_destroy(x_gradient_i);
     }
+
+    view_destroy(view);
 
     return error; 
 }
@@ -1608,48 +1603,36 @@ static nw_error_t *maximum_operation_backward(tensor_t *x, int64_t *axis, int64_
     tensor_t *x_gradient_n = NULL;
     tensor_t *x_gradient_o = NULL;
     tensor_t *x_gradient_p = NULL;
-    int64_t rank = x->buffer->view->rank;
-    int64_t *shape = x->buffer->view->shape;
+    view_t *result_view = NULL;
+    view_t *gradient_view = NULL;
 
     if (x->requires_gradient)
     {
         if (!keep_dimension)
         {
-            int64_t recovered_result_shape[rank];
-            int64_t recovered_result_strides[rank];
-            int64_t recovered_gradient_shape[rank];
-            int64_t recovered_gradient_strides[rank];
-            int64_t reduced_result_rank = result->buffer->view->rank;
-            int64_t *reduced_result_shape = result->buffer->view->shape;
-            int64_t *reduced_result_strides = result->buffer->view->strides;
-            int64_t reduced_gradient_rank = gradient->buffer->view->rank;
-            int64_t *reduced_gradient_shape = gradient->buffer->view->shape;
-            int64_t *reduced_gradient_strides = gradient->buffer->view->strides;
 
-            error = reduce_recover_dimensions(reduced_result_shape, reduced_result_rank, reduced_result_strides,
-                                              recovered_result_shape, rank, recovered_result_strides, axis, length);
+            error = view_recover_dimensions(result->buffer->view, &result_view,  axis, length);
             if (error)
             {
-                return ERROR(ERROR_REDUCTION, string_create("failed to recover from reduce dimensions."), error);
+                error = ERROR(ERROR_REDUCTION, string_create("failed to recover from reduce dimensions."), error);
                 goto cleanup;
             }
 
-            error = reduce_recover_dimensions(reduced_gradient_shape, reduced_gradient_rank, reduced_gradient_strides,
-                                              recovered_gradient_shape, rank, recovered_gradient_strides, axis, length);
+            error = view_recover_dimensions(gradient->buffer->view, &gradient_view, axis, length);
             if (error)
             {
-                return ERROR(ERROR_REDUCTION, string_create("failed to recover from reduce dimensions."), error);
+                error = ERROR(ERROR_REDUCTION, string_create("failed to recover from reduce dimensions."), error);
                 goto cleanup;
             }
 
-            error = tensor_reshape(result, &x_gradient_k, recovered_result_shape, rank);
+            error = tensor_reshape(result, &x_gradient_k, result_view->shape, result_view->rank);
             if (error)
             {
                 error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
                 goto cleanup;
             }
             
-            error = tensor_reshape(gradient, &x_gradient_l, recovered_gradient_shape, rank);
+            error = tensor_reshape(gradient, &x_gradient_l, gradient_view->shape, gradient_view->rank);
             if (error)
             {
                 error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
@@ -1662,7 +1645,7 @@ static nw_error_t *maximum_operation_backward(tensor_t *x, int64_t *axis, int64_
             x_gradient_l = gradient;
         }
 
-        error = tensor_expand(x_gradient_k, shape, rank, &x_gradient_m);
+        error = tensor_expand(x_gradient_k, x->buffer->view->shape, x->buffer->view->rank, &x_gradient_m);
         if (error)
         {
             error = ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
@@ -1726,6 +1709,8 @@ cleanup:
     tensor_destroy(x_gradient_o);    
     tensor_destroy(x_gradient_p);    
     tensor_destroy(x_gradient);    
+    view_destroy(result_view);
+    view_destroy(gradient_view);
 
     return error; 
 }
@@ -1813,22 +1798,14 @@ static nw_error_t *expand_operation_backward(tensor_t *x, int64_t *shape, int64_
     nw_error_t *error = NULL;
     int64_t length_keep_dimension = 0;
     int64_t length_remove_dimension = 0;
+    int64_t *axis_keep_dimension = NULL;
+    int64_t *axis_remove_dimension = NULL;
     tensor_t *x_gradient = NULL;
     tensor_t *x_gradient_i = NULL;
 
     if (x->requires_gradient)
     {
-        error = reduce_axis_length(x->buffer->view->shape, x->buffer->view->rank, shape, length, &length_keep_dimension, &length_remove_dimension);
-        if (error)
-        {
-            error = ERROR(ERROR_REDUCTION, string_create("failed to get reduction axis lengths."), error);
-            goto cleanup;
-        }
-
-        int64_t axis_keep_dimension[length_keep_dimension];
-        int64_t axis_remove_dimension[length_remove_dimension];
-
-        error = reduce_axis(x->buffer->view->shape, x->buffer->view->rank, shape, length, axis_keep_dimension, axis_remove_dimension);
+        error = view_reduce_axis(x->buffer->view, shape, length, &axis_keep_dimension, &length_keep_dimension, &axis_remove_dimension, &length_remove_dimension);
         if (error)
         {
             error = ERROR(ERROR_REDUCTION, string_create("failed to get reduction axes."), error);
@@ -1882,6 +1859,9 @@ cleanup:
     {
         tensor_destroy(x_gradient_i);
     }
+
+    free(axis_keep_dimension);
+    free(axis_remove_dimension);
 
     return error;
 }
@@ -2001,6 +1981,252 @@ cleanup:
     return error;
 }
 
+static nw_error_t *slice_operation_forward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *result)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    nw_error_t *error = NULL;
+
+    error = buffer_structure(SLICE_OPERATION, x->buffer, arguments, length, &result->buffer);
+    if (error)
+    {
+        return ERROR(ERROR_SLICE, string_create("failed to slice buffer."), error);
+    }
+
+    return error;
+}
+
+static nw_error_t *slice_operation_backward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *gradient)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+    CHECK_NULL_ARGUMENT(gradient, "gradient");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_gradient = NULL;
+    int64_t *padding_arguments = NULL;
+
+    if (x->requires_gradient)
+    {
+        error = view_slice_padding_arguments(x->buffer->view, arguments, length, &padding_arguments);
+        if (error)
+        {
+            error = ERROR(ERROR_PADDING, string_create("failed to acquire padding arguments."), error);
+            goto cleanup;
+        }
+
+        error = tensor_padding(gradient, &x_gradient, padding_arguments, length);        
+        if (error)
+        {
+            error = ERROR(ERROR_PADDING, string_create("failed to pad gradient."), error);
+            goto cleanup;
+        }
+
+        error = tensor_accumulate_gradient(x, x_gradient);
+        if (error)
+        {
+            error = ERROR(ERROR_ADDITION, string_create("failed to add gradient."), error);
+            goto cleanup;
+        }
+    }
+
+cleanup:
+
+    if (gradient != x_gradient)
+    {
+        tensor_destroy(x_gradient);
+    }
+
+    free(padding_arguments);
+
+    return error;
+}
+
+static nw_error_t *padding_operation_forward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *result)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    nw_error_t *error = NULL;
+
+    error = buffer_structure(PADDING_OPERATION, x->buffer, arguments, length, &result->buffer);
+    if (error)
+    {
+        return ERROR(ERROR_PADDING, string_create("failed to pad buffer."), error);
+    }
+
+    return error;
+}
+
+static nw_error_t *padding_operation_backward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *gradient)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+    CHECK_NULL_ARGUMENT(gradient, "gradient");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_gradient = NULL;
+    int64_t *slice_arguments = NULL;
+
+    if (x->requires_gradient)
+    {
+        error = view_padding_slice_arguments(x->buffer->view, arguments, length, &slice_arguments);
+        if (error)
+        {
+            error = ERROR(ERROR_SLICE, string_create("failed to acquire slice arguments."), error);
+            goto cleanup;
+        }
+
+        error = tensor_slice(gradient, &x_gradient, slice_arguments, length);        
+        if (error)
+        {
+            error = ERROR(ERROR_SLICE, string_create("failed to slice gradient."), error);
+            goto cleanup;
+        }
+
+        error = tensor_accumulate_gradient(x, x_gradient);
+        if (error)
+        {
+            error = ERROR(ERROR_ADDITION, string_create("failed to add gradient."), error);
+            goto cleanup;
+        }
+    }
+
+cleanup:
+
+    if (gradient != x_gradient)
+    {
+        tensor_destroy(x_gradient);
+    }
+
+    free(slice_arguments);
+
+    return error;
+}
+
+static nw_error_t *image_to_column_operation_forward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *result)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    nw_error_t *error = NULL;
+
+    error = buffer_structure(IMAGE_TO_COLUMN_OPERATION, x->buffer, arguments, length, &result->buffer);
+    if (error)
+    {
+        return ERROR(ERROR_IMAGE_TO_COLUMN, string_create("failed to apply image to column."), error);
+    }
+
+    return error;
+}
+
+static nw_error_t *image_to_column_operation_backward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *gradient)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(gradient, "gradient");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+    if (length != 6)
+    {
+        return ERROR(ERROR_ARGUMENTS, string_create("invalid number of arguments."), NULL);
+    }
+
+    nw_error_t *error = NULL;
+    tensor_t *x_gradient = NULL;
+
+    if (x->requires_gradient)
+    {
+       error = tensor_column_to_image(gradient, &x_gradient, arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5]);
+       if (error)
+       {
+           error = ERROR(ERROR_COLUMN_TO_IMAGE, string_create("failed to apply column to image."), error);
+           goto cleanup;
+       }
+
+        error = tensor_accumulate_gradient(x, x_gradient);
+        if (error)
+        {
+            error = ERROR(ERROR_ADDITION, string_create("failed to add gradient."), error);
+            goto cleanup;
+        }
+    }
+
+cleanup:
+
+    if (gradient != x_gradient)
+    {
+        tensor_destroy(x_gradient);
+    }
+
+    return error;
+}
+
+static nw_error_t *column_to_image_operation_forward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *result)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    nw_error_t *error = NULL;
+
+    error = buffer_structure(COLUMN_TO_IMAGE_OPERATION, x->buffer, arguments, length, &result->buffer);
+    if (error)
+    {
+        return ERROR(ERROR_COLUMN_TO_IMAGE, string_create("failed to apply column to image."), error);
+    }
+
+    return error;
+}
+
+static nw_error_t *column_to_image_operation_backward(tensor_t *x, int64_t *arguments, int64_t length, tensor_t *gradient)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(gradient, "gradient");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+    if (length != 6)
+    {
+        return ERROR(ERROR_ARGUMENTS, string_create("invalid number of arguments."), NULL);
+    }
+
+    nw_error_t *error = NULL;
+    tensor_t *x_gradient = NULL;
+
+    if (x->requires_gradient)
+    {
+       error = tensor_image_to_column(gradient, &x_gradient, arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5]);
+       if (error)
+       {
+           error = ERROR(ERROR_IMAGE_TO_COLUMN, string_create("failed to apply image to column."), error);
+           goto cleanup;
+       }
+
+        error = tensor_accumulate_gradient(x, x_gradient);
+        if (error)
+        {
+            error = ERROR(ERROR_ADDITION, string_create("failed to add gradient."), error);
+            goto cleanup;
+        }
+    }
+
+cleanup:
+
+    if (gradient != x_gradient)
+    {
+        tensor_destroy(x_gradient);
+    }
+
+    return error;
+}
+
 /**
  * @brief Apply structure operation forward.
  * @param structure_operation Structure operation to execute.
@@ -2025,6 +2251,18 @@ static nw_error_t *structure_operation_forward(structure_operation_t *structure_
         break;
     case RESHAPE_OPERATION:
         error = reshape_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
+        break;
+    case SLICE_OPERATION:
+        error = slice_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
+        break;
+    case PADDING_OPERATION:
+        error = padding_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
+        break;
+    case IMAGE_TO_COLUMN_OPERATION:
+        error = image_to_column_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
+        break;
+    case COLUMN_TO_IMAGE_OPERATION:
+        error = column_to_image_operation_forward(structure_operation->x, structure_operation->arguments, structure_operation->length, result);
         break;
     default:
         error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) structure_operation->operation_type), NULL);
@@ -2068,6 +2306,18 @@ static nw_error_t *structure_operation_backward(structure_operation_t *structure
         break;
     case RESHAPE_OPERATION:
         error = reshape_operation_backward(structure_operation->x, gradient);
+        break;
+    case SLICE_OPERATION:
+        error = slice_operation_backward(structure_operation->x, structure_operation->arguments, structure_operation->length, gradient);
+        break;
+    case PADDING_OPERATION:
+        error = padding_operation_backward(structure_operation->x, structure_operation->arguments, structure_operation->length, gradient);
+        break;
+    case IMAGE_TO_COLUMN_OPERATION:
+        error = image_to_column_operation_backward(structure_operation->x, structure_operation->arguments, structure_operation->length, gradient);
+        break;
+    case COLUMN_TO_IMAGE_OPERATION:
+        error = column_to_image_operation_backward(structure_operation->x, structure_operation->arguments, structure_operation->length, gradient);
         break;
     default:
         error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) structure_operation->operation_type), NULL);
@@ -3044,17 +3294,12 @@ nw_error_t *apply_operation_reduction(reduction_operation_type_t reduction_opera
     CHECK_NULL_ARGUMENT(result, "result");
 
     nw_error_t *error = NULL;
-    int64_t rank = x->buffer->view->rank;
-    int64_t *shape = x->buffer->view->shape;
-    int64_t *strides = x->buffer->view->strides;
     reduction_operation_t *reduction_operation = NULL;
     int64_t reduce_length = length ? length : x->buffer->view->rank;
     int64_t reduce_axis[reduce_length];
-    int64_t reduced_rank = (keep_dimension) ? rank : (rank - reduce_length); 
-    int64_t reduced_shape[reduced_rank];
-    int64_t reduced_strides[reduced_rank];
+    view_t *reduced_view = NULL;
 
-    if (rank < reduce_length)
+    if (x->buffer->view->rank < reduce_length)
     {
         error = ERROR(ERROR_RANK, string_create("reduce axis length greater than rank of tensor."), NULL);
         goto cleanup;
@@ -3062,19 +3307,19 @@ nw_error_t *apply_operation_reduction(reduction_operation_type_t reduction_opera
 
     for (int64_t i = 0; i < reduce_length; ++i)
     {
-        reduce_axis[i] = (!axis || !length) ? i : axis[i];
+        reduce_axis[i] = (!axis || !length) ? i : dimension_to_index(axis[i], x->buffer->view->rank);
     }
 
     CHECK_UNIQUE(reduce_axis, reduce_length, "reduce_axis");
 
-    error = reduce(shape, rank, strides, reduced_shape, reduced_rank, reduced_strides, reduce_axis, reduce_length, keep_dimension);
+    error = view_reduce(x->buffer->view, &reduced_view, reduce_axis, reduce_length, keep_dimension);
     if (error)
     {
         error = ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
         goto cleanup;
     }
 
-    if (shapes_equal(shape, rank, reduced_shape, reduced_rank))
+    if (view_shapes_equal(reduced_view, x->buffer->view))
     {
         *result = (tensor_t *) x;
     }
@@ -3095,11 +3340,14 @@ nw_error_t *apply_operation_reduction(reduction_operation_type_t reduction_opera
         }
     }
 
+    view_destroy(reduced_view);
+
     return error;
 
 cleanup:
 
     reduction_operation_destroy(reduction_operation);
+    view_destroy(reduced_view);
 
     return error;
 }

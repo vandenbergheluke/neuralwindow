@@ -43,6 +43,9 @@ void runtime_ones(void *data, int64_t n, datatype_t datatype);
 void runtime_arange(void *data, datatype_t datatype, void *start, void *stop, void *step);
 void runtime_uniform(void *data, int64_t n, datatype_t datatype, void *lower_bound, void *upper_bound);
 void runtime_normal(void *data, int64_t n, datatype_t datatype, void *mean, void *standard_deviation);
-
+void runtime_image_to_column(datatype_t datatype, void *x_data, 
+                             int64_t batch_size, int64_t channels, int64_t height, int64_t width, 
+                             int64_t kernel_size, int64_t output_height, int64_t output_width,
+                             int64_t stride, int64_t padding, void *y_data, bool_t inverse);
 
 #endif
