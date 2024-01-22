@@ -1126,6 +1126,8 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
 
         runtime_padding(x, *result, arguments, length, 0, true, x->view->offset, (*result)->view->offset);
 
+        view_destroy(view);
+
         return error;
     }
     else if (structure_operation_type == IMAGE_TO_COLUMN_OPERATION || structure_operation_type == COLUMN_TO_IMAGE_OPERATION)

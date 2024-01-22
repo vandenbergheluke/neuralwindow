@@ -697,7 +697,7 @@ int main(void)
     };
 
     nw_error_t *error = NULL;
-    int64_t epochs = 200;
+    int64_t epochs = 300;
     model_t *model = NULL;
     runtime_t runtime = OPENBLAS_RUNTIME;
     datatype_t datatype = FLOAT32;
