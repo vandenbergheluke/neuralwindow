@@ -40,9 +40,7 @@ nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t r
     {
         if (!shape[i])
         {
-            return ERROR(ERROR_SHAPE,
-                         string_create("all shape dimensions must be greater than 0."),
-                         NULL);
+            return ERROR(ERROR_SHAPE, string_create("all shape dimensions must be greater than 0."), NULL);
         }
 
         if (!i)
@@ -66,7 +64,7 @@ nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t r
     return NULL;
 }
 
-static inline int64_t dimension_to_index(int64_t dimension, int64_t rank)
+int64_t dimension_to_index(int64_t dimension, int64_t rank)
 {
     return (dimension < 0) ? (rank + dimension) : dimension;
 }
@@ -354,45 +352,47 @@ nw_error_t *view_copy(const view_t *source_view, view_t **destination_view)
 }
 
 /**
- * @brief Determine if tensor is contiguous in memory. 
+ * @brief Given the view of a tensor determine it is contiguous. 
  *        Reference: https://pytorch.org/docs/stable/generated/torch.Tensor.is_contiguous.html
  *        Reference: https://github.com/tinygrad/tinygrad/blob/master/tinygrad/shape/shapetracker.py 
- * @param[in] shape The dimensions of the tenors. 
- * @param[in] rank  Represents rank of the tensor. The number of elements in
- *                  `shape` and `strides`. Needs to be in closed interval `[0, MAX_RANK]`.
- * @param[in] strides The strides are the jumps necessary to go from one element 
- *                    to the next one in storage along each dimension.
- * @param[in] offset The offset is the number of elements to skip in the memory block
- *                   to arrive at the first element of the tensor.
- * @return True if the tensor memory is contiguous and False if it isn't.
- *         If any argument is NULL, or `rank` does not satisfy `0 <= rank <= MAX_RANK`
- *         false is returned. If error occured while computing contiguous tensor
- *         strides false is also returned.
+ * @param[in] view The view of a tensor being checked for contiguous property. 
+ * @param[out] is_contiguous True if tensor is contiguous, False if the tensor is not contiguous.
+ * @return Error if argument if `view` or `is_contiguous` is NULL.
+ *         Error if strides failed to initialize. 
+ *         NULL if contiguous check was successful.
  */
-bool_t is_contiguous(const int64_t *shape, int64_t rank, const int64_t *strides, int64_t offset)
+nw_error_t *view_is_contiguous(const view_t *view, bool_t *is_contiguous)
 {
-    if (!shape || !strides || rank > MAX_RANK || offset)
+    CHECK_NULL_ARGUMENT(view, "view");
+    CHECK_NULL_ARGUMENT(is_contiguous, "is_contiguous");
+
+    nw_error_t *error = NULL;
+    int64_t strides[view->rank];
+
+    if (view->offset)
     {
-        return false;
+        *is_contiguous = false;
+        return error;
     }
 
-    int64_t contiguous_strides[rank];    
-    nw_error_t *error = strides_from_shape(contiguous_strides, shape, rank);
+    error = strides_from_shape(strides, view->shape, view->rank);
     if (error)
     {
-        error_destroy(error);
-        return false;
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize strides."), error);
     }
 
-    for (int64_t i = 0; i < rank; ++i)
+    for (int64_t i = 0; i < view->rank; ++i)
     {
-        if (strides[i] != contiguous_strides[i] && shape[i] != 1)
+        if (view->strides[i] != strides[i] && view->shape[i] != 1)
         {
-            return false;
+            *is_contiguous = false;
+            return error;
         }
     }
 
-    return true;
+    *is_contiguous = true;
+
+    return error;
 }
 
 nw_error_t *view_permute(const view_t *original_view, view_t **permuted_view, const int64_t *axis, int64_t length)
@@ -432,223 +432,124 @@ nw_error_t *view_permute(const view_t *original_view, view_t **permuted_view, co
 }
 
 /**
- * @brief Given a the shape and strides of a tensor that has been reduced without keeping
- *        the dimension, recover the shape and strides of the reduced tensor such that
- *        the recovered shape and strides are equal to the shape and strides of the
- *        tensor if it was reduced with keeping the dimension instead of without keeping dimension.
- * @param[in] reduced_shape The shape of a tensor reduced along dimensions specified by `axis`
- *                          without keeping dimension.
- * @param[in] reduced_rank The rank of the reduced tensor. Number of elements in `reduced_shape`
- *                         and `reduced_strides`.
- * @param[in] reduced_strides The strides of the reduced tensor.
- * @param[out] recovered_shape The shape of the reduced tensor if it was reduced with keeping dimension
- *                             instead of without keeping dimension.
- * @param[in] recovered_rank The rank of the original tensor before being reduced. Number of
- *                           elements in `recovered_shape` and `recovered_strides`.
- * @param[out] recovered_strides The strides of the recovered tensor.
+ * @brief Given a view of a tensor that has been reduced without keeping
+ *        the dimensions, recover the dimensions of the tensor such that
+ *        the recovered shape, strides, and mask are equal to the shape, strides, and mask of the
+ *        tensor if it was reduced with keeping the dimensions respectively.
+ * @param[in] reduced_view The view of a tensor reduced along dimensions specified by `axis` without keeping dimension.
+ * @param[out] recovered_view The view of the reduced tensor if it was reduced with keeping dimension instead of without keeping dimension.
  * @param[in] axis The indicies of the dimensions of the tensor that were reduced and removed.
  * @param[in] rank The number of elements in `axis`.
- * @return Error if `reduced_shape`, `reduced_strides`, `recovered_shape`, `recovered_strides`, or `axis` is NULL.
- *         Error if `reduced_rank` + `rank` is not equal to the `recovered_rank`.
- *         Error if any of the `reduced_rank`, `recovered_rank`, or `rank` are not in [0, MAX_RANK].
- *         Error if `axis` dimension index is out of range of the `recovered_rank`.
- *         Error if any dimension in `reduced_shape` is 0.
+ * @return Error if `reduced_view`, `recovered_view`, or `axis` is NULL.
  *         Error if not all dimension indices in `axis` are unique.
- *         NULL if the shape and strides were recovered successfully.
+ *         Error if negative argument received for `length`.
+ *         NULL if the view was recovered successfully.
  */
-nw_error_t *reduce_recover_dimensions(const int64_t *reduced_shape,
-                                      int64_t reduced_rank, 
-                                      const int64_t *reduced_strides,
-                                      int64_t *recovered_shape, 
-                                      int64_t recovered_rank,
-                                      int64_t *recovered_strides,
-                                      const int64_t *axis,
-                                      int64_t rank)
+nw_error_t *view_recover_dimensions(const view_t *reduced_view, view_t **recovered_view, const int64_t *axis, int64_t length)
 {
-    CHECK_NULL_ARGUMENT(reduced_shape, "reduced_shape");
-    CHECK_NULL_ARGUMENT(reduced_strides, "reduced_strides");
-    CHECK_NULL_ARGUMENT(recovered_shape, "recovered_shape");
-    CHECK_NULL_ARGUMENT(recovered_strides , "recovered_strides");
+    CHECK_NULL_ARGUMENT(reduced_view, "reduced_view");
+    CHECK_NULL_ARGUMENT(recovered_view, "recovered_view");
     CHECK_NULL_ARGUMENT(axis, "axis");
-    CHECK_UNIQUE(axis, rank, "axis");
+    CHECK_NEGATIVE_ARGUMENT(length, "length");
+    CHECK_UNIQUE(axis, length, "axis");
 
-    if (recovered_rank != reduced_rank + rank)
+    if (!axis_in_range(axis, length, reduced_view->rank + length))
     {
-        return ERROR(ERROR_RANK, 
-                     string_create("conflicting ranks with reduced rank %ld, recovered rank %ld and axis length %ld.",
-                     reduced_rank, recovered_rank, rank),
-                     NULL);
+        return ERROR(ERROR_AXIS, string_create("axis dimensions out of range."), NULL);
     }
 
-    if (reduced_rank > MAX_RANK || recovered_rank > MAX_RANK || rank > MAX_RANK)
-    {
-        return ERROR(ERROR_RANK,
-                     string_create("reduced rank %ld, recovered rank %ld and axis length %ld must be less than or equal to %d.",
-                     reduced_rank, recovered_rank, rank, (int) MAX_RANK),
-                     NULL);
-    }
-
-    for (int64_t i = 0; i < rank; ++i)
-    {
-        if (axis[i] >= recovered_rank)
-        {
-            return ERROR(ERROR_RANK,
-                         string_create("recovered rank %ld must be greater than the axis dimension index %ld.",
-                         recovered_rank, axis[i]),
-                         NULL);
-        }
-    }
-
+    nw_error_t *error = NULL;
+    int64_t recovered_rank = reduced_view->rank + length;
+    int64_t recovered_shape[recovered_rank];
+    int64_t recovered_strides[recovered_rank];
+    int64_t recovered_offset = reduced_view->offset;
     int64_t k = 0;
+
     for (int64_t i = 0; i < recovered_rank; ++i)
     {
-        bool_t reduced = false;
-        for (int64_t j = 0; j < rank; ++j)
+        if (array_contains(axis, length, i) || array_contains(axis, length, i - recovered_rank))
         {
-            if (axis[j] == i)
-            {
-                recovered_shape[i] = 1;
-                recovered_strides[i] = 0;
-                reduced = true;
-                break;
-            }
+            recovered_shape[i] = 1;
+            recovered_strides[i] = 0;
         }
-    
-        if (!reduced)
+        else
         {
-            if (k >= reduced_rank)
+            if (k >= reduced_view->rank)
             {
-                return ERROR(ERROR_RANK,
-                             string_create("error index %ld out of range of reduced rank %ld.",
-                             k, reduced_rank),
-                             NULL);
+                return ERROR(ERROR_RANK, string_create("error index %ld out of range of reduced rank %ld.", k, reduced_view->rank), NULL);
             }
 
-            if (!reduced_shape[k])
-            {
-                return ERROR(ERROR_SHAPE,
-                             string_create("all reduced shape dimensions must be greater than 0."),
-                             NULL);
-            }
-
-            recovered_shape[i] = reduced_shape[k];
-            recovered_strides[i] = reduced_strides[k];
+            recovered_shape[i] = reduced_view->shape[k];
+            recovered_strides[i] = reduced_view->strides[k];
             ++k;
         }
     }
 
-    return NULL;
+    error = view_create(recovered_view, recovered_offset, recovered_rank, recovered_shape, recovered_strides);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    return error;
 }
 
 /**
- * @brief Given the shape, rank, and strides of a tensor, find the resulting
- *        shape and strides of the tensor after it is reduced.
- * @param[in] original_shape The original dimensions of the tensor before it is reduced.
- * @param[in] original_rank The original rank of the tensor before it is reduced. 
- *                          The number of elements in `original_shape` and `original_strides`.
- * @param[in] original_strides The original strides of the tensor before it is reduced.
- * @param[out] reduced_shape The dimensions of the tensor after it is reduced.
- * @param[in] reduced_rank The rank of the tensor after it is reduced. 
- *                         The number of elements in `reduced_shape` and `reduced_strides`.
- * @param[out] reduced_strides The strides of the tensor after it is reduced.
+ * @brief Given a view of a tensor and collection of dimensions to reduce, 
+ *        find the resultant view of the tensor after reduction is applied 
+ *        over the selected dimensions.
+ * @param[in] original_view The view of the tensor before reduction.
+ * @param[out] reduced_view The view of the reduced tensor.
  * @param[in] axis An array of inidices of tensor dimensions to reduce.
  * @param[in] rank The number of indices in `axis`.
  * @param[in] keep_dimensions A flag to indicate whether the dimensions are retained (true)
  *                            after reduction or removed (false).
- * @return Error if `original_shape`, `original_strides`, `reduced_shape`, `reduced_strides`,
- *         or `axis` are NULL.
- *         Error if `reduced_shape` or `reduced_strides` failed to be computed.
- *         Error if not all dimension indices in `axis` are unique.
- *         NULL if reduced shape and strides were successfully computed.
+ * @return Error if `original_view`, `reduced_view`, or `axis` are NULL.
+ *         Error if not all dimension indices in `axis` are unique or in range of tensor rank.
+ *         Error if view failed to be allocated and initialized.
+ *         NULL if reduced view was successfully determined.
  */
-nw_error_t *reduce(const int64_t *original_shape,
-                   int64_t original_rank,
-                   const int64_t *original_strides, 
-                   int64_t *reduced_shape,
-                   int64_t reduced_rank,
-                   int64_t *reduced_strides,
-                   const int64_t *axis,
-                   int64_t rank,
-                   bool_t keep_dimensions)
+nw_error_t *view_reduce(const view_t *original_view, view_t **reduced_view, const int64_t *axis, int64_t length, bool_t keep_dimensions)
 {
-    CHECK_NULL_ARGUMENT(original_shape, "original_shape");
-    CHECK_NULL_ARGUMENT(original_strides , "original_strides");
-    CHECK_NULL_ARGUMENT(reduced_shape, "reduced_shape");
-    CHECK_NULL_ARGUMENT(reduced_strides, "reduced_strides");
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
+    CHECK_NULL_ARGUMENT(reduced_view , "reduced_view");
     CHECK_NULL_ARGUMENT(axis, "axis");
-    CHECK_UNIQUE(axis, rank, "axis");
+    CHECK_NEGATIVE_ARGUMENT(length, "length");
+    CHECK_UNIQUE(axis, length, "axis");
 
-    if (rank > original_rank || original_rank > MAX_RANK || reduced_rank > MAX_RANK)
+    if (length > original_view->rank)
     {
-        return ERROR(ERROR_RANK,
-                     string_create("original rank %ld, reduced rank %ld and axis length %ld must be less than or equal to %d and rank <= original rank.",
-                     original_rank, reduced_rank, rank, (int) MAX_RANK),
-                     NULL);
+        return ERROR(ERROR_RANK, string_create("number of dimensions being reduced %ld is greater than rank of tensor %ld.", length, original_view->rank), NULL);
     }
 
-    if (keep_dimensions && original_rank != reduced_rank)
+    if (!axis_in_range(axis, length, original_view->rank))
     {
-        return ERROR(ERROR_RANK,
-                     string_create("conflicting ranks with original rank %ld and reduced rank %ld.",
-                     original_rank, reduced_rank), NULL);
+        return ERROR(ERROR_AXIS, string_create("axis dimensions out of range."), NULL);
     }
 
-    if (!keep_dimensions && reduced_rank != original_rank - rank)
-    {
-        return ERROR(ERROR_RANK,
-                     string_create("conflicting ranks with expected reduced rank %ld and reduced rank %ld.", 
-                     (original_rank - rank), reduced_rank), NULL);
-    }
-
-
-    for (int64_t i = 0; i < rank; ++i)
-    {
-        if (axis[i] >= original_rank)
-        {
-            return ERROR(ERROR_RANK,
-                         string_create("original rank %ld must be greater than axis dimension index %ld.",
-                         original_rank, axis[i]),
-                         NULL);
-        }
-    }
-
-    if (!reduced_rank || !original_rank)
-    {
-        return NULL;
-    }
-
+    nw_error_t *error = NULL;
+    int64_t reduced_rank = keep_dimensions ? original_view->rank : original_view->rank - length;
+    int64_t reduced_strides[reduced_rank];
+    int64_t reduced_shape[reduced_rank];
+    int64_t reduced_offset = 0;
     int64_t k = reduced_rank - 1;
     int64_t stride = 1;
 
-    for (int64_t i = original_rank - 1; ; i--)
+    for (int64_t i = original_view->rank - 1; i >= 0; i--)
     {
-        bool_t reduce_dimension = false;
-        for (int64_t j = 0; j < rank; ++j)
+        if (array_contains(axis, length, i) || array_contains(axis, length, i - original_view->rank))
         {
-            if (axis[j] == i)
+            if (keep_dimensions)
             {
-                reduce_dimension = true;
-                break;
+                reduced_shape[k] = 1;
+                reduced_strides[k] = 0;
+                k--;
             }
         }
-
-        if (original_shape[i] == 0)
+        else
         {
-            return ERROR(ERROR_SHAPE,
-                         string_create("The dimensions of the original shape must all be greater than 0"),
-                         NULL);
-        }
-
-        if (reduce_dimension && keep_dimensions)
-        {
-            reduced_shape[k] = 1;
-            reduced_strides[k] = 0;
-            k--;
-        }
-        else if (!reduce_dimension)
-        {
-            reduced_shape[k] = original_shape[i];
-            if (original_strides[i] == 0)
+            reduced_shape[k] = original_view->shape[i];
+            if (!original_view->strides[i])
             {
                 reduced_strides[k] = 0;
             }
@@ -659,62 +560,46 @@ nw_error_t *reduce(const int64_t *original_shape,
             }
             k--;
         }
-
-        if (i == 0)
-        {
-            break;
-        }
     }
 
-    return NULL;
+   error = view_create(reduced_view, reduced_offset, reduced_rank, reduced_shape, reduced_strides);
+   if (error)
+   {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+   }
+
+    return error;
 }
 
 /**
- * @brief Given the shape and strides of a tensor, compute the required
+ * @brief Given the view of a tensor, compute the required
  *        number of tensor data elements that need to be stored in memory.
- * @param[in] shape The dimensions of the tensor.
- * @param[in] strides The strides of the tensor.
- * @param[in] rank The number of dimensions in `shape`.
- * @param[out] n The number of elements that are required to be stored in 
- *               memory to represent the tensor.
- * @return Error if `shape`, `strides`, or `n` is NULL.
- *         Error if any of the dimensions is zero.
- *         Error if `rank` greater than max rank.
- *         NULL if `n` is computed successfully.
+ * @param[in] view The view of the tensor.
+ * @param[out] size The number of elements that are required to be stored in 
+    *               memory to represent the tensor.
+ * @return Error if `view` or `size` is NULL.
+ *         Error if any of the dimensions are zero.
+ *         NULL if `size` is computed successfully.
  */
-nw_error_t *n_from_shape_and_strides(const int64_t *shape, const int64_t *strides, int64_t rank, int64_t *n)
+nw_error_t *view_physical_size(const view_t *view, int64_t *size)
 {
-    CHECK_NULL_ARGUMENT(shape, "shape");
-    CHECK_NULL_ARGUMENT(strides, "strides");
-    CHECK_NULL_ARGUMENT(n, "n");
+    CHECK_NULL_ARGUMENT(view, "view");
+    CHECK_NULL_ARGUMENT(view->strides, "view->strides");
+    CHECK_NULL_ARGUMENT(size, "size");
 
-    if (rank > MAX_RANK)
-    {
-        return ERROR(ERROR_RANK,
-                     string_create("rank %ld must be less than or equal to %d.",
-                     rank, (int) MAX_RANK),
-                     NULL);
-    }
+    *size = array_product(view->shape, view->rank);
 
-    *n = shape_size(shape, rank);
-    if (!(*n))
+    for (int64_t i = 0; i < view->rank; ++i)
     {
-        ++(*n);
-    }
-
-    for (int64_t i = 0; i < rank; ++i)
-    {
-        if (!strides[i])
+        if (!view->strides[i])
         {
-            if (shape[i])
+            if (view->shape[i])
             {
-                *n /= shape[i];
+                *size /= view->shape[i];
             }
             else
             {
-                return ERROR(ERROR_SHAPE,
-                             string_create("all dimensions of the tensor must be greater than 0."),
-                             NULL);
+                return ERROR(ERROR_SHAPE, string_create("all dimensions of the tensor must be greater than 0."), NULL);
             }
         }
     }
@@ -722,197 +607,138 @@ nw_error_t *n_from_shape_and_strides(const int64_t *shape, const int64_t *stride
     return NULL;
 }
 
-
 /**
- * @brief Given the shape and rank of two tensors, determine if both tensors have same rank and dimensions. 
- * @param[in] x_shape An array of size `x_rank` representing the dimensions of a tensor.
- * @param[in] x_rank The order of the tensor. Gives number of elements in `x_shape`.
- * @param[in] y_shape An array of size `y_rank` representing the dimensions of a tensor.
- * @param[in] y_rank The order of the tensor. Gives number of elements in `y_shape`.
- * @return False if either shapes are NULL, ranks are not equal, or shape dimensions at a common index are not equal. 
- *         True if ranks are equal and shape dimensions are equal.
- */
-bool_t shapes_equal(const int64_t *x_shape, int64_t x_rank, const int64_t *y_shape, int64_t y_rank)
-{
-    if (!x_shape || !y_shape || x_rank != y_rank)
-    {
-        return false;
-    }
-
-    for (int64_t i = 0; i < x_rank; ++i)
-    {
-        if (x_shape[i] != y_shape[i])
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-/**
- * @brief Given the shape and rank of a tensor, find the total number of elements in the tensor.
+ * @brief Given the view of a tensor, find the logical number of elements in the tensor.
  *        Note that this is just the percieved number of elements in the tensor and 
- *        may not be equal to the number of elements actually stored in memory.
- *        The actual number of elements stored in memory is defined by `n` in `buffer`. 
+ *        may not be equal to the number of elements physically stored in memory.
+ *        For the number of elements stored in memory use `view_physical_size`. 
  *        Reference: https://pytorch.org/docs/stable/generated/torch.numel.html
- * @param[in] shape An array of size rank representing the dimensions of a tensor.
- * @param[in] rank The order of the tensor. Gives number of elements in shape.
- * @return The percieved number of elements in the tensor.
- *         Returns 0 if shape is NULL.
+ * @param[in] view The view of the tensor.
+ * @param[out] size The logical number of elements in the tensor.
+ * @return Error if `view` or `size` is NULL.
+ *         NULL if `size` is successfully computed.
  */
-int64_t shape_size(const int64_t *shape, int64_t rank)
+nw_error_t *view_logical_size(const view_t *view, int64_t *size)
 {
-    int64_t total = 1;
+    CHECK_NULL_ARGUMENT(view, "view");
+    CHECK_NULL_ARGUMENT(size, "size");
 
-    if (!shape)
-    {
-        return total;
-    }
+    *size = array_product(view->shape, view->rank);
 
-    for (int64_t i = 0; i < rank; ++i)
-    {
-        if (!shape[i])
-        {
-            continue;
-        }
+    return NULL;
+}
 
-        total *= shape[i];
-    }
-    
-    return total;
+bool_t view_shapes_equal(const view_t *view_a, const view_t *view_b)
+{
+    return view_a && view_b && arrays_equal(view_a->shape, view_a->rank, view_b->shape, view_b->rank);
+}
+
+bool_t view_has_shape(const view_t *view, const int64_t *shape, int64_t rank)
+{
+    return view && shape && arrays_equal(view->shape, view->rank, shape, rank);
 }
 
 /**
- * @brief Given the shape, rank, and strides of a tensor, and the target shape and rank to broadcast the tensor to,
- *        get the strides required to broadcast the tensor to the target shape without copying memory.   
- * @param[in] original_shape An array of size original_rank representing the dimensions of the original tensor being broadcasted.
- * @param[in] original_rank The order of the original tensor. Gives the number of elements in original_shape.
- * @param[in] original_strides The memory strides to traverse elements of the original tensor.
- * @param[in] broadcasted_shape An array of size broadcasted_rank representing the dimensions of the target broadcasted tensor.
- * @param[in] broadcasted_rank The order of the broadcasted tensor. Gives the number of elements in broadcasted_shape.
- * @param[out] broadcasted_strides The memory strides to traverse elements of the broadcasted tensor.
- * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
- *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
+ * @brief Given the view of a tensor, and the target shape and rank to expand the tensor to,
+ *        get the resultant view of the tensor expanded to the target shape.   
+ *        Reference: See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
+ * @param[in] original_view The view of the original tensor being expanded.
+ * @param[out] expanded_view The view of the tensor expanded to the target shape.
+ * @param[in] shape An array of size `rank` representing the dimensions of the target expanded tensor.
+ * @param[in] rank The order of the expanded tensor. Gives the number of elements in `shape`.
+ * @return NULL if expansion was successful. 
+ *         Error if `original_view`, `expanded_view`, or `shape` are NULL.
+ *         Error if tensor cannot be expanded to target shape.
  */
-nw_error_t *broadcast_strides(const int64_t *original_shape,
-                              int64_t original_rank,
-                              const int64_t *original_strides,
-                              const int64_t *broadcasted_shape,
-                              int64_t broadcasted_rank,
-                              int64_t *broadcasted_strides)
+nw_error_t *view_expand(const view_t *original_view, view_t **expanded_view, const int64_t *shape, int64_t rank)
 {
-    CHECK_NULL_ARGUMENT(original_shape, "original_shape");
-    CHECK_NULL_ARGUMENT(original_strides, "original_strides");
-    CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
-    CHECK_NULL_ARGUMENT(broadcasted_strides, "broadcasted_strides");
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
+    CHECK_NULL_ARGUMENT(expanded_view, "expanded_view");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+    CHECK_NEGATIVE_ARGUMENT(rank, "rank");
 
-    if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
+    if (!is_expandable(original_view->shape, original_view->rank, shape, rank))
     {
-        return ERROR(ERROR_RANK, 
-                     string_create("original rank %ld and broadcasted rank %ld must be less than or equal to %d.", 
-                     original_rank, broadcasted_rank, (int) MAX_RANK),
-                     NULL);
+        return ERROR(ERROR_EXPAND, string_create("failed to expand view."), NULL);
     }
 
-    if (!is_expandable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
-    {
-        return ERROR(ERROR_BROADCAST,
-                     string_create("cannot broadcast shapes."),
-                     NULL);
-    }
+    nw_error_t *error = NULL;
+    int64_t strides[rank];
 
-    for (int64_t i = 1; i < broadcasted_rank + 1; ++i)
+    for (int64_t i = 1; i < rank + 1; ++i)
     {   
-        int64_t original_index = original_rank - i;
-        int64_t broadcast_index = broadcasted_rank - i;
+        int64_t original_index = original_view->rank - i;
+        int64_t broadcast_index = rank - i;
 
-
-        if (i > original_rank || (original_shape[original_index] == 1))
+        if (i > original_view->rank || original_view->shape[original_index] == 1)
         {
-            broadcasted_strides[broadcast_index] = 0; 
+            strides[broadcast_index] = 0; 
         }
-        else if (original_shape[original_index] == broadcasted_shape[broadcast_index])
+        else if (original_view->shape[original_index] == shape[broadcast_index])
         {
-            if (!original_shape[original_index] || !broadcasted_shape[broadcast_index])
-            {
-                return ERROR(ERROR_SHAPE,
-                            string_create("all shape dimensions must be greater than 0."),
-                            NULL);
-            }
-
-            broadcasted_strides[broadcast_index] = original_strides[original_index];
+            strides[broadcast_index] = original_view->strides[original_index];
         }
         else
         {
-            return ERROR(ERROR_BROADCAST,
-                         string_create("cannot broadcast shape."),
-                         NULL);
+            return ERROR(ERROR_EXPAND, string_create("failed to expand view."), NULL);
         }
     }
 
-    return NULL;
+    error = view_create(expanded_view, original_view->offset, rank, shape, strides);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+
+    return error;
 }
 
 /**
- * @brief Given the shape, rank, and strides of two tensors being combined via an elementwise binary operation, find
- *        the associated shape and rank to broadcast both tensors to perform the operation.   
- * @param[in] x_original_shape An array of size `x_original_rank` representing the dimensions of the original tensor being broadcasted.
- * @param[in] x_original_rank The order of the original tensor. Gives the number of elements in `x_original_shape`.
- * @param[in] y_original_shape An array of size `y_original_rank` representing the dimensions of the original tensor being broadcasted.
- * @param[in] y_original_rank The order of the original tensor. Gives the number of elements in `y_original_shape`.
- * @param[out] broadcasted_shape An array of size `broadcasted_rank` representing the dimensions of the target broadcasted tensor.
- * @param[in] broadcasted_rank The order of the broadcasted tensor. Gives the number of elements in `broadcasted_shape`.
- * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
- *         See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
+ * @brief Given the views of two tensors being combined via an elementwise binary operation, find
+ *        the associated shape and rank to expand both tensors to perform the operation.   
+ *        Reference: See broadcasting rules at https://numpy.org/doc/stable/user/basics.broadcasting.html.
+ * @param[in] view_a The view of the first tensor operand.
+ * @param[in] view_b The view of the second tensor operand.
+ * @param[out] shape An array of size `rank` representing the dimensions of the expanded tensor.
+ * @param[out] rank The order of the expanded tensor. Gives the number of elements in `shape`.
+ * @return NULL if operation was successful.
+ *         Error if any argument is NULL.
+ *         Error if view shapes cannot be broadcasted together.
  */
-nw_error_t *broadcast_shapes(const int64_t *x_original_shape,
-                             int64_t x_original_rank,
-                             const int64_t *y_original_shape,
-                             int64_t y_original_rank, 
-                             int64_t *broadcasted_shape,
-                             int64_t broadcasted_rank)
+nw_error_t *view_broadcast(const view_t *view_a, const view_t *view_b, int64_t **shape, int64_t *rank)
 {
-    CHECK_NULL_ARGUMENT(x_original_shape, "x_original_shape"); 
-    CHECK_NULL_ARGUMENT(y_original_shape, "y_original_shape"); 
-    CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape"); 
+    CHECK_NULL_ARGUMENT(view_a, "view_a"); 
+    CHECK_NULL_ARGUMENT(view_b, "view_b"); 
+    CHECK_NULL_ARGUMENT(shape, "shape"); 
+    CHECK_NULL_ARGUMENT(rank, "rank"); 
 
-    if (x_original_rank > MAX_RANK || y_original_rank > MAX_RANK)
+    *rank = MAX(view_a->rank, view_b->rank);
+    size_t size = *rank * sizeof(int64_t);
+    *shape = (int64_t *) malloc(size);
+    if (!*shape)
     {
-        return ERROR(ERROR_RANK, 
-                     string_create("x original rank %ld and y original rank %ld must be less than or equal to %d.", 
-                     x_original_rank, y_original_rank, (int) MAX_RANK),
-                     NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
     }
 
-    if (broadcasted_rank != MAX(x_original_rank, y_original_rank))
+    for (int64_t i = 1; i < *rank + 1; ++i)
     {
-        return ERROR(ERROR_RANK,
-                     string_create("broadcast rank %ld must be the max rank of {%ld, %ld}.",
-                     broadcasted_rank, x_original_rank, y_original_rank),
-                     NULL);
-    }
-
-    for (int64_t i = 1; i < broadcasted_rank + 1; ++i)
-    {
-        int64_t x_index = x_original_rank - i;
-        int64_t y_index = y_original_rank - i;
-        int64_t broadcast_index = broadcasted_rank - i;
-        if (i > x_original_rank || (i <= y_original_rank && x_original_shape[x_index] == 1))
+        int64_t index_a = view_a->rank - i;
+        int64_t index_b = view_b->rank - i;
+        int64_t index = *rank - i;
+        if (i > view_a->rank || (i <= view_b->rank && view_a->shape[index_a] == 1))
         {
-            broadcasted_shape[broadcast_index] = y_original_shape[y_index];
+            (*shape)[index] = view_b->shape[index_b];
         } 
-        else if (i > y_original_rank || 
-                 x_original_shape[x_index] == y_original_shape[y_index] || 
-                 y_original_shape[y_index] == 1)
+        else if (i > view_b->rank || view_a->shape[index_a] == view_b->shape[index_b] || view_b->shape[index_b] == 1)
         {
-            broadcasted_shape[broadcast_index] = x_original_shape[x_index];
+            (*shape)[index] = view_a->shape[index_a];
         }
         else
         {
-            return ERROR(ERROR_BROADCAST,
-                        string_create("cannot broadcast shapes."),
-                        NULL);
+            free(*shape);
+            *shape = NULL;
+            return ERROR(ERROR_BROADCAST, string_create("failed to broadcast shapes."), NULL);
         }
     }
 
@@ -920,105 +746,110 @@ nw_error_t *broadcast_shapes(const int64_t *x_original_shape,
 }
 
 /**
- * @brief Given the shape, rank, and strides of two tensors being combined via an matrix multiplication operation, find
- *        the associated shape and rank to broadcast both tensors to perform the operation.   
- * @param[in] x_original_shape An array of size `x_original_rank` representing the dimensions of the original tensor being broadcasted.
- * @param[in] x_original_rank The order of the original tensor. Gives the number of elements in `x_original_shape`.
- * @param[in] y_original_shape An array of size `y_original_rank` representing the dimensions of the original tensor being broadcasted.
- * @param[in] y_original_rank The order of the original tensor. Gives the number of elements in `y_original_shape`.
- * @param[out] x_broadcasted_shape An array of size `broadcasted_rank` representing the dimensions of the target broadcasted tensor of `x`.
- * @param[out] y_broadcasted_shape An array of size `broadcasted_rank` representing the dimensions of the target broadcasted tensor of `y`.
- * @param[in] broadcasted_rank The order of the broadcasted tensor. Gives the number of elements in `broadcasted_shape`.
+ * @brief Given the views of two tensors being combined via a matrix multiplication operation, find
+ *        the associated shapes and rank to expand the operands to.   
+ * @param[in] view_a The view of the first tensor operand.
+ * @param[in] view_b The view of the second tensor operand.
+ * @param[out] shape_a An array of size `rank` representing the target dimensions to expand the first tensor operand to.
+ * @param[out] shape_b An array of size `rank` representing the target dimensions to expand the second tensor operand to.
+ * @param[out] rank The order of the expanded tensors. Gives the number of elements in `shape_a` and `shape_b`.
  * @return NULL if operation was successful. An error if any pointers are NULL or shapes cannot be broadcasted together.
  *         See broadcasting rules at https://pytorch.org/docs/stable/generated/torch.matmul.html.
  */
-nw_error_t *matrix_multiplication_broadcast_shapes(const int64_t *x_original_shape,
-                                                   int64_t x_original_rank,
-                                                   const int64_t *y_original_shape,
-                                                   int64_t y_original_rank, 
-                                                   int64_t *x_broadcasted_shape,
-                                                   int64_t *y_broadcasted_shape,
-                                                   int64_t broadcasted_rank)
+nw_error_t *view_broadcast_matrix_multiplication(const view_t *view_a, const view_t *view_b, int64_t **shape_a, int64_t **shape_b, int64_t *rank)
 {
-    CHECK_NULL_ARGUMENT(x_original_shape, "x_original_shape"); 
-    CHECK_NULL_ARGUMENT(y_original_shape, "y_original_shape"); 
-    CHECK_NULL_ARGUMENT(x_broadcasted_shape, "x_broadcasted_shape"); 
-    CHECK_NULL_ARGUMENT(y_broadcasted_shape, "y_broadcasted_shape"); 
+    CHECK_NULL_ARGUMENT(view_a, "view_a"); 
+    CHECK_NULL_ARGUMENT(view_b, "view_b"); 
+    CHECK_NULL_ARGUMENT(shape_a, "shape_a"); 
+    CHECK_NULL_ARGUMENT(shape_b, "shape_b"); 
 
-    if (x_original_rank > MAX_RANK ||
-        y_original_rank > MAX_RANK ||
-        x_original_rank < 2 ||
-        y_original_rank < 2)
+    nw_error_t *error = NULL;
+    *shape_a = NULL;
+    *shape_b = NULL;
+    *rank = MAX(view_a->rank, view_b->rank);
+    size_t size = *rank * sizeof(int64_t);
+
+    if (view_a->rank < 2 || view_b->rank < 2)
     {
-        return ERROR(ERROR_RANK, 
-                     string_create("x original rank %ld and y original rank %ld must be in the interval [2, %d].", 
-                     x_original_rank, y_original_rank, (int) MAX_RANK),
-                     NULL);
+        error = ERROR(ERROR_RANK, string_create("operands must be atleast rank 2 or above."), NULL);
+        goto cleanup;
     }
 
-    if (broadcasted_rank != MAX(x_original_rank, y_original_rank))
+    *shape_a = (int64_t *) malloc(size);
+    if (!*shape_a)
     {
-        return ERROR(ERROR_RANK,
-                     string_create("broadcast rank %ld must be the max rank of {%ld, %ld}.",
-                     broadcasted_rank, x_original_rank, y_original_rank),
-                     NULL);
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
     }
 
-    for (int64_t i = 1; i < broadcasted_rank + 1; ++i)
+    *shape_b = (int64_t *) malloc(size);
+    if (!*shape_b)
     {
-        int64_t x_index = x_original_rank - i;
-        int64_t y_index = y_original_rank - i;
-        int64_t broadcast_index = broadcasted_rank - i;
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    for (int64_t i = 1; i < *rank + 1; ++i)
+    {
+        int64_t index_a = view_a->rank - i;
+        int64_t index_b = view_b->rank - i;
+        int64_t index = *rank - i;
         if (i < 3)
         {
-            x_broadcasted_shape[broadcast_index] = x_original_shape[x_index];
-            y_broadcasted_shape[broadcast_index] = y_original_shape[y_index];
+            (*shape_a)[index] = view_a->shape[index_a];
+            (*shape_b)[index] = view_b->shape[index_b];
             continue;
         }
 
-        if (i > x_original_rank || (i <= y_original_rank && x_original_shape[x_index] == 1))
+        if (i > view_a->rank || (i <= view_b->rank && view_a->shape[index_a] == 1))
         {
-            x_broadcasted_shape[broadcast_index] = y_original_shape[y_index];
-            y_broadcasted_shape[broadcast_index] = y_original_shape[y_index];
+            (*shape_a)[index] = view_b->shape[index_b];
+            (*shape_b)[index] = view_b->shape[index_b];
         } 
-        else if (i > y_original_rank || 
-                 x_original_shape[x_index] == y_original_shape[y_index] || 
-                 y_original_shape[y_index] == 1)
+        else if (i > view_b->rank || view_a->shape[index_a] == view_b->shape[index_b] || view_b->shape[index_b] == 1)
         {
-            x_broadcasted_shape[broadcast_index] = x_original_shape[x_index];
-            y_broadcasted_shape[broadcast_index] = x_original_shape[x_index];
+            (*shape_a)[index] = view_a->shape[index_a];
+            (*shape_b)[index] = view_a->shape[index_a];
         }
         else
         {
-            return ERROR(ERROR_BROADCAST,
-                        string_create("cannot broadcast shapes."),
-                        NULL);
+            error = ERROR(ERROR_BROADCAST, string_create("failed to broadcast shapes."), NULL);
+            goto cleanup;
         }
     }
 
-    return NULL;
+    return error;
+
+cleanup:
+
+    free(*shape_a);
+    free(*shape_b);
+    *shape_a = NULL;
+    *shape_b = NULL;
+
+    return error;
 }
 
-nw_error_t *matrix_multiplication_shape(int64_t *x_shape, int64_t *y_shape, int64_t *z_shape, int64_t rank)
+nw_error_t *view_matrix_multiplication(const view_t *view_a, const view_t *view_b, view_t **view_c)
 {
-    CHECK_NULL_ARGUMENT(x_shape, "x_shape");
-    CHECK_NULL_ARGUMENT(y_shape, "y_shape");
-    CHECK_NULL_ARGUMENT(z_shape, "z_shape");
+    CHECK_NULL_ARGUMENT(view_a, "view_a");
+    CHECK_NULL_ARGUMENT(view_b, "view_b");
+    CHECK_NULL_ARGUMENT(view_c, "view_c");
 
-    if (rank < 2)
+    nw_error_t *error = NULL;
+    int64_t rank = MAX(view_a->rank, view_b->rank);
+    int64_t shape[rank];
+
+    if (view_a->rank < 2 || view_b->rank < 2)
     {
-        return ERROR(ERROR_RANK,
-                     string_create("rank %ld must be 2 or greater.",
-                     rank),
-                     NULL);
+        return ERROR(ERROR_RANK, string_create("operands must be atleast rank 2 or above."), NULL);
     }
 
-    if (x_shape[rank - 1] != y_shape[rank - 2])
+    if (view_a->shape[rank - 1] != view_b->shape[rank - 2])
     {
-        return ERROR(ERROR_SHAPE,
-                     string_create("number of columns in x %ld not equal to number of rows in y %ld.",
-                     x_shape[rank - 1], y_shape[rank - 1]),
-                     NULL);
+        return ERROR(ERROR_SHAPE, 
+                     string_create("number of columns in first operand %ld not equal to number of rows in second operand %ld.", 
+                     view_a->shape[rank - 1], view_b->shape[rank - 2]), NULL);
     }
 
     for (int64_t i = 1; i < rank + 1; ++i)
@@ -1026,138 +857,229 @@ nw_error_t *matrix_multiplication_shape(int64_t *x_shape, int64_t *y_shape, int6
         int64_t j = rank - i;
         if (i == 1)
         {
-            z_shape[j] = y_shape[j];
+            shape[j] = view_b->shape[j];
         }
         else if (i == 2)
         {
-            z_shape[j] = x_shape[j];
+            shape[j] = view_a->shape[j];
         }
         else
         {
-            if (x_shape[j] != y_shape[j])
+            if (view_a->shape[j] == view_b->shape[j])
             {
-                return ERROR(ERROR_SHAPE,
-                             string_create("dimension in x %ld not equal to dimension in y $lu.",
-                             x_shape[j], y_shape[j]),
-                             NULL);
+                shape[j] = view_a->shape[j];
             }
             else
             {
-                z_shape[j] = x_shape[j];
+                return ERROR(ERROR_SHAPE,
+                             string_create("dimension in first operand %ld not equal to dimension in second operand %ld.",
+                             view_a->shape[j], view_b->shape[j]), NULL);
             }
         }
     }
 
-    return NULL;
+    error = view_create_contiguous(view_c, shape, rank);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    return error;
 }
 
-nw_error_t *reduce_axis_length(const int64_t *original_shape,
-                               int64_t original_rank,
-                               const int64_t *broadcasted_shape,
-                               int64_t broadcasted_rank, 
-                               int64_t *length_keep_dimension,
-                               int64_t *length_remove_dimension)
+nw_error_t *view_reduce_axis(const view_t *original_view, 
+                             const int64_t *broadcasted_shape, int64_t broadcasted_rank,
+                             int64_t **axis_keep_dimension, int64_t *length_keep_dimension,
+                             int64_t **axis_remove_dimension, int64_t *length_remove_dimension)
 {
-    CHECK_NULL_ARGUMENT(original_shape, "original_shape");
-    CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
-    CHECK_NULL_ARGUMENT(length_keep_dimension, "length_keep_dimension");
-    CHECK_NULL_ARGUMENT(length_remove_dimension, "length_remove_dimension");
-    
-    if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
-    {
-        return ERROR(ERROR_RANK, 
-                     string_create("original rank %ld and broadcasted rank %ld must be less than or equal to %d.", 
-                     original_rank, broadcasted_rank, (int) MAX_RANK),
-                     NULL);
-    }
-
-    if (!is_expandable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
-    {
-        return ERROR(ERROR_BROADCAST,
-                     string_create("cannot broadcast shapes."),
-                     NULL);
-    }
-
-    *length_keep_dimension = 0;
-    *length_remove_dimension = 0;
-    for (int64_t i = 0; i < broadcasted_rank; ++i)
-    {
-        if (original_rank >= (i + 1))
-        {
-            if (original_shape[original_rank - (i + 1)] != 
-                broadcasted_shape[broadcasted_rank - (i + 1)])
-            {
-                ++(*length_keep_dimension);
-            }
-        }
-        else
-        {
-            ++(*length_remove_dimension);
-        }
-    }
-
-    return NULL;
-}
-
-nw_error_t *reduce_axis(const int64_t *original_shape,
-                        int64_t original_rank,
-                        const int64_t *broadcasted_shape,
-                        int64_t broadcasted_rank, 
-                        int64_t *axis_keep_dimension,
-                        int64_t *axis_remove_dimension)
-{
-    CHECK_NULL_ARGUMENT(original_shape, "original_shape");
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
     CHECK_NULL_ARGUMENT(broadcasted_shape, "broadcasted_shape");
     CHECK_NULL_ARGUMENT(axis_keep_dimension, "axis_keep_dimension");
     CHECK_NULL_ARGUMENT(axis_remove_dimension, "axis_remove_dimension");
-
-    if (original_rank > MAX_RANK || broadcasted_rank > MAX_RANK)
+    CHECK_NULL_ARGUMENT(length_keep_dimension, "length_keep_dimension");
+    CHECK_NULL_ARGUMENT(length_remove_dimension, "length_remove_dimension");
+    
+    if (original_view->rank > MAX_RANK || broadcasted_rank > MAX_RANK)
     {
         return ERROR(ERROR_RANK, 
                      string_create("original rank %ld and broadcasted rank %ld must be less than or equal to %d.", 
-                     original_rank, 
-                     broadcasted_rank,
-                     (int) MAX_RANK),
+                     original_view->rank, broadcasted_rank, (int) MAX_RANK),
                      NULL);
     }
 
-    if (!is_expandable(original_shape, original_rank, broadcasted_shape, broadcasted_rank))
+    if (!is_expandable(original_view->shape, original_view->rank, broadcasted_shape, broadcasted_rank))
     {
         return ERROR(ERROR_BROADCAST,
                      string_create("cannot broadcast shapes."),
                      NULL);
     }
 
-    int64_t j = 0;
-    int64_t k = 0;
-    for (int64_t i = 0; i < broadcasted_rank; ++i)
+
+    for (int i = 0; i < 2; ++i)
     {
-        if (original_rank >= (i + 1))
+        if (i)
         {
-            if (original_shape[original_rank - (i + 1)] != 
-                broadcasted_shape[broadcasted_rank - (i + 1)])
+            *axis_keep_dimension = (int64_t *) malloc((*length_keep_dimension) * sizeof(int64_t));
+            if (!*axis_keep_dimension)
             {
-                axis_keep_dimension[j] = broadcasted_rank - (i + 1);
-                ++j;
+                return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", (*length_keep_dimension) * sizeof(int64_t)), NULL);
+            }
+            *axis_remove_dimension = (int64_t *) malloc((*length_remove_dimension) * sizeof(int64_t));
+            if (!*axis_remove_dimension)
+            {
+                free(*axis_keep_dimension);
+                *axis_keep_dimension = NULL;
+                return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", (*length_remove_dimension) * sizeof(int64_t)), NULL);
             }
         }
-        else
+        *length_keep_dimension = 0;
+        *length_remove_dimension = 0;
+
+        for (int64_t j = 0; j < broadcasted_rank; ++j)
         {
-            axis_remove_dimension[k] = broadcasted_rank - (i + 1);
-            ++k;
+            if (original_view->rank >= (j + 1))
+            {
+                if (original_view->shape[original_view->rank - (j + 1)] != 
+                    broadcasted_shape[broadcasted_rank - (j + 1)])
+                {
+                    if (i)
+                    {
+                        (*axis_keep_dimension)[*length_keep_dimension] = broadcasted_rank - (j + 1);
+                    }
+                    ++(*length_keep_dimension);
+                }
+            }
+            else
+            {
+                if (i)
+                {
+                    (*axis_remove_dimension)[*length_remove_dimension] = broadcasted_rank - (j + 1);
+                }
+                ++(*length_remove_dimension);
+            }
         }
     }
 
     return NULL;
 }
 
-bool_t is_valid_reshape(const int64_t *original_shape, int64_t original_rank,
-                        const int64_t *new_shape, int64_t new_rank)
+nw_error_t *view_slice(const view_t *original_view, view_t **sliced_view, const int64_t *arguments, int64_t length)
 {
-    if (!original_shape || !new_shape)
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
+    CHECK_NULL_ARGUMENT(sliced_view, "sliced_view");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+
+    if (length % 2 != 0 || original_view->rank != length / 2)
     {
-        return false;
+        return ERROR(ERROR_RANK, string_create("conflict between rank %ld and axis length %ld.", original_view->rank, length), NULL);
     }
 
-    return shape_size(original_shape, original_rank) != shape_size(new_shape, new_rank);
+    int64_t sliced_rank = original_view->rank;
+    int64_t sliced_shape[sliced_rank];
+    int64_t sliced_offset = 0;
+    int64_t *sliced_strides = original_view->strides;
+
+    for (int64_t i = 0; i < original_view->rank; ++i)
+    {
+        if (arguments[2 * i + 1] <= arguments[2 * i] || arguments[2 * i] < 0 || arguments[2 * i + 1] > original_view->shape[i])
+        {
+            return ERROR(ERROR_SHAPE, string_create("invalid slice arguments."), NULL);
+        }
+        sliced_shape[i] = arguments[2 * i + 1] - arguments[2 * i]; 
+    }
+
+    for (int64_t i = 0; i < length; i += 2)
+    {
+        sliced_offset += original_view->strides[i / 2] * arguments[i];
+    }
+
+    nw_error_t *error = view_create(sliced_view, sliced_offset, sliced_rank, sliced_shape, sliced_strides);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    return NULL;
+}
+
+nw_error_t *view_slice_padding_arguments(const view_t *original_view, const int64_t *slice_arguments, int64_t length, int64_t **padding_arguments)
+{
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
+    CHECK_NULL_ARGUMENT(slice_arguments, "slice_arguments");
+    CHECK_NULL_ARGUMENT(padding_arguments, "padding_arguments");
+
+    if (length % 2 != 0 || original_view->rank != length / 2)
+    {
+        return ERROR(ERROR_RANK, string_create("conflict between rank %ld and axis length %ld.", original_view->rank, length), NULL);
+    }
+
+    *padding_arguments = (int64_t *) malloc(length * sizeof(int64_t));
+    if (!*padding_arguments)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view of size %zu.", sizeof(int64_t) * length), NULL);
+    }
+
+    for (int64_t i = 0; i < length; i += 2)
+    {
+        (*padding_arguments)[i] = slice_arguments[i];
+        (*padding_arguments)[i + 1] = original_view->shape[i / 2] - slice_arguments[i + 1];
+    }
+
+    return NULL;
+}
+
+nw_error_t *view_padding(const view_t *original_view, view_t **padding_view, const int64_t *arguments, int64_t length)
+{
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
+    CHECK_NULL_ARGUMENT(padding_view, "padding_view");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
+
+    if (length % 2 != 0 || original_view->rank != length / 2)
+    {
+        return ERROR(ERROR_RANK, string_create("conflict between rank %ld and axis length %ld.", original_view->rank, length), NULL);
+    }
+
+    int64_t padding_rank = original_view->rank;
+    int64_t padding_shape[padding_rank];
+    int64_t padding_offset = 0;
+    int64_t *padding_strides = NULL;
+
+    for (int64_t i = 0; i < original_view->rank; ++i)
+    {
+        padding_shape[i] = arguments[2 * i] + arguments[2 * i + 1] + original_view->shape[i]; 
+    }
+
+    nw_error_t *error = view_create(padding_view, padding_offset, padding_rank, padding_shape, padding_strides);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create view."), error);
+    }
+
+    return NULL;
+}
+
+nw_error_t *view_padding_slice_arguments(const view_t *original_view, const int64_t *padding_arguments, int64_t length, int64_t **slice_arguments)
+{
+    CHECK_NULL_ARGUMENT(original_view, "original_view");
+    CHECK_NULL_ARGUMENT(padding_arguments, "padding_arguments");
+    CHECK_NULL_ARGUMENT(slice_arguments, "slice_arguments");
+
+    if (length % 2 != 0 || original_view->rank != length / 2)
+    {
+        return ERROR(ERROR_RANK, string_create("conflict between rank %ld and axis length %ld.", original_view->rank, length), NULL);
+    }
+
+    *slice_arguments = (int64_t *) malloc(length * sizeof(int64_t));
+    if (!*slice_arguments)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view of size %zu.", sizeof(int64_t) * length), NULL);
+    }
+
+    for (int64_t i = 0; i < length; i += 2)
+    {
+        (*slice_arguments)[i] = padding_arguments[i];
+        (*slice_arguments)[i + 1] = original_view->shape[i / 2] + padding_arguments[i];
+    }
+
+    return NULL;
 }

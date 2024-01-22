@@ -41,6 +41,18 @@ typedef struct linear_t
     activation_t *activation;
 } linear_t;
 
+typedef struct convolution_t
+{
+    int64_t kernel_size;
+    int64_t padding;
+    int64_t stride;
+    int64_t in_channels;
+    int64_t out_channels;
+    tensor_t *kernel;
+    tensor_t *bias;
+    activation_t *activation;
+} convolution_t;
+
 typedef struct dropout_t
 {
     float32_t probability;
@@ -49,6 +61,7 @@ typedef struct dropout_t
 typedef union transform_t
 {
     linear_t *linear;
+    convolution_t *convolution;
     dropout_t *dropout;
     block_t *block;
 } transform_t;
@@ -56,6 +69,8 @@ typedef union transform_t
 typedef enum transform_type_t
 {
     LINEAR,
+    CONVOLUTION,
+    CONVOLUTION_TRANSPOSE,
     DROPOUT,
     BLOCK
 } transform_type_t;
@@ -78,7 +93,6 @@ typedef struct model_t
 } model_t;
 
 nw_error_t *model_forward(model_t *model, tensor_t *x, tensor_t **y);
-nw_error_t *model_requires_gradient(model_t *model, bool_t requires_gradient);
 nw_error_t *layer_create(layer_t **layer, transform_t *transform, transform_type_t transform_type);
 void layer_destroy(layer_t *layer);
 nw_error_t *transform_create(transform_t **transform, transform_type_t transform_type, void *type_transform);
@@ -89,6 +103,9 @@ nw_error_t *linear_create(linear_t **linear, tensor_t *weights, tensor_t *bias, 
 void linear_destroy(linear_t *linear);
 nw_error_t *dropout_create(dropout_t **dropout, float32_t probability);
 void dropout_destroy(dropout_t *dropout);
+nw_error_t *convolution_create(convolution_t **convolution, int64_t kernel_size, int64_t padding, int64_t stride,
+                               int64_t in_channels, int64_t out_channels, tensor_t *kernel, tensor_t *bias, activation_t *activation);
+void convolution_destroy(convolution_t *convolution);
 nw_error_t *block_create(block_t **block, int64_t depth, ...);
 void block_destroy(block_t *block);
 nw_error_t *softmax_create(softmax_t **softmax, int64_t axis);
@@ -116,5 +133,21 @@ nw_error_t *linear_layer_create(layer_t **layer,
                                 activation_t *activation,
                                 parameter_init_t *weight_init,
                                 parameter_init_t *bias_init);
+nw_error_t *convolution_layer_create(layer_t **layer,
+                                     int64_t kernel_size, int64_t padding, int64_t stride,
+                                     int64_t in_channels, int64_t out_channels,
+                                     runtime_t runtime, datatype_t datatype,
+                                     bool_t requires_gradient, 
+                                     activation_t *activation,
+                                     parameter_init_t *kernel_init,
+                                     parameter_init_t *bias_init);
+nw_error_t *convolution_transpose_layer_create(layer_t **layer,
+                                               int64_t kernel_size, int64_t padding, int64_t stride,
+                                               int64_t in_channels, int64_t out_channels,
+                                               runtime_t runtime, datatype_t datatype,
+                                               bool_t requires_gradient, 
+                                               activation_t *activation,
+                                               parameter_init_t *kernel_init,
+                                               parameter_init_t *bias_init);
 
 #endif
