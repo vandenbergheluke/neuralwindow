@@ -1,4 +1,5 @@
 #include <graph.h>
+#include <graphviz/gvc.h>
 
 static Agraph_t *graph = NULL;
 static map_t *map = NULL;
@@ -75,26 +76,26 @@ nw_error_t *create_graph_node(graph_node_t **graph_node, uint64_t tensor_id, uin
     return NULL;
 }
 
-void get_attribute_format(string_t str, uint64_t rank, uint64_t *attr)
+void get_attribute_format(string_t str, int64_t rank, int64_t *attr)
 {
     const char* formatted_str = NULL;
 
     switch(rank)
     {
         case 1:
-             formatted_str = string_create("(%d)", *attr);
+             formatted_str = string_create("(%ld)", *attr);
              break;
         case 2:
-            formatted_str = string_create("(%d, %d)", *attr, *(attr + 1));
+            formatted_str = string_create("(%ld, %ld)", *attr, *(attr + 1));
             break;
         case 3:
-            formatted_str =  string_create("(%d, %d, %d)", *attr, *(attr + 1), *(attr + 2));
+            formatted_str =  string_create("(%ld, %ld, %ld)", *attr, *(attr + 1), *(attr + 2));
             break;
         case 4:
-            formatted_str = string_create("(%d, %d, %d, %d)", *attr, *(attr + 1), *(attr + 2), *(attr + 3));
+            formatted_str = string_create("(%ld, %ld, %ld, %ld)", *attr, *(attr + 1), *(attr + 2), *(attr + 3));
             break;
         case 5:
-            formatted_str = string_create("(%d, %d, %d, %d, %d)", *attr, *(attr + 1), *(attr + 2), *(attr + 3), *(attr + 4));
+            formatted_str = string_create("(%ld, %ld, %ld, %ld, %ld)", *attr, *(attr + 1), *(attr + 2), *(attr + 3), *(attr + 4));
             break;
         default:
             return;
@@ -120,7 +121,7 @@ uint64_t graph_tensor_node(tensor_t *tensor)
         }
     }
 
-    uint64_t rank = tensor->buffer->view->rank;
+    int64_t rank = tensor->buffer->view->rank;
 
     string_t shapeString = string_create("");
     string_t strideString = string_create("");

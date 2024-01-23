@@ -11,6 +11,7 @@
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define ABS(x) ((x)<0 ? -(x) : (x))
 
 #ifdef DEBUG
 #define MAX_DATA 10
@@ -50,7 +51,7 @@
     fprintf(stderr, string);\
 } while(0)
 
-#define PRINT_DEBUG_UINT64_ARRAY(array, length) do {\
+#define PRINT_DEBUG_INT64_ARRAY(array, length) do {\
     if (!(array))\
     {\
         fprintf(stderr, "NULL");\
@@ -58,24 +59,24 @@
     else\
     {\
         fprintf(stderr, "(");\
-        for (uint64_t i = 0; i < (length); ++i)\
+        for (int64_t i = 0; i < (length); ++i)\
         {\
             if (!i)\
             {\
-                fprintf(stderr, "%lu", (array)[i]);\
+                fprintf(stderr, "%ld", (array)[i]);\
             }\
             else\
             {\
-                fprintf(stderr, ", %lu", (array)[i]);\
+                fprintf(stderr, ", %ld", (array)[i]);\
             }\
         }\
         fprintf(stderr, ")");\
     }\
 } while(0)
 
-#define PRINTLN_DEBUG_UINT64_ARRAY(msg, array, length) do {\
+#define PRINTLN_DEBUG_INT64_ARRAY(msg, array, length) do {\
     fprintf(stderr, "%s ", msg);\
-    PRINT_DEBUG_UINT64_ARRAY((array), length);\
+    PRINT_DEBUG_INT64_ARRAY((array), length);\
     PRINT_DEBUG_NEWLINE;\
 } while(0)
 
@@ -86,12 +87,12 @@
     }\
     else\
     {\
-        fprintf(stderr, "(offset: %lu", (view)->offset);\
-        fprintf(stderr, ", rank: %lu", (view)->rank);\
+        fprintf(stderr, "(offset: %ld", (view)->offset);\
+        fprintf(stderr, ", rank: %ld", (view)->rank);\
         fprintf(stderr, ", shape: ");\
-        PRINT_DEBUG_UINT64_ARRAY((view)->shape, (view)->rank);\
+        PRINT_DEBUG_INT64_ARRAY((view)->shape, (view)->rank);\
         fprintf(stderr, ", strides: ");\
-        PRINT_DEBUG_UINT64_ARRAY((view)->strides, (view)->rank);\
+        PRINT_DEBUG_INT64_ARRAY((view)->strides, (view)->rank);\
         fprintf(stderr, ")");\
     }\
 } while(0)
@@ -111,8 +112,8 @@
     {\
         fprintf(stderr, "(runtime: %s", runtime_string((storage)->runtime));\
         fprintf(stderr, ", datatype: %s", datatype_string((storage)->datatype));\
-        fprintf(stderr, ", n: %lu", (storage)->n);\
-        fprintf(stderr, ", reference_count: %lu", (storage)->reference_count);\
+        fprintf(stderr, ", n: %ld", (storage)->n);\
+        fprintf(stderr, ", reference_count: %ld", (storage)->reference_count);\
         fprintf(stderr, ", data: ");\
         if (!(storage)->data)\
         {\
@@ -121,8 +122,8 @@
         else\
         {\
             fprintf(stderr, "(");\
-            uint64_t n = MIN((storage)->n, MAX_DATA);\
-            for (uint64_t j = 0; j < n; ++j)\
+            int64_t n = MIN((storage)->n, MAX_DATA);\
+            for (int64_t j = 0; j < n; ++j)\
             {\
                 switch((storage)->datatype)\
                 {\
@@ -208,14 +209,6 @@
             {\
                 fprintf(stderr, ", x: (id: %lu)", (function)->operation->unary_operation->x->id);\
             }\
-            if (!(function)->operation->unary_operation->result)\
-            {\
-                fprintf(stderr, ", result: NULL");\
-            }\
-            else\
-            {\
-                fprintf(stderr, ", result: (id: %lu)", (function)->operation->unary_operation->result->id);\
-            }\
             break;\
         case BINARY_OPERATION:\
             fprintf(stderr, "%s", binary_operation_type_string((function)->operation->binary_operation->operation_type));\
@@ -235,14 +228,6 @@
             {\
                 fprintf(stderr, ", y: (id: %lu)", (function)->operation->binary_operation->y->id);\
             }\
-            if (!(function)->operation->binary_operation->result)\
-            {\
-                fprintf(stderr, ", result: NULL");\
-            }\
-            else\
-            {\
-                fprintf(stderr, ", result: (id: %lu)", (function)->operation->binary_operation->result->id);\
-            }\
             break;\
         case REDUCTION_OPERATION:\
             fprintf(stderr, "%s", reduction_operation_type_string((function)->operation->reduction_operation->operation_type));\
@@ -254,16 +239,8 @@
             {\
                 fprintf(stderr, ", x: (id: %lu)", (function)->operation->reduction_operation->x->id);\
             }\
-            if (!(function)->operation->reduction_operation->result)\
-            {\
-                fprintf(stderr, ", result: NULL");\
-            }\
-            else\
-            {\
-                fprintf(stderr, ", result: (id: %lu)", (function)->operation->reduction_operation->result->id);\
-            }\
             fprintf(stderr, ", axis: ");\
-            PRINT_DEBUG_UINT64_ARRAY((function)->operation->reduction_operation->axis,\
+            PRINT_DEBUG_INT64_ARRAY((function)->operation->reduction_operation->axis,\
                                      (function)->operation->reduction_operation->length);\
             fprintf(stderr, ", keep_dimension: ");\
             PRINT_DEBUG_BOOLEAN((function)->operation->reduction_operation->keep_dimension);\
@@ -278,22 +255,14 @@
             {\
                 fprintf(stderr, ", x: (id: %lu)", (function)->operation->structure_operation->x->id);\
             }\
-            if (!(function)->operation->structure_operation->result)\
-            {\
-                fprintf(stderr, ", result: NULL");\
-            }\
-            else\
-            {\
-                fprintf(stderr, ", result: (id: %lu)", (function)->operation->structure_operation->result->id);\
-            }\
             fprintf(stderr, ", arguments: ");\
-            PRINT_DEBUG_UINT64_ARRAY((function)->operation->structure_operation->arguments,\
+            PRINT_DEBUG_INT64_ARRAY((function)->operation->structure_operation->arguments,\
                                      (function)->operation->structure_operation->length);\
             break;\
         case CREATION_OPERATION:\
             fprintf(stderr, "%s", creation_operation_type_string((function)->operation->creation_operation->operation_type));\
             fprintf(stderr, ", shape: ");\
-            PRINT_DEBUG_UINT64_ARRAY((function)->operation->creation_operation->shape,\
+            PRINT_DEBUG_INT64_ARRAY((function)->operation->creation_operation->shape,\
                                      (function)->operation->creation_operation->rank);\
             break;\
         default:\
@@ -349,7 +318,7 @@
     else\
     {\
         fprintf(stderr, "(");\
-        fprintf(stderr, "axis: %lu", (softmax)->axis);\
+        fprintf(stderr, "axis: %ld", (softmax)->axis);\
         fprintf(stderr, ")");\
     }\
 } while(0)
@@ -474,7 +443,7 @@
                 }\
                 else\
                 {\
-                    fprintf(stderr, "depth: %lu", (layer)->transform->block->depth);\
+                    fprintf(stderr, "depth: %ld", (layer)->transform->block->depth);\
                 }\
                 fprintf(stderr, ")");\
                 break;\
@@ -500,7 +469,7 @@
     else\
     {\
         fprintf(stderr, "(");\
-        fprintf(stderr, "depth: %lu", (block)->depth);\
+        fprintf(stderr, "depth: %ld", (block)->depth);\
         fprintf(stderr, ", layers: ");\
         if (!(block)->layers)\
         {\
@@ -509,7 +478,7 @@
         else\
         {\
             fprintf(stderr, "(");\
-            for (uint64_t k = 0; k < (block)->depth; ++k)\
+            for (int64_t k = 0; k < (block)->depth; ++k)\
             {\
                 if (k)\
                 {\
@@ -571,8 +540,8 @@
 #else
 #define PRINT_DEBUG(format, ...)
 #define PRINTF_DEBUG(format, ...)
-#define PRINT_DEBUG_UINT64_ARRAY(array, length)
-#define PRINTLN_DEBUG_UINT64_ARRAY(msg, array, length)
+#define PRINT_DEBUG_INT64_ARRAY(array, length)
+#define PRINTLN_DEBUG_INT64_ARRAY(msg, array, length)
 #define PRINT_DEBUG_VIEW(view)
 #define PRINTLN_DEBUG_VIEW(msg, view)
 #define PRINT_DEBUG_STORAGE(storage)
@@ -609,19 +578,17 @@ typedef enum nw_error_type_t
 {
     ERROR_MEMORY_ALLOCATION,
     ERROR_MEMORY_FREE,
-    ERROR_UNKNOWN_RUNTIME,
-    ERROR_UKNOWN_OPERATION_TYPE,
-    ERROR_UKNOWN_LAYER_TYPE,
+    ERROR_RUNTIME,
+    ERROR_OPERATION_TYPE,
+    ERROR_LAYER_TYPE,
     ERROR_NULL,
-    ERROR_DATATYPE_CONFLICT,
-    ERROR_SHAPE_CONFLICT,
-    ERROR_RUNTIME_CONFLICT,
-    ERROR_RANK_CONFLICT,
+    ERROR_DATATYPE,
+    ERROR_SHAPE,
+    ERROR_RANK,
     ERROR_CREATE,
     ERROR_DESTROY,
     ERROR_BROADCAST,
     ERROR_INITIALIZATION,
-    ERROR_DATATYPE,
     ERROR_COPY,
     ERROR_ADDITION,
     ERROR_CONTIGUOUS,
@@ -634,8 +601,7 @@ typedef enum nw_error_type_t
     ERROR_SUMMATION,
     ERROR_SQUARE_ROOT,
     ERROR_RESHAPE,
-    ERROR_SLICE,
-    ERROR_BINARY_ELEMENTWISE,
+    ERROR_BINARY,
     ERROR_REDUCTION,
     ERROR_EXPONENTIAL,
     ERROR_LOGARITHM,
@@ -650,7 +616,6 @@ typedef enum nw_error_type_t
     ERROR_MATRIX_MULTIPLICATION,
     ERROR_COMPARE_EQUAL,
     ERROR_COMPARE_GREATER,
-    ERROR_PADDING,
     ERROR_RECTIFIED_LINEAR,
     ERROR_AXIS,
     ERROR_SORT,
@@ -675,7 +640,7 @@ typedef enum nw_error_type_t
     ERROR_TRAIN,
     ERROR_VALID,
     ERROR_TEST,
-    ERROR_UNKNOWN_ALGORITHM,
+    ERROR_ALGORITHM,
     ERROR_GAIN,
     ERROR_UPDATE,
     ERROR_REQUIRES_GRADIENT,
@@ -685,6 +650,12 @@ typedef enum nw_error_type_t
     ERROR_GRAPH,
     ERROR_ARGUMENTS,
     ERROR_ITEM,
+    ERROR_POOLING,
+    ERROR_CONVOLUTION,
+    ERROR_IMAGE_TO_COLUMN,
+    ERROR_COLUMN_TO_IMAGE,
+    ERROR_PADDING,
+    ERROR_SLICE,
 } nw_error_type_t;
 
 typedef struct nw_error_t
@@ -714,11 +685,11 @@ string_t error_type_string(nw_error_type_t error_type);
 #define CHECK_UNIQUE(array, length, string) do {\
     if (length)\
     {\
-        for (uint64_t i = 0; i < length - 1; ++i)\
+        for (int64_t i = 0; i < (length) - 1; ++i)\
         {\
-            for (uint64_t j = i + 1; j < length; ++j)\
+            for (int64_t j = i + 1; j < length; ++j)\
             {\
-                if (array[i] == array[j])\
+                if ((array)[i] == (array)[j])\
                 {\
                     return ERROR(ERROR_UNIQUE, string_create("received non-unique array %s.", string), NULL);\
                 }\
@@ -726,6 +697,13 @@ string_t error_type_string(nw_error_type_t error_type);
         }\
     }\
 } while(0)
+
+#define CHECK_NEGATIVE_ARGUMENT(value, string) do {\
+            if (value < 0)\
+            {\
+                return ERROR(ERROR_NULL, string_create("received negative argument for %s.", string), NULL);\
+            }\
+        } while(0)
 
 #define UNUSED(x) (void)(x)
 

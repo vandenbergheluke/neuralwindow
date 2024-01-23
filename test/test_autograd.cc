@@ -8,8 +8,9 @@ extern "C"
 #include <tensor.h>
 #include <function.h>
 #include <cost.h>
-}
 #include <test_helper.h>
+}
+#include <test_helper_torch.h>
 
 #define CASES 1
 #define LAYERS 5

@@ -19,16 +19,16 @@ tensor_t *z_binary_tensors[CASES02];
 tensor_t *z_reduction_tensors[CASES02];
 tensor_t *z_structure_tensors[CASES02];
 
-uint64_t lower = 0;
-uint64_t upper = 1000;
-uint64_t mean = 0;
-uint64_t std = 1;
+int64_t lower = 0;
+int64_t upper = 1000;
+int64_t mean = 0;
+int64_t std = 1;
 
-uint64_t prev_nodes_num = 10;
-uint64_t  gain = 1;
+int64_t prev_nodes_num = 10;
+int64_t  gain = 1;
 
-uint64_t fan_in = 3;
-uint64_t fan_out = 4;
+int64_t fan_in = 3;
+int64_t fan_out = 4;
 
 // x tensors
 tensor_t *x_0 = NULL;
@@ -103,82 +103,46 @@ tensor_t *z_8_output = NULL;
 tensor_t *z_9_output = NULL;
 
 // Initialize shapes_x
-uint64_t shapes_x_0[] = {5};
-uint64_t shapes_x_1[] = {3, 1};
-uint64_t shapes_x_2[] = {2, 3, 4};
-uint64_t shapes_x_3[] = {2, 3, 5, 1};
-uint64_t shapes_x_4[] = {6, 5, 4, 3, 2};
-uint64_t shapes_x_5[] = {3, 3, 3};
-uint64_t shapes_x_6[] = {4, 4, 4};
-uint64_t shapes_x_7[] = {2, 3, 4};
-uint64_t shapes_x_8[] = {2, 3, 5, 4};
-uint64_t shapes_x_9[] = {6, 5, 4, 3, 2};
+int64_t shapes_x_0[] = {5};
+int64_t shapes_x_1[] = {3, 1};
+int64_t shapes_x_2[] = {2, 3, 4};
+int64_t shapes_x_3[] = {2, 3, 5, 1};
+int64_t shapes_x_4[] = {6, 5, 4, 3, 2};
+int64_t shapes_x_5[] = {3, 3, 3};
+int64_t shapes_x_6[] = {4, 4, 4};
+int64_t shapes_x_7[] = {2, 3, 4};
+int64_t shapes_x_8[] = {2, 3, 5, 4};
+int64_t shapes_x_9[] = {6, 5, 4, 3, 2};
 
-// Initialize stride_x
-uint64_t stride_x_0[] = {1};
-uint64_t stride_x_1[] = {1, 1};
-uint64_t stride_x_2[] = {12, 4, 1};
-uint64_t stride_x_3[] = {15, 5, 1, 1};
-uint64_t stride_x_4[] = {120, 24, 6, 2, 1};
-uint64_t stride_x_5[] = {9, 3, 1};
-uint64_t stride_x_6[] = {16, 4, 1};
-uint64_t stride_x_7[] = {12, 4, 1};
-uint64_t stride_x_8[] = {60, 20, 4, 1};
-uint64_t stride_x_9[] = {120, 24, 6, 2, 1};
-
-const uint64_t *shapes_x[10] = {
+const int64_t *shapes_x[10] = {
     shapes_x_0, shapes_x_1, shapes_x_2,
     shapes_x_3, shapes_x_4, shapes_x_5,
     shapes_x_6, shapes_x_7, shapes_x_8,
     shapes_x_9
 };
-const uint64_t *strides_x[10] = {
-    stride_x_0, stride_x_1, stride_x_2,
-    stride_x_3, stride_x_4, stride_x_5,
-    stride_x_6, stride_x_7, stride_x_8,
-    stride_x_9
-};
 
-uint64_t ranks_x[10] = {1, 2, 3, 4, 5, 3, 3, 3, 4, 5};
+int64_t ranks_x[10] = {1, 2, 3, 4, 5, 3, 3, 3, 4, 5};
 
 // Initialize shapes_y
-uint64_t shapes_y_0[] = {5};
-uint64_t shapes_y_1[] = {3, 3};
-uint64_t shapes_y_2[] = {2, 3, 4};
-uint64_t shapes_y_3[] = {2, 3, 5, 4};
-uint64_t shapes_y_4[] = {6, 5, 4, 3, 1};
-uint64_t shapes_y_5[] = {3, 3, 3};
-uint64_t shapes_y_6[] = {4, 4, 4};
-uint64_t shapes_y_7[] = {2, 4, 3};
-uint64_t shapes_y_8[] = {2, 3, 5, 4};
-uint64_t shapes_y_9[] = {6, 5, 4, 2, 3};
+int64_t shapes_y_0[] = {5};
+int64_t shapes_y_1[] = {3, 3};
+int64_t shapes_y_2[] = {2, 3, 4};
+int64_t shapes_y_3[] = {2, 3, 5, 4};
+int64_t shapes_y_4[] = {6, 5, 4, 3, 1};
+int64_t shapes_y_5[] = {3, 3, 3};
+int64_t shapes_y_6[] = {4, 4, 4};
+int64_t shapes_y_7[] = {2, 4, 3};
+int64_t shapes_y_8[] = {2, 3, 5, 4};
+int64_t shapes_y_9[] = {6, 5, 4, 2, 3};
 
-// Initialize stride_y
-uint64_t stride_y_0[] = {1};
-uint64_t stride_y_1[] = {3, 1};
-uint64_t stride_y_2[] = {12, 4, 1};
-uint64_t stride_y_3[] = {60, 20, 4, 1};
-uint64_t stride_y_4[] = {60, 12, 3, 1, 1};
-uint64_t stride_y_5[] = {9, 3, 1};
-uint64_t stride_y_6[] = {16, 4, 1};
-uint64_t stride_y_7[] = {12, 3, 1};
-uint64_t stride_y_8[] = {60, 20, 4, 1};
-uint64_t stride_y_9[] = {120, 24, 6, 3, 1};
-
-const uint64_t *shapes_y[10] = {
+const int64_t *shapes_y[10] = {
     shapes_y_0, shapes_y_1, shapes_y_2,
     shapes_y_3, shapes_y_4, shapes_y_5,
     shapes_y_6, shapes_y_7, shapes_y_8,
     shapes_y_9
 };
-const uint64_t *strides_y[10] = {
-    stride_y_0, stride_y_1, stride_y_2,
-    stride_y_3, stride_y_4, stride_y_5,
-    stride_y_6, stride_y_7, stride_y_8,
-    stride_y_9
-};
 
-uint64_t ranks_y[10] = {1, 2, 3, 4, 5, 3, 3, 3, 4, 5};
+int64_t ranks_y[10] = {1, 2, 3, 4, 5, 3, 3, 3, 4, 5};
 
 void setup(void)
 {
@@ -271,18 +235,18 @@ START_TEST(test_graph)
     float fan_value_2 = 3.0; 
     float  fan_out_value_2 = 5.0;
 
-    uint64_t lower_bound = 1; 
-    uint64_t upper_bound = 10; 
+    int64_t lower_bound = 1; 
+    int64_t upper_bound = 10; 
 
-    uint64_t mean = 0;
-    uint64_t std = 1;
+    int64_t mean = 0;
+    int64_t std = 1;
 
     float gain_value = 2.0;  
     float fan_in_value = 4.0;  
     float fan_out_value = 6.0;
 
     // x0
-    error = tensor_create_ones(&x_0, shapes_x_0, ranks_x[0], stride_x_1, 0, MKL_RUNTIME, FLOAT64, true, false);
+    error = tensor_create_ones(&x_0, shapes_x_0, ranks_x[0], MKL_RUNTIME, FLOAT64, true, false);
     if (error)
     {
        error_print(error);
@@ -290,142 +254,142 @@ START_TEST(test_graph)
     }
     ck_assert_ptr_null(error);
 
-    error = tensor_zeroes_like(x_0, &x_0_output, false, false, true);
+    error = tensor_zeroes_like(x_0, &x_0_output, false, false);
     ck_assert_ptr_null(error);
 
     // x1
-    error = tensor_create_uniform(&x_1, shapes_x_1, ranks_x[1], stride_x_1, 0, MKL_RUNTIME, FLOAT64, false, false, &lower_bound, &upper_bound);
+    error = tensor_create_uniform(&x_1, shapes_x_1, ranks_x[1], MKL_RUNTIME, FLOAT64, false, false, &lower_bound, &upper_bound);
     ck_assert_ptr_null(error);
 
-    error = tensor_zeroes_like(x_1, &x_1_output, false, false, true);
+    error = tensor_zeroes_like(x_1, &x_1_output, false, false);
     ck_assert_ptr_null(error);
 
     // x2
-    error = tensor_create_normal(&x_2, shapes_x_2, ranks_x[2], stride_x_2, 0, MKL_RUNTIME, FLOAT64, false, false, &mean, &std);
+    error = tensor_create_normal(&x_2, shapes_x_2, ranks_x[2], MKL_RUNTIME, FLOAT64, false, false, &mean, &std);
     ck_assert_ptr_null(error);
 
-    error = tensor_zeroes_like(x_2, &x_2_output, false, false, true);
+    error = tensor_zeroes_like(x_2, &x_2_output, false, false);
     ck_assert_ptr_null(error);
 
     // x3
-    error = tensor_create_kaiming_uniform(&x_3, shapes_x_3, ranks_x[3], stride_x_3, 0, MKL_RUNTIME, FLOAT64, false, false, &gain, &fan);
+    error = tensor_create_kaiming_uniform(&x_3, shapes_x_3, ranks_x[3], MKL_RUNTIME, FLOAT64, false, false, &gain, &fan);
     ck_assert_ptr_null(error);
 
-    error = tensor_ones_like(x_3, &x_3_output, false, false, true);
+    error = tensor_ones_like(x_3, &x_3_output, false, false);
     ck_assert_ptr_null(error);
 
     // x4
-    error = tensor_create_kaiming_normal(&x_4, shapes_x_4, ranks_x[4], stride_x_4, 0, MKL_RUNTIME, FLOAT64, false, false, &gain, &fan);
+    error = tensor_create_kaiming_normal(&x_4, shapes_x_4, ranks_x[4], MKL_RUNTIME, FLOAT64, false, false, &gain, &fan);
     ck_assert_ptr_null(error);
 
-    error = tensor_ones_like(x_4, &x_4_output, false, false, true);
+    error = tensor_ones_like(x_4, &x_4_output, false, false);
     ck_assert_ptr_null(error);
 
     // x5
-    error = tensor_create_glorot_uniform(&x_5, shapes_x_5, ranks_x[5], stride_x_5, 0, MKL_RUNTIME, FLOAT64, false, false, &gain_value, &fan_in_value, &fan_out_value);
+    error = tensor_create_glorot_uniform(&x_5, shapes_x_5, ranks_x[5], MKL_RUNTIME, FLOAT64, false, false, &gain_value, &fan_in_value, &fan_out_value);
     ck_assert_ptr_null(error);
 
-    error = tensor_ones_like(x_5, &x_5_output, false, false, true);
+    error = tensor_ones_like(x_5, &x_5_output, false, false);
     ck_assert_ptr_null(error);
 
     // x6
-    error = tensor_create_glorot_normal(&x_6, shapes_x_6, ranks_x[6], stride_x_6, 0, MKL_RUNTIME, FLOAT64, false, false, &gain_value, &fan_in_value, &fan_out_value);
+    error = tensor_create_glorot_normal(&x_6, shapes_x_6, ranks_x[6], MKL_RUNTIME, FLOAT64, false, false, &gain_value, &fan_in_value, &fan_out_value);
     ck_assert_ptr_null(error);
 
-    error = tensor_ones_like(x_6, &x_6_output, false, false, true);
+    error = tensor_ones_like(x_6, &x_6_output, false, false);
     ck_assert_ptr_null(error);
 
     // x7
-    error = tensor_create_zeroes(&x_7, shapes_x_7, ranks_x[7], stride_x_7, 0, MKL_RUNTIME, FLOAT64, false, false);
+    error = tensor_create_zeroes(&x_7, shapes_x_7, ranks_x[7], MKL_RUNTIME, FLOAT64, false, false);
     ck_assert_ptr_null(error);
 
-    error = tensor_empty_like(x_7, &x_7_output, false, false, true);
+    error = tensor_empty_like(x_7, &x_7_output, false, false);
     ck_assert_ptr_null(error);
 
     // x8
-    error = tensor_create_kaiming_normal(&x_8, shapes_x_8, ranks_x[8], stride_x_8, 0, MKL_RUNTIME, FLOAT64, false, false, &gain_8, &fan_8);
+    error = tensor_create_kaiming_normal(&x_8, shapes_x_8, ranks_x[8], MKL_RUNTIME, FLOAT64, false, false, &gain_8, &fan_8);
     ck_assert_ptr_null(error);
 
-    error = tensor_empty_like(x_8, &x_8_output, false, false, true);
+    error = tensor_empty_like(x_8, &x_8_output, false, false);
     ck_assert_ptr_null(error);
 
     // x9
-    error = tensor_create_glorot_uniform(&x_9, shapes_x_9, ranks_x[9], stride_x_9, 0, MKL_RUNTIME, FLOAT64, false, false, &gain_value_2, &fan_value_2, &fan_out_value_2);
+    error = tensor_create_glorot_uniform(&x_9, shapes_x_9, ranks_x[9], MKL_RUNTIME, FLOAT64, false, false, &gain_value_2, &fan_value_2, &fan_out_value_2);
     ck_assert_ptr_null(error);
 
-    error = tensor_empty_like(x_9, &x_9_output, false, false, true);
+    error = tensor_empty_like(x_9, &x_9_output, false, false);
     ck_assert_ptr_null(error);
 
     //y init
 
     // y0
-    error = tensor_create_ones(&y_0, shapes_y_0, ranks_y[0], stride_y_0, 0, MKL_RUNTIME, FLOAT64, true, false);
+    error = tensor_create_ones(&y_0, shapes_y_0, ranks_y[0], MKL_RUNTIME, FLOAT64, true, false);
     ck_assert_ptr_null(error);
 
-    error = tensor_zeroes_like(y_0, &y_0_output, false, false, true);
+    error = tensor_zeroes_like(y_0, &y_0_output, false, false);
     ck_assert_ptr_null(error);
 
     // y1
-    error = tensor_create_uniform(&y_1, shapes_y_1, ranks_y[1], stride_y_1, 0, MKL_RUNTIME, FLOAT64, false, false, &lower_bound, &upper_bound);
+    error = tensor_create_uniform(&y_1, shapes_y_1, ranks_y[1], MKL_RUNTIME, FLOAT64, false, false, &lower_bound, &upper_bound);
     ck_assert_ptr_null(error);
 
-    error = tensor_zeroes_like(y_1, &y_1_output, false, false, true);
+    error = tensor_zeroes_like(y_1, &y_1_output, false, false);
     ck_assert_ptr_null(error);
 
     // y2
-    error = tensor_create_normal(&y_2, shapes_y_2, ranks_y[2], stride_y_2, 0, MKL_RUNTIME, FLOAT64, false, false, &mean, &std);
+    error = tensor_create_normal(&y_2, shapes_y_2, ranks_y[2], MKL_RUNTIME, FLOAT64, false, false, &mean, &std);
     ck_assert_ptr_null(error);
 
-    error = tensor_zeroes_like(y_2, &y_2_output, false, false, true);
+    error = tensor_zeroes_like(y_2, &y_2_output, false, false);
     ck_assert_ptr_null(error);
 
     //y3
-    error = tensor_create_kaiming_uniform(&y_3, shapes_y_3, ranks_y[3], stride_y_3, 0, MKL_RUNTIME, FLOAT64, false, false, &gain, &fan);
+    error = tensor_create_kaiming_uniform(&y_3, shapes_y_3, ranks_y[3], MKL_RUNTIME, FLOAT64, false, false, &gain, &fan);
     ck_assert_ptr_null(error);
 
-    error = tensor_zeroes_like(y_3, &y_3_output, false, false, true);
+    error = tensor_zeroes_like(y_3, &y_3_output, false, false);
     ck_assert_ptr_null(error);
 
     // y4
-    error = tensor_create_kaiming_normal(&y_4, shapes_y_4, ranks_y[4], stride_y_4, 0, MKL_RUNTIME, FLOAT64, false, false, &gain, &fan);
+    error = tensor_create_kaiming_normal(&y_4, shapes_y_4, ranks_y[4], MKL_RUNTIME, FLOAT64, false, false, &gain, &fan);
     ck_assert_ptr_null(error);
 
-    error = tensor_ones_like(y_4, &y_4_output, false, false, true);
+    error = tensor_ones_like(y_4, &y_4_output, false, false);
     ck_assert_ptr_null(error);
 
     // y5
-    error = tensor_create_glorot_uniform(&y_5, shapes_y_5, ranks_y[5], stride_y_5, 0, MKL_RUNTIME, FLOAT64, false, false, &gain_value, &fan_in_value, &fan_out_value);
+    error = tensor_create_glorot_uniform(&y_5, shapes_y_5, ranks_y[5], MKL_RUNTIME, FLOAT64, false, false, &gain_value, &fan_in_value, &fan_out_value);
     ck_assert_ptr_null(error);
 
-    error = tensor_ones_like(y_5, &y_5_output, false, false, true);
+    error = tensor_ones_like(y_5, &y_5_output, false, false);
     ck_assert_ptr_null(error);
 
     // y6
-    error = tensor_create_glorot_normal(&y_6, shapes_y_6, ranks_y[6], stride_y_6, 0, MKL_RUNTIME, FLOAT64, false, false, &gain_value, &fan_in_value, &fan_out_value);
+    error = tensor_create_glorot_normal(&y_6, shapes_y_6, ranks_y[6], MKL_RUNTIME, FLOAT64, false, false, &gain_value, &fan_in_value, &fan_out_value);
     ck_assert_ptr_null(error);
 
-    error = tensor_ones_like(y_6, &y_6_output, false, false, true);
+    error = tensor_ones_like(y_6, &y_6_output, false, false);
     ck_assert_ptr_null(error);
 
     // y7
-    error = tensor_create_zeroes(&y_7, shapes_y_7, ranks_y[7], stride_y_7, 0, MKL_RUNTIME, FLOAT64, false, false);
+    error = tensor_create_zeroes(&y_7, shapes_y_7, ranks_y[7], MKL_RUNTIME, FLOAT64, false, false);
     ck_assert_ptr_null(error);
 
-    error = tensor_empty_like(y_7, &y_7_output, false, false, true);
+    error = tensor_empty_like(y_7, &y_7_output, false, false);
     ck_assert_ptr_null(error);
 
     // y8
-    error = tensor_create_kaiming_normal(&y_8, shapes_y_8, ranks_y[8], stride_y_8, 0, MKL_RUNTIME, FLOAT64, false, false, &gain_value_2, &fan_value_2);
+    error = tensor_create_kaiming_normal(&y_8, shapes_y_8, ranks_y[8], MKL_RUNTIME, FLOAT64, false, false, &gain_value_2, &fan_value_2);
     ck_assert_ptr_null(error);
 
-    error = tensor_empty_like(y_8, &y_8_output, false, false, true);
+    error = tensor_empty_like(y_8, &y_8_output, false, false);
     ck_assert_ptr_null(error);
 
     // y9
-    error = tensor_create_glorot_uniform(&y_9, shapes_y_9, ranks_y[9], stride_y_9, 0, MKL_RUNTIME, FLOAT64, false, false, &gain_value_2, &fan_value_2, &fan_out_value_2);
+    error = tensor_create_glorot_uniform(&y_9, shapes_y_9, ranks_y[9], MKL_RUNTIME, FLOAT64, false, false, &gain_value_2, &fan_value_2, &fan_out_value_2);
     ck_assert_ptr_null(error);
 
-    error = tensor_empty_like(y_9, &y_9_output, false, false, true);
+    error = tensor_empty_like(y_9, &y_9_output, false, false);
     ck_assert_ptr_null(error);
 
     // apply unary op on tensors x
@@ -532,15 +496,15 @@ START_TEST(test_graph)
     ck_assert_ptr_null(error);
 
     // apply structure op on tensors z
-    uint64_t new_shape_z_0[] = {5, 5};
+    int64_t new_shape_z_0[] = {5, 5};
     error = tensor_expand(z_0, new_shape_z_0, 2, &z_0_output);
     ck_assert_ptr_null(error);
 
-    uint64_t new_shape_z_1[] = {9};
+    int64_t new_shape_z_1[] = {9};
     error = tensor_reshape(z_1, &z_1_output, new_shape_z_1, 1);
     ck_assert_ptr_null(error);
 
-    uint64_t new_axis_z_2[] = {2, 0, 1};
+    int64_t new_axis_z_2[] = {2, 0, 1};
     error = tensor_permute(z_2, &z_2_output, new_axis_z_2, 3);
     ck_assert_ptr_null(error);
 
@@ -551,21 +515,21 @@ START_TEST(test_graph)
     ck_assert_ptr_null(error);
 
     //Not Implemented Yet:
-    //nw_error_t *tensor_slice(const tensor_t *x, tensor_t **y, uint64_t *arguments, uint64_t length);
-    //uint64_t new_args_z_4[] = {2, 2, 2, 1, 1, 1, 1, 0};
+    //nw_error_t *tensor_slice(const tensor_t *x, tensor_t **y, int64_t *arguments, int64_t length);
+    //int64_t new_args_z_4[] = {2, 2, 2, 1, 1, 1, 1, 0};
     //error = tensor_padding(z_4, &z_4_output, new_args_z_4, 30);
 
 
     // apply reduction op on tensors z
-    uint64_t new_axis_z_5[] = {};
+    int64_t new_axis_z_5[] = {};
     error = tensor_summation(z_5, &z_5_output, new_axis_z_5, 0, false);
     ck_assert_ptr_null(error);
 
-    uint64_t new_axis_z_6[] = {};
+    int64_t new_axis_z_6[] = {};
     error = tensor_maximum(z_6, &z_6_output, new_axis_z_6, 0, false);
     ck_assert_ptr_null(error);
 
-    uint64_t new_axis_z_7[] = {};
+    int64_t new_axis_z_7[] = {};
     error = tensor_mean(z_7, &z_7_output, new_axis_z_7, 0, false);
     ck_assert_ptr_null(error);
 

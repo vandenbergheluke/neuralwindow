@@ -21,122 +21,35 @@
  */
 typedef struct view_t
 {
-    uint64_t *shape; /** The dimensions of the tensor. */
-    uint64_t rank; /** The rank of the tensor. (The length of shape) */ 
-    uint64_t *strides; /** The strides are the jumps necessary to go from one element to the next one in storage along each dimension. (not bytes) */
-    uint64_t offset; /** The offset in the underlying storage in terms of number of storage elements. (not bytes) */
+    int64_t *shape; /** The dimensions of the tensor. */
+    int64_t rank; /** The rank of the tensor. (The length of shape) */ 
+    int64_t *strides; /** The strides are the jumps necessary to go from one element to the next one in storage along each dimension. (not bytes) */
+    int64_t offset; /** The offset in the underlying storage in terms of number of storage elements. (not bytes) */
 } view_t;
 
-nw_error_t *view_create(view_t **view,
-                        uint64_t offset,
-                        uint64_t rank,
-                        const uint64_t *shape,
-                        const uint64_t *strides);
-void view_destroy(view_t *view);
-bool_t is_contiguous(const uint64_t *shape,
-                     uint64_t rank,
-                     const uint64_t *strides,
-                     uint64_t offset);
-nw_error_t *permute(const uint64_t *original_shape,
-                    const uint64_t *original_strides,
-                    uint64_t *permuted_shape,
-                    uint64_t *permuted_strides,
-                    const uint64_t *axis,
-                    uint64_t length);
-nw_error_t *reverse_permute(const uint64_t *axis,
-                         uint64_t rank,
-                         uint64_t *reverse_axis);
-nw_error_t *reduce(const uint64_t *original_shape,
-                uint64_t original_rank,
-                const uint64_t *original_strides, 
-                uint64_t *reduced_shape,
-                uint64_t reduced_rank,
-                uint64_t *reduced_strides,
-                const uint64_t *axis,
-                uint64_t rank,
-                bool_t keep_dimensions);
-nw_error_t *reduce_recover_dimensions(const uint64_t *reduced_shape,
-                                      uint64_t reduced_rank, 
-                                      const uint64_t *reduced_strides,
-                                      uint64_t *recovered_shape, 
-                                      uint64_t recovered_rank,
-                                      uint64_t *recovered_strides,
-                                      const uint64_t *axis,
-                                      uint64_t rank);
-bool_t shapes_equal(const uint64_t *x_shape, uint64_t x_rank, const uint64_t *y_shape, uint64_t y_rank);
-uint64_t shape_size(const uint64_t *shape, uint64_t rank);
-nw_error_t *strides_from_shape(uint64_t *strides, const uint64_t *shape, uint64_t rank);
-nw_error_t *broadcast_strides(const uint64_t *original_shape,
-                           uint64_t original_rank,
-                           const uint64_t *original_strides,
-                           const uint64_t *broadcasted_shape,
-                           uint64_t broadcasted_rank,
-                           uint64_t *broadcasted_strides);
-nw_error_t *broadcast_shapes(const uint64_t *x_original_shape,
-                          uint64_t x_original_rank,
-                          const uint64_t *y_original_shape,
-                          uint64_t y_original_rank, 
-                          uint64_t *broadcasted_shape,
-                          uint64_t broadcasted_rank);
-nw_error_t *matrix_multiplication_broadcast_shapes(const uint64_t *x_original_shape,
-                                                   uint64_t x_original_rank,
-                                                   const uint64_t *y_original_shape,
-                                                   uint64_t y_original_rank, 
-                                                   uint64_t *x_broadcasted_shape,
-                                                   uint64_t *y_broadcasted_shape,
-                                                   uint64_t broadcasted_rank);
-nw_error_t *matrix_multiplication_shape(uint64_t *x_shape, uint64_t *y_shape, uint64_t *z_shape, uint64_t rank);
-nw_error_t *slice_shape(const uint64_t *original_shape,
-                     uint64_t original_rank,
-                     uint64_t *slice_shape,
-                     uint64_t slice_rank,
-                     const uint64_t *arguments,
-                     uint64_t length);
-nw_error_t *slice_offset(const uint64_t *original_strides,
-                      uint64_t original_rank,
-                      uint64_t *offset,
-                      const uint64_t *arguments,
-                      uint64_t length);
-nw_error_t *reverse_slice(const uint64_t *original_shape,
-                       uint64_t original_rank,
-                       const uint64_t *arguments,
-                       uint64_t length,
-                       uint64_t *new_arguments,
-                       uint64_t new_length);
-nw_error_t *padding(const uint64_t *original_shape,
-                 uint64_t original_rank,
-                 uint64_t *padding_shape,
-                 uint64_t padding_rank,
-                 const uint64_t *arguments,
-                 uint64_t length);
-nw_error_t *reverse_padding(const uint64_t *original_shape,
-                         uint64_t original_rank,
-                         const uint64_t *arguments,
-                         uint64_t length,
-                         uint64_t *new_arguments,
-                         uint64_t new_length);
-nw_error_t *reduce_axis(const uint64_t *original_shape,
-                                uint64_t original_rank,
-                                const uint64_t *broadcasted_shape,
-                                uint64_t broadcasted_rank, 
-                                uint64_t *axis_keep_dimension,
-                                uint64_t *axis_remove_dimension);
-nw_error_t *reduce_axis_length(const uint64_t *original_shape,
-                                  uint64_t original_rank,
-                                  const uint64_t *broadcasted_shape,
-                                  uint64_t broadcasted_rank, 
-                                  uint64_t *length_keep_dimension,
-                                  uint64_t *length_remove_dimension);
-bool_t is_broadcastable(const uint64_t *original_shape,
-                        uint64_t original_rank,
-                        const uint64_t *broadcasted_shape,
-                        uint64_t broadcasted_rank);
-nw_error_t *n_from_shape_and_strides(const uint64_t *shape, 
-                                     const uint64_t *strides,
-                                     uint64_t rank,
-                                     uint64_t *n);
-bool_t is_valid_reshape(const uint64_t *original_shape, uint64_t original_rank,
-                        const uint64_t *new_shape, uint64_t new_rank);
 nw_error_t *view_copy(const view_t *source_view, view_t **destination_view);
-
+nw_error_t *view_create(view_t **view, int64_t offset, int64_t rank, const int64_t *shape, const int64_t *strides);
+void view_destroy(view_t *view);
+int64_t dimension_to_index(int64_t dimension, int64_t rank);
+nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t rank);
+nw_error_t *view_permute(const view_t *original_view, view_t **permuted_view, const int64_t *axis, int64_t length);
+nw_error_t *view_reduce(const view_t *original_view, view_t **reduced_view, const int64_t *axis, int64_t length, bool_t keep_dimensions);
+nw_error_t *view_recover_dimensions(const view_t *reduced_view, view_t **recovered_view, const int64_t *axis, int64_t length);
+nw_error_t *view_physical_size(const view_t *view, int64_t *size);
+nw_error_t *view_logical_size(const view_t *view, int64_t *size);
+bool_t view_shapes_equal(const view_t *view_a, const view_t *view_b);
+bool_t view_has_shape(const view_t *view, const int64_t *shape, int64_t rank);
+nw_error_t *view_is_contiguous(const view_t *view, bool_t *is_contiguous);
+nw_error_t *view_expand(const view_t *original_view, view_t **expanded_view, const int64_t *shape, int64_t rank);
+nw_error_t *view_broadcast(const view_t *view_a, const view_t *view_b, int64_t **shape, int64_t *rank);
+nw_error_t *view_broadcast_matrix_multiplication(const view_t *view_a, const view_t *view_b, int64_t **shape_a, int64_t **shape_b, int64_t *rank);
+nw_error_t *view_matrix_multiplication(const view_t *view_a, const view_t *view_b, view_t **view_c);
+nw_error_t *view_reduce_axis(const view_t *original_view, 
+                             const int64_t *broadcasted_shape, int64_t broadcasted_rank,
+                             int64_t **axis_keep_dimension, int64_t *length_keep_dimension,
+                             int64_t **axis_remove_dimension, int64_t *length_remove_dimension);
+nw_error_t *view_slice(const view_t *original_view, view_t **sliced_view, const int64_t *arguments, int64_t length);
+nw_error_t *view_slice_padding_arguments(const view_t *original_view, const int64_t *slice_arguments, int64_t length, int64_t **padding_arguments);
+nw_error_t *view_padding(const view_t *original_view, view_t **padding_view, const int64_t *arguments, int64_t length);
+nw_error_t *view_padding_slice_arguments(const view_t *original_view, const int64_t *padding_arguments, int64_t length, int64_t **slice_arguments);
 #endif
