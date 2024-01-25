@@ -112,6 +112,7 @@ Install Graphviz (Optional)
 
 ```bash
 sudo apt install graphviz
+sudo apt-get install -y libgraphviz-dev
 ```
 
 Install LCOV
@@ -156,6 +157,11 @@ Display Debug information by defining the enviroment variable `DEBUG=1`.
 
 ```bash
 DEBUG=1 cmake ..
+```
+Generate graph by defining the enviroment variable `GRAPH=1`.
+```
+GRAPH=1 ./executable
+dot -Tpng graph.dot > graph.png
 ```
 
 ## Test

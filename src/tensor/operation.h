@@ -50,6 +50,10 @@ typedef enum structure_operation_type_t
     EXPAND_OPERATION,
     PERMUTE_OPERATION,
     RESHAPE_OPERATION,
+    SLICE_OPERATION,
+    PADDING_OPERATION,
+    IMAGE_TO_COLUMN_OPERATION,
+    COLUMN_TO_IMAGE_OPERATION,
 } structure_operation_type_t;
 
 typedef enum creation_operation_type_t

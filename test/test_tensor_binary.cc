@@ -673,6 +673,32 @@ std::vector<int64_t> matrix_multiplication_shapes_y[MATRIX_MULTIPLICATION_CASES]
     {4, 7},
 };
 
+#define CONCATENATION_CASES 5
+
+std::vector<int64_t> concatenation_shapes_x[CONCATENATION_CASES] = {
+    {1},
+    {1, 10},
+    {4, 9, 8},
+    {7, 10, 2, 4},
+    {9, 8, 7, 6, 5},
+};
+
+std::vector<int64_t> concatenation_shapes_y[CONCATENATION_CASES] = {
+    {2},
+    {1, 3},
+    {4, 10, 8},
+    {7, 10, 2, 2},
+    {9, 8, 7, 4, 5},
+};
+
+int64_t concatenation_axis[CONCATENATION_CASES] = {
+    0,
+    1,
+    1,
+    3,
+    3,
+};
+
 nw_error_t *error = NULL;
 
 std::vector<tensor_t *> tensors_x[RUNTIMES][DATATYPES];
@@ -689,6 +715,7 @@ typedef enum binary_operation_class_t
 {
     BINARY_ELEMENTWISE_CLASS,
     MATRIX_MULTIPLICATION_CLASS,
+    CONCATENATION_CLASS,
 } binary_operation_class_t;
 
 typedef enum tensor_binary_operation_type_t
@@ -702,7 +729,8 @@ typedef enum tensor_binary_operation_type_t
     TENSOR_COMPARE_EQUAL,
     TENSOR_COMPARE_GREATER,
     TENSOR_MAX,
-} tensor_binary_operation_type_t;
+    TENSOR_CONCATENATION
+} tensor_reduction_operation_type_t;
 
 int cases(binary_operation_class_t binary_operation_class)
 {
@@ -712,6 +740,8 @@ int cases(binary_operation_class_t binary_operation_class)
         return MATRIX_MULTIPLICATION_CASES;
     case BINARY_ELEMENTWISE_CLASS:
         return BINARY_ELEMENTWISE_CASES;
+    case CONCATENATION_CLASS:
+        return CONCATENATION_CASES;
     default:
         return 0;
     }
@@ -725,6 +755,8 @@ std::vector<int64_t> shapes_x(binary_operation_class_t binary_operation_class, i
         return matrix_multiplication_shapes_x[i];
     case BINARY_ELEMENTWISE_CLASS:
         return binary_elementwise_shapes_x[i];
+    case CONCATENATION_CLASS:
+        return concatenation_shapes_x[i];
     default:
         return std::vector<int64_t>{};
     }
@@ -738,6 +770,8 @@ std::vector<int64_t> shapes_y(binary_operation_class_t binary_operation_class, i
         return matrix_multiplication_shapes_y[i];
     case BINARY_ELEMENTWISE_CLASS:
         return binary_elementwise_shapes_y[i];
+    case CONCATENATION_CLASS:
+        return concatenation_shapes_y[i];
     default:
         return std::vector<int64_t>{};
     }
@@ -814,6 +848,11 @@ void setup_matrix_multiplication(void)
     setup(MATRIX_MULTIPLICATION_CLASS);
 }
 
+void setup_concatenation(void)
+{
+    setup(CONCATENATION_CLASS);
+}
+
 void teardown(binary_operation_class_t binary_operation_class)
 {
     const int CASES = cases(binary_operation_class);
@@ -845,6 +884,11 @@ void teardown_binary_elementwise(void)
 void teardown_matrix_multiplication(void)
 {
     teardown(MATRIX_MULTIPLICATION_CLASS);
+}
+
+void teardown_concatenation(void)
+{
+    teardown(CONCATENATION_CLASS);
 }
 
 void test_binary(binary_operation_class_t binary_operation_class,
@@ -889,6 +933,9 @@ void test_binary(binary_operation_class_t binary_operation_class,
                 case TENSOR_MAX:
                     expected_tensor = torch::max(torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]);
                     break;
+                case TENSOR_CONCATENATION:
+                    expected_tensor = torch::cat({torch_tensors_x[i][j][k], torch_tensors_y[i][j][k]}, concatenation_axis[k]);
+                    break;
                 default:
                     ck_abort_msg("unsupported binary operation type.");
                 }
@@ -923,6 +970,9 @@ void test_binary(binary_operation_class_t binary_operation_class,
                     break;
                 case TENSOR_MAX:
                     error = tensor_max(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k]);
+                    break;
+                case TENSOR_CONCATENATION:
+                    error = tensor_concatenation(tensors_x[i][j][k], tensors_y[i][j][k], &returned_tensors[i][j][k], concatenation_axis[k]);
                     break;
                 default:
                     ck_abort_msg("unsupported binary operation type.");
@@ -1008,11 +1058,18 @@ START_TEST(test_matrix_multiplication)
 }
 END_TEST
 
+START_TEST(test_concatenation)
+{
+    test_binary(CONCATENATION_CLASS, TENSOR_CONCATENATION, true);
+}
+END_TEST
+
 Suite *make_binary_suite(void)
 {
     Suite *s;
     TCase *tc_binary_elementwise;
     TCase *tc_matrix_multiplication;
+    TCase *tc_concatenation;
 
     s = suite_create("Test Binary Tensor Suite");
 
@@ -1031,8 +1088,13 @@ Suite *make_binary_suite(void)
     tcase_add_checked_fixture(tc_matrix_multiplication, setup_matrix_multiplication, teardown_matrix_multiplication);
     tcase_add_test(tc_matrix_multiplication, test_matrix_multiplication);
 
+    tc_concatenation = tcase_create("Test Concatenation Case");
+    tcase_add_checked_fixture(tc_concatenation, setup_concatenation, teardown_concatenation);
+    tcase_add_test(tc_concatenation, test_concatenation);
+
     suite_add_tcase(s, tc_binary_elementwise);
     suite_add_tcase(s, tc_matrix_multiplication);
+    suite_add_tcase(s, tc_concatenation);
 
     return s;
 }

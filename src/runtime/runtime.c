@@ -401,7 +401,66 @@ void runtime_reduction(reduction_operation_type_t reduction_operation_type, runt
     default:
         break;
     }
+}
 
+void runtime_image_to_column(datatype_t datatype, void *x_data, 
+                             int64_t batch_size, int64_t channels, int64_t height, int64_t width, 
+                             int64_t kernel_size, int64_t output_height, int64_t output_width,
+                             int64_t stride, int64_t padding, void *y_data, bool_t inverse)
+{
+    for (int64_t b = 0; b < batch_size; ++b)
+    {
+        int64_t b_offset_column = b * kernel_size * kernel_size * channels * output_height * output_width; 
+        int64_t b_offset_image = b * channels * height * width;
+        for (int64_t c = 0; c < channels * kernel_size * kernel_size; ++c) 
+        {
+            int64_t w_offset = c % kernel_size;
+            int64_t h_offset = (c / kernel_size) % kernel_size;
+            int64_t channel = c / kernel_size / kernel_size;
+            for (int64_t h = 0; h < output_height; ++h)
+            {
+                int64_t row = h_offset + h * stride - padding;
+                for (int64_t w = 0; w < output_width; ++w)
+                {
+                    int64_t column = w_offset + w * stride - padding;
+                    int64_t column_index = b_offset_column + (c * output_height + h) * output_width + w;
+                    int64_t image_index = column + width * (row + height * channel) + b_offset_image;
+                    bool_t outside_boundary = row < 0 || column < 0 || row >= height || column >= width;
+                    if (inverse)
+                    {
+                        if (!outside_boundary)
+                        {
+                            switch (datatype)
+                            {
+                            case FLOAT32:
+                                ((float32_t *) y_data)[image_index] += ((float32_t *) x_data)[column_index];
+                                break;
+                            case FLOAT64:
+                                ((float64_t *) y_data)[image_index] += ((float64_t *) x_data)[column_index];
+                                break;
+                            default:
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        switch (datatype)
+                        {
+                        case FLOAT32:
+                            ((float32_t *) y_data)[column_index] = (outside_boundary) ? (float32_t) 0.0 : ((float32_t *) x_data)[image_index];
+                            break;
+                        case FLOAT64:
+                            ((float64_t *) y_data)[column_index] = (outside_boundary) ? (float64_t) 0.0 : ((float64_t *) x_data)[image_index];
+                            break;
+                        default:
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 string_t runtime_string(runtime_t runtime)
