@@ -4,321 +4,261 @@
 static Agraph_t *graph = NULL;
 static map_t *map = NULL;
 static uint64_t global_node_id = 0;
-static FILE *file;
+static uint64_t graph_v = 0;
+static FILE *file = NULL;
 
-nw_error_t *initialize_graph()
+static void add_legend_entry(Agraph_t *legend, operation_type_t operation_type, string_t color)
 {
-    graph = agopen("G", Agstrictdirected, 0);
-    if (graph == NULL)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, "Graph file could not be created", NULL);
-    }
+    string_t label = operation_type_string(operation_type);
+    Agnode_t *node = agnode(legend, (char *) label, 1);
+    agsafeset(node, "label", (char *) label, "");
+    agsafeset(node, "shape", "box", "");
+    agsafeset(node, "color", (char *) color, "");
+}
 
-    agattr(graph, AGRAPH, "rankdir", "LR");
-    agattr(graph, AGNODE, "shape", "record");
-
-    // Define nodes and labels for the legend
+static void initialize_legend(void)
+{
     Agraph_t *legend;
-    Agnode_t *red_node, *blue_node;
-
     legend = agsubg(graph, "Legend", 1);
-    red_node = agnode(legend, "red_Node", 1);
-    agsafeset(red_node, "label", "Binary: red", "");
-    agsafeset(red_node, "shape", "box", "");
-    agsafeset(red_node, "color", "red", "");
+    add_legend_entry(legend, UNARY_OPERATION, "orange");
+    add_legend_entry(legend, BINARY_OPERATION, "green");
+    add_legend_entry(legend, REDUCTION_OPERATION, "red");
+    add_legend_entry(legend, STRUCTURE_OPERATION, "blue");
+}
 
-    blue_node = agnode(legend, "blue_Node", 1);
-    agsafeset(blue_node, "label", "Unary: blue", "");
-    agsafeset(blue_node, "shape", "box", "");
-    agsafeset(blue_node, "color", "blue", "");
-
-    nw_error_t *error = map_create(&map);
-    if (error != NULL) 
+nw_error_t *start_graph(void)
+{
+    char_t* graph_var = getenv("GRAPH");
+    if (graph_var && strcmp(graph_var, "1") == 0)
     {
+        graph = agopen("G", Agstrictdirected, 0);
+        if (graph == NULL)
+        {
+            return ERROR(ERROR_MEMORY_ALLOCATION, "Graph file could not be created", NULL);
+        }
+
+        agattr(graph, AGRAPH, "rankdir", "LR");
+        agattr(graph, AGNODE, "shape", "record");
+
+        initialize_legend();
+
+        // Storage of graph nodes
+        nw_error_t *error = map_create(&map);
+        if (error != NULL) 
+        {
+            agclose(graph);
+            return ERROR(ERROR_MEMORY_ALLOCATION, "map could not be created", NULL);
+        }
+    }
+    return NULL;
+}
+
+void end_graph(void)
+{   
+    if (graph)
+    {
+        map_destroy(map);
+        string_t filename = string_create("graph_%lu.dot", graph_v++);
+        file = fopen(filename, "w");
+        if (file != NULL)
+        {
+            agwrite(graph, file);
+            fclose(file);
+        }
         agclose(graph);
-        return ERROR(ERROR_MEMORY_ALLOCATION, "map could not be created", NULL);
+        string_destroy(filename);
+
+        graph = NULL;
+        map = NULL;
+        file = NULL;
+    }
+}
+
+static string_t int64_array_to_string(const int64_t *array, int64_t length)
+{
+    if (length < 0 || length > MAX_RANK)
+    {
+        return NULL;
+    }
+
+    switch(length)
+    {
+    case 0:
+        return string_create("()");
+    case 1:
+        return string_create("(%ld)", array[0]);
+    case 2:
+        return string_create("(%ld, %ld)", array[0], array[1]);
+    case 3:
+        return string_create("(%ld, %ld, %ld)", array[0], array[1], array[2]);
+    case 4:
+        return string_create("(%ld, %ld, %ld, %ld)", array[0], array[1], array[2], array[3]);
+    case 5:
+        return string_create("(%ld, %ld, %ld, %ld, %ld)", array[0], array[1], array[2], array[3], array[4]);
     }
 
     return NULL;
 }
 
-void destroy_graph()
-{    
-    map_destroy(map);
-    // add graph to the dot file
-    file = fopen("graph.dot", "w");
-    if (file != NULL)
-    {
-        agwrite(graph, file);
-        fclose(file);
-    }
-    agclose(graph);
-    
-}
-
-nw_error_t *create_graph_node(graph_node_t **graph_node, uint64_t tensor_id, uint64_t new_graph_id)
-{
-    CHECK_NULL_ARGUMENT(graph_node, "graph node");
-
-    size_t size = sizeof(graph_node_t);
-    *graph_node = (graph_node_t *) malloc(size);
-    if (graph_node == NULL)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION,
-                     string_create("failed to allocate graph node of size %zu bytes.", size),
-                     NULL);
-    }
-    
-    // Initialize
-    (*graph_node)->tensor_id = tensor_id;
-    (*graph_node)->graph_id = new_graph_id;
-    
-    return NULL;
-}
-
-void get_attribute_format(string_t str, int64_t rank, int64_t *attr)
-{
-    const char* formatted_str = NULL;
-
-    switch(rank)
-    {
-        case 1:
-             formatted_str = string_create("(%ld)", *attr);
-             break;
-        case 2:
-            formatted_str = string_create("(%ld, %ld)", *attr, *(attr + 1));
-            break;
-        case 3:
-            formatted_str =  string_create("(%ld, %ld, %ld)", *attr, *(attr + 1), *(attr + 2));
-            break;
-        case 4:
-            formatted_str = string_create("(%ld, %ld, %ld, %ld)", *attr, *(attr + 1), *(attr + 2), *(attr + 3));
-            break;
-        case 5:
-            formatted_str = string_create("(%ld, %ld, %ld, %ld, %ld)", *attr, *(attr + 1), *(attr + 2), *(attr + 3), *(attr + 4));
-            break;
-        default:
-            return;
-    }
-
-    //strcpy(str, formatted_str);
-    memcpy((char*)str, formatted_str, strlen(formatted_str));
-    string_destroy(formatted_str);
-    return;
-}
-
-uint64_t graph_tensor_node(tensor_t *tensor)
+nw_error_t *graph_tensor_node(tensor_t *tensor, Agnode_t **node)
 {
     nw_error_t *error = NULL;
-    uint64_t return_value = -1;
-
-    if (graph == NULL || map == NULL)
-    {
-        error = initialize_graph();
-        if (error)
-        {
-            return -1;
-        }
-    }
-
+    uint64_t tensor_id = tensor->id;
     int64_t rank = tensor->buffer->view->rank;
+    int64_t n = tensor->buffer->storage->n;
+    int64_t offset = tensor->buffer->view->offset;
+    string_t tensor_id_string = string_create("%lu", tensor->id);
 
-    string_t shapeString = string_create("");
-    string_t strideString = string_create("");
-    get_attribute_format(shapeString, rank, tensor->buffer->view->shape);
-    get_attribute_format(strideString, rank, tensor->buffer->view->strides);
+    if (!map_contains(map, tensor_id_string)) {
+        string_t node_id_string = string_create("%lu", global_node_id++);
+        string_t shape_string = int64_array_to_string(tensor->buffer->view->shape, rank);
+        string_t stride_string = int64_array_to_string(tensor->buffer->view->strides, rank);
+        string_t node_label = string_create("<F0> Tensor_ID: %lu|Shape: %s|Size: %ld|Stride: %s|Offset: %ld|Requires Gradient: %s", 
+                                             tensor_id, shape_string, n, stride_string, offset, (tensor->requires_gradient) ? "true" : "false");
+        string_destroy(shape_string);
+        string_destroy(stride_string);
+        *node = agnode(graph, (char *) node_id_string, 1);
+        agsafeset(*node, "label", (char *)node_label, "");
 
-    string_t node_label = string_create("<F0> Tensor_ID: %d|Shape: %s|Size: %d|Stride: %s|Offset: %d",
-                                        tensor->id,
-                                        shapeString,
-                                        tensor->buffer->storage->n,
-                                        strideString,
-                                        tensor->buffer->view->offset);
-
-    // Check if the tensor is already in the map
-    void *map_ID;
-    string_t map_ID_string = NULL;
-    string_t tensor_id = string_create("%ld", tensor->id);
-    
-    if (!map_contains(map, tensor_id)) {
-        map_ID = (void *)(uintptr_t)++global_node_id;
-
-        // Update map
-        error = map_set(map, tensor_id, (void *) map_ID);
+        error = map_set(map, tensor_id_string, (void *) *node);
         if (error)
         {
-            string_destroy(tensor_id);
-            return_value = -1;
-            goto cleanup;
+            string_destroy(tensor_id_string);
+            string_destroy(node_id_string);
+            string_destroy(node_label);
+            return ERROR(ERROR_SET, string_create("failed to set map entry."), error);
+            
         }
+        string_destroy(node_id_string);
+        string_destroy(node_label);
     } 
     else
     {
-        // get value from map
-        void *prev_global_node_id;
-        error = map_get(map, tensor_id, &prev_global_node_id);
+        error = map_get(map, tensor_id_string, (void **) node);
         if (error)
         {
-            return_value = -1;
-            goto cleanup;
+            string_destroy(tensor_id_string);
+            return ERROR(ERROR_SET, string_create("failed to set map entry."), error);
+            
         }
-        string_destroy(tensor_id);
-        map_ID = (void *)(uintptr_t)prev_global_node_id;
+        string_destroy(tensor_id_string);
     }
 
-    // Update graph
-    map_ID_string = string_create("%d", map_ID);
-    Agnode_t *node = agnode(graph, (char *)map_ID_string, 1);
-    if (node == NULL)
-    {
-        return_value = -1;
-        goto cleanup; 
-    }
-
-    agsafeset(node, "label", (char *)node_label, "");
-
-    return_value = (uint64_t) map_ID;
-
-cleanup:
-    string_destroy(node_label);
-    string_destroy(shapeString);
-    string_destroy(strideString);
-    if (map_ID_string) string_destroy(map_ID_string);
-    return return_value;
+    return error;
 }
 
-uint64_t graph_operation_node(string_t op, bool_t binary)
+void graph_function_node(function_t *function, Agnode_t **node)
 {  
-    string_t str1 = string_create("%d", ++global_node_id);
-    
-    Agnode_t *node = agnode(graph, (char *)str1, 1);
-    agsafeset(node, "shape", "oval", "");
-    agsafeset(node, "label", (char *)op, "");
-    if (binary)
+    string_t name = string_create("%lu", global_node_id++);
+    *node = agnode(graph, (char *) name, 1);
+    string_destroy(name);
+    string_t label, color, arguments;
+    switch (function->operation_type)
     {
-        agsafeset(node, "color", "red", "");
+    case UNARY_OPERATION:
+        label = string_create("<F0> Type: %s|Operation: %s", 
+                              operation_type_string(function->operation_type),
+                              unary_operation_type_string(function->operation->unary_operation->operation_type));
+        color = "orange";
+        break;
+    case BINARY_OPERATION:
+        label = string_create("<F0> Type: %s|Operation: %s", 
+                              operation_type_string(function->operation_type),
+                              binary_operation_type_string(function->operation->binary_operation->operation_type));
+        color = "green";
+        break;
+    case REDUCTION_OPERATION:
+        arguments = int64_array_to_string(function->operation->reduction_operation->axis, 
+                                          function->operation->reduction_operation->length);
+        label = string_create("<F0> Type: %s|Operation: %s|Axis: %s|Keep Dimensions: %s", 
+                              operation_type_string(function->operation_type),
+                              reduction_operation_type_string(function->operation->reduction_operation->operation_type),
+                              arguments, (function->operation->reduction_operation->keep_dimension) ? "true" : "false");
+        string_destroy(arguments);
+        color = "red";
+        break;
+    case STRUCTURE_OPERATION:
+        arguments = int64_array_to_string(function->operation->structure_operation->arguments, 
+                                          function->operation->structure_operation->length);
+        label = string_create("<F0> Type: %s|Operation: %s|Arguments: %s", 
+                              operation_type_string(function->operation_type), 
+                              structure_operation_type_string(function->operation->structure_operation->operation_type),
+                              arguments);
+        string_destroy(arguments);
+        color = "blue";
+        break;
+    default:
+        return;
     }
-    else
-    {
-        agsafeset(node, "color", "blue", "");
-    }
-
-    string_destroy(str1);
-    uint64_t returned_integer = global_node_id;
-    return returned_integer;
+    agsafeset(*node, "label", (char *) label, "");
+    agsafeset(*node, "color", (char *) color, "");
+    string_destroy(label);
 }
 
-nw_error_t *graph_edge(uint64_t node_1_ID, uint64_t node_2_ID)
+nw_error_t *graph_function(function_t *function, tensor_t *z)
 {
-    Agnode_t *node1, *node2;
-    string_t str1 = string_create("%d", node_1_ID);
-    string_t str2 = string_create("%d", node_2_ID);
-
-    node1 = agnode(graph, (char *)str1, 0);
-    node2 = agnode(graph, (char *)str2, 0);
-    if (node1 == NULL || node2 == NULL)
+    if (!graph)
     {
-        string_destroy(str1);
-        string_destroy(str2);
-        return ERROR(ERROR_GRAPH,"Could not add edge on the graph, nodes retreived from graphviz are null", NULL);  
+        return NULL;
     }
 
-    Agedge_t *edge = agedge(graph, node1, node2, NULL, 1);
-    if (edge == NULL) 
-    { 
-        string_destroy(str1);
-        string_destroy(str2);  
-        return ERROR(ERROR_GRAPH, "Could not add edge on the graph", NULL); 
-    }
+    nw_error_t *error = NULL;
+    Agnode_t *node_x, *node_y, *node_z, *function_node;
 
-    string_destroy(str1);
-    string_destroy(str2);
-    return NULL;
-}
-
-nw_error_t *graph_binary_operation(tensor_t *x, tensor_t *y, tensor_t *z, string_t operation)
-{
-    uint64_t x_id, y_id, z_id, op_id;
-    nw_error_t *error;
-
-    // add nodes
-    x_id = graph_tensor_node(x);
-    if (x_id == (uint64_t)-1)
+    switch (function->operation_type)
     {
-        return ERROR(ERROR_GRAPH,"Could not add tensor node to the graph", NULL); 
-    }
-
-    y_id = graph_tensor_node(y);
-    if (y_id == (uint64_t)-1)
-    {
-        return ERROR(ERROR_GRAPH,"Could not add tensor node to the graph", NULL); 
-    }
-
-    z_id = graph_tensor_node(z);
-    if (z_id == (uint64_t)-1)
-    {
-        return ERROR(ERROR_GRAPH,"Could not add tensor node to the graph", NULL); 
-    }
-
-    op_id = graph_operation_node(operation, true);
-
-    // add edges
-    error = graph_edge(x_id, op_id);
-    if (error != NULL)
-    {
-        return error;
-    }
- 
-    error = graph_edge(y_id, op_id);
-    if (error != NULL)
-    {
+    case UNARY_OPERATION:
+        graph_function_node(function, &function_node);
+        error = graph_tensor_node(function->operation->unary_operation->x, &node_x);
+        if (error)
+        {
+            return ERROR(ERROR_GRAPH, string_create("failed to graph tensor node."), NULL);
+        }
+        agedge(graph, node_x, function_node, NULL, 1);
+        break;
+    case BINARY_OPERATION:
+        graph_function_node(function, &function_node);
+        error = graph_tensor_node(function->operation->binary_operation->x, &node_x);
+        if (error)
+        {
+            return ERROR(ERROR_GRAPH, string_create("failed to graph tensor node."), NULL);
+        }
+        agedge(graph, node_x, function_node, NULL, 1);
+        error = graph_tensor_node(function->operation->binary_operation->y, &node_y);
+        if (error)
+        {
+            return ERROR(ERROR_GRAPH, string_create("failed to graph tensor node."), NULL);
+        }
+        agedge(graph, node_y, function_node, NULL, 1);
+        break;
+    case REDUCTION_OPERATION:
+        graph_function_node(function, &function_node);
+        error = graph_tensor_node(function->operation->reduction_operation->x, &node_x);
+        if (error)
+        {
+            return ERROR(ERROR_GRAPH, string_create("failed to graph tensor node."), NULL);
+        }
+        agedge(graph, node_x, function_node, NULL, 1);
+        break;
+    case STRUCTURE_OPERATION:
+        graph_function_node(function, &function_node);
+        error = graph_tensor_node(function->operation->structure_operation->x, &node_x);
+        if (error)
+        {
+            return ERROR(ERROR_GRAPH, string_create("failed to graph tensor node."), NULL);
+        }
+        agedge(graph, node_x, function_node, NULL, 1);
+        break;
+    default:
         return error;
     }
 
-    error = graph_edge(op_id, z_id);
-    if (error != NULL)
+    error = graph_tensor_node(z, &node_z);
+    if (error)
     {
-        return error;
+        return ERROR(ERROR_GRAPH, string_create("failed to graph tensor node."), NULL);
     }
+    agedge(graph, function_node, node_z, NULL, 1);
 
-    return NULL;
-}
-
-nw_error_t *graph_unary_operation(tensor_t *x, tensor_t *y, string_t operation)
-{
-    uint64_t x_id, y_id, op_id;
-    nw_error_t *error;
-
-    // add node for tensor x
-    x_id = graph_tensor_node(x);
-    if (x_id == (uint64_t)-1)
-    {
-        return ERROR(ERROR_GRAPH,"Could not add tensor node to the graph", NULL); 
-    }
-   
-    // add node for tensor y
-    y_id = graph_tensor_node(y);
-    if (y_id == (uint64_t)-1)
-    {
-        return ERROR(ERROR_GRAPH,"Could not add tensor node to the graph", NULL); 
-    }
-
-    // add node for operation  
-    op_id = graph_operation_node(operation, false);
-
-    // add edge between x and operation
-    error = graph_edge(x_id, op_id);
-    if (error != NULL)
-    {
-        return error;
-    }
-
-    // add edge between operation and y
-    error = graph_edge(op_id, y_id);
-    if (error != NULL)
-    {
-        return error;
-    }
-
-    return NULL;
+    return error;
 }

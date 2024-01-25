@@ -207,18 +207,14 @@ nw_error_t *map_set(map_t *map, string_t key, void *data)
         error = map_expand(map);
         if (error)
         {
-            return ERROR(ERROR_EXPAND,
-                         string_create("failed to increase capacity of map."),
-                         error);
+            return ERROR(ERROR_EXPAND, string_create("failed to increase capacity of map."), error);
         }
     }
 
     error = map_set_entry(map->entries, map->capacity, key, data);
     if (error)
     {
-        return ERROR(ERROR_SET,
-                     string_create("failed to set map entry with corresponding key %s.", key),
-                     error);
+        return ERROR(ERROR_SET, string_create("failed to set map entry with corresponding key %s.", key), error);
     }
     ++map->length;
 
