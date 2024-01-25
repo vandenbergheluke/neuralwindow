@@ -11,8 +11,11 @@
 #include <view.h>
 #include <string.h>
 #include <math.h>
+#include <id_pool.h>
 
 bool_t no_gradient = false;
+static id_pool_t *id_pool = NULL;
+static uint64_t id = 0;
 
 /**
  * @brief Dynamically memory allocate and initialize a tensor.
@@ -33,7 +36,14 @@ nw_error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *conte
 {
     CHECK_NULL_ARGUMENT(tensor, "tensor");
 
-    static uint64_t id = 0;
+    if (!id_pool)
+    {
+        nw_error_t *error = id_pool_create(&id_pool);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create id pool."), error);
+        }
+    }
 
     *tensor = (tensor_t *) malloc(sizeof(tensor_t));
     if (!*tensor)
@@ -41,7 +51,19 @@ nw_error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *conte
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(tensor_t)), NULL);
     }
 
-    (*tensor)->id = id++;
+    if (id_pool_is_empty(id_pool))
+    {
+        (*tensor)->id = id++;
+    }
+    else
+    {
+        nw_error_t *error = id_pool_get(id_pool, &(*tensor)->id);
+        if (error)
+        {
+            free(*tensor);
+            return ERROR(ERROR_GET, string_create("failed to get id."), error);
+        }
+    }
     (*tensor)->buffer = buffer;
     (*tensor)->context = context;
     (*tensor)->gradient = gradient;
@@ -61,6 +83,14 @@ void tensor_destroy(tensor_t *tensor)
 {
     if (tensor)
     {
+        id_pool_put(id_pool, tensor->id);
+        if (id_pool->size == id)
+        {
+            id_pool_destroy(id_pool);
+            id = 0;
+            id_pool = NULL;
+        }
+
         buffer_destroy(tensor->buffer);
         tensor_destroy(tensor->gradient);
         function_destroy(tensor->context, true);

@@ -4,6 +4,7 @@
 #include <train.h>
 #include <optimizer.h>
 #include <random.h>
+#include <graph.h>
 
 nw_error_t *batch_create(batch_t **batch, int64_t batch_size, datatype_t datatype, runtime_t runtime)
 {
@@ -85,6 +86,11 @@ nw_error_t *fit(int64_t epochs,
                 return ERROR(ERROR_LOAD, string_create("failed to load batch."), error);
             }
 
+            if (!i && !j)
+            {
+                start_graph();
+            }
+
             error = model_forward(model, batch->x, &y_pred);
             if (error)
             {
@@ -95,6 +101,11 @@ nw_error_t *fit(int64_t epochs,
             if (error)
             {
                 return ERROR(ERROR_CRITERION, string_create("failed model forward pass."), error);
+            }
+
+            if (!i && !j)
+            {
+                end_graph();
             }
 
             with_no_gradient(true);

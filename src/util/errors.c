@@ -169,6 +169,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_DROPOUT";
     case ERROR_DATASET_TYPE:
         return "ERROR_DATASET_TYPE";
+    case ERROR_GRAPH:
+        return "ERROR_GRAPH";
     case ERROR_ARGUMENTS:
         return "ERROR_ARGUMENTS";
     case ERROR_ITEM:
@@ -185,6 +187,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_PADDING";
     case ERROR_SLICE:
         return "ERROR_SLICE";
+    case ERROR_GET:
+        return "ERROR_GET";
     default:
         return "ERROR";
     }
