@@ -656,6 +656,7 @@ typedef enum nw_error_type_t
     ERROR_COLUMN_TO_IMAGE,
     ERROR_PADDING,
     ERROR_SLICE,
+    ERROR_GET,
 } nw_error_type_t;
 
 typedef struct nw_error_t

@@ -187,6 +187,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_PADDING";
     case ERROR_SLICE:
         return "ERROR_SLICE";
+    case ERROR_GET:
+        return "ERROR_GET";
     default:
         return "ERROR";
     }
