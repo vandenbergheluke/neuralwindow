@@ -637,47 +637,37 @@ nw_error_t *tensor_max(const tensor_t *x, const tensor_t *y, tensor_t **z)
     error = tensor_compare_greater(x, y, &compare_x_y);
     if (error)
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to compare greater tensors."), error);
+        error = ERROR(ERROR_FORWARD, string_create("failed to compare greater tensors."), error);
+        goto cleanup;
     }
 
     error = tensor_compare_greater(y, x, &compare_y_x);
     if (error)
     {
-        tensor_destroy(compare_x_y);
-        return ERROR(ERROR_FORWARD, string_create("failed to compare greater tensors."), error);
+        error = ERROR(ERROR_FORWARD, string_create("failed to compare greater tensors."), error);
+        goto cleanup;
     }
 
     error = tensor_multiplication(x, compare_x_y, &x_max);
     if (error)
     {
-        tensor_destroy(compare_x_y);
-        tensor_destroy(compare_y_x);
-        return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
     }
 
     error = tensor_multiplication(y, compare_y_x, &y_max);
     if (error)
     {
-        tensor_destroy(compare_x_y);
-        tensor_destroy(compare_y_x);
-        tensor_destroy(x_max);
-        return ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
     }
 
     error = tensor_addition(x_max, y_max, z);
     if (error)
     {
-        tensor_destroy(compare_x_y);
-        tensor_destroy(compare_y_x);
-        tensor_destroy(x_max);
-        tensor_destroy(y_max);
-        return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        goto cleanup;
     }
-
-    tensor_destroy(compare_x_y);
-    tensor_destroy(compare_y_x);
-    tensor_destroy(x_max);
-    tensor_destroy(y_max);
 
     with_no_gradient(false);
 
@@ -687,7 +677,14 @@ nw_error_t *tensor_max(const tensor_t *x, const tensor_t *y, tensor_t **z)
     PRINTLN_DEBUG_TENSOR("z", *z);
     PRINT_DEBUG_NEWLINE;
 
-    return NULL;
+cleanup:
+
+    tensor_destroy(compare_x_y);
+    tensor_destroy(compare_y_x);
+    tensor_destroy(x_max);
+    tensor_destroy(y_max);
+
+    return error;
 }
 
 nw_error_t *tensor_power(const tensor_t *x, const tensor_t *y, tensor_t **z)

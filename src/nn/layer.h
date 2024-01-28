@@ -133,7 +133,6 @@ nw_error_t *linear_layer_create(layer_t **layer,
                                 activation_t *activation,
                                 parameter_init_t *weight_init,
                                 parameter_init_t *bias_init);
-nw_error_t *block_num_params(block_t *block, int64_t *size);
 nw_error_t *convolution_layer_create(layer_t **layer,
                                      int64_t kernel_size, int64_t padding, int64_t stride,
                                      int64_t in_channels, int64_t out_channels,

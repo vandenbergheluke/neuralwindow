@@ -15,173 +15,331 @@ extern "C"
 }
 #include <test_helper_torch.h>
 
-#define STOCASTIC_GRADIENT_DESCENT_CASES 2
-#define RMS_PROP_CASES 2
-#define ADAM_CASES 2
+#define STOCASTIC_GRADIENT_DESCENT_CASES 10
+#define RMS_PROP_CASES 6
+#define ADAM_CASES 5
 
 float32_t sgd_learning_rate_f[STOCASTIC_GRADIENT_DESCENT_CASES] = {
     1e-3,
-    1e-2,
+    1e-1,
+    1e-3,
+    1e-1,
+    1e-3,
+    1e-3,
+    1e-3,
+    1e-3,
+    1e-3,
+    1e-1,
 };
 
 float64_t sgd_learning_rate[STOCASTIC_GRADIENT_DESCENT_CASES] = {
     1e-3,
-    1e-2,
+    1e-1,
+    1e-3,
+    1e-1,
+    1e-3,
+    1e-3,
+    1e-3,
+    1e-3,
+    1e-3,
+    1e-1,
 };
 
 float32_t sgd_momentum_f[STOCASTIC_GRADIENT_DESCENT_CASES] = {
-    0.4,
-    0.2,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.9,
+    0.9,
+    0.8,
+    0.8,
+    0.1,
+    0.9,
 };
 
 float64_t sgd_momentum[STOCASTIC_GRADIENT_DESCENT_CASES] = {
-    0.4,
-    0.2,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.9,
+    0.9,
+    0.8,
+    0.8,
+    0.1,
+    0.9,
 };
 
 float32_t sgd_dampening_f[STOCASTIC_GRADIENT_DESCENT_CASES] = {
+    0.0,
+    0.0,
+    0.0,
+    0.1,
+    0.0,
     0.2,
+    0.0,
+    0.0,
     0.0,
 };
 
 float64_t sgd_dampening[STOCASTIC_GRADIENT_DESCENT_CASES] = {
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.1,
+    0.0,
     0.2,
+    0.0,
+    0.0,
     0.0,
 };
 
 float32_t sgd_weight_decay_f[STOCASTIC_GRADIENT_DESCENT_CASES] = {
-    1e-4,
-    1e-2,
+    0.0,
+    0.0,
+    1e-1,
+    1e-1,
+    0.0,
+    1e-1,
+    2e-1,
+    1e-3,
+    0.0,
+    1e-1,
 };
 
 float64_t sgd_weight_decay[STOCASTIC_GRADIENT_DESCENT_CASES] = {
-    1e-4,
-    1e-2,
+    0.0,
+    0.0,
+    1e-1,
+    1e-1,
+    0.0,
+    1e-1,
+    2e-1,
+    1e-3,
+    0.0,
+    1e-1,
 };
 
 bool sgd_nesterov[STOCASTIC_GRADIENT_DESCENT_CASES] = {
     false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    true,
+    true,
     true,
 };
 
 int sgd_iterations[STOCASTIC_GRADIENT_DESCENT_CASES] = {
     10,
-    20,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
 };
 
 float32_t rms_prop_learning_rate_f[RMS_PROP_CASES] = {
     1e-3,
+    1e-2,
     1e-3,
+    1e-2,
+    1e-3,
+    1e-2,
 };
 
 float64_t rms_prop_learning_rate[RMS_PROP_CASES] = {
     1e-3,
+    1e-2,
     1e-3,
+    1e-2,
+    1e-3,
+    1e-2,
 };
 
 float32_t rms_prop_momentum_f[RMS_PROP_CASES] = {
-    0.5,
     0.0,
+    0.0,
+    0.0,
+    0.4,
+    0.6,
+    0.1,
 };
 
 float64_t rms_prop_momentum[RMS_PROP_CASES] = {
-    0.5,
     0.0,
+    0.0,
+    0.0,
+    0.4,
+    0.6,
+    0.1,
 };
 
 float32_t rms_prop_alpha_f[RMS_PROP_CASES] = {
+    0.0,
     0.9,
-    0.9,
+    0.8,
+    0.8,
+    0.8,
+    0.7,
 };
 
 float64_t rms_prop_alpha[RMS_PROP_CASES] = {
+    0.0,
     0.9,
-    0.9,
+    0.8,
+    0.8,
+    0.8,
+    0.7,
 };
 
 float32_t rms_prop_epsilon_f[RMS_PROP_CASES] = {
     1e-8,
-    1e-8,
+    1e-7,
+    1e-9,
+    1e-9,
+    1e-7,
+    1e-9,
 };
 
 float64_t rms_prop_epsilon[RMS_PROP_CASES] = {
     1e-8,
-    1e-8,
+    1e-7,
+    1e-9,
+    1e-9,
+    1e-7,
+    1e-9,
 };
 
 float32_t rms_prop_weight_decay_f[RMS_PROP_CASES] = {
-    1e-4,
-    1e-1,
+    0.0,
+    0.0,
+    0.2,
+    0.1,
+    0.1,
+    0.3,
 };
 
 float64_t rms_prop_weight_decay[RMS_PROP_CASES] = {
-    1e-4,
-    1e-1,
+    0.0,
+    0.0,
+    0.2,
+    0.1,
+    0.1,
+    0.3,
 };
 
 bool rms_prop_centered[RMS_PROP_CASES] = {
     false,
+    false,
+    false,
+    false,
+    true,
     true,
 };
 
 int rms_prop_iterations[RMS_PROP_CASES] = {
-    5,
-    5,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
 };
 
 float32_t adam_learning_rate_f[ADAM_CASES] = {
     1e-3,
+    1e-2,
+    1e-1,
     1e-3,
+    1e-2,
 };
 
 float64_t adam_learning_rate[ADAM_CASES] = {
     1e-3,
+    1e-2,
+    1e-1,
     1e-3,
+    1e-2,
 };
 
 float32_t adam_beta_1_f[ADAM_CASES] = {
-    0.99,
-    0.99,
+    0.9,
+    0.9,
+    0.8,
+    0.7,
+    0.0,
 };
 
 float64_t adam_beta_1[ADAM_CASES] = {
-    0.99,
-    0.99,
+    0.9,
+    0.9,
+    0.8,
+    0.7,
+    0.0,
 };
 
 float32_t adam_beta_2_f[ADAM_CASES] = {
-    0.99,
-    0.99,
+    0.995,
+    0.995,
+    0.9,
+    0.7,
+    0.0,
 };
 
 float64_t adam_beta_2[ADAM_CASES] = {
-    0.99,
-    0.99,
+    0.995,
+    0.995,
+    0.9,
+    0.7,
+    0.0,
 };
 
 float32_t adam_weight_decay_f[ADAM_CASES] = {
-    1e-4,
-    1e-3,
+    0.0,
+    0.1,
+    0.3,
+    0.2,
+    0.1,
 };
 
 float64_t adam_weight_decay[ADAM_CASES] = {
-    1e-4,
-    1e-3,
+    0.0,
+    0.1,
+    0.3,
+    0.2,
+    0.1,
 };
 
 float32_t adam_epsilon_f[ADAM_CASES] = {
-    1e-5,
-    1e-2,
+    1e-8,
+    1e-7,
+    1e-9,
+    1e-7,
+    1e-9,
 };
 
 float64_t adam_epsilon[ADAM_CASES] = {
-    1e-5,
-    1e-2,
+    1e-8,
+    1e-7,
+    1e-9,
+    1e-7,
+    1e-9,
 };
 
 int adam_iterations[ADAM_CASES] = {
-    3,
-    3,
+    10,
+    10,
+    10,
+    10,
+    10,
 };
 
 #define MODELS 1

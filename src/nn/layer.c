@@ -939,44 +939,6 @@ nw_error_t *logsoftmax_activation_create(activation_t **activation, int64_t axis
     return error;
 }
 
-nw_error_t *block_num_params(block_t *block, int64_t *size)
-{
-    nw_error_t *error = NULL;
-
-    for (int64_t i = 0; i < block->depth; ++i)
-    {
-        layer_t *layer = block->layers[i];
-        if (!layer)
-        {
-            return ERROR(ERROR_NULL, string_create("failed to count parameters for null layer."), NULL);
-        }
-
-        transform_type_t transform_type = layer->transform_type;
-        transform_t *transform = layer->transform;
-        if (!transform)
-        {
-            return ERROR(ERROR_NULL, string_create("failed to count parameters, transform is null."), NULL);
-        }
-
-        switch (transform_type)
-        {
-        case LINEAR:
-            (*size) += 2;
-            break;
-        case BLOCK:
-            error = block_num_params(transform->block, size);
-            if (error)
-            {
-                return ERROR(ERROR_UPDATE, string_create("failed to count parameters for block."), error);
-            }
-            break;
-        default:
-            return ERROR(ERROR_LAYER_TYPE, string_create("unknown layer type %d.", transform_type), error);
-        }
-    }
-    return error;
-}
-
 nw_error_t *model_create(model_t **model, block_t *block)
 {
     CHECK_NULL_ARGUMENT(model, "model");

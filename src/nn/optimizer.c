@@ -294,17 +294,14 @@ void stochastic_gradient_descent_destroy(stochastic_gradient_descent_t *stochast
 {
     if (stochastic_gradient_descent)
     {
-        if (*(float32_t *) stochastic_gradient_descent->momentum != 0.f)
+        for (uint64_t i = 0; i < stochastic_gradient_descent->momentum_buffer->capacity; ++i)
         {
-            for (uint64_t i = 0; i < stochastic_gradient_descent->momentum_buffer->capacity; ++i)
+            if (stochastic_gradient_descent->momentum_buffer->entries[i].data)
             {
-                if (stochastic_gradient_descent->momentum_buffer->entries[i].data)
-                {
-                    tensor_destroy((tensor_t *) stochastic_gradient_descent->momentum_buffer->entries[i].data);
-                }
+                tensor_destroy((tensor_t *) stochastic_gradient_descent->momentum_buffer->entries[i].data);
             }
-            map_destroy(stochastic_gradient_descent->momentum_buffer);
         }
+        map_destroy(stochastic_gradient_descent->momentum_buffer);
         free(stochastic_gradient_descent->learning_rate);
         free(stochastic_gradient_descent->momentum);
         free(stochastic_gradient_descent->dampening);
