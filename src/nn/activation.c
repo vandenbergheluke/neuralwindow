@@ -131,6 +131,7 @@ nw_error_t *leaky_rectified_linear_create(leaky_rectified_linear_t **leaky_recti
     }
 
     memcpy((*leaky_rectified_linear)->c, c, datatype_size(datatype));
+    (*leaky_rectified_linear)->datatype = datatype;
 
     return NULL;
 }
