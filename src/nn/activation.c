@@ -1,4 +1,5 @@
 #include <activation.h>
+#include <string.h>
 
 nw_error_t *activation_create(activation_t **activation, activation_function_t *activation_function, activation_function_type_t activation_function_type)
 {
@@ -112,6 +113,37 @@ void softmax_destroy(softmax_t *softmax)
     }
 }
 
+nw_error_t *leaky_rectified_linear_create(leaky_rectified_linear_t **leaky_rectified_linear, void *c, datatype_t datatype)
+{
+    CHECK_NULL_ARGUMENT(leaky_rectified_linear, "leaky_rectified_linear");
+    CHECK_NULL_ARGUMENT(c, "c");
+
+    *leaky_rectified_linear = (leaky_rectified_linear_t *) malloc(sizeof(leaky_rectified_linear_t));
+    if (!*leaky_rectified_linear)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(leaky_rectified_linear_t)), NULL);
+    }
+
+    (*leaky_rectified_linear)->c = (void *) malloc(datatype_size(datatype));
+    if (!*leaky_rectified_linear)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(datatype_size(datatype))), NULL);
+    }
+
+    memcpy((*leaky_rectified_linear)->c, c, datatype_size(datatype));
+    (*leaky_rectified_linear)->datatype = datatype;
+
+    return NULL;
+}
+
+void leaky_rectified_linear_destroy(leaky_rectified_linear_t *leaky_rectified_linear)
+{
+    if (leaky_rectified_linear)
+    {
+        free(leaky_rectified_linear);
+    }
+}
+
 nw_error_t *rectified_linear_activation_create(activation_t **activation)
 {
     CHECK_NULL_ARGUMENT(activation, "activation");
@@ -221,13 +253,40 @@ nw_error_t *logsoftmax_activation_create(activation_t **activation, int64_t axis
     return error;
 }
 
+nw_error_t *leaky_rectified_linear_activation_create(activation_t **activation, void *c, datatype_t datatype)
+{
+    CHECK_NULL_ARGUMENT(activation, "activation");
+
+    nw_error_t *error = NULL;
+    leaky_rectified_linear_t *leaky_rectified_linear = NULL;
+    activation_function_t *activation_function = NULL;
+    activation_function_type_t activation_function_type = ACTIVATION_LEAKY_RECTIFIED_LINEAR;
+
+    error = leaky_rectified_linear_create(&leaky_rectified_linear, c, datatype);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create leaky rectified linear function."), error);
+    }
+
+    error = activation_function_create(&activation_function, activation_function_type, (void *) leaky_rectified_linear);
+    if (error)
+    {
+        leaky_rectified_linear_destroy(leaky_rectified_linear);
+        return ERROR(ERROR_CREATE, string_create("failed to create activation function."), error);
+    }
+
+    error = activation_create(activation, activation_function, activation_function_type);
+    if (error)
+    {
+        activation_function_destroy(activation_function, activation_function_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
+    }
+
+    return error;
+}
+
 nw_error_t *activation_forward(activation_t *activation, tensor_t *x, tensor_t **y)
 {
-    PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_ACTIVATION("activation", activation);
-    PRINTLN_DEBUG_TENSOR("x", x);
-    PRINT_DEBUG_NEWLINE;
-
     CHECK_NULL_ARGUMENT(activation, "activation");
     CHECK_NULL_ARGUMENT(activation->activation_function, "activation->activation_function");
     CHECK_NULL_ARGUMENT(x, "x");
@@ -265,6 +324,16 @@ nw_error_t *activation_forward(activation_t *activation, tensor_t *x, tensor_t *
             error = tensor_logsoftmax(x, y, activation_function->softmax->axis);
         }
         break;
+    case ACTIVATION_LEAKY_RECTIFIED_LINEAR:
+        if (!activation_function->leaky_rectified_linear)
+        {
+            error = ERROR(ERROR_NULL, string_create("activation function is null."), NULL);
+        }
+        else
+        {
+            error = tensor_leaky_rectified_linear(x, activation_function->leaky_rectified_linear->c, y);
+        }
+        break;
     default:
         error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown activation function %d.", (int) activation_function_type), NULL);
         break;
@@ -274,10 +343,6 @@ nw_error_t *activation_forward(activation_t *activation, tensor_t *x, tensor_t *
     {
         return ERROR(ERROR_FORWARD, string_create("failed to apply activation function."), error);
     }
-
-    PRINTLN_DEBUG_LOCATION("output");
-    PRINTLN_DEBUG_TENSOR("y", *y);
-    PRINT_DEBUG_NEWLINE;
 
     return error;
 }
