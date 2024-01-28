@@ -109,6 +109,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_COMPARE_EQUAL";
     case ERROR_COMPARE_GREATER:
         return "ERROR_COMPARE_GREATER";
+    case ERROR_MAX:
+        return "ERROR_MAX";
     case ERROR_RECTIFIED_LINEAR:
         return "ERROR_RECTIFIED_LINEAR";
     case ERROR_AXIS:
@@ -169,10 +171,14 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_DROPOUT";
     case ERROR_DATASET_TYPE:
         return "ERROR_DATASET_TYPE";
+    case ERROR_GRAPH:
+        return "ERROR_GRAPH";
     case ERROR_ARGUMENTS:
         return "ERROR_ARGUMENTS";
     case ERROR_ITEM:
         return "ERROR_ITEM";
+    case ERROR_OPTIM:
+        return "ERROR_OPTIM";
     case ERROR_POOLING:
         return "ERROR_POOLING";
     case ERROR_CONVOLUTION:
@@ -185,6 +191,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_PADDING";
     case ERROR_SLICE:
         return "ERROR_SLICE";
+    case ERROR_GET:
+        return "ERROR_GET";
     default:
         return "ERROR";
     }

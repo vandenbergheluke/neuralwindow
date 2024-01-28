@@ -9,6 +9,7 @@
 #include <buffer.h>
 #include <string.h>
 #include <sort.h>
+#include <graph.h>
 
 extern bool_t no_gradient;
 
@@ -2959,7 +2960,7 @@ static nw_error_t *operation_forward(operation_t *operation, operation_type_t op
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed to operation forward pass."), error);
-    }
+    } 
 
     return error;
 }
@@ -3030,8 +3031,13 @@ static nw_error_t *function_forward(function_t *function, tensor_t *result)
     if (error)
     {
         return ERROR(ERROR_FORWARD, string_create("failed operation forward pass."), error);
-    }
+    } 
 
+    error = graph_function(function, result);                      
+    if (error)
+    {
+        return ERROR(ERROR_GRAPH, string_create("failed to add function to graph."), error);
+    }
     return error;
 }
 

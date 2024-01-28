@@ -616,6 +616,7 @@ typedef enum nw_error_type_t
     ERROR_MATRIX_MULTIPLICATION,
     ERROR_COMPARE_EQUAL,
     ERROR_COMPARE_GREATER,
+    ERROR_MAX,
     ERROR_RECTIFIED_LINEAR,
     ERROR_AXIS,
     ERROR_SORT,
@@ -647,14 +648,17 @@ typedef enum nw_error_type_t
     ERROR_ACTIVATION_TYPE,
     ERROR_DROPOUT,
     ERROR_DATASET_TYPE,
+    ERROR_GRAPH,
     ERROR_ARGUMENTS,
     ERROR_ITEM,
+    ERROR_OPTIM,
     ERROR_POOLING,
     ERROR_CONVOLUTION,
     ERROR_IMAGE_TO_COLUMN,
     ERROR_COLUMN_TO_IMAGE,
     ERROR_PADDING,
     ERROR_SLICE,
+    ERROR_GET,
 } nw_error_type_t;
 
 typedef struct nw_error_t

@@ -7,6 +7,7 @@ extern "C"
 #include <buffer.h>
 #include <tensor.h>
 #include <function.h>
+#include <graph.h>
 #include <cost.h>
 #include <test_helper.h>
 }
@@ -190,7 +191,7 @@ START_TEST(test_feed_forward_neural_network)
             for (int k = 0; k < CASES; k++)
             {
                 torch::Tensor expected_tensor = torch_input[i][j][k];
-
+                start_graph();
                 for (int l = 0; l < LAYERS; l++)
                 {
                     expected_tensor = torch::matmul(expected_tensor, torch_weights[i][j][k][l]);
@@ -235,6 +236,7 @@ START_TEST(test_feed_forward_neural_network)
                 torch::neg(torch::mean(torch::sum(torch::mul(expected_tensor, torch_output[i][j][k]), -1))).backward();
                 error = negative_log_likelihood(output[i][j][k], returned_tensors[i][j][k][LAYERS - 1], &cost[i][j][k]);
                 ck_assert_ptr_null(error);
+                end_graph();
                 error = tensor_backward(cost[i][j][k], NULL);
                 ck_assert_ptr_null(error);
 
@@ -275,6 +277,11 @@ int main(void)
 
     int number_failed;
     SRunner *sr;
+
+    const char *env_variable = "GRAPH=1";
+    if (putenv((char *)env_variable) != 0) {
+        return EXIT_FAILURE;
+    }
 
     sr = srunner_create(make_binary_suite());
     srunner_set_fork_status(sr, CK_NOFORK);

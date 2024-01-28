@@ -92,6 +92,8 @@ nw_error_t *bounded_plot(string_t title, string_t save_path,
     mgl_write_png(graph, save_path, "w");
 
     mgl_delete_graph(graph);
+    mgl_delete_data(x_mgl);
+    mgl_delete_data(y_mgl);
 
     return NULL;
 }
@@ -141,6 +143,8 @@ nw_error_t *plot(string_t title, string_t save_path,
     mgl_write_png(graph, save_path, "w");
 
     mgl_delete_graph(graph);
+    mgl_delete_data(x_mgl);
+    mgl_delete_data(y_mgl);
 
     return NULL;
 }

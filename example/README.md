@@ -18,3 +18,6 @@ Example models using neuralwindow.
 <p align="center">
     <img src="img/mnist_cost_valid.png", height=300, width=600>
 </p>
+<p align="center">
+    <img src="img/graph.png">
+</p>

@@ -11,8 +11,11 @@
 #include <view.h>
 #include <string.h>
 #include <math.h>
+#include <id_pool.h>
 
 bool_t no_gradient = false;
+static id_pool_t *id_pool = NULL;
+static uint64_t id = 0;
 
 /**
  * @brief Dynamically memory allocate and initialize a tensor.
@@ -33,7 +36,14 @@ nw_error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *conte
 {
     CHECK_NULL_ARGUMENT(tensor, "tensor");
 
-    static uint64_t id = 0;
+    if (!id_pool)
+    {
+        nw_error_t *error = id_pool_create(&id_pool);
+        if (error)
+        {
+            return ERROR(ERROR_CREATE, string_create("failed to create id pool."), error);
+        }
+    }
 
     *tensor = (tensor_t *) malloc(sizeof(tensor_t));
     if (!*tensor)
@@ -41,7 +51,19 @@ nw_error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *conte
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(tensor_t)), NULL);
     }
 
-    (*tensor)->id = id++;
+    if (id_pool_is_empty(id_pool))
+    {
+        (*tensor)->id = id++;
+    }
+    else
+    {
+        nw_error_t *error = id_pool_get(id_pool, &(*tensor)->id);
+        if (error)
+        {
+            free(*tensor);
+            return ERROR(ERROR_GET, string_create("failed to get id."), error);
+        }
+    }
     (*tensor)->buffer = buffer;
     (*tensor)->context = context;
     (*tensor)->gradient = gradient;
@@ -61,6 +83,14 @@ void tensor_destroy(tensor_t *tensor)
 {
     if (tensor)
     {
+        id_pool_put(id_pool, tensor->id);
+        if (id_pool->size == id)
+        {
+            id_pool_destroy(id_pool);
+            id = 0;
+            id_pool = NULL;
+        }
+
         buffer_destroy(tensor->buffer);
         tensor_destroy(tensor->gradient);
         function_destroy(tensor->context, true);
@@ -583,6 +613,78 @@ nw_error_t *tensor_compare_greater(const tensor_t *x, const tensor_t *y, tensor_
     PRINT_DEBUG_NEWLINE;
 
     return NULL;
+}
+
+nw_error_t *tensor_max(const tensor_t *x, const tensor_t *y, tensor_t **z)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(z, "z");
+
+    nw_error_t *error = NULL;
+    tensor_t *compare_x_y = NULL;
+    tensor_t *compare_y_x = NULL;
+    tensor_t *x_max = NULL;
+    tensor_t *y_max = NULL;
+
+    with_no_gradient(true);
+    
+    error = tensor_compare_greater(x, y, &compare_x_y);
+    if (error)
+    {
+        error = ERROR(ERROR_FORWARD, string_create("failed to compare greater tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_compare_greater(y, x, &compare_y_x);
+    if (error)
+    {
+        error = ERROR(ERROR_FORWARD, string_create("failed to compare greater tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(x, compare_x_y, &x_max);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(y, compare_y_x, &y_max);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_addition(x_max, y_max, z);
+    if (error)
+    {
+        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        goto cleanup;
+    }
+
+    with_no_gradient(false);
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINTLN_DEBUG_TENSOR("z", *z);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    tensor_destroy(compare_x_y);
+    tensor_destroy(compare_y_x);
+    tensor_destroy(x_max);
+    tensor_destroy(y_max);
+
+    return error;
 }
 
 nw_error_t *tensor_power(const tensor_t *x, const tensor_t *y, tensor_t **z)
@@ -2110,8 +2212,6 @@ static nw_error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *t
         goto cleanup;
     }
 
-    return error;
-
 cleanup:
 
     string_destroy(id);
@@ -2665,6 +2765,10 @@ cleanup:
 
 nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y)
 {
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
 
@@ -2675,6 +2779,11 @@ nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
 
     return error;
 }
