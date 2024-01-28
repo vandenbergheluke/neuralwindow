@@ -108,41 +108,41 @@ nw_error_t *graph_tensor_node(tensor_t *tensor, Agnode_t **node)
     int64_t n = tensor->buffer->storage->n;
     int64_t offset = tensor->buffer->view->offset;
     string_t tensor_id_string = string_create("%lu", tensor->id);
+    string_t node_id_string = string_create("%lu", global_node_id);
+    string_t shape_string = int64_array_to_string(tensor->buffer->view->shape, rank);
+    string_t stride_string = int64_array_to_string(tensor->buffer->view->strides, rank);
+    string_t node_label = string_create("<F0> Tensor_ID: %lu|Shape: %s|Size: %ld|Stride: %s|Offset: %ld|Requires Gradient: %s", 
+                                        tensor_id, shape_string, n, stride_string, offset, (tensor->requires_gradient) ? "true" : "false");
 
     if (!map_contains(map, tensor_id_string)) {
-        string_t node_id_string = string_create("%lu", global_node_id++);
-        string_t shape_string = int64_array_to_string(tensor->buffer->view->shape, rank);
-        string_t stride_string = int64_array_to_string(tensor->buffer->view->strides, rank);
-        string_t node_label = string_create("<F0> Tensor_ID: %lu|Shape: %s|Size: %ld|Stride: %s|Offset: %ld|Requires Gradient: %s", 
-                                             tensor_id, shape_string, n, stride_string, offset, (tensor->requires_gradient) ? "true" : "false");
-        string_destroy(shape_string);
-        string_destroy(stride_string);
+        global_node_id++;
         *node = agnode(graph, (char *) node_id_string, 1);
         agsafeset(*node, "label", (char *)node_label, "");
 
         error = map_set(map, tensor_id_string, (void *) *node);
         if (error)
         {
-            string_destroy(tensor_id_string);
-            string_destroy(node_id_string);
-            string_destroy(node_label);
-            return ERROR(ERROR_SET, string_create("failed to set map entry."), error);
-            
+            error = ERROR(ERROR_SET, string_create("failed to set map entry."), error);
+            goto cleanup;
         }
-        string_destroy(node_id_string);
-        string_destroy(node_label);
     } 
     else
     {
         error = map_get(map, tensor_id_string, (void **) node);
         if (error)
         {
-            string_destroy(tensor_id_string);
-            return ERROR(ERROR_SET, string_create("failed to set map entry."), error);
-            
+            error = ERROR(ERROR_SET, string_create("failed to set map entry."), error);
+            goto cleanup;
         }
-        string_destroy(tensor_id_string);
     }
+
+cleanup:
+
+    string_destroy(tensor_id_string);
+    string_destroy(node_id_string);
+    string_destroy(shape_string);
+    string_destroy(stride_string);
+    string_destroy(node_label);
 
     return error;
 }
@@ -151,8 +151,9 @@ void graph_function_node(function_t *function, Agnode_t **node)
 {  
     string_t name = string_create("%lu", global_node_id++);
     *node = agnode(graph, (char *) name, 1);
-    string_destroy(name);
-    string_t label, color, arguments;
+    string_t label = NULL;
+    string_t color = NULL; 
+    string_t arguments = NULL;
     switch (function->operation_type)
     {
     case UNARY_OPERATION:
@@ -174,7 +175,6 @@ void graph_function_node(function_t *function, Agnode_t **node)
                               operation_type_string(function->operation_type),
                               reduction_operation_type_string(function->operation->reduction_operation->operation_type),
                               arguments, (function->operation->reduction_operation->keep_dimension) ? "true" : "false");
-        string_destroy(arguments);
         color = "red";
         break;
     case STRUCTURE_OPERATION:
@@ -184,15 +184,20 @@ void graph_function_node(function_t *function, Agnode_t **node)
                               operation_type_string(function->operation_type), 
                               structure_operation_type_string(function->operation->structure_operation->operation_type),
                               arguments);
-        string_destroy(arguments);
         color = "blue";
         break;
     default:
-        return;
+        goto cleanup;
     }
+
     agsafeset(*node, "label", (char *) label, "");
     agsafeset(*node, "color", (char *) color, "");
+
+cleanup:
+
+    string_destroy(arguments);
     string_destroy(label);
+    string_destroy(name);
 }
 
 nw_error_t *graph_function(function_t *function, tensor_t *z)

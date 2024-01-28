@@ -109,6 +109,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_COMPARE_EQUAL";
     case ERROR_COMPARE_GREATER:
         return "ERROR_COMPARE_GREATER";
+    case ERROR_MAX:
+        return "ERROR_MAX";
     case ERROR_RECTIFIED_LINEAR:
         return "ERROR_RECTIFIED_LINEAR";
     case ERROR_AXIS:
@@ -175,6 +177,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_ARGUMENTS";
     case ERROR_ITEM:
         return "ERROR_ITEM";
+    case ERROR_OPTIM:
+        return "ERROR_OPTIM";
     case ERROR_POOLING:
         return "ERROR_POOLING";
     case ERROR_CONVOLUTION:

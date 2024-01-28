@@ -106,6 +106,7 @@ static nw_error_t *map_set_entry(entry_t *entries, uint64_t capacity, string_t k
         if (strcmp(key, entries[index].key) == 0)
         {
             entries[index].data = data;
+            free((char *) key);
             return NULL;
         }
         ++index;
@@ -181,9 +182,7 @@ static nw_error_t *map_expand(map_t *map)
             if (error)
             {
                 free(new_entries);
-                return ERROR(ERROR_SET,
-                             string_create("failed to set entry with corresponding key %s.", entry.key),
-                             NULL);
+                return ERROR(ERROR_SET, string_create("failed to set entry with corresponding key %s.", entry.key), NULL);
             }
         }
     }
@@ -211,7 +210,15 @@ nw_error_t *map_set(map_t *map, string_t key, void *data)
         }
     }
 
-    error = map_set_entry(map->entries, map->capacity, key, data);
+    char *copy_key = (char *) malloc(sizeof(char) * (strlen(key) + 1));
+    if (!copy_key)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate memory."), NULL);
+    }
+
+    strcpy(copy_key, key);
+
+    error = map_set_entry(map->entries, map->capacity, copy_key, data);
     if (error)
     {
         return ERROR(ERROR_SET, string_create("failed to set map entry with corresponding key %s.", key), error);
