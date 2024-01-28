@@ -380,8 +380,6 @@
         PRINT_DEBUG_TENSOR((linear)->weights);\
         fprintf(stderr, ", bias: ");\
         PRINT_DEBUG_TENSOR((linear)->bias);\
-        fprintf(stderr, ", activation: ");\
-        PRINT_DEBUG_ACTIVATION((linear)->activation);\
         fprintf(stderr, ")");\
     }\
 } while(0)
@@ -671,6 +669,7 @@ typedef enum nw_error_type_t
     ERROR_PADDING,
     ERROR_SLICE,
     ERROR_GET,
+    ERROR_LINEAR,
 } nw_error_type_t;
 
 typedef struct nw_error_t

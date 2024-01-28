@@ -340,7 +340,7 @@ nw_error_t *rms_prop_create(rms_prop_t **rms_prop, datatype_t datatype, void *le
 
     size_t size = datatype_size(datatype);
 
-    (*rms_prop)->learning_rate = (void *)malloc(size);
+    (*rms_prop)->learning_rate = (void *) malloc(size);
     if (!(*rms_prop)->learning_rate)
     {
         error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu.", size), NULL);
@@ -652,6 +652,7 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
             parameters[1] = transform->convolution_2d->bias;
             break;
         case DROPOUT:
+        case ACTIVATION:
             continue;
         case BLOCK:
             error = update(algorithm, algorithm_type, transform->block);
@@ -666,29 +667,32 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
 
         for (int j = 0; j < number_parameters; ++j)
         {
-            switch (algorithm_type)
+            if (parameters[j])
             {
-            case STOCASTIC_GRADIENT_DESCENT:
-                error = stochastic_gradient_descent(algorithm->stochastic_gradient_descent, parameters[j]);
-                break;
-            case RMS_PROP:
-                error = rms_prop(algorithm->rms_prop, parameters[j]);
-                break;
-            case ADAM:
-                error = adam(algorithm->adam, parameters[j]);
-                break;
-            default:
-                return ERROR(ERROR_ALGORITHM, string_create("unknown algorithm %d.", (int) algorithm_type), error);
-            }
+                switch (algorithm_type)
+                {
+                case STOCASTIC_GRADIENT_DESCENT:
+                    error = stochastic_gradient_descent(algorithm->stochastic_gradient_descent, parameters[j]);
+                    break;
+                case RMS_PROP:
+                    error = rms_prop(algorithm->rms_prop, parameters[j]);
+                    break;
+                case ADAM:
+                    error = adam(algorithm->adam, parameters[j]);
+                    break;
+                default:
+                    return ERROR(ERROR_ALGORITHM, string_create("unknown algorithm %d.", (int) algorithm_type), error);
+                }
 
-            if (error)
-            {
-                return ERROR(ERROR_UPDATE, string_create("failed update parameters."), error);
-            }
+                if (error)
+                {
+                    return ERROR(ERROR_UPDATE, string_create("failed update parameters."), error);
+                }
 
-            // Zero gradient 
-            tensor_destroy(parameters[j]->gradient);
-            parameters[j]->gradient = NULL;
+                // Zero gradient 
+                tensor_destroy(parameters[j]->gradient);
+                parameters[j]->gradient = NULL;
+            }
         }
     }
     return error;

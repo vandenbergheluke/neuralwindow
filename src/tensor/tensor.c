@@ -919,11 +919,66 @@ cleanup:
     return error;
 }
 
+nw_error_t *tensor_linear(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("w", w);
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(w, "w");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(z, "z");
+
+    nw_error_t *error = NULL;
+    tensor_t *u = NULL;
+
+    error = tensor_matrix_multiplication(w, x, &u);
+    if (error)
+    {
+        error = ERROR(ERROR_MATRIX_MULTIPLICATION, string_create("failed to matrix multiply tensors."), error);
+        goto cleanup;
+    }
+
+    if (y)
+    {
+        error = tensor_addition(u, y, z);
+        if (error)
+        {
+            error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+            goto cleanup;
+        }
+    }
+    else
+    {
+        *z = u;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("w", w);
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINTLN_DEBUG_TENSOR("z", *z);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    if (!u->requires_gradient || no_gradient)
+    {
+        if (*z != u)
+        {
+            tensor_destroy(u);
+        }
+    }
+
+    return error;
+}
+
 nw_error_t *tensor_convolution_2d(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding)
 {
     CHECK_NULL_ARGUMENT(w, "w");
     CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(z, "z");
 
     PRINTLN_DEBUG_LOCATION("input");
@@ -967,23 +1022,28 @@ nw_error_t *tensor_convolution_2d(const tensor_t *w, const tensor_t *x, const te
         goto cleanup;
     }
 
-    error = tensor_reshape(y, &y_reshape, (int64_t[]){out_channels, 1}, 2);
-    if (error)
+    if (y)
     {
-        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
-        goto cleanup;
+        error = tensor_reshape(y, &y_reshape, (int64_t[]){out_channels, 1}, 2);
+        if (error)
+        {
+            error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+            goto cleanup;
+        }
+
+        error = tensor_addition(v, y_reshape, &u);
+        if (error)
+        {
+            error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+            goto cleanup;
+        }
+    }
+    else
+    {
+        u = v;
     }
 
-    error = tensor_addition(v, y_reshape, &u);
-    if (error)
-    {
-        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
-        goto cleanup;
-    }
-
-    error = tensor_reshape(u, z, (int64_t[]){batch_size, out_channels, 
-                                             (height + 2 * padding - kernel_size) / stride + 1,
-                                             (width + 2 * padding - kernel_size) / stride + 1}, 4);
+    error = tensor_reshape(u, z, (int64_t[]){batch_size, out_channels, (height + 2 * padding - kernel_size) / stride + 1, (width + 2 * padding - kernel_size) / stride + 1}, 4);
     if (error)
     {
         error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
@@ -1015,19 +1075,22 @@ cleanup:
         }
     }
 
-    if (!y->requires_gradient || no_gradient)
+    if (y)
     {
-        if (y != y_reshape)
+        if (!y->requires_gradient || no_gradient)
         {
-            tensor_destroy(y_reshape);
+            if (y != y_reshape)
+            {
+                tensor_destroy(y_reshape);
+            }
         }
-    }
 
-    if ((!v->requires_gradient && !y->requires_gradient) || no_gradient)
-    {
-        if (*z != u)
+        if ((!v->requires_gradient && !y->requires_gradient) || no_gradient)
         {
-            tensor_destroy(u);
+            if (*z != u)
+            {
+                tensor_destroy(u);
+            }
         }
     }
 
@@ -1043,7 +1106,6 @@ nw_error_t *tensor_convolution_2d_transpose(const tensor_t *w, const tensor_t *x
 {
     CHECK_NULL_ARGUMENT(w, "w");
     CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(z, "z");
 
     PRINTLN_DEBUG_LOCATION("input");
@@ -1104,18 +1166,25 @@ nw_error_t *tensor_convolution_2d_transpose(const tensor_t *w, const tensor_t *x
         goto cleanup;
     }
 
-    error = tensor_reshape(y, &y_reshape, (int64_t[]){out_channels, 1, 1}, 3);
-    if (error)
+    if (y)
     {
-        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
-        goto cleanup;
-    }
+        error = tensor_reshape(y, &y_reshape, (int64_t[]){out_channels, 1, 1}, 3);
+        if (error)
+        {
+            error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+            goto cleanup;
+        }
 
-    error = tensor_addition(u, y_reshape, z);
-    if (error)
+        error = tensor_addition(u, y_reshape, z);
+        if (error)
+        {
+            error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+            goto cleanup;
+        }
+    }
+    else
     {
-        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
-        goto cleanup;
+        *z = u;
     }
 
     PRINTLN_DEBUG_LOCATION("output");
@@ -1149,12 +1218,15 @@ cleanup:
         tensor_destroy(v);
     }
 
-    if ((!u->requires_gradient && !y_reshape->requires_gradient) || no_gradient)
+    if (y)
     {
-        tensor_destroy(u);
-        if (y != y_reshape)
+        if ((!u->requires_gradient && !y_reshape->requires_gradient) || no_gradient)
         {
-            tensor_destroy(y_reshape);
+            tensor_destroy(u);
+            if (y != y_reshape)
+            {
+                tensor_destroy(y_reshape);
+            }
         }
     }
 

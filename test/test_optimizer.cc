@@ -439,29 +439,19 @@ void setup_model(runtime_t runtime, datatype_t datatype, model_type_t model_type
         tensor_t *bias = torch_to_tensor(torch_bias, runtime, datatype);
         tensor_t *input = torch_to_tensor(torch_input, runtime, datatype);
 
-        activation_t *activation_1 = NULL;
-        linear_t *linear_1 = NULL;
-        transform_t *transform_1 = NULL;
-        layer_t *layer_1 = NULL;
+        layer_t *linear_layer = NULL;
+        layer_t *activation_layer = NULL;
         block_t *block = NULL;
         
-        error = rectified_linear_activation_create(&activation_1);
+        error = rectified_linear_activation_layer_create(&activation_layer);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(activation_1);
+        ck_assert_ptr_nonnull(activation_layer);
 
-        error = linear_create(&linear_1, weights, bias, activation_1);
+        error = linear_layer_create_from_parameters(&linear_layer, weights, bias);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(activation_1);
+        ck_assert_ptr_nonnull(linear_layer);
 
-        error = transform_create(&transform_1, LINEAR, linear_1);
-        ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(linear_1);
-
-        error = layer_create(&layer_1, transform_1, LINEAR);
-        ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(layer_1);
-
-        error = block_create(&block, 1, layer_1);
+        error = block_create(&block, 2, linear_layer, activation_layer);
         ck_assert_ptr_null(error);
         ck_assert_ptr_nonnull(block);
 
@@ -590,6 +580,8 @@ void setup_optimizer(algorithm_type_t algorithm_type)
 
 void teardown_optimizer(algorithm_type_t algorithm_type)
 {
+    error_print(error);
+    error_destroy(error);
     for (int i = 0; i < RUNTIMES; ++i)
     {
         for (int j = 0; j < DATATYPES; ++j)

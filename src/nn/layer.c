@@ -130,6 +130,9 @@ nw_error_t *transform_create(transform_t **transform, transform_type_t transform
     case DROPOUT:
         (*transform)->dropout = (dropout_t *) type_transform;
         break;
+    case ACTIVATION:
+        (*transform)->activation = (activation_t *) type_transform;
+        break;
     case BLOCK:
         (*transform)->block = (block_t *) type_transform;
         break;
@@ -157,6 +160,9 @@ void transform_destroy(transform_t *transform, transform_type_t transform_type)
         case DROPOUT:
             dropout_destroy(transform->dropout);
             break;
+        case ACTIVATION:
+            activation_destroy(transform->activation);
+            break;
         case BLOCK:
             block_destroy(transform->block);
             break;
@@ -179,6 +185,8 @@ string_t transform_type_string(transform_type_t transform_type)
         return "CONVOLUTION_TRANSPOSE_2D";
     case DROPOUT:
         return "DROPOUT";
+    case ACTIVATION:
+        return "ACTIVATION";
     case BLOCK:
         return "BLOCK";
     default:
@@ -186,11 +194,10 @@ string_t transform_type_string(transform_type_t transform_type)
     }
 }
 
-nw_error_t *linear_create(linear_t **linear, tensor_t *weights, tensor_t *bias, activation_t *activation)
+nw_error_t *linear_create(linear_t **linear, tensor_t *weights, tensor_t *bias)
 {
     CHECK_NULL_ARGUMENT(linear, "linear");
     CHECK_NULL_ARGUMENT(weights, "weights");
-    CHECK_NULL_ARGUMENT(bias, "bias");
 
     *linear = (linear_t *) malloc(sizeof(linear_t));
     if (!*linear)
@@ -200,7 +207,6 @@ nw_error_t *linear_create(linear_t **linear, tensor_t *weights, tensor_t *bias, 
 
     (*linear)->weights = weights;
     (*linear)->bias = bias;
-    (*linear)->activation = activation;
 
     return NULL;
 }
@@ -211,17 +217,15 @@ void linear_destroy(linear_t *linear)
     {
         tensor_destroy(linear->weights);
         tensor_destroy(linear->bias);
-        activation_destroy(linear->activation);
         free(linear);
     }
 }
 
 nw_error_t *convolution_2d_create(convolution_2d_t **convolution_2d, int64_t kernel_size, int64_t padding, int64_t stride,
-                                  int64_t in_channels, int64_t out_channels, tensor_t *kernel, tensor_t *bias, activation_t *activation)
+                                  int64_t in_channels, int64_t out_channels, tensor_t *kernel, tensor_t *bias)
 {
     CHECK_NULL_ARGUMENT(convolution_2d, "convolution_2d");
     CHECK_NULL_ARGUMENT(kernel, "kernel");
-    CHECK_NULL_ARGUMENT(bias, "bias");
 
     *convolution_2d = (convolution_2d_t *) malloc(sizeof(linear_t));
     if (!*convolution_2d)
@@ -236,7 +240,6 @@ nw_error_t *convolution_2d_create(convolution_2d_t **convolution_2d, int64_t ker
     (*convolution_2d)->out_channels = out_channels;
     (*convolution_2d)->kernel = kernel;
     (*convolution_2d)->bias = bias;
-    (*convolution_2d)->activation = activation;
 
     return NULL;
 }
@@ -247,7 +250,6 @@ void convolution_2d_destroy(convolution_2d_t *convolution_2d)
     {
         tensor_destroy(convolution_2d->kernel);
         tensor_destroy(convolution_2d->bias);
-        activation_destroy(convolution_2d->activation);
         free(convolution_2d);
     }
 }
@@ -287,13 +289,10 @@ void dropout_destroy(dropout_t *dropout)
 }
 
 nw_error_t *linear_layer_create(layer_t **layer, int64_t in_features, int64_t out_features, runtime_t runtime, datatype_t datatype,
-                                bool_t requires_gradient, activation_t *activation, parameter_init_t *weight_init, 
-                                parameter_init_t *bias_init)
+                                parameter_init_t *weight_init, parameter_init_t *bias_init)
 {
     CHECK_NULL_ARGUMENT(layer, "layer");
-    CHECK_NULL_ARGUMENT(activation, "activation");
     CHECK_NULL_ARGUMENT(weight_init, "weight_init");
-    CHECK_NULL_ARGUMENT(bias_init, "bias_init");
 
     nw_error_t *error = NULL;
     tensor_t *weights = NULL;
@@ -306,20 +305,57 @@ nw_error_t *linear_layer_create(layer_t **layer, int64_t in_features, int64_t ou
     int64_t weight_rank = 2;
     int64_t bias_rank = 1;
 
-    error = initialize(&weights, weight_init, weight_shape, weight_rank, runtime, datatype, requires_gradient);
+    error = initialize(&weights, weight_init, weight_shape, weight_rank, runtime, datatype, true);
     if (error)
     {
         return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize weights."), error);
     }
-    
-    error = initialize(&bias, bias_init, bias_shape, bias_rank, runtime, datatype, requires_gradient);
+
+    if (bias_init) 
+    {
+        error = initialize(&bias, bias_init, bias_shape, bias_rank, runtime, datatype, true);
+        if (error)
+        {
+            tensor_destroy(weights);
+            return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize bias."), error);
+        }
+    }
+
+    error = linear_create(&linear, weights, bias);
     if (error)
     {
         tensor_destroy(weights);
-        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize bias."), error);
+        tensor_destroy(bias);
+        return ERROR(ERROR_CREATE, string_create("failed to create linear."), error);
     }
 
-    error = linear_create(&linear, weights, bias, activation);
+    error = transform_create(&transform, transform_type, (void *) linear);
+    if (error)
+    {
+        linear_destroy(linear);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *linear_layer_create_from_parameters(layer_t **layer, tensor_t *weights, tensor_t *bias)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    linear_t *linear = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = LINEAR;
+
+    error = linear_create(&linear, weights, bias);
     if (error)
     {
         tensor_destroy(weights);
@@ -346,15 +382,11 @@ nw_error_t *linear_layer_create(layer_t **layer, int64_t in_features, int64_t ou
 
 nw_error_t *convolution_2d_transpose_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride,
                                                   int64_t in_channels, int64_t out_channels, runtime_t runtime, datatype_t datatype,
-                                                  bool_t requires_gradient, activation_t *activation, parameter_init_t *kernel_init,
-                                                  parameter_init_t *bias_init)
+                                                  parameter_init_t *kernel_init, parameter_init_t *bias_init)
 {
     nw_error_t *error = NULL;
 
-    error = convolution_2d_layer_create(layer, kernel_size, padding, stride,
-                                        in_channels, out_channels, runtime, datatype,
-                                        requires_gradient, activation, kernel_init,
-                                        bias_init);
+    error = convolution_2d_layer_create(layer, kernel_size, padding, stride, in_channels, out_channels, runtime, datatype, kernel_init, bias_init);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create convolution_2d layer."), error);
@@ -367,13 +399,10 @@ nw_error_t *convolution_2d_transpose_layer_create(layer_t **layer, int64_t kerne
 
 nw_error_t *convolution_2d_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride,
                                         int64_t in_channels, int64_t out_channels, runtime_t runtime, datatype_t datatype,
-                                        bool_t requires_gradient, activation_t *activation, parameter_init_t *kernel_init,
-                                        parameter_init_t *bias_init)
+                                        parameter_init_t *kernel_init, parameter_init_t *bias_init)
 {
     CHECK_NULL_ARGUMENT(layer, "layer");
-    CHECK_NULL_ARGUMENT(activation, "activation");
     CHECK_NULL_ARGUMENT(kernel_init, "kernel_init");
-    CHECK_NULL_ARGUMENT(bias_init, "bias_init");
 
     nw_error_t *error = NULL;
     tensor_t *kernel = NULL;
@@ -386,20 +415,23 @@ nw_error_t *convolution_2d_layer_create(layer_t **layer, int64_t kernel_size, in
     int64_t weight_rank = 4;
     int64_t bias_rank = 1;
 
-    error = initialize(&kernel, kernel_init, kernel_shape, weight_rank, runtime, datatype, requires_gradient);
+    error = initialize(&kernel, kernel_init, kernel_shape, weight_rank, runtime, datatype, true);
     if (error)
     {
         return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize kernel."), error);
     }
     
-    error = initialize(&bias, bias_init, bias_shape, bias_rank, runtime, datatype, requires_gradient);
-    if (error)
+    if (bias_init)
     {
-        tensor_destroy(kernel);
-        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize bias."), error);
+        error = initialize(&bias, bias_init, bias_shape, bias_rank, runtime, datatype, true);
+        if (error)
+        {
+            tensor_destroy(kernel);
+            return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize bias."), error);
+        }
     }
 
-    error = convolution_2d_create(&convolution_2d, kernel_size, padding, stride, in_channels, out_channels, kernel, bias, activation);
+    error = convolution_2d_create(&convolution_2d, kernel_size, padding, stride, in_channels, out_channels, kernel, bias);
     if (error)
     {
         tensor_destroy(kernel);
@@ -444,6 +476,134 @@ nw_error_t *dropout_layer_create(layer_t **layer, void *probability, datatype_t 
     if (error)
     {
         dropout_destroy(dropout);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *rectified_linear_activation_layer_create(layer_t **layer)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    activation_t *activation = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = ACTIVATION;
+
+    error = rectified_linear_activation_create(&activation);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) activation);
+    if (error)
+    {
+        activation_destroy(activation);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *sigmoid_activation_layer_create(layer_t **layer)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    activation_t *activation = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = ACTIVATION;
+
+    error = sigmoid_activation_create(&activation);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) activation);
+    if (error)
+    {
+        activation_destroy(activation);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *softmax_activation_layer_create(layer_t **layer, int64_t axis)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    activation_t *activation = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = ACTIVATION;
+
+    error = softmax_activation_create(&activation, axis);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) activation);
+    if (error)
+    {
+        activation_destroy(activation);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *logsoftmax_activation_layer_create(layer_t **layer, int64_t axis)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    activation_t *activation = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = ACTIVATION;
+
+    error = logsoftmax_activation_create(&activation, axis);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) activation);
+    if (error)
+    {
+        activation_destroy(activation);
         return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
     }
 
@@ -527,6 +687,9 @@ nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
         case DROPOUT:
             error = dropout_forward(transform->dropout, x, &feature_map);
             break;
+        case ACTIVATION:
+            error = activation_forward(transform->activation, x, &feature_map);
+            break;
         case BLOCK:
             error = block_forward(transform->block, x, &feature_map);
             break;
@@ -570,45 +733,16 @@ nw_error_t *linear_forward(linear_t *linear, tensor_t *x, tensor_t **y)
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
-    tensor_t *x_i = NULL;
-    tensor_t *x_j = NULL;
 
-    error = tensor_matrix_multiplication(x, linear->weights, &x_i);
+    error = tensor_linear(x, linear->weights, linear->bias, y);
     if (error)
     {
-        error = ERROR(ERROR_MATRIX_MULTIPLICATION, string_create("failed to matrix multiply tensors."), error);
-        goto cleanup;
-    }
-
-    error = tensor_addition(x_i, linear->bias, &x_j);
-    if (error)
-    {
-        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
-        goto cleanup;
-    }
-
-    error = activation_forward(linear->activation, x_j, y);
-    if (error)
-    {
-        error = ERROR(ERROR_FORWARD, string_create("failed to apply activation function."), error);
-        goto cleanup;
+        return ERROR(ERROR_LINEAR, string_create("failed to matrix multiply tensors."), error);
     }
 
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("y", *y);
     PRINT_DEBUG_NEWLINE;
-
-cleanup:
-
-    if (!(x_i->requires_gradient || linear->bias->requires_gradient) || no_gradient)
-    {
-        tensor_destroy(x_j);
-    }
-
-    if (!(x->requires_gradient || linear->weights->requires_gradient) || no_gradient)
-    {
-        tensor_destroy(x_i);
-    }
 
     return error;
 }
@@ -624,32 +758,16 @@ nw_error_t *convolution_2d_forward(convolution_2d_t *convolution_2d, tensor_t *x
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
-    tensor_t *x_i = NULL;
 
-    error = tensor_convolution_2d(x, convolution_2d->kernel, convolution_2d->bias, &x_i, convolution_2d->stride, convolution_2d->padding);
+    error = tensor_convolution_2d(x, convolution_2d->kernel, convolution_2d->bias, y, convolution_2d->stride, convolution_2d->padding);
     if (error)
     {
-        error = ERROR(ERROR_CONVOLUTION, string_create("failed to apply convolution_2d."), error);
-        goto cleanup;
-    }
-
-    error = activation_forward(convolution_2d->activation, x_i, y);
-    if (error)
-    {
-        error = ERROR(ERROR_FORWARD, string_create("failed to apply activation function."), error);
-        goto cleanup;
+        return ERROR(ERROR_CONVOLUTION, string_create("failed to apply convolution_2d."), error);
     }
 
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("y", *y);
     PRINT_DEBUG_NEWLINE;
-
-cleanup:
-
-    if (!(x->requires_gradient || convolution_2d->kernel->requires_gradient) || no_gradient)
-    {
-        tensor_destroy(x_i);
-    }
 
     return error;
 }
@@ -665,32 +783,16 @@ nw_error_t *convolution_2d_transpose_forward(convolution_2d_t *convolution_2d, t
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
-    tensor_t *x_i = NULL;
 
-    error = tensor_convolution_2d_transpose(x, convolution_2d->kernel, convolution_2d->bias, &x_i, convolution_2d->stride, convolution_2d->padding);
+    error = tensor_convolution_2d_transpose(x, convolution_2d->kernel, convolution_2d->bias, y, convolution_2d->stride, convolution_2d->padding);
     if (error)
     {
-        error = ERROR(ERROR_CONVOLUTION, string_create("failed to apply convolution_2d."), error);
-        goto cleanup;
-    }
-
-    error = activation_forward(convolution_2d->activation, x_i, y);
-    if (error)
-    {
-        error = ERROR(ERROR_FORWARD, string_create("failed to apply activation function."), error);
-        goto cleanup;
+        return ERROR(ERROR_CONVOLUTION, string_create("failed to apply convolution_2d transpose."), error);
     }
 
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("y", *y);
     PRINT_DEBUG_NEWLINE;
-
-cleanup:
-
-    if (!(x->requires_gradient || convolution_2d->kernel->requires_gradient) || no_gradient)
-    {
-        tensor_destroy(x_i);
-    }
 
     return error;
 }
