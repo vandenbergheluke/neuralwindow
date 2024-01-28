@@ -563,12 +563,12 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
 
     layer_t *input_layer = NULL;
     layer_t *dropout_layer = NULL;
+    layer_t *input_activation = NULL;
     layer_t *output_layer = NULL;
+    layer_t *output_activation = NULL;
     block_t *block = NULL;
-    activation_t *input_activation = NULL;
     parameter_init_t *weight_init = NULL;
     parameter_init_t *bias_init = NULL;
-    activation_t *output_activation = NULL;
     void *mean = NULL;
     void *standard_deviation = NULL;
     void *probability = NULL;
@@ -626,14 +626,14 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         goto cleanup;
     }
 
-    error = rectified_linear_activation_create(&input_activation);
+    error = rectified_linear_activation_layer_create(&input_activation);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create rectified linear activation."), error);
         goto cleanup;
     }
 
-    error = linear_layer_create(&input_layer, 784, 128, runtime, datatype, true, input_activation, weight_init, bias_init);
+    error = linear_layer_create(&input_layer, 784, 128, runtime, datatype, weight_init, bias_init);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
@@ -647,21 +647,21 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         goto cleanup;
     }
 
-    error = logsoftmax_activation_create(&output_activation, (int64_t) 1);
+    error = logsoftmax_activation_layer_create(&output_activation, (int64_t) 1);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create softmax activation."), error);
         goto cleanup;
     }
 
-    error = linear_layer_create(&output_layer, 128, 10, runtime, datatype, true, output_activation, weight_init, bias_init);
+    error = linear_layer_create(&output_layer, 128, 10, runtime, datatype, weight_init, bias_init);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
         goto cleanup;
     }
 
-    error = block_create(&block, 3, input_layer, dropout_layer, output_layer);
+    error = block_create(&block, 5, input_layer, input_activation, dropout_layer, output_layer, output_activation);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create block."), error);
@@ -687,18 +687,12 @@ cleanup:
         return error;
     }
 
-    if (!input_layer)
-    {
-        activation_destroy(input_activation);
-    }
-    if (!output_layer)
-    {
-        activation_destroy(output_activation);
-    }
     if (!block)
     {
         layer_destroy(input_layer);
+        layer_destroy(input_activation);
         layer_destroy(output_layer);
+        layer_destroy(output_activation);
         layer_destroy(dropout_layer);
     }
     block_destroy(block);

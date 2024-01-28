@@ -193,6 +193,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_SLICE";
     case ERROR_GET:
         return "ERROR_GET";
+    case ERROR_LINEAR:
+        return "ERROR_LINEAR";
     default:
         return "ERROR";
     }

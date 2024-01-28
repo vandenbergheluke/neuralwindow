@@ -140,6 +140,7 @@ nw_error_t *fit(int64_t epochs,
 
         int64_t start = train_iterations;
         int64_t end = valid_iterations + train_iterations;
+        model_inference(model, true);
 
         for (int64_t j = start; j < end; ++j)
         {
@@ -177,6 +178,7 @@ nw_error_t *fit(int64_t epochs,
             cost = NULL;
         }
 
+        model_inference(model, false);
         with_no_gradient(false);
     }
 
