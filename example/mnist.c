@@ -746,7 +746,7 @@ int main(void)
         goto cleanup;
     }
 
-    error = optimizer_stochastic_gradient_descent_create(&optimizer, model->block, datatype, (void *) &learning_rate, (void *) &momentum, (void *) &dampening, &weight_decay, nesterov);
+    error = optimizer_stochastic_gradient_descent_create(&optimizer, datatype, (void *) &learning_rate, (void *) &momentum, (void *) &dampening, &weight_decay, nesterov);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create optimizer."), error);

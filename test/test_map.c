@@ -92,6 +92,10 @@ START_TEST(test_map)
       error_destroy(error); 
    }
    ck_assert_int_eq(test_case_value_3, *test_case_value_ptr_3);
+
+   free((char *) test_case_key_1);
+   free((char *) test_case_key_2);
+   free((char *) test_case_key_3);
 }
 END_TEST
 

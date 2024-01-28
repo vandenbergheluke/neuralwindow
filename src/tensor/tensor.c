@@ -2215,8 +2215,6 @@ static nw_error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *t
         goto cleanup;
     }
 
-    return error;
-
 cleanup:
 
     string_destroy(id);
@@ -2770,6 +2768,10 @@ cleanup:
 
 nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y)
 {
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
 
@@ -2780,6 +2782,11 @@ nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
 
     return error;
 }

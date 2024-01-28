@@ -23,7 +23,7 @@ set(TEST_CXX
     test_tensor_unary
     test_tensor_binary
     test_autograd
-    test_optimizers
+    test_optimizer
 )
 
 set(TEST_CXX_PERF
