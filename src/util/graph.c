@@ -108,7 +108,7 @@ nw_error_t *graph_tensor_node(tensor_t *tensor, Agnode_t **node)
     int64_t n = tensor->buffer->storage->n;
     int64_t offset = tensor->buffer->view->offset;
     string_t tensor_id_string = string_create("%lu", tensor->id);
-    string_t node_id_string = string_create("%lu", global_node_id + 1);
+    string_t node_id_string = string_create("%lu", global_node_id);
     string_t shape_string = int64_array_to_string(tensor->buffer->view->shape, rank);
     string_t stride_string = int64_array_to_string(tensor->buffer->view->strides, rank);
     string_t node_label = string_create("<F0> Tensor_ID: %lu|Shape: %s|Size: %ld|Stride: %s|Offset: %ld|Requires Gradient: %s", 
@@ -175,7 +175,6 @@ void graph_function_node(function_t *function, Agnode_t **node)
                               operation_type_string(function->operation_type),
                               reduction_operation_type_string(function->operation->reduction_operation->operation_type),
                               arguments, (function->operation->reduction_operation->keep_dimension) ? "true" : "false");
-        string_destroy(arguments);
         color = "red";
         break;
     case STRUCTURE_OPERATION:
@@ -185,7 +184,6 @@ void graph_function_node(function_t *function, Agnode_t **node)
                               operation_type_string(function->operation_type), 
                               structure_operation_type_string(function->operation->structure_operation->operation_type),
                               arguments);
-        string_destroy(arguments);
         color = "blue";
         break;
     default:
@@ -197,6 +195,7 @@ void graph_function_node(function_t *function, Agnode_t **node)
 
 cleanup:
 
+    string_destroy(arguments);
     string_destroy(label);
     string_destroy(name);
 }
