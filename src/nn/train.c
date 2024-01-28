@@ -184,6 +184,7 @@ nw_error_t *fit(int64_t epochs,
     int64_t end = valid_iterations + train_iterations + test_iterations;
 
     with_no_gradient(true);
+    model_inference(model, true);
 
     for (int64_t i = start; i < end; ++i)
     {

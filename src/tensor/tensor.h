@@ -77,8 +77,8 @@ nw_error_t *tensor_max(const tensor_t *x, const tensor_t *y, tensor_t **z);
 nw_error_t *tensor_concatenation(const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t axis);
 
 // Ternary Operations
-nw_error_t *tensor_convolution(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding);
-nw_error_t *tensor_convolution_transpose(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding);
+nw_error_t *tensor_convolution_2d(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding);
+nw_error_t *tensor_convolution_2d_transpose(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding);
 
 // Reduction Operations
 nw_error_t *tensor_summation(const tensor_t *x, tensor_t **y, const int64_t *axis, int64_t length, bool_t keep_dimension);

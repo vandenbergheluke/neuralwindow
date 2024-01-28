@@ -562,6 +562,7 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
     nw_error_t *error = NULL;
 
     layer_t *input_layer = NULL;
+    layer_t *dropout_layer = NULL;
     layer_t *output_layer = NULL;
     block_t *block = NULL;
     activation_t *input_activation = NULL;
@@ -570,6 +571,7 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
     activation_t *output_activation = NULL;
     void *mean = NULL;
     void *standard_deviation = NULL;
+    void *probability = NULL;
     size_t size = datatype_size(datatype);
 
     mean = (void *) malloc(size);
@@ -586,15 +588,24 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         goto cleanup;
     }
 
+    probability = (void *) malloc(size);
+    if (!probability)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
     switch (datatype)
     {
     case FLOAT32:
         *(float32_t *) mean = (float32_t) 0.0;
         *(float32_t *) standard_deviation = (float32_t) 1.0;
+        *(float32_t *) probability = (float32_t) 0.5;
         break;
     case FLOAT64:
         *(float64_t *) mean = (float64_t) 0.0;
         *(float64_t *) standard_deviation = (float64_t) 1.0;
+        *(float64_t *) probability = (float64_t) 0.5;
         break;
     default:
         error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
@@ -629,6 +640,13 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         goto cleanup;
     }
 
+    error = dropout_layer_create(&dropout_layer, probability, datatype);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create dropout layer."), error);
+        goto cleanup;
+    }
+
     error = logsoftmax_activation_create(&output_activation, (int64_t) 1);
     if (error)
     {
@@ -643,7 +661,7 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         goto cleanup;
     }
 
-    error = block_create(&block, 2, input_layer, output_layer);
+    error = block_create(&block, 3, input_layer, dropout_layer, output_layer);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create block."), error);
@@ -661,6 +679,7 @@ cleanup:
 
     free(mean);
     free(standard_deviation);
+    free(probability);
     parameter_init_destroy(weight_init);
     parameter_init_destroy(bias_init);
     if (!error)
@@ -680,6 +699,7 @@ cleanup:
     {
         layer_destroy(input_layer);
         layer_destroy(output_layer);
+        layer_destroy(dropout_layer);
     }
     block_destroy(block);
 

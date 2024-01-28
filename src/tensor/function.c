@@ -3033,10 +3033,13 @@ static nw_error_t *function_forward(function_t *function, tensor_t *result)
         return ERROR(ERROR_FORWARD, string_create("failed operation forward pass."), error);
     } 
 
-    error = graph_function(function, result);                      
-    if (error)
+    if (result->requires_gradient)
     {
-        return ERROR(ERROR_GRAPH, string_create("failed to add function to graph."), error);
+        error = graph_function(function, result);                      
+        if (error)
+        {
+            return ERROR(ERROR_GRAPH, string_create("failed to add function to graph."), error);
+        }
     }
     return error;
 }
