@@ -919,7 +919,7 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_convolution(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding)
+nw_error_t *tensor_convolution_2d(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding)
 {
     CHECK_NULL_ARGUMENT(w, "w");
     CHECK_NULL_ARGUMENT(x, "x");
@@ -1039,7 +1039,7 @@ cleanup:
     return error;
 }
 
-nw_error_t *tensor_convolution_transpose(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding)
+nw_error_t *tensor_convolution_2d_transpose(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding)
 {
     CHECK_NULL_ARGUMENT(w, "w");
     CHECK_NULL_ARGUMENT(x, "x");

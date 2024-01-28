@@ -400,7 +400,19 @@
     else\
     {\
         fprintf(stderr, "(");\
-        fprintf(stderr, "probability: %f", (dropout)->probability);\
+        switch((dropout)->datatype)\
+        {\
+        case FLOAT32:\
+            fprintf(stderr, "probability: %f", *(float32_t *) ((dropout)->probability));\
+            break;\
+        case FLOAT64:\
+            fprintf(stderr, "probability: %lf", *(float64_t *) ((dropout)->probability));\
+            break;\
+        default:\
+            break;\
+        }\
+        fprintf(stderr, ", inference: ");\
+        PRINT_DEBUG_BOOLEAN((dropout)->inference);\
         fprintf(stderr, ")");\
     }\
 } while(0)

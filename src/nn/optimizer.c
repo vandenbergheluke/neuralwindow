@@ -646,11 +646,13 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
             parameters[0] = transform->linear->weights;
             parameters[1] = transform->linear->bias;
             break;
-        case CONVOLUTION:
-        case CONVOLUTION_TRANSPOSE:
-            parameters[0] = transform->convolution->kernel;
-            parameters[1] = transform->convolution->bias;
+        case CONVOLUTION_2D:
+        case CONVOLUTION_TRANSPOSE_2D:
+            parameters[0] = transform->convolution_2d->kernel;
+            parameters[1] = transform->convolution_2d->bias;
             break;
+        case DROPOUT:
+            continue;
         case BLOCK:
             error = update(algorithm, algorithm_type, transform->block);
             if (error)

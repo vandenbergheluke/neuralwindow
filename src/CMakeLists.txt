@@ -31,6 +31,7 @@ set(
     "${NN_DIR}/metric.c"
     "${NN_DIR}/optimizer.c"
     "${NN_DIR}/train.c"
+    "${NN_DIR}/activation.c"
 )
 
 set(
@@ -65,6 +66,7 @@ set(
     "${NN_DIR}/metric.h"
     "${NN_DIR}/optimizer.h"
     "${NN_DIR}/train.h"
+    "${NN_DIR}/activation.h"
 )
 
 set(

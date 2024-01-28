@@ -1,22 +1,293 @@
+#include <layer.h>
 #include <init.h>
 #include <view.h>
 #include <buffer.h>
 #include <tensor.h>
 #include <function.h>
-#include <layer.h>
 #include <math.h>
 #include <string.h>
 
 extern bool_t no_gradient;
 
-nw_error_t *linear_layer_create(layer_t **layer, 
-                                int64_t in_features,
-                                int64_t out_features,
-                                runtime_t runtime,
-                                datatype_t datatype,
-                                bool_t requires_gradient,
-                                activation_t *activation,
-                                parameter_init_t *weight_init,
+nw_error_t *model_create(model_t **model, block_t *block)
+{
+    CHECK_NULL_ARGUMENT(model, "model");
+    CHECK_NULL_ARGUMENT(block, "block");
+
+    *model = (model_t *) malloc(sizeof(model_t));
+    if (!*model)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(model_t)), NULL);
+    }
+
+    (*model)->block = block;
+
+    return NULL;
+}
+
+void model_destroy(model_t *model) 
+{
+    if (model)
+    {
+        block_destroy(model->block);
+        free(model);
+    }
+}
+
+nw_error_t *block_create(block_t **block, int64_t depth, ...)
+{
+    CHECK_NULL_ARGUMENT(block, "block");
+    
+    va_list valist;
+    va_start(valist, depth);
+
+    *block = (block_t *) malloc(sizeof(block_t));
+    if (!*block)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(block_t)), NULL);
+    }
+
+    (*block)->depth = depth;
+    (*block)->layers = (layer_t **) malloc(depth * sizeof(layer_t *));
+    if (!(*block)->layers)
+    {
+        free(*block);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(depth * sizeof(layer_t *))), NULL);
+    }
+
+    for (int64_t i = 0; i < depth; ++i)
+    {
+        (*block)->layers[i] = (layer_t *) va_arg(valist, layer_t *);
+    }
+
+    va_end(valist);
+
+    return NULL;
+}
+
+void block_destroy(block_t *block)
+{
+    if (block)
+    {
+        if (block->layers)
+        {
+            for (int64_t i = 0; i < block->depth; ++i)
+            {
+                layer_destroy(block->layers[i]);
+            }
+            free(block->layers);
+        }
+        free(block);
+    }
+}
+
+nw_error_t *layer_create(layer_t **layer, transform_t *transform, transform_type_t transform_type)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+    CHECK_NULL_ARGUMENT(transform, "transform");
+
+    *layer = (layer_t *) malloc(sizeof(layer_t));
+    if (!*layer)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(layer_t)), NULL);
+    }
+
+    (*layer)->transform = transform;
+    (*layer)->transform_type = transform_type;
+
+    return NULL;
+}
+
+void layer_destroy(layer_t *layer)
+{
+    if (layer)
+    {
+        transform_destroy(layer->transform, layer->transform_type);
+        free(layer);
+    }
+}
+
+nw_error_t *transform_create(transform_t **transform, transform_type_t transform_type, void *type_transform)
+{
+    CHECK_NULL_ARGUMENT(transform, "transform");
+    CHECK_NULL_ARGUMENT(type_transform, "type_transform");
+
+    *transform = (transform_t *) malloc(sizeof(transform_t));
+    if (!*transform)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(transform_t)), NULL);
+    }
+
+    switch (transform_type)
+    {
+    case LINEAR:
+        (*transform)->linear = (linear_t *) type_transform;
+        break;
+    case CONVOLUTION_2D:
+    case CONVOLUTION_TRANSPOSE_2D:
+        (*transform)->convolution_2d = (convolution_2d_t *) type_transform;
+        break;
+    case DROPOUT:
+        (*transform)->dropout = (dropout_t *) type_transform;
+        break;
+    case BLOCK:
+        (*transform)->block = (block_t *) type_transform;
+        break;
+    default:
+        free(*transform);
+        return ERROR(ERROR_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
+    }
+
+    return NULL;
+}
+
+void transform_destroy(transform_t *transform, transform_type_t transform_type)
+{
+    if (transform)
+    {
+        switch (transform_type)
+        {
+        case LINEAR:
+            linear_destroy(transform->linear);
+            break;
+        case CONVOLUTION_2D:
+        case CONVOLUTION_TRANSPOSE_2D:
+            convolution_2d_destroy(transform->convolution_2d);
+            break;
+        case DROPOUT:
+            dropout_destroy(transform->dropout);
+            break;
+        case BLOCK:
+            block_destroy(transform->block);
+            break;
+        default:
+            break;
+        }
+        free(transform);
+    }
+}
+
+string_t transform_type_string(transform_type_t transform_type)
+{
+    switch (transform_type)
+    {
+    case LINEAR:
+        return "LINEAR";
+    case CONVOLUTION_2D:
+        return "CONVOLUTION_2D";
+    case CONVOLUTION_TRANSPOSE_2D:
+        return "CONVOLUTION_TRANSPOSE_2D";
+    case DROPOUT:
+        return "DROPOUT";
+    case BLOCK:
+        return "BLOCK";
+    default:
+        return "TRANSFORM_TYPE";
+    }
+}
+
+nw_error_t *linear_create(linear_t **linear, tensor_t *weights, tensor_t *bias, activation_t *activation)
+{
+    CHECK_NULL_ARGUMENT(linear, "linear");
+    CHECK_NULL_ARGUMENT(weights, "weights");
+    CHECK_NULL_ARGUMENT(bias, "bias");
+
+    *linear = (linear_t *) malloc(sizeof(linear_t));
+    if (!*linear)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(linear_t)), NULL);
+    }
+
+    (*linear)->weights = weights;
+    (*linear)->bias = bias;
+    (*linear)->activation = activation;
+
+    return NULL;
+}
+
+void linear_destroy(linear_t *linear)
+{
+    if (linear)
+    {
+        tensor_destroy(linear->weights);
+        tensor_destroy(linear->bias);
+        activation_destroy(linear->activation);
+        free(linear);
+    }
+}
+
+nw_error_t *convolution_2d_create(convolution_2d_t **convolution_2d, int64_t kernel_size, int64_t padding, int64_t stride,
+                                  int64_t in_channels, int64_t out_channels, tensor_t *kernel, tensor_t *bias, activation_t *activation)
+{
+    CHECK_NULL_ARGUMENT(convolution_2d, "convolution_2d");
+    CHECK_NULL_ARGUMENT(kernel, "kernel");
+    CHECK_NULL_ARGUMENT(bias, "bias");
+
+    *convolution_2d = (convolution_2d_t *) malloc(sizeof(linear_t));
+    if (!*convolution_2d)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(convolution_2d_t)), NULL);
+    }
+
+    (*convolution_2d)->kernel_size = kernel_size;
+    (*convolution_2d)->padding = padding;
+    (*convolution_2d)->stride = stride;
+    (*convolution_2d)->in_channels = in_channels;
+    (*convolution_2d)->out_channels = out_channels;
+    (*convolution_2d)->kernel = kernel;
+    (*convolution_2d)->bias = bias;
+    (*convolution_2d)->activation = activation;
+
+    return NULL;
+}
+
+void convolution_2d_destroy(convolution_2d_t *convolution_2d)
+{
+    if (convolution_2d)
+    {
+        tensor_destroy(convolution_2d->kernel);
+        tensor_destroy(convolution_2d->bias);
+        activation_destroy(convolution_2d->activation);
+        free(convolution_2d);
+    }
+}
+
+nw_error_t *dropout_create(dropout_t **dropout, void *probability, datatype_t datatype)
+{
+    CHECK_NULL_ARGUMENT(dropout, "dropout");
+    CHECK_NULL_ARGUMENT(probability, "probability");
+
+    *dropout = (dropout_t *) malloc(sizeof(dropout_t));
+    if (!*dropout)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(dropout_t)), NULL);
+    }
+
+    (*dropout)->probability = (void *) malloc(datatype_size(datatype));
+    if (!(*dropout)->probability)
+    {
+        free(*dropout);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
+    }
+
+    memcpy((*dropout)->probability, probability, datatype_size(datatype));
+    (*dropout)->datatype = datatype;
+    (*dropout)->inference = false;
+
+    return NULL;
+}
+
+void dropout_destroy(dropout_t *dropout)
+{
+    if (dropout)
+    {
+        free(dropout->probability);
+        free(dropout);
+    }
+}
+
+nw_error_t *linear_layer_create(layer_t **layer, int64_t in_features, int64_t out_features, runtime_t runtime, datatype_t datatype,
+                                bool_t requires_gradient, activation_t *activation, parameter_init_t *weight_init, 
                                 parameter_init_t *bias_init)
 {
     CHECK_NULL_ARGUMENT(layer, "layer");
@@ -73,39 +344,31 @@ nw_error_t *linear_layer_create(layer_t **layer,
     return error;
 }
 
-nw_error_t *convolution_transpose_layer_create(layer_t **layer,
-                                               int64_t kernel_size, int64_t padding, int64_t stride,
-                                               int64_t in_channels, int64_t out_channels,
-                                               runtime_t runtime, datatype_t datatype,
-                                               bool_t requires_gradient, 
-                                               activation_t *activation,
-                                               parameter_init_t *kernel_init,
-                                               parameter_init_t *bias_init)
+nw_error_t *convolution_2d_transpose_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride,
+                                                  int64_t in_channels, int64_t out_channels, runtime_t runtime, datatype_t datatype,
+                                                  bool_t requires_gradient, activation_t *activation, parameter_init_t *kernel_init,
+                                                  parameter_init_t *bias_init)
 {
     nw_error_t *error = NULL;
 
-    error = convolution_layer_create(layer, kernel_size, padding, stride,
-                                     in_channels, out_channels, runtime, datatype,
-                                     requires_gradient, activation, kernel_init,
-                                     bias_init);
+    error = convolution_2d_layer_create(layer, kernel_size, padding, stride,
+                                        in_channels, out_channels, runtime, datatype,
+                                        requires_gradient, activation, kernel_init,
+                                        bias_init);
     if (error)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create convolution layer."), error);
+        return ERROR(ERROR_CREATE, string_create("failed to create convolution_2d layer."), error);
     }
 
-    (*layer)->transform_type = CONVOLUTION_TRANSPOSE;
+    (*layer)->transform_type = CONVOLUTION_TRANSPOSE_2D;
 
     return error;
 }
 
-nw_error_t *convolution_layer_create(layer_t **layer,
-                                     int64_t kernel_size, int64_t padding, int64_t stride,
-                                     int64_t in_channels, int64_t out_channels,
-                                     runtime_t runtime, datatype_t datatype,
-                                     bool_t requires_gradient, 
-                                     activation_t *activation,
-                                     parameter_init_t *kernel_init,
-                                     parameter_init_t *bias_init)
+nw_error_t *convolution_2d_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride,
+                                        int64_t in_channels, int64_t out_channels, runtime_t runtime, datatype_t datatype,
+                                        bool_t requires_gradient, activation_t *activation, parameter_init_t *kernel_init,
+                                        parameter_init_t *bias_init)
 {
     CHECK_NULL_ARGUMENT(layer, "layer");
     CHECK_NULL_ARGUMENT(activation, "activation");
@@ -115,9 +378,9 @@ nw_error_t *convolution_layer_create(layer_t **layer,
     nw_error_t *error = NULL;
     tensor_t *kernel = NULL;
     tensor_t *bias = NULL;
-    convolution_t *convolution = NULL;
+    convolution_2d_t *convolution_2d = NULL;
     transform_t *transform = NULL;
-    transform_type_t transform_type = CONVOLUTION;
+    transform_type_t transform_type = CONVOLUTION_2D;
     int64_t *kernel_shape = (int64_t[]) {out_channels, in_channels, kernel_size, kernel_size};
     int64_t *bias_shape = (int64_t[]) {out_channels};
     int64_t weight_rank = 4;
@@ -136,18 +399,18 @@ nw_error_t *convolution_layer_create(layer_t **layer,
         return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize bias."), error);
     }
 
-    error = convolution_create(&convolution, kernel_size, padding, stride, in_channels, out_channels, kernel, bias, activation);
+    error = convolution_2d_create(&convolution_2d, kernel_size, padding, stride, in_channels, out_channels, kernel, bias, activation);
     if (error)
     {
         tensor_destroy(kernel);
         tensor_destroy(bias);
-        return ERROR(ERROR_CREATE, string_create("failed to create convolution."), error);
+        return ERROR(ERROR_CREATE, string_create("failed to create convolution_2d."), error);
     }
 
-    error = transform_create(&transform, transform_type, (void *) convolution);
+    error = transform_create(&transform, transform_type, (void *) convolution_2d);
     if (error)
     {
-        convolution_destroy(convolution);
+        convolution_2d_destroy(convolution_2d);
         return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
     }
 
@@ -161,58 +424,56 @@ nw_error_t *convolution_layer_create(layer_t **layer,
     return error;
 }
 
-static nw_error_t *activation_forward(activation_t *activation, tensor_t *x, tensor_t **y)
+nw_error_t *dropout_layer_create(layer_t **layer, void *probability, datatype_t datatype)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+    CHECK_NULL_ARGUMENT(probability, "probability");
+
+    nw_error_t *error = NULL;
+    dropout_t *dropout = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = DROPOUT;
+
+    error = dropout_create(&dropout, probability, datatype);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create dropout layer."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) dropout);
+    if (error)
+    {
+        dropout_destroy(dropout);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *model_forward(model_t *model, tensor_t *x, tensor_t **y)
 {
     PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_ACTIVATION("activation", activation);
+    PRINTLN_DEBUG_MODEL("model", model);
     PRINTLN_DEBUG_TENSOR("x", x);
     PRINT_DEBUG_NEWLINE;
 
-    CHECK_NULL_ARGUMENT(activation, "activation");
-    CHECK_NULL_ARGUMENT(activation->activation_function, "activation->activation_function");
+    CHECK_NULL_ARGUMENT(model, "model");
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
-    activation_function_t *activation_function = activation->activation_function;
-    activation_function_type_t activation_function_type = activation->activation_function_type;
 
-    switch (activation_function_type)
-    {
-    case ACTIVATION_RECTIFIED_LINEAR:
-        error = tensor_rectified_linear(x, y);
-        break;
-    case ACTIVATION_SIGMOID:
-        error = tensor_sigmoid(x, y);
-        break;
-    case ACTIVATION_SOFTMAX:
-        if (!activation_function->softmax)
-        {
-            error = ERROR(ERROR_NULL, string_create("activation function is null."), NULL);
-        }
-        else
-        {
-            error = tensor_softmax(x, y, activation_function->softmax->axis);
-        }
-        break;
-    case ACTIVATION_LOGSOFTMAX:
-        if (!activation_function->softmax)
-        {
-            error = ERROR(ERROR_NULL, string_create("activation function is null."), NULL);
-        }
-        else
-        {
-            error = tensor_logsoftmax(x, y, activation_function->softmax->axis);
-        }
-        break;
-    default:
-        error = ERROR(ERROR_OPERATION_TYPE, string_create("unknown activation function %d.", (int) activation_function_type), NULL);
-        break;
-    }
-
+    error = block_forward(model->block, x, y);
     if (error)
     {
-        return ERROR(ERROR_FORWARD, string_create("failed to apply activation function."), error);
+        return ERROR(ERROR_FORWARD, string_create("failed forward pass"), error);
     }
 
     PRINTLN_DEBUG_LOCATION("output");
@@ -222,309 +483,7 @@ static nw_error_t *activation_forward(activation_t *activation, tensor_t *x, ten
     return error;
 }
 
-static nw_error_t *linear_forward(linear_t *linear, tensor_t *x, tensor_t **y)
-{
-    PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_LINEAR("linear", linear);
-    PRINTLN_DEBUG_TENSOR("x", x);
-    PRINT_DEBUG_NEWLINE;
-
-    CHECK_NULL_ARGUMENT(linear, "linear");
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
-
-    nw_error_t *error = NULL;
-    tensor_t *x_i = NULL;
-    tensor_t *x_j = NULL;
-    tensor_t *weights = linear->weights;
-    tensor_t *bias = linear->bias;
-    activation_t *activation = linear->activation;
-
-    error = tensor_matrix_multiplication(x, weights, &x_i);
-    if (error)
-    {
-        error = ERROR(ERROR_MATRIX_MULTIPLICATION, string_create("failed to matrix multiply tensors."), error);
-        goto cleanup;
-    }
-
-    error = tensor_addition(x_i, bias, &x_j);
-    if (error)
-    {
-        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
-        goto cleanup;
-    }
-
-    error = activation_forward(activation, x_j, y);
-    if (error)
-    {
-        error = ERROR(ERROR_FORWARD, string_create("failed to apply activation function."), error);
-        goto cleanup;
-    }
-
-    PRINTLN_DEBUG_LOCATION("output");
-    PRINTLN_DEBUG_TENSOR("y", *y);
-    PRINT_DEBUG_NEWLINE;
-
-cleanup:
-
-    if (!(x_i->requires_gradient || bias->requires_gradient) || no_gradient)
-    {
-        tensor_destroy(x_j);
-    }
-
-    if (!(x->requires_gradient || weights->requires_gradient) || no_gradient)
-    {
-        tensor_destroy(x_i);
-    }
-
-    return error;
-}
-
-nw_error_t *dropout_forward(dropout_t *dropout, tensor_t *x, tensor_t **y)
-{
-    PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_DROPOUT("dropout", dropout);
-    PRINTLN_DEBUG_TENSOR("x", x);
-    PRINT_DEBUG_NEWLINE;
-
-    CHECK_NULL_ARGUMENT(dropout, "dropout");
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
-
-    nw_error_t *error = NULL;
-    tensor_t *probability = NULL;
-    tensor_t *scale = NULL;
-    tensor_t *prob_mask_1 = NULL;
-    tensor_t *prob_mask_2 = NULL;
-    tensor_t *prob_mask_sum = NULL;
-    tensor_t *rand_tensor = NULL;
-    tensor_t *x_i = NULL;
-    float32_t min = 0;
-    float32_t max = 1;
-    datatype_t datatype = x->buffer->storage->datatype;
-    runtime_t runtime = x->buffer->storage->runtime;
-
-    error = tensor_constant(&dropout->probability, datatype, runtime, false, false, &probability);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    float32_t scale_32 = 1.0 / (1.0 - dropout->probability);
-    error = tensor_constant(&scale_32, datatype, runtime, false, false, &scale);
-    if (error)
-    {
-        tensor_destroy(probability);
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    error = tensor_create_uniform(&rand_tensor, x->buffer->view->shape, x->buffer->view->rank, runtime, datatype, false, true, &min, &max);
-    if (error)
-    {
-        tensor_destroy(probability);
-        tensor_destroy(scale);
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    error = tensor_compare_greater(rand_tensor, probability, &prob_mask_1);
-    if (error)
-    {
-        tensor_destroy(probability);
-        tensor_destroy(scale);
-        tensor_destroy(rand_tensor);
-        return ERROR(ERROR_COMPARE_GREATER, string_create("failed to create tensor."), error);
-    }
-
-    error = tensor_compare_equal(rand_tensor, probability, &prob_mask_2);
-    if (error)
-    {
-        tensor_destroy(probability);
-        tensor_destroy(scale);
-        tensor_destroy(rand_tensor);
-        tensor_destroy(prob_mask_1);
-        return ERROR(ERROR_COMPARE_EQUAL, string_create("failed to create tensor."), error);
-    }
-
-    error = tensor_addition(prob_mask_1, prob_mask_2, &prob_mask_sum);
-    if (error)
-    {
-        tensor_destroy(probability);
-        tensor_destroy(scale);
-        tensor_destroy(rand_tensor);
-        tensor_destroy(prob_mask_1);
-        tensor_destroy(prob_mask_2);
-        return ERROR(ERROR_COMPARE_EQUAL, string_create("failed to create tensor."), error);
-    }
-    tensor_destroy(prob_mask_1);
-    tensor_destroy(prob_mask_2);
-
-    error = tensor_multiplication(x, prob_mask_sum, &x_i);
-    if (error)
-    {
-        tensor_destroy(probability);
-        tensor_destroy(scale);
-        tensor_destroy(rand_tensor);
-        tensor_destroy(prob_mask_sum);
-        return ERROR(ERROR_MULTIPLICATION, string_create("failed to matrix multiply tensors."), error);
-    }
-
-    error = tensor_multiplication(x_i, scale, y);
-    if (error)
-    {
-        tensor_destroy(probability);
-        tensor_destroy(scale);
-        tensor_destroy(rand_tensor);
-        tensor_destroy(prob_mask_sum);
-        tensor_destroy(x_i);
-        return ERROR(ERROR_MULTIPLICATION, string_create("failed to matrix multiply tensors."), error);
-    }
-
-    tensor_destroy(probability);
-    tensor_destroy(scale);
-    tensor_destroy(rand_tensor);
-    tensor_destroy(prob_mask_sum);
-    tensor_destroy(x_i);
-    return NULL;
-
-    PRINTLN_DEBUG_LOCATION("output");
-    PRINTLN_DEBUG_TENSOR("y", *y);
-    PRINT_DEBUG_NEWLINE;
-}
-
-static nw_error_t *convolution_forward(convolution_t *convolution, tensor_t *x, tensor_t **y)
-{
-    PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_TENSOR("x", x);
-    PRINT_DEBUG_NEWLINE;
-
-    CHECK_NULL_ARGUMENT(convolution, "convolution");
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
-
-    nw_error_t *error = NULL;
-    tensor_t *x_i = NULL;
-    tensor_t *kernel = convolution->kernel;
-    tensor_t *bias = convolution->bias;
-    int64_t stride = convolution->stride;
-    int64_t padding = convolution->padding;
-    activation_t *activation = convolution->activation;
-
-    error = tensor_convolution(x, kernel, bias, &x_i, stride, padding);
-    if (error)
-    {
-        layer_t *layer = block->layers[i];
-        if (!layer)
-        {
-            return ERROR(ERROR_NULL, string_create("layer is null."), NULL);
-        }
-
-        transform_type_t transform_type = layer->transform_type;
-        transform_t *transform = layer->transform;
-        if (!transform)
-        {
-            return ERROR(ERROR_NULL, string_create("transform is null."), NULL);
-        }
-
-        switch (transform_type)
-        {
-        case LINEAR:
-            error = linear_forward(transform->linear, x, &feature_map);
-            break;
-        case DROPOUT:
-            error = dropout_forward(transform->dropout, x, &feature_map);
-            break;
-        case BLOCK:
-            error = block_forward(transform->block, x, &feature_map);
-            break;
-        default:
-            error = ERROR(ERROR_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
-            break;
-        }
-
-        if (error)
-        {
-            return ERROR(ERROR_FORWARD, string_create("failed forward pass."), error);
-        }
-
-        if (i > 0 && (!feature_map->requires_gradient || no_gradient))
-        {
-            tensor_destroy(x);
-        }
-
-        x = feature_map;
-        feature_map = NULL;
-        error = ERROR(ERROR_CONVOLUTION, string_create("failed to apply convolution."), error);
-        goto cleanup;
-    }
-
-    error = activation_forward(activation, x_i, y);
-    if (error)
-    {
-        error = ERROR(ERROR_FORWARD, string_create("failed to apply activation function."), error);
-        goto cleanup;
-    }
-
-    PRINTLN_DEBUG_LOCATION("output");
-    PRINTLN_DEBUG_TENSOR("y", *y);
-    PRINT_DEBUG_NEWLINE;
-
-cleanup:
-
-    if (!(x->requires_gradient || kernel->requires_gradient) || no_gradient)
-    {
-        tensor_destroy(x_i);
-    }
-
-    return error;
-}
-
-static nw_error_t *convolution_transpose_forward(convolution_t *convolution, tensor_t *x, tensor_t **y)
-{
-    PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_TENSOR("x", x);
-    PRINT_DEBUG_NEWLINE;
-
-    CHECK_NULL_ARGUMENT(convolution, "convolution");
-    CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(y, "y");
-
-    nw_error_t *error = NULL;
-    tensor_t *x_i = NULL;
-    tensor_t *kernel = convolution->kernel;
-    tensor_t *bias = convolution->bias;
-    int64_t stride = convolution->stride;
-    int64_t padding = convolution->padding;
-    activation_t *activation = convolution->activation;
-
-    error = tensor_convolution_transpose(x, kernel, bias, &x_i, stride, padding);
-    if (error)
-    {
-        error = ERROR(ERROR_CONVOLUTION, string_create("failed to apply convolution."), error);
-        goto cleanup;
-    }
-
-    error = activation_forward(activation, x_i, y);
-    if (error)
-    {
-        error = ERROR(ERROR_FORWARD, string_create("failed to apply activation function."), error);
-        goto cleanup;
-    }
-
-    PRINTLN_DEBUG_LOCATION("output");
-    PRINTLN_DEBUG_TENSOR("y", *y);
-    PRINT_DEBUG_NEWLINE;
-
-cleanup:
-
-    if (!(x->requires_gradient || kernel->requires_gradient) || no_gradient)
-    {
-        tensor_destroy(x_i);
-    }
-
-    return error;
-}
-
-static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
+nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_BLOCK("block", block);
@@ -559,13 +518,14 @@ static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
         case LINEAR:
             error = linear_forward(transform->linear, x, &feature_map);
             break;
-        case CONVOLUTION:
-            error = convolution_forward(transform->convolution, x, &feature_map);
+        case CONVOLUTION_2D:
+            error = convolution_2d_forward(transform->convolution_2d, x, &feature_map);
             break;
-        case CONVOLUTION_TRANSPOSE:
-            error = convolution_transpose_forward(transform->convolution, x, &feature_map);
+        case CONVOLUTION_TRANSPOSE_2D:
+            error = convolution_2d_transpose_forward(transform->convolution_2d, x, &feature_map);
             break;
         case DROPOUT:
+            error = dropout_forward(transform->dropout, x, &feature_map);
             break;
         case BLOCK:
             error = block_forward(transform->block, x, &feature_map);
@@ -580,7 +540,7 @@ static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
             return ERROR(ERROR_FORWARD, string_create("failed forward pass."), error);
         }
 
-        if (i > 0 && (!feature_map->requires_gradient || no_gradient))
+        if (i > 0 && (!feature_map->requires_gradient || no_gradient) && x != feature_map)
         {
             tensor_destroy(x);
         }
@@ -598,522 +558,311 @@ static nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
     return error;
 }
 
-nw_error_t *model_forward(model_t *model, tensor_t *x, tensor_t **y)
+nw_error_t *linear_forward(linear_t *linear, tensor_t *x, tensor_t **y)
 {
     PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_MODEL("model", model);
+    PRINTLN_DEBUG_LINEAR("linear", linear);
     PRINTLN_DEBUG_TENSOR("x", x);
     PRINT_DEBUG_NEWLINE;
 
-    CHECK_NULL_ARGUMENT(model, "model");
+    CHECK_NULL_ARGUMENT(linear, "linear");
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
+    tensor_t *x_i = NULL;
+    tensor_t *x_j = NULL;
 
-    error = block_forward(model->block, x, y);
+    error = tensor_matrix_multiplication(x, linear->weights, &x_i);
     if (error)
     {
-        return ERROR(ERROR_FORWARD, string_create("failed forward pass"), error);
+        error = ERROR(ERROR_MATRIX_MULTIPLICATION, string_create("failed to matrix multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_addition(x_i, linear->bias, &x_j);
+    if (error)
+    {
+        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        goto cleanup;
+    }
+
+    error = activation_forward(linear->activation, x_j, y);
+    if (error)
+    {
+        error = ERROR(ERROR_FORWARD, string_create("failed to apply activation function."), error);
+        goto cleanup;
     }
 
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("y", *y);
     PRINT_DEBUG_NEWLINE;
 
+cleanup:
+
+    if (!(x_i->requires_gradient || linear->bias->requires_gradient) || no_gradient)
+    {
+        tensor_destroy(x_j);
+    }
+
+    if (!(x->requires_gradient || linear->weights->requires_gradient) || no_gradient)
+    {
+        tensor_destroy(x_i);
+    }
+
     return error;
 }
 
-nw_error_t *layer_create(layer_t **layer, transform_t *transform, transform_type_t transform_type)
+nw_error_t *convolution_2d_forward(convolution_2d_t *convolution_2d, tensor_t *x, tensor_t **y)
 {
-    CHECK_NULL_ARGUMENT(layer, "layer");
-    CHECK_NULL_ARGUMENT(transform, "transform");
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
 
-    *layer = (layer_t *) malloc(sizeof(layer_t));
-    if (!*layer)
+    CHECK_NULL_ARGUMENT(convolution_2d, "convolution_2d");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_i = NULL;
+
+    error = tensor_convolution_2d(x, convolution_2d->kernel, convolution_2d->bias, &x_i, convolution_2d->stride, convolution_2d->padding);
+    if (error)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(layer_t)), NULL);
+        error = ERROR(ERROR_CONVOLUTION, string_create("failed to apply convolution_2d."), error);
+        goto cleanup;
     }
 
-    (*layer)->transform = transform;
-    (*layer)->transform_type = transform_type;
+    error = activation_forward(convolution_2d->activation, x_i, y);
+    if (error)
+    {
+        error = ERROR(ERROR_FORWARD, string_create("failed to apply activation function."), error);
+        goto cleanup;
+    }
 
-    return NULL;
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    if (!(x->requires_gradient || convolution_2d->kernel->requires_gradient) || no_gradient)
+    {
+        tensor_destroy(x_i);
+    }
+
+    return error;
 }
 
-void layer_destroy(layer_t *layer)
+nw_error_t *convolution_2d_transpose_forward(convolution_2d_t *convolution_2d, tensor_t *x, tensor_t **y)
 {
-    if (layer)
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(convolution_2d, "convolution_2d");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_i = NULL;
+
+    error = tensor_convolution_2d_transpose(x, convolution_2d->kernel, convolution_2d->bias, &x_i, convolution_2d->stride, convolution_2d->padding);
+    if (error)
     {
-        transform_destroy(layer->transform, layer->transform_type);
-        free(layer);
+        error = ERROR(ERROR_CONVOLUTION, string_create("failed to apply convolution_2d."), error);
+        goto cleanup;
     }
+
+    error = activation_forward(convolution_2d->activation, x_i, y);
+    if (error)
+    {
+        error = ERROR(ERROR_FORWARD, string_create("failed to apply activation function."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    if (!(x->requires_gradient || convolution_2d->kernel->requires_gradient) || no_gradient)
+    {
+        tensor_destroy(x_i);
+    }
+
+    return error;
 }
 
-nw_error_t *transform_create(transform_t **transform, transform_type_t transform_type, void *type_transform)
+nw_error_t *dropout_forward(dropout_t *dropout, tensor_t *x, tensor_t **y)
 {
-    CHECK_NULL_ARGUMENT(transform, "transform");
-    CHECK_NULL_ARGUMENT(type_transform, "type_transform");
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_DROPOUT("dropout", dropout);
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
 
-    *transform = (transform_t *) malloc(sizeof(transform_t));
-    if (!*transform)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(transform_t)), NULL);
-    }
-
-    switch (transform_type)
-    {
-    case LINEAR:
-        (*transform)->linear = (linear_t *) type_transform;
-        break;
-    case CONVOLUTION:
-    case CONVOLUTION_TRANSPOSE:
-        (*transform)->convolution = (convolution_t *) type_transform;
-        break;
-    case DROPOUT:
-        (*transform)->dropout = (dropout_t *) type_transform;
-        break;
-    case BLOCK:
-        (*transform)->block = (block_t *) type_transform;
-        break;
-    default:
-        free(*transform);
-        return ERROR(ERROR_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
-    }
-
-    return NULL;
-}
-
-void transform_destroy(transform_t *transform, transform_type_t transform_type)
-{
-    if (transform)
-    {
-        switch (transform_type)
-        {
-        case LINEAR:
-            linear_destroy(transform->linear);
-            break;
-        case CONVOLUTION:
-        case CONVOLUTION_TRANSPOSE:
-            convolution_destroy(transform->convolution);
-            break;
-        case DROPOUT:
-            dropout_destroy(transform->dropout);
-            break;
-        case BLOCK:
-            block_destroy(transform->block);
-            break;
-        default:
-            break;
-        }
-        free(transform);
-    }
-}
-
-string_t transform_type_string(transform_type_t transform_type)
-{
-    switch (transform_type)
-    {
-    case LINEAR:
-        return "LINEAR";
-    case CONVOLUTION:
-        return "CONVOLUTION";
-    case CONVOLUTION_TRANSPOSE:
-        return "CONVOLUTION_TRANSPOSE";
-    case DROPOUT:
-        return "DROPOUT";
-    case BLOCK:
-        return "BLOCK";
-    default:
-        return "TRANSFORM_TYPE";
-    }
-}
-
-string_t activation_function_type_string(activation_function_type_t activation_function_type)
-{
-    switch (activation_function_type)
-    {
-    case ACTIVATION_RECTIFIED_LINEAR:
-        return "ACTIVATION_RECTIFIED_LINEAR";
-    case ACTIVATION_SIGMOID:
-        return "ACTIVATION_SIGMOID";
-    case ACTIVATION_SOFTMAX:
-        return "ACTIVATION_SOFTMAX";
-    case ACTIVATION_LOGSOFTMAX:
-        return "ACTIVATION_LOGSOFTMAX";
-    default:
-        return "ACTIVATION_FUNCTION_TYPE";
-    }
-}
-
-nw_error_t *linear_create(linear_t **linear, tensor_t *weights, tensor_t *bias, activation_t *activation)
-{
-    CHECK_NULL_ARGUMENT(linear, "linear");
-    CHECK_NULL_ARGUMENT(weights, "weights");
-    CHECK_NULL_ARGUMENT(bias, "bias");
-
-    *linear = (linear_t *) malloc(sizeof(linear_t));
-    if (!*linear)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(linear_t)), NULL);
-    }
-
-    (*linear)->weights = weights;
-    (*linear)->bias = bias;
-    (*linear)->activation = activation;
-
-    return NULL;
-}
-
-void linear_destroy(linear_t *linear)
-{
-    if (linear)
-    {
-        tensor_destroy(linear->weights);
-        tensor_destroy(linear->bias);
-        activation_destroy(linear->activation);
-        free(linear);
-    }
-}
-
-nw_error_t *convolution_create(convolution_t **convolution, int64_t kernel_size, int64_t padding, int64_t stride,
-                               int64_t in_channels, int64_t out_channels, tensor_t *kernel, tensor_t *bias, activation_t *activation)
-{
-    CHECK_NULL_ARGUMENT(convolution, "convolution");
-    CHECK_NULL_ARGUMENT(kernel, "kernel");
-    CHECK_NULL_ARGUMENT(bias, "bias");
-
-    *convolution = (convolution_t *) malloc(sizeof(linear_t));
-    if (!*convolution)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(convolution_t)), NULL);
-    }
-
-    (*convolution)->kernel_size = kernel_size;
-    (*convolution)->padding = padding;
-    (*convolution)->stride = stride;
-    (*convolution)->in_channels = in_channels;
-    (*convolution)->out_channels = out_channels;
-    (*convolution)->kernel = kernel;
-    (*convolution)->bias = bias;
-    (*convolution)->activation = activation;
-
-    return NULL;
-}
-
-void convolution_destroy(convolution_t *convolution)
-{
-    if (convolution)
-    {
-        tensor_destroy(convolution->kernel);
-        tensor_destroy(convolution->bias);
-        activation_destroy(convolution->activation);
-        free(convolution);
-    }
-}
-
-nw_error_t *dropout_create(dropout_t **dropout, float32_t probability)
-{
     CHECK_NULL_ARGUMENT(dropout, "dropout");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
 
-    *dropout = (dropout_t *) malloc(sizeof(dropout_t));
-    if (!*dropout)
+    nw_error_t *error = NULL;
+    tensor_t *probability = NULL;
+    tensor_t *scale = NULL;
+    tensor_t *mask= NULL;
+    tensor_t *rand_tensor = NULL;
+    tensor_t *x_i = NULL;
+    void *min = NULL;
+    void *max = NULL;
+    void *scalar = NULL;
+    datatype_t datatype = x->buffer->storage->datatype;
+    runtime_t runtime = x->buffer->storage->runtime;
+
+    if (dropout->inference)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(dropout_t)), NULL);
-    }
-
-    if (probability < 0 || probability > 1)
-    {
-        free(*dropout);
-        return ERROR(ERROR_DROPOUT, string_create("Dropout probability has to be between 0 and 1, but got %f", probability), NULL);
-    }
-    (*dropout)->probability = probability;
-
-    return NULL;
-}
-
-void dropout_destroy(dropout_t *dropout)
-{
-    if (dropout)
-    {
-        free(dropout);
-    }
-}
-
-nw_error_t *block_create(block_t **block, int64_t depth, ...)
-{
-    CHECK_NULL_ARGUMENT(block, "block");
-    
-    va_list valist;
-    va_start(valist, depth);
-
-    *block = (block_t *) malloc(sizeof(block_t));
-    if (!*block)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(block_t)), NULL);
-    }
-
-    (*block)->depth = depth;
-    (*block)->layers = (layer_t **) malloc(depth * sizeof(layer_t *));
-    if (!(*block)->layers)
-    {
-        free(*block);
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(depth * sizeof(layer_t *))), NULL);
-    }
-
-    for (int64_t i = 0; i < depth; ++i)
-    {
-        (*block)->layers[i] = (layer_t *) va_arg(valist, layer_t *);
-    }
-
-    va_end(valist);
-
-    return NULL;
-}
-
-void block_destroy(block_t *block)
-{
-    if (block)
-    {
-        if (block->layers)
-        {
-            for (int64_t i = 0; i < block->depth; ++i)
-            {
-                layer_destroy(block->layers[i]);
-            }
-            free(block->layers);
-        }
-        free(block);
-    }
-}
-
-nw_error_t *softmax_create(softmax_t **softmax, int64_t axis)
-{
-    CHECK_NULL_ARGUMENT(softmax, "softmax");
-
-    *softmax = (softmax_t *) malloc(sizeof(softmax_t));
-    if (!*softmax)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(softmax_t)), NULL);
-    }
-
-    (*softmax)->axis = axis;
-
-    return NULL;
-}
-
-void softmax_destroy(softmax_t *softmax)
-{
-    if (softmax)
-    {
-        free(softmax);
-    }
-}
-
-nw_error_t *activation_function_create(activation_function_t **activation_function,
-                                       activation_function_type_t activation_function_type,
-                                       void *type_activation_function)
-{
-    CHECK_NULL_ARGUMENT(activation_function, "activation_function");
-
-    *activation_function = (activation_function_t *) malloc(sizeof(activation_function_t));
-    if (!*activation_function)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(activation_function_t)), NULL);
-    }
-
-    switch (activation_function_type)
-    {
-    case ACTIVATION_RECTIFIED_LINEAR:
-    case ACTIVATION_SIGMOID:
+        *y = x;
         return NULL;
-    case ACTIVATION_SOFTMAX:
-    case ACTIVATION_LOGSOFTMAX:
-        (*activation_function)->softmax = (softmax_t *) type_activation_function;
+    }
+
+    min = (void *) malloc(datatype_size(datatype));
+    if (!min) 
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
+        goto cleanup;
+    }
+
+    max = (void *) malloc(datatype_size(datatype));
+    if (!max) 
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
+        goto cleanup;
+    }
+
+    scalar = (void *) malloc(datatype_size(datatype));
+    if (!scalar) 
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
+        goto cleanup;
+    }
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) min = (float32_t) 0.0;
+        *(float32_t *) max = (float32_t) 1.0;
+        *(float32_t *) scalar = (float32_t) 1.0 / ((float32_t) 1.0 - *(float32_t *) dropout->probability);
+        break;
+    case FLOAT64:
+        *(float64_t *) min = (float64_t) 0.0;
+        *(float64_t *) max = (float64_t) 1.0;
+        *(float64_t *) scalar = (float64_t) 1.0 / ((float64_t) 1.0 - *(float64_t *) dropout->probability);
         break;
     default:
-        free(*activation_function);
-        return ERROR(ERROR_ACTIVATION_TYPE, string_create("unknown activation type %d.", (int) activation_function_type), NULL);
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype."), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_constant(dropout->probability, datatype, runtime, false, false, &probability);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    error = tensor_constant(scalar, datatype, runtime, false, false, &scale);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_create_uniform(&rand_tensor, x->buffer->view->shape, x->buffer->view->rank, runtime, datatype, false, false, min, max);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_compare_greater(rand_tensor, probability, &mask);
+    if (error)
+    {
+        error = ERROR(ERROR_COMPARE_GREATER, string_create("failed to compare greater tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(x, mask, &x_i);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(x_i, scale, y);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    free(scalar);
+    free(min);
+    free(max);
+    
+    tensor_destroy(probability);
+    tensor_destroy(rand_tensor);
+    tensor_destroy(scale);
+
+    if (!x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(mask);
+        tensor_destroy(x_i);
     }
 
     return NULL;
 }
 
-void activation_function_destroy(activation_function_t *activation_function, activation_function_type_t activation_function_type)
-{
-    if (activation_function)
-    {
-        switch (activation_function_type)
-        {
-        case ACTIVATION_SOFTMAX:
-        case ACTIVATION_LOGSOFTMAX:
-            softmax_destroy(activation_function->softmax);
-            break;
-        default:
-            break;
-        }
-        free(activation_function);
-    }
-}
-
-nw_error_t *activation_create(activation_t **activation,
-                              activation_function_t *activation_function,
-                              activation_function_type_t activation_function_type)
-{
-    CHECK_NULL_ARGUMENT(activation, "activation");
-    CHECK_NULL_ARGUMENT(activation_function, "activation_function");
-
-    *activation = (activation_t *) malloc(sizeof(activation_t));
-    if (!*activation)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(activation_t)), NULL);
-    }
-
-    (*activation)->activation_function = activation_function;
-    (*activation)->activation_function_type = activation_function_type;
-
-    return NULL;
-}
-
-void activation_destroy(activation_t *activation)
-{
-    if (activation)
-    {
-        activation_function_destroy(activation->activation_function, activation->activation_function_type);
-        free(activation);
-    }
-}
-
-nw_error_t *rectified_linear_activation_create(activation_t **activation)
-{
-    CHECK_NULL_ARGUMENT(activation, "activation");
-
-    nw_error_t *error = NULL;
-    activation_function_t *activation_function = NULL;
-    activation_function_type_t activation_function_type = ACTIVATION_RECTIFIED_LINEAR;
-
-    error = activation_function_create(&activation_function, activation_function_type, NULL);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create activation function."), error);
-    }
-
-    error = activation_create(activation, activation_function, activation_function_type);
-    if (error)
-    {
-        activation_function_destroy(activation_function, activation_function_type);
-        return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *sigmoid_activation_create(activation_t **activation)
-{
-    CHECK_NULL_ARGUMENT(activation, "activation");
-
-    nw_error_t *error = NULL;
-    activation_function_t *activation_function = NULL;
-    activation_function_type_t activation_function_type = ACTIVATION_SIGMOID;
-
-    error = activation_function_create(&activation_function, activation_function_type, NULL);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create activation function."), error);
-    }
-
-    error = activation_create(activation, activation_function, activation_function_type);
-    if (error)
-    {
-        activation_function_destroy(activation_function, activation_function_type);
-        return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
-    }
-
-    return error;
-}
-
-static nw_error_t *softmax_activation_type_create(activation_t **activation, int64_t axis, activation_function_type_t activation_function_type)
-{
-    CHECK_NULL_ARGUMENT(activation, "activation");
-
-    nw_error_t *error = NULL;
-    softmax_t *softmax = NULL;
-    activation_function_t *activation_function = NULL;
-
-    error = softmax_create(&softmax, axis);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create softmax."), error);
-    }
-
-    error = activation_function_create(&activation_function, activation_function_type, softmax);
-    if (error)
-    {
-        softmax_destroy(softmax);
-        return ERROR(ERROR_CREATE, string_create("failed to create activation function."), error);
-    }
-
-    error = activation_create(activation, activation_function, activation_function_type);
-    if (error)
-    {
-        activation_function_destroy(activation_function, activation_function_type);
-        return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *softmax_activation_create(activation_t **activation, int64_t axis)
-{
-    CHECK_NULL_ARGUMENT(activation, "activation");
-
-    nw_error_t *error = NULL;
-
-    error = softmax_activation_type_create(activation, axis, ACTIVATION_SOFTMAX);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create softmax activation."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *logsoftmax_activation_create(activation_t **activation, int64_t axis)
-{
-    CHECK_NULL_ARGUMENT(activation, "activation");
-
-    nw_error_t *error = NULL;
-
-    error = softmax_activation_type_create(activation, axis, ACTIVATION_LOGSOFTMAX);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create softmax activation."), error);
-    }
-
-    return error;
-}
-
-nw_error_t *model_create(model_t **model, block_t *block)
+nw_error_t *model_inference(model_t *model, bool_t inference)
 {
     CHECK_NULL_ARGUMENT(model, "model");
-    CHECK_NULL_ARGUMENT(block, "block");
 
-    *model = (model_t *) malloc(sizeof(model_t));
-    if (!*model)
+    nw_error_t *error = block_inference(model->block, inference);
+    if (error)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(model_t)), NULL);
+        return ERROR(ERROR_SET, string_create("failed to set inference flag."), error);
     }
 
-    (*model)->block = block;
-
-    return NULL;
+    return error;
 }
 
-void model_destroy(model_t *model) 
+nw_error_t *block_inference(block_t *block, bool_t inference)
 {
-    if (model)
+    CHECK_NULL_ARGUMENT(block, "block");
+
+    nw_error_t *error = NULL;
+
+    for (int64_t i = 0; i < block->depth; ++i)
     {
-        block_destroy(model->block);
-        free(model);
+        switch (block->layers[i]->transform_type)
+        {
+        case DROPOUT:
+            block->layers[i]->transform->dropout->inference = inference;
+            break;
+        case BLOCK:
+            error = block_inference(block->layers[i]->transform->block, inference);
+            if (error)
+            {
+                return ERROR(ERROR_SET, string_create("failed to set inference flag."), error);
+            }
+            break;
+        default:
+            break;
+        }
     }
+
+    return error;
 }
