@@ -8,6 +8,7 @@ extern "C"
 #include <tensor.h>
 #include <function.h>
 #include <test_helper.h>
+#include <random.h>
 }
 #include <test_helper_torch.h>
 
@@ -23,6 +24,7 @@ typedef enum tensor_unary_type_t
     TENSOR_NEGATION,
     TENSOR_RECTIFIED_LINEAR,
     TENSOR_SIGMOID,
+    TENSOR_LEAKY_RECTIFIED_LINEAR,
 } tensor_unary_type_t;
 
 #define CASES_0_0 7
@@ -40,9 +42,7 @@ tensor_t *tensors[RUNTIMES][DATATYPES][CASES];
 tensor_t *returned_tensors[RUNTIMES][DATATYPES][CASES];
 tensor_t *expected_tensors[RUNTIMES][DATATYPES][CASES];
 tensor_t *expected_gradients[RUNTIMES][DATATYPES][CASES];
-
 torch::Tensor torch_tensors[RUNTIMES][DATATYPES][CASES];
-
 
 std::vector<int64_t> shapes[CASES] = {
     // Cases 0.0
@@ -300,6 +300,9 @@ std::vector<int64_t> expanded_shapes[CASES] = {
     {6, 5, 4, 3, 2},
 };
 
+float32_t leaky_relu_arguments_f[CASES];
+float64_t leaky_relu_arguments[CASES];
+
 void setup(void)
 {
     for (int i = 0; i < RUNTIMES; i++)
@@ -317,11 +320,13 @@ void setup(void)
                 switch ((datatype_t) j)
                 {
                 case FLOAT32:
+                    leaky_relu_arguments_f[k] = uniformf(0.0, 0.99);
                     torch_tensors[i][j][k] = torch::randn(shapes[k], 
                                                           torch::TensorOptions().dtype(torch::kFloat32).requires_grad(true)
                                                           ).expand(expanded_shapes[k]);
                     break;
                 case FLOAT64:
+                    leaky_relu_arguments[k] = uniform(0.0, 0.99);
                     torch_tensors[i][j][k] = torch::randn(shapes[k],
                                                           torch::TensorOptions().dtype(torch::kFloat64).requires_grad(true)
                                                           ).expand(expanded_shapes[k]);
@@ -363,6 +368,7 @@ void test_unary(tensor_unary_type_t tensor_unary_type)
     {
         for (int j = 0; j < DATATYPES; j++)
         {
+            datatype_t datatype = (datatype_t) j;
             for (int k = 0; k < CASES; k++)
             {
                 torch::Tensor expected_tensor;
@@ -398,6 +404,19 @@ void test_unary(tensor_unary_type_t tensor_unary_type)
                     break;
                 case TENSOR_SIGMOID:
                     expected_tensor = torch::sigmoid(torch_tensors[i][j][k]);
+                    break;
+                case TENSOR_LEAKY_RECTIFIED_LINEAR:
+                    switch (datatype)
+                    {
+                    case FLOAT32:
+                        expected_tensor = torch::leaky_relu(torch_tensors[i][j][k], leaky_relu_arguments_f[k]);
+                        break;
+                    case FLOAT64:
+                        expected_tensor = torch::leaky_relu(torch_tensors[i][j][k], leaky_relu_arguments[k]);
+                        break;
+                    default:
+                        ck_abort_msg("unknown data type.");
+                    }
                     break;
                 default:
                     ck_abort_msg("unknown unary type.");
@@ -437,6 +456,19 @@ void test_unary(tensor_unary_type_t tensor_unary_type)
                     break;
                 case TENSOR_SIGMOID:
                     error = tensor_sigmoid(tensors[i][j][k], &returned_tensors[i][j][k]);
+                    break;
+                case TENSOR_LEAKY_RECTIFIED_LINEAR:
+                    switch (datatype)
+                    {
+                    case FLOAT32:
+                        error = tensor_leaky_rectified_linear(tensors[i][j][k], (void *) &leaky_relu_arguments_f[k], &returned_tensors[i][j][k]);
+                        break;
+                    case FLOAT64:
+                        error = tensor_leaky_rectified_linear(tensors[i][j][k], (void *) &leaky_relu_arguments[k], &returned_tensors[i][j][k]);
+                        break;
+                    default:
+                        ck_abort_msg("unknown data type.");
+                    }
                     break;
                 default:
                     ck_abort_msg("unknown unary type.");
@@ -527,6 +559,12 @@ START_TEST(test_sigmoid)
 }
 END_TEST
 
+START_TEST(test_leaky_rectified_linear)
+{
+    test_unary(TENSOR_LEAKY_RECTIFIED_LINEAR);
+}
+END_TEST
+
 Suite *make_unary_suite(void)
 {
     Suite *s;
@@ -546,6 +584,7 @@ Suite *make_unary_suite(void)
     tcase_add_test(tc_unary, test_negation);
     tcase_add_test(tc_unary, test_rectified_linear);
     tcase_add_test(tc_unary, test_sigmoid);
+    tcase_add_test(tc_unary, test_leaky_rectified_linear);
 
     suite_add_tcase(s, tc_unary);
 
@@ -556,6 +595,7 @@ int main(void)
 {
     // Set seed
     torch::manual_seed(SEED);
+    set_seed(SEED);
 
     int number_failed;
     SRunner *sr;

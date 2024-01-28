@@ -617,6 +617,39 @@ nw_error_t *logsoftmax_activation_layer_create(layer_t **layer, int64_t axis)
     return error;
 }
 
+nw_error_t *leaky_rectified_linear_activation_layer_create(layer_t **layer, void *c, datatype_t datatype)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+    CHECK_NULL_ARGUMENT(c, "c");
+
+    nw_error_t *error = NULL;
+    activation_t *activation = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = ACTIVATION;
+
+    error = leaky_rectified_linear_activation_create(&activation, c, datatype);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) activation);
+    if (error)
+    {
+        activation_destroy(activation);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
 nw_error_t *model_forward(model_t *model, tensor_t *x, tensor_t **y)
 {
     PRINTLN_DEBUG_LOCATION("input");

@@ -2184,6 +2184,83 @@ nw_error_t *tensor_rectified_linear(const tensor_t *x, tensor_t **y)
     return error;
 }
 
+nw_error_t *tensor_leaky_rectified_linear(const tensor_t *x, void *c, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(c, "c");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *c_i = NULL;
+    tensor_t *c_j = NULL;
+    tensor_t *x_i = NULL;
+    tensor_t *x_j = NULL;
+    tensor_t *x_k = NULL;
+
+    error = tensor_constant(c, x->buffer->storage->datatype, x->buffer->storage->runtime, false, false, &c_i);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_negation(c_i, &c_j);
+    if (error)
+    {
+        error = ERROR(ERROR_NEGATION, string_create("failed to negate tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_rectified_linear(x, &x_i);
+    if (error)
+    {
+        error = ERROR(ERROR_RECTIFIED_LINEAR, string_create("failed to rectified linear tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(x, c_j, &x_j);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_rectified_linear(x_j, &x_k);
+    if (error)
+    {
+        error = ERROR(ERROR_RECTIFIED_LINEAR, string_create("failed to rectified linear tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_subtraction(x_i, x_k, y);
+    if (error)
+    {
+        error = ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensor."), error);
+        goto cleanup;
+    }
+    
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    tensor_destroy(c_i);
+    if (!x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(c_j);
+        tensor_destroy(x_i);
+        tensor_destroy(x_j);
+        tensor_destroy(x_k);
+    }
+
+    return error;
+}
 
 static nw_error_t *topological_sort(tensor_t *tensor, map_t *visited, stack_t *tensors)
 {

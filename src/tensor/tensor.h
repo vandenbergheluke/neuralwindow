@@ -32,6 +32,7 @@ nw_error_t *tensor_create_null(tensor_t **tensor);
 // Destructor
 void tensor_destroy(tensor_t *tensor);
 
+// Creation Operations
 nw_error_t *tensor_constant(void *constant, datatype_t datatype, runtime_t runtime, bool_t requires_gradient, bool_t persist, tensor_t **x);
 nw_error_t *tensor_zeroes_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t persist);
 nw_error_t *tensor_ones_like(const tensor_t *x, tensor_t **y, bool_t requires_gradient, bool_t persist);
@@ -99,6 +100,7 @@ nw_error_t *tensor_square_root(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_reciprocal(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_negation(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_rectified_linear(const tensor_t *x, tensor_t **y);
+nw_error_t *tensor_leaky_rectified_linear(const tensor_t *x, void *c, tensor_t **y);
 nw_error_t *tensor_sigmoid(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y);
 
