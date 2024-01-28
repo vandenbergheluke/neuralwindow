@@ -94,7 +94,7 @@ nw_error_t *map_get(map_t *map, string_t key, void **data)
     return NULL;
 }
 
-static nw_error_t *map_set_entry(entry_t *entries, uint64_t capacity, string_t key, void *data)
+static nw_error_t *map_set_entry(entry_t *entries, uint64_t capacity, string_t key, void *data, uint64_t *length)
 {
     CHECK_NULL_ARGUMENT(entries, "entries");
     CHECK_NULL_ARGUMENT(key, "key");
@@ -118,6 +118,7 @@ static nw_error_t *map_set_entry(entry_t *entries, uint64_t capacity, string_t k
 
     entries[index].key = key;
     entries[index].data = data;
+    ++(*length);
 
     return NULL;
 }
@@ -151,6 +152,7 @@ static nw_error_t *map_expand(map_t *map)
     CHECK_NULL_ARGUMENT(map, "map");
     CHECK_NULL_ARGUMENT(map->entries, "map->entries");
 
+    uint64_t new_length = 0;
     uint64_t new_capacity = map->capacity * 2;
     if (new_capacity < map->capacity)
     {
@@ -178,7 +180,7 @@ static nw_error_t *map_expand(map_t *map)
         entry_t entry = map->entries[i];
         if (entry.key)
         {
-            nw_error_t *error = map_set_entry(new_entries, new_capacity, entry.key, entry.data);
+            nw_error_t *error = map_set_entry(new_entries, new_capacity, entry.key, entry.data, &new_length);
             if (error)
             {
                 free(new_entries);
@@ -190,6 +192,7 @@ static nw_error_t *map_expand(map_t *map)
     free(map->entries);
     map->entries = new_entries;
     map->capacity = new_capacity;
+    map->length = new_length;
 
     return NULL;
 }
@@ -218,12 +221,11 @@ nw_error_t *map_set(map_t *map, string_t key, void *data)
 
     strcpy(copy_key, key);
 
-    error = map_set_entry(map->entries, map->capacity, copy_key, data);
+    error = map_set_entry(map->entries, map->capacity, copy_key, data, &map->length);
     if (error)
     {
         return ERROR(ERROR_SET, string_create("failed to set map entry with corresponding key %s.", key), error);
     }
-    ++map->length;
 
     return NULL;
 }
