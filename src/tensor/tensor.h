@@ -79,8 +79,10 @@ nw_error_t *tensor_concatenation(const tensor_t *x, const tensor_t *y, tensor_t 
 
 // Ternary Operations
 nw_error_t *tensor_convolution_2d(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding);
-nw_error_t *tensor_convolution_2d_transpose(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding);
+nw_error_t *tensor_convolution_transpose_2d(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding);
 nw_error_t *tensor_linear(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z);
+nw_error_t *tensor_batch_normalization_2d(const tensor_t *x, const tensor_t *weights, const tensor_t *bias, tensor_t *running_mean, 
+                                          tensor_t *running_variance, tensor_t **y, bool_t inference, void *momentum, void *epsilon);
 
 // Reduction Operations
 nw_error_t *tensor_summation(const tensor_t *x, tensor_t **y, const int64_t *axis, int64_t length, bool_t keep_dimension);
@@ -89,6 +91,8 @@ nw_error_t *tensor_mean(const tensor_t *x, tensor_t **y, const int64_t *axis, in
 nw_error_t *tensor_softmax(const tensor_t *x, tensor_t **y, int64_t axis);
 nw_error_t *tensor_logsoftmax(const tensor_t *x, tensor_t **y, int64_t axis);
 nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, int64_t axis, bool_t keep_dimension);
+nw_error_t *tensor_variance(const tensor_t *x, tensor_t **y, const int64_t *axis, int64_t length, bool_t keep_dimension, bool_t unbiased);
+nw_error_t *tensor_standard_deviation(const tensor_t *x, tensor_t **y, const int64_t *axis, int64_t length, bool_t keep_dimension, bool_t unbiased);
 
 // Unary Operations
 nw_error_t *tensor_contiguous(const tensor_t *x, tensor_t **y);

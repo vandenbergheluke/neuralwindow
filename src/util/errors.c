@@ -195,6 +195,12 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_GET";
     case ERROR_LINEAR:
         return "ERROR_LINEAR";
+    case ERROR_VARIANCE:
+        return "ERROR_VARIANCE";
+    case ERROR_STANDARD_DEVIATION:
+        return "ERROR_STANDARD_DEVIATION";
+    case ERROR_BATCH_NORMALIZATION:
+        return "ERROR_BATCH_NORMALIZATION";
     default:
         return "ERROR";
     }

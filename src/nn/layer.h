@@ -31,15 +31,27 @@ typedef struct convolution_2d_t
 typedef struct dropout_t
 {
     void *probability;
-    datatype_t datatype;
     bool_t inference;
 } dropout_t;
+
+typedef struct batch_normalization_2d_t
+{
+    void *momentum;
+    void *epsilon;
+    bool_t track_running_stats;
+    tensor_t *weights;
+    tensor_t *bias;
+    tensor_t *running_mean;
+    tensor_t *running_variance;
+    bool_t inference;
+} batch_normalization_2d_t;
 
 typedef union transform_t
 {
     linear_t *linear;
     convolution_2d_t *convolution_2d;
     dropout_t *dropout;
+    batch_normalization_2d_t *batch_normalization_2d;
     activation_t *activation;
     block_t *block;
 } transform_t;
@@ -50,6 +62,7 @@ typedef enum transform_type_t
     CONVOLUTION_2D,
     CONVOLUTION_TRANSPOSE_2D,
     DROPOUT,
+    BATCH_NORMALIZATION_2D,
     ACTIVATION,
     BLOCK
 } transform_type_t;
@@ -95,14 +108,23 @@ void convolution_2d_destroy(convolution_2d_t *convolution_2d);
 nw_error_t *dropout_create(dropout_t **dropout, void *probability, datatype_t datatype);
 void dropout_destroy(dropout_t *dropout);
 
+nw_error_t *batch_normalization_2d_create(batch_normalization_2d_t **batch_normalization_2d, int64_t number_of_features,
+                                          void *momentum, void *epsilon, bool_t track_running_stats,
+                                          bool_t affine, datatype_t datatype, runtime_t runtime);
+void batch_normalization_2d_destroy(batch_normalization_2d_t *batch_normalization_2d);
+
 nw_error_t *linear_layer_create(layer_t **layer, int64_t in_features, int64_t out_features, runtime_t runtime, datatype_t datatype,
                                 parameter_init_t *weight_init, parameter_init_t *bias_init);
 nw_error_t *linear_layer_create_from_parameters(layer_t **layer, tensor_t *weights, tensor_t *bias);
 nw_error_t *convolution_2d_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride, int64_t in_channels, int64_t out_channels, runtime_t runtime, 
                                         datatype_t datatype, parameter_init_t *kernel_init, parameter_init_t *bias_init);
-nw_error_t *convolution_2d_transpose_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride, int64_t in_channels, int64_t out_channels,
+nw_error_t *convolution_transpose_2d_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride, int64_t in_channels, int64_t out_channels,
                                                   runtime_t runtime, datatype_t datatype, parameter_init_t *kernel_init, parameter_init_t *bias_init);
 nw_error_t *dropout_layer_create(layer_t **layer, void *probability, datatype_t datatype);
+nw_error_t *batch_normalization_2d_layer_create(layer_t **layer, int64_t number_of_features,
+                                                void *momentum, void *epsilon, bool_t track_running_stats,
+                                                bool_t affine, datatype_t datatype, runtime_t runtime);
+
 nw_error_t *rectified_linear_activation_layer_create(layer_t **layer);
 nw_error_t *sigmoid_activation_layer_create(layer_t **layer);
 nw_error_t *softmax_activation_layer_create(layer_t **layer, int64_t axis);
@@ -114,8 +136,9 @@ nw_error_t *model_forward(model_t *model, tensor_t *x, tensor_t **y);
 nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y);
 nw_error_t *linear_forward(linear_t *linear, tensor_t *x, tensor_t **y);
 nw_error_t *convolution_2d_forward(convolution_2d_t *convolution_2d, tensor_t *x, tensor_t **y);
-nw_error_t *convolution_2d_transpose_forward(convolution_2d_t *convolution_2d, tensor_t *x, tensor_t **y);
+nw_error_t *convolution_transpose_2d_forward(convolution_2d_t *convolution_2d, tensor_t *x, tensor_t **y);
 nw_error_t *dropout_forward(dropout_t *dropout, tensor_t *x, tensor_t **y);
+nw_error_t *batch_normalization_2d_forward(batch_normalization_2d_t *batch_normalization_2d, tensor_t *x, tensor_t **y);
 
 // Inference set
 nw_error_t *model_inference(model_t *model, bool_t inference);
