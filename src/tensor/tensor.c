@@ -2871,7 +2871,10 @@ nw_error_t *tensor_leaky_rectified_linear(const tensor_t *x, void *c, tensor_t *
 cleanup:
 
     tensor_destroy(c_i);
-    tensor_destroy(c_j);
+    if (!tensor_shapes_equal(x, c_j)) 
+    {
+        tensor_destroy(c_j);
+    }
     if (!x->requires_gradient || no_gradient)
     {
         tensor_destroy(x_i);
