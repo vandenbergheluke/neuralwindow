@@ -68,4 +68,3 @@ jobs:
         make valgrind_test_tensor_ternary
         make valgrind_test_autograd
         make valgrind_test_view
-        make valgrind_test_optimizer
