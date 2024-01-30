@@ -347,7 +347,7 @@ int adam_iterations[ADAM_CASES] = {
 
 typedef enum model_type_t
 {
-    CONVOLUTIONAL_DISCRIMINATOR,
+    CONVOLUTIONAL_NEURAL_NETWORK,
     SINGLE_LAYER_FEED_FORWARD,
 } model_type_t;
 
@@ -373,37 +373,53 @@ struct SingleLayerFeedForwardImpl : torch::nn::Module
 };
 TORCH_MODULE(SingleLayerFeedForward);
 
-struct ConvolutionalDiscriminatorImpl : torch::nn::Module
+struct ConvolutionalNeuralNetworkImpl : torch::nn::Module
 {
-    ConvolutionalDiscriminatorImpl() :
+    ConvolutionalNeuralNetworkImpl() :
+        convtranspose1(register_module("convtranspose1", torch::nn::ConvTranspose2d(torch::nn::ConvTranspose2dOptions(5, 2, 4).bias(false)))),
+        convtranspose2(register_module("convtranspose2", torch::nn::ConvTranspose2d(torch::nn::ConvTranspose2dOptions(2, 3, 3).stride(2).padding(1).bias(false)))),
+        convtranspose3(register_module("convtranspose3", torch::nn::ConvTranspose2d(torch::nn::ConvTranspose2dOptions(3, 4, 4).stride(2).padding(1).bias(false)))),
+        convtranspose4(register_module("convtranspose4", torch::nn::ConvTranspose2d(torch::nn::ConvTranspose2dOptions(4, 1, 3).stride(2).padding(1).bias(false)))),
         conv1(register_module("conv1", torch::nn::Conv2d(torch::nn::Conv2dOptions(1, 2, 4).stride(2).padding(1).bias(false)))),
         conv2(register_module("conv2", torch::nn::Conv2d(torch::nn::Conv2dOptions(2, 3, 4).stride(2).padding(1).bias(false)))),
         conv3(register_module("conv3", torch::nn::Conv2d(torch::nn::Conv2dOptions(3, 4, 4).stride(2).padding(1).bias(false)))),
         conv4(register_module("conv4", torch::nn::Conv2d(torch::nn::Conv2dOptions(4, 1, 3).stride(1).padding(0).bias(false)))),
-        batch_norm1(register_module("batch_norm1", torch::nn::BatchNorm2d(3))),
-        batch_norm2(register_module("batch_norm2", torch::nn::BatchNorm2d(4))),
+        batch_norm1(register_module("batch_norm1", torch::nn::BatchNorm2d(2))),
+        batch_norm2(register_module("batch_norm2", torch::nn::BatchNorm2d(3))),
+        batch_norm3(register_module("batch_norm3", torch::nn::BatchNorm2d(4))),
+        batch_norm4(register_module("batch_norm4", torch::nn::BatchNorm2d(3))),
+        batch_norm5(register_module("batch_norm5", torch::nn::BatchNorm2d(4))),
         leaky_relu1(register_module("leaky_relu1", torch::nn::LeakyReLU(torch::nn::LeakyReLUOptions().negative_slope(0.2)))),
         leaky_relu2(register_module("leaky_relu2", torch::nn::LeakyReLU(torch::nn::LeakyReLUOptions().negative_slope(0.2)))),
         leaky_relu3(register_module("leaky_relu3", torch::nn::LeakyReLU(torch::nn::LeakyReLUOptions().negative_slope(0.2)))),
+        relu1(register_module("relu1", torch::nn::ReLU())),
+        relu2(register_module("relu2", torch::nn::ReLU())),
+        relu3(register_module("relu3", torch::nn::ReLU())),
         sigmoid(register_module("sigmoid", torch::nn::Sigmoid()))
     {
     }
 
     torch::Tensor forward(torch::Tensor x) 
     {
+        x = relu1(batch_norm1(convtranspose1(x)));
+        x = relu2(batch_norm2(convtranspose2(x)));
+        x = relu3(batch_norm3(convtranspose3(x)));
+        x = convtranspose4(x);
         x = leaky_relu1(conv1(x));
-        x = leaky_relu2(batch_norm1(conv2(x)));
-        x = leaky_relu3(batch_norm2(conv3(x)));
+        x = leaky_relu2(batch_norm4(conv2(x)));
+        x = leaky_relu3(batch_norm5(conv3(x)));
         x = sigmoid(conv4(x));
         return x.reshape({-1});
     }
 
+    torch::nn::ConvTranspose2d convtranspose1, convtranspose2, convtranspose3, convtranspose4;
     torch::nn::Conv2d conv1, conv2, conv3, conv4;
-    torch::nn::BatchNorm2d batch_norm1, batch_norm2;
+    torch::nn::BatchNorm2d batch_norm1, batch_norm2, batch_norm3, batch_norm4, batch_norm5;
     torch::nn::LeakyReLU leaky_relu1, leaky_relu2, leaky_relu3;
+    torch::nn::ReLU relu1, relu2, relu3;
     torch::nn::Sigmoid sigmoid;
 };
-TORCH_MODULE(ConvolutionalDiscriminator);
+TORCH_MODULE(ConvolutionalNeuralNetwork);
 
 nw_error_t *error = NULL;
 std::vector<optimizer_t *> optimizers[RUNTIMES][DATATYPES][MODELS];
@@ -412,7 +428,7 @@ std::vector<torch::optim::RMSprop> torch_optimizers_rms_prop[RUNTIMES][DATATYPES
 std::vector<torch::optim::Adam> torch_optimizers_adam[RUNTIMES][DATATYPES][MODELS];
 std::vector<model_t *> models[RUNTIMES][DATATYPES][MODELS];
 std::vector<SingleLayerFeedForward> torch_models_single_layer_feed_forward[RUNTIMES][DATATYPES];
-std::vector<ConvolutionalDiscriminator> torch_models_convolutional_discriminator[RUNTIMES][DATATYPES];
+std::vector<ConvolutionalNeuralNetwork> torch_models_convolutional_neural_network[RUNTIMES][DATATYPES];
 std::vector<tensor_t *> inputs[RUNTIMES][DATATYPES][MODELS];
 std::vector<tensor_t *> outputs[RUNTIMES][DATATYPES][MODELS];
 std::vector<torch::Tensor> torch_inputs[RUNTIMES][DATATYPES][MODELS];
@@ -514,37 +530,39 @@ void setup_single_layer_feed_forward(runtime_t runtime, datatype_t datatype)
     outputs[runtime][datatype][SINGLE_LAYER_FEED_FORWARD].push_back(output);
 }
 
-void setup_convolutional_discriminator(runtime_t runtime, datatype_t datatype)
+void setup_convolutional_neural_network(runtime_t runtime, datatype_t datatype)
 {
         torch::Tensor torch_input;
         torch::Tensor torch_output;
         switch (datatype)
         {
         case FLOAT32:
-            torch_input = torch::rand({3, 1, 28, 28}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false)).sub(0.5).div(0.5);
+            torch_input = torch::rand({3, 5, 1, 1}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false));
             torch_output = torch::rand({3}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false));
             torch::set_default_dtype(caffe2::TypeMeta::fromScalarType(torch::kFloat32));
             break;
         case FLOAT64:
-            torch_input = torch::rand({3, 1, 28, 28}, torch::TensorOptions().dtype(torch::kFloat64).requires_grad(false)).sub(0.5).div(0.5);
+            torch_input = torch::rand({3, 5, 1, 1}, torch::TensorOptions().dtype(torch::kFloat64).requires_grad(false));
             torch_output = torch::rand({3}, torch::TensorOptions().dtype(torch::kFloat64).requires_grad(false));
             torch::set_default_dtype(caffe2::TypeMeta::fromScalarType(torch::kFloat64));
             break;
         default:
             ck_abort_msg("unknown data type.");
         }
-        ConvolutionalDiscriminator convolutional_discriminator = ConvolutionalDiscriminator();
-        torch_models_convolutional_discriminator[runtime][datatype].push_back(convolutional_discriminator);
-        torch_inputs[runtime][datatype][CONVOLUTIONAL_DISCRIMINATOR].push_back(torch_input);
-        torch_outputs[runtime][datatype][CONVOLUTIONAL_DISCRIMINATOR].push_back(torch_output);
+        ConvolutionalNeuralNetwork convolutional_neural_network = ConvolutionalNeuralNetwork();
+        torch_models_convolutional_neural_network[runtime][datatype].push_back(convolutional_neural_network);
+        torch_inputs[runtime][datatype][CONVOLUTIONAL_NEURAL_NETWORK].push_back(torch_input);
+        torch_outputs[runtime][datatype][CONVOLUTIONAL_NEURAL_NETWORK].push_back(torch_output);
 
         // NW Model
         model_t *model = NULL;
         tensor_t *input = torch_to_tensor(torch_input, runtime, datatype);
         tensor_t *output = torch_to_tensor(torch_output, runtime, datatype);
 
+        layer_t *convtranspose1 = NULL, *convtranspose2 = NULL, *convtranspose3 = NULL, *convtranpose4 = NULL;
+        layer_t *relu1 = NULL, *relu2 = NULL, *relu3 = NULL;
         layer_t *conv1 = NULL, *conv2 = NULL, *conv3 = NULL, *conv4 = NULL;
-        layer_t *batch_norm1 = NULL, *batch_norm2 = NULL;
+        layer_t *batch_norm1 = NULL, *batch_norm2 = NULL, *batch_norm3 = NULL, *batch_norm4 = NULL, *batch_norm5 = NULL;
         layer_t *leaky_relu1 = NULL, *leaky_relu2 = NULL, *leaky_relu3 = NULL;
         void *momentum = NULL, *epsilon = NULL, *c = NULL;
         layer_t *sigmoid = NULL;
@@ -574,61 +592,80 @@ void setup_convolutional_discriminator(runtime_t runtime, datatype_t datatype)
             ck_abort_msg("unknown datatype");
         }
 
-        error = convolution_2d_layer_create_from_parameters(&conv1, 1, 2, torch_to_tensor(convolutional_discriminator->conv1->weight, runtime, datatype), NULL);
+        error = convolution_transpose_2d_layer_create_from_parameters(&convtranspose1, 0, 1, torch_to_tensor(convolutional_neural_network->convtranspose1->weight, runtime, datatype), NULL);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(conv1);
 
-        error = convolution_2d_layer_create_from_parameters(&conv2, 1, 2, torch_to_tensor(convolutional_discriminator->conv2->weight, runtime, datatype), NULL);
+        error = convolution_transpose_2d_layer_create_from_parameters(&convtranspose2, 1, 2, torch_to_tensor(convolutional_neural_network->convtranspose2->weight, runtime, datatype), NULL);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(conv2);
 
-        error = convolution_2d_layer_create_from_parameters(&conv3, 1, 2, torch_to_tensor(convolutional_discriminator->conv3->weight, runtime, datatype), NULL);
+        error = convolution_transpose_2d_layer_create_from_parameters(&convtranspose3, 1, 2, torch_to_tensor(convolutional_neural_network->convtranspose3->weight, runtime, datatype), NULL);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(conv3);
 
-        error = convolution_2d_layer_create_from_parameters(&conv4, 0, 1, torch_to_tensor(convolutional_discriminator->conv4->weight, runtime, datatype), NULL);
+        error = convolution_transpose_2d_layer_create_from_parameters(&convtranpose4, 1, 2, torch_to_tensor(convolutional_neural_network->convtranspose4->weight, runtime, datatype), NULL);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(conv4);
 
-        error = batch_normalization_2d_layer_create(&batch_norm1, 3, momentum, epsilon, true, true, datatype, runtime);
+        error = convolution_2d_layer_create_from_parameters(&conv1, 1, 2, torch_to_tensor(convolutional_neural_network->conv1->weight, runtime, datatype), NULL);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(batch_norm1);
 
-        error = batch_normalization_2d_layer_create(&batch_norm2, 4, momentum, epsilon, true, true, datatype, runtime);
+        error = convolution_2d_layer_create_from_parameters(&conv2, 1, 2, torch_to_tensor(convolutional_neural_network->conv2->weight, runtime, datatype), NULL);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(batch_norm2);
+
+        error = convolution_2d_layer_create_from_parameters(&conv3, 1, 2, torch_to_tensor(convolutional_neural_network->conv3->weight, runtime, datatype), NULL);
+        ck_assert_ptr_null(error);
+
+        error = convolution_2d_layer_create_from_parameters(&conv4, 0, 1, torch_to_tensor(convolutional_neural_network->conv4->weight, runtime, datatype), NULL);
+        ck_assert_ptr_null(error);
+
+        error = batch_normalization_2d_layer_create(&batch_norm1, 2, momentum, epsilon, true, true, datatype, runtime);
+        ck_assert_ptr_null(error);
+
+        error = batch_normalization_2d_layer_create(&batch_norm2, 3, momentum, epsilon, true, true, datatype, runtime);
+        ck_assert_ptr_null(error);
+
+        error = batch_normalization_2d_layer_create(&batch_norm3, 4, momentum, epsilon, true, true, datatype, runtime);
+        ck_assert_ptr_null(error);
+
+        error = batch_normalization_2d_layer_create(&batch_norm4, 3, momentum, epsilon, true, true, datatype, runtime);
+        ck_assert_ptr_null(error);
+
+        error = batch_normalization_2d_layer_create(&batch_norm5, 4, momentum, epsilon, true, true, datatype, runtime);
+        ck_assert_ptr_null(error);
+
+        error = rectified_linear_activation_layer_create(&relu1);
+        ck_assert_ptr_null(error);
+
+        error = rectified_linear_activation_layer_create(&relu2);
+        ck_assert_ptr_null(error);
+
+        error = rectified_linear_activation_layer_create(&relu3);
+        ck_assert_ptr_null(error);
 
         error = leaky_rectified_linear_activation_layer_create(&leaky_relu1, c, datatype);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(leaky_relu1);
 
         error = leaky_rectified_linear_activation_layer_create(&leaky_relu2, c, datatype);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(leaky_relu2);
 
         error = leaky_rectified_linear_activation_layer_create(&leaky_relu3, c, datatype);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(leaky_relu3);
 
         error = sigmoid_activation_layer_create(&sigmoid);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(sigmoid);
 
         int64_t shape[] = {3};
         error = reshape_layer_create(&reshape, shape, 1);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(reshape);
 
-        error = block_create(&block, 11, conv1, leaky_relu1, conv2, batch_norm1, leaky_relu2, conv3, batch_norm2, leaky_relu3, conv4, sigmoid, reshape);
+        error = block_create(&block, 21, convtranspose1, batch_norm1, relu1, convtranspose2, batch_norm2, relu2, convtranspose3, batch_norm3, relu3, convtranpose4,
+                             conv1, leaky_relu1, conv2, batch_norm4, leaky_relu2, conv3, batch_norm5, leaky_relu3, conv4, sigmoid, reshape);
         ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(block);
 
         error = model_create(&model, block);
         ck_assert_ptr_null(error);
 
-        models[runtime][datatype][CONVOLUTIONAL_DISCRIMINATOR].push_back(model);
-        inputs[runtime][datatype][CONVOLUTIONAL_DISCRIMINATOR].push_back(input);
-        outputs[runtime][datatype][CONVOLUTIONAL_DISCRIMINATOR].push_back(output);
+        models[runtime][datatype][CONVOLUTIONAL_NEURAL_NETWORK].push_back(model);
+        inputs[runtime][datatype][CONVOLUTIONAL_NEURAL_NETWORK].push_back(input);
+        outputs[runtime][datatype][CONVOLUTIONAL_NEURAL_NETWORK].push_back(output);
 
         free(momentum);
         free(epsilon);
@@ -642,8 +679,8 @@ void setup_model(runtime_t runtime, datatype_t datatype, model_type_t model_type
     case SINGLE_LAYER_FEED_FORWARD:
         setup_single_layer_feed_forward(runtime, datatype);
         break;
-    case CONVOLUTIONAL_DISCRIMINATOR:
-        setup_convolutional_discriminator(runtime, datatype);
+    case CONVOLUTIONAL_NEURAL_NETWORK:
+        setup_convolutional_neural_network(runtime, datatype);
         break;
     default:
         ck_abort_msg("unknown model");
@@ -675,8 +712,8 @@ void setup_optimizer(algorithm_type_t algorithm_type)
                 case SINGLE_LAYER_FEED_FORWARD:
                     torch_models_single_layer_feed_forward[i][j].clear();
                     break;
-                case CONVOLUTIONAL_DISCRIMINATOR:
-                    torch_models_convolutional_discriminator[i][j].clear();
+                case CONVOLUTIONAL_NEURAL_NETWORK:
+                    torch_models_convolutional_neural_network[i][j].clear();
                     break;
                 default:
                     ck_abort_msg("unknwown model type.");
@@ -705,8 +742,8 @@ void setup_optimizer(algorithm_type_t algorithm_type)
                     case SINGLE_LAYER_FEED_FORWARD:
                         parameters = torch_models_single_layer_feed_forward[i][j][l]->parameters();
                         break;
-                    case CONVOLUTIONAL_DISCRIMINATOR:
-                        parameters = torch_models_convolutional_discriminator[i][j][l]->parameters();
+                    case CONVOLUTIONAL_NEURAL_NETWORK:
+                        parameters = torch_models_convolutional_neural_network[i][j][l]->parameters();
                         break;
                     default:
                         ck_abort_msg("unknown model.");
@@ -830,6 +867,21 @@ void ck_compare_linear(torch::nn::Linear torch_linear, linear_t *linear, runtime
     tensor_destroy(torch_bias);
 }
 
+void ck_compare_convolution_transpose_2d(torch::nn::ConvTranspose2d torch_conv2d, convolution_2d_t *convolution_2d, runtime_t runtime, datatype_t datatype)
+{
+    tensor_t *torch_weights = torch_to_tensor(torch_conv2d->weight, runtime, datatype); 
+    tensor_t *torch_bias = (convolution_2d->bias) ? torch_to_tensor(torch_conv2d->bias, runtime, datatype) : NULL;
+
+    ck_assert_tensor_equiv(convolution_2d->kernel, torch_weights);
+    if (convolution_2d->bias)
+    {
+        ck_assert_tensor_equiv(convolution_2d->bias, torch_bias);
+    }
+
+    tensor_destroy(torch_weights);
+    tensor_destroy(torch_bias);
+}
+
 void ck_compare_convolution_2d(torch::nn::Conv2d torch_conv2d, convolution_2d_t *convolution_2d, runtime_t runtime, datatype_t datatype)
 {
     tensor_t *torch_weights = torch_to_tensor(torch_conv2d->weight, runtime, datatype); 
@@ -882,19 +934,33 @@ void ck_compare_models(runtime_t runtime, datatype_t datatype, model_type_t mode
         ck_compare_linear(torch_models_single_layer_feed_forward[runtime][datatype][test_case]->output,
                           models[runtime][datatype][model_type][test_case]->block->layers[2]->transform->linear, runtime, datatype);
         break;
-    case CONVOLUTIONAL_DISCRIMINATOR:
-        ck_compare_convolution_2d(torch_models_convolutional_discriminator[runtime][datatype][test_case]->conv1,
-                                  models[runtime][datatype][model_type][test_case]->block->layers[0]->transform->convolution_2d, runtime, datatype);
-        ck_compare_convolution_2d(torch_models_convolutional_discriminator[runtime][datatype][test_case]->conv2,
-                                  models[runtime][datatype][model_type][test_case]->block->layers[2]->transform->convolution_2d, runtime, datatype);
-        ck_compare_convolution_2d(torch_models_convolutional_discriminator[runtime][datatype][test_case]->conv3,
-                                  models[runtime][datatype][model_type][test_case]->block->layers[5]->transform->convolution_2d, runtime, datatype);
-        ck_compare_convolution_2d(torch_models_convolutional_discriminator[runtime][datatype][test_case]->conv4,
-                                  models[runtime][datatype][model_type][test_case]->block->layers[8]->transform->convolution_2d, runtime, datatype);
-        ck_compare_batch_normalization_2d(torch_models_convolutional_discriminator[runtime][datatype][test_case]->batch_norm1,
-                                          models[runtime][datatype][model_type][test_case]->block->layers[3]->transform->batch_normalization_2d, runtime, datatype);
-        ck_compare_batch_normalization_2d(torch_models_convolutional_discriminator[runtime][datatype][test_case]->batch_norm2,
-                                          models[runtime][datatype][model_type][test_case]->block->layers[6]->transform->batch_normalization_2d, runtime, datatype);
+    case CONVOLUTIONAL_NEURAL_NETWORK:
+        ck_compare_convolution_transpose_2d(torch_models_convolutional_neural_network[runtime][datatype][test_case]->convtranspose1,
+                                            models[runtime][datatype][model_type][test_case]->block->layers[0]->transform->convolution_2d, runtime, datatype);
+        ck_compare_convolution_transpose_2d(torch_models_convolutional_neural_network[runtime][datatype][test_case]->convtranspose2,
+                                            models[runtime][datatype][model_type][test_case]->block->layers[3]->transform->convolution_2d, runtime, datatype);
+        ck_compare_convolution_transpose_2d(torch_models_convolutional_neural_network[runtime][datatype][test_case]->convtranspose3,
+                                            models[runtime][datatype][model_type][test_case]->block->layers[6]->transform->convolution_2d, runtime, datatype);
+        ck_compare_convolution_transpose_2d(torch_models_convolutional_neural_network[runtime][datatype][test_case]->convtranspose4,
+                                            models[runtime][datatype][model_type][test_case]->block->layers[9]->transform->convolution_2d, runtime, datatype);
+        ck_compare_convolution_2d(torch_models_convolutional_neural_network[runtime][datatype][test_case]->conv1,
+                                  models[runtime][datatype][model_type][test_case]->block->layers[10]->transform->convolution_2d, runtime, datatype);
+        ck_compare_convolution_2d(torch_models_convolutional_neural_network[runtime][datatype][test_case]->conv2,
+                                  models[runtime][datatype][model_type][test_case]->block->layers[12]->transform->convolution_2d, runtime, datatype);
+        ck_compare_convolution_2d(torch_models_convolutional_neural_network[runtime][datatype][test_case]->conv3,
+                                  models[runtime][datatype][model_type][test_case]->block->layers[15]->transform->convolution_2d, runtime, datatype);
+        ck_compare_convolution_2d(torch_models_convolutional_neural_network[runtime][datatype][test_case]->conv4,
+                                  models[runtime][datatype][model_type][test_case]->block->layers[18]->transform->convolution_2d, runtime, datatype);
+        ck_compare_batch_normalization_2d(torch_models_convolutional_neural_network[runtime][datatype][test_case]->batch_norm1,
+                                          models[runtime][datatype][model_type][test_case]->block->layers[1]->transform->batch_normalization_2d, runtime, datatype);
+        ck_compare_batch_normalization_2d(torch_models_convolutional_neural_network[runtime][datatype][test_case]->batch_norm2,
+                                          models[runtime][datatype][model_type][test_case]->block->layers[4]->transform->batch_normalization_2d, runtime, datatype);
+        ck_compare_batch_normalization_2d(torch_models_convolutional_neural_network[runtime][datatype][test_case]->batch_norm3,
+                                          models[runtime][datatype][model_type][test_case]->block->layers[7]->transform->batch_normalization_2d, runtime, datatype);
+        ck_compare_batch_normalization_2d(torch_models_convolutional_neural_network[runtime][datatype][test_case]->batch_norm4,
+                                          models[runtime][datatype][model_type][test_case]->block->layers[13]->transform->batch_normalization_2d, runtime, datatype);
+        ck_compare_batch_normalization_2d(torch_models_convolutional_neural_network[runtime][datatype][test_case]->batch_norm5,
+                                          models[runtime][datatype][model_type][test_case]->block->layers[16]->transform->batch_normalization_2d, runtime, datatype);
         break;
     default:
         ck_abort_msg("unknown model.");
@@ -932,9 +998,9 @@ void test_optimizer(algorithm_type_t algorithm_type)
                             error = binary_cross_entropy(outputs[i][j][k][l], output, &cost);
                             ck_assert_ptr_null(error);
                             break;
-                        case CONVOLUTIONAL_DISCRIMINATOR:
-                            torch_models_convolutional_discriminator[i][j][l]->zero_grad();
-                            torch_output = torch_models_convolutional_discriminator[i][j][l]->forward(torch_inputs[i][j][k][l]);
+                        case CONVOLUTIONAL_NEURAL_NETWORK:
+                            torch_models_convolutional_neural_network[i][j][l]->zero_grad();
+                            torch_output = torch_models_convolutional_neural_network[i][j][l]->forward(torch_inputs[i][j][k][l]);
                             torch::nn::functional::binary_cross_entropy(torch_output, torch_outputs[i][j][k][l]).backward();
                             error = binary_cross_entropy(outputs[i][j][k][l], output, &cost);
                             ck_assert_ptr_null(error);
@@ -1041,8 +1107,8 @@ Suite *make_optimizer_suite(void)
     tcase_add_test(tc_adam, test_adam);
 
     suite_add_tcase(s, tc_sgd);
-    suite_add_tcase(s, tc_rms_prop);
     suite_add_tcase(s, tc_adam);
+    suite_add_tcase(s, tc_rms_prop);
 
     return s;
 }

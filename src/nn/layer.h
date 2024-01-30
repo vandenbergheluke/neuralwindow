@@ -129,6 +129,7 @@ nw_error_t *convolution_2d_layer_create(layer_t **layer, int64_t kernel_size, in
 nw_error_t *convolution_2d_layer_create_from_parameters(layer_t **layer, int64_t padding, int64_t stride, tensor_t *kernel, tensor_t *bias);
 nw_error_t *convolution_transpose_2d_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride, int64_t in_channels, int64_t out_channels,
                                                   runtime_t runtime, datatype_t datatype, parameter_init_t *kernel_init, parameter_init_t *bias_init);
+nw_error_t *convolution_transpose_2d_layer_create_from_parameters(layer_t **layer, int64_t padding, int64_t stride, tensor_t *kernel, tensor_t *bias);
 nw_error_t *dropout_layer_create(layer_t **layer, void *probability, datatype_t datatype);
 nw_error_t *batch_normalization_2d_layer_create(layer_t **layer, int64_t number_of_features,
                                                 void *momentum, void *epsilon, bool_t track_running_stats,

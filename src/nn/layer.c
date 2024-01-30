@@ -529,6 +529,41 @@ nw_error_t *linear_layer_create_from_parameters(layer_t **layer, tensor_t *weigh
     return error;
 }
 
+nw_error_t *convolution_transpose_2d_layer_create_from_parameters(layer_t **layer, int64_t padding, int64_t stride, tensor_t *kernel, tensor_t *bias)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    convolution_2d_t *convolution_2d = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = CONVOLUTION_TRANSPOSE_2D;
+
+    error = convolution_2d_create(&convolution_2d, padding, stride, kernel, bias);
+    if (error)
+    {
+        tensor_destroy(kernel);
+        tensor_destroy(bias);
+        return ERROR(ERROR_CREATE, string_create("failed to create linear."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) convolution_2d);
+    if (error)
+    {
+        convolution_2d_destroy(convolution_2d);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+
 nw_error_t *convolution_transpose_2d_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride,
                                                   int64_t in_channels, int64_t out_channels, runtime_t runtime, datatype_t datatype,
                                                   parameter_init_t *kernel_init, parameter_init_t *bias_init)
