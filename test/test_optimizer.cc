@@ -12,6 +12,7 @@ extern "C"
 #include <layer.h>
 #include <function.h>
 #include <test_helper.h>
+#include <cost.h>
 }
 #include <test_helper_torch.h>
 
@@ -136,14 +137,14 @@ bool sgd_nesterov[STOCASTIC_GRADIENT_DESCENT_CASES] = {
 };
 
 int sgd_iterations[STOCASTIC_GRADIENT_DESCENT_CASES] = {
-    10,
-    10,
-    10,
-    10,
-    10,
-    10,
-    10,
-    10,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
 };
 
 float32_t rms_prop_learning_rate_f[RMS_PROP_CASES] = {
@@ -246,12 +247,12 @@ bool rms_prop_centered[RMS_PROP_CASES] = {
 };
 
 int rms_prop_iterations[RMS_PROP_CASES] = {
-    10,
-    10,
-    10,
-    10,
-    10,
-    10,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
 };
 
 float32_t adam_learning_rate_f[ADAM_CASES] = {
@@ -335,36 +336,74 @@ float64_t adam_epsilon[ADAM_CASES] = {
 };
 
 int adam_iterations[ADAM_CASES] = {
-    10,
-    10,
-    10,
-    10,
-    10,
+    5,
+    5,
+    5,
+    5,
+    5,
 };
 
-#define MODELS 1
+#define MODELS 2
 
 typedef enum model_type_t
 {
+    CONVOLUTIONAL_DISCRIMINATOR,
     SINGLE_LAYER_FEED_FORWARD,
 } model_type_t;
 
-struct Model0Impl : torch::nn::Module
+struct SingleLayerFeedForwardImpl : torch::nn::Module
 {
-    torch::Tensor weight, bias;
 
-    Model0Impl(torch::Tensor &weight, torch::Tensor &bias)
+    SingleLayerFeedForwardImpl() :
+        hidden(register_module("hidden", torch::nn::Linear(5, 8))),
+        output(register_module("output", torch::nn::Linear(8, 1))),
+        hidden_activation(register_module("hidden_activation", torch::nn::ReLU())),
+        output_activation(register_module("output_activation", torch::nn::Sigmoid()))
     {
-        this->weight = register_parameter("weight", weight);
-        this->bias = register_parameter("bias", bias);
     }
 
-    torch::Tensor forward(torch::Tensor input) 
+    torch::Tensor forward(torch::Tensor x) 
     {
-        return torch::nn::functional::relu(torch::nn::functional::linear(input, weight.t(), bias));
+        return output_activation(output(hidden_activation(hidden(x))));
     }
+
+    torch::nn::Linear hidden, output;
+    torch::nn::ReLU hidden_activation;
+    torch::nn::Sigmoid output_activation;
 };
-TORCH_MODULE(Model0);
+TORCH_MODULE(SingleLayerFeedForward);
+
+struct ConvolutionalDiscriminatorImpl : torch::nn::Module
+{
+    ConvolutionalDiscriminatorImpl() :
+        conv1(register_module("conv1", torch::nn::Conv2d(torch::nn::Conv2dOptions(1, 2, 4).stride(2).padding(1).bias(false)))),
+        conv2(register_module("conv2", torch::nn::Conv2d(torch::nn::Conv2dOptions(2, 3, 4).stride(2).padding(1).bias(false)))),
+        conv3(register_module("conv3", torch::nn::Conv2d(torch::nn::Conv2dOptions(3, 4, 4).stride(2).padding(1).bias(false)))),
+        conv4(register_module("conv4", torch::nn::Conv2d(torch::nn::Conv2dOptions(4, 1, 3).stride(1).padding(0).bias(false)))),
+        batch_norm1(register_module("batch_norm1", torch::nn::BatchNorm2d(3))),
+        batch_norm2(register_module("batch_norm2", torch::nn::BatchNorm2d(4))),
+        leaky_relu1(register_module("leaky_relu1", torch::nn::LeakyReLU(torch::nn::LeakyReLUOptions().negative_slope(0.2)))),
+        leaky_relu2(register_module("leaky_relu2", torch::nn::LeakyReLU(torch::nn::LeakyReLUOptions().negative_slope(0.2)))),
+        leaky_relu3(register_module("leaky_relu3", torch::nn::LeakyReLU(torch::nn::LeakyReLUOptions().negative_slope(0.2)))),
+        sigmoid(register_module("sigmoid", torch::nn::Sigmoid()))
+    {
+    }
+
+    torch::Tensor forward(torch::Tensor x) 
+    {
+        x = leaky_relu1(conv1(x));
+        x = leaky_relu2(batch_norm1(conv2(x)));
+        x = leaky_relu3(batch_norm2(conv3(x)));
+        x = sigmoid(conv4(x));
+        return x.reshape({-1});
+    }
+
+    torch::nn::Conv2d conv1, conv2, conv3, conv4;
+    torch::nn::BatchNorm2d batch_norm1, batch_norm2;
+    torch::nn::LeakyReLU leaky_relu1, leaky_relu2, leaky_relu3;
+    torch::nn::Sigmoid sigmoid;
+};
+TORCH_MODULE(ConvolutionalDiscriminator);
 
 nw_error_t *error = NULL;
 std::vector<optimizer_t *> optimizers[RUNTIMES][DATATYPES][MODELS];
@@ -372,9 +411,12 @@ std::vector<torch::optim::SGD> torch_optimizers_sgd[RUNTIMES][DATATYPES][MODELS]
 std::vector<torch::optim::RMSprop> torch_optimizers_rms_prop[RUNTIMES][DATATYPES][MODELS];
 std::vector<torch::optim::Adam> torch_optimizers_adam[RUNTIMES][DATATYPES][MODELS];
 std::vector<model_t *> models[RUNTIMES][DATATYPES][MODELS];
-std::vector<Model0> torch_models_0[RUNTIMES][DATATYPES];
+std::vector<SingleLayerFeedForward> torch_models_single_layer_feed_forward[RUNTIMES][DATATYPES];
+std::vector<ConvolutionalDiscriminator> torch_models_convolutional_discriminator[RUNTIMES][DATATYPES];
 std::vector<tensor_t *> inputs[RUNTIMES][DATATYPES][MODELS];
+std::vector<tensor_t *> outputs[RUNTIMES][DATATYPES][MODELS];
 std::vector<torch::Tensor> torch_inputs[RUNTIMES][DATATYPES][MODELS];
+std::vector<torch::Tensor> torch_outputs[RUNTIMES][DATATYPES][MODELS];
 
 int cases(algorithm_type_t algorithm_type)
 {
@@ -406,60 +448,205 @@ int iterations(algorithm_type_t algorithm_type, int test_case)
     }
 }
 
-void setup_model(runtime_t runtime, datatype_t datatype, model_type_t model_type)
+void setup_single_layer_feed_forward(runtime_t runtime, datatype_t datatype)
 {
-    if (model_type == SINGLE_LAYER_FEED_FORWARD)
+    // Torch Model
+    torch::Tensor torch_input;
+    torch::Tensor torch_output;
+    switch (datatype)
     {
-        // Torch Model
-        // torch_inputs[runtime][datatype][model_case]
-        torch::Tensor torch_weights;
-        torch::Tensor torch_bias;
+    case FLOAT32:
+        torch_input = torch::randn({8, 5}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false));
+        torch_output = torch::randn({8, 1}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false));
+        torch::set_default_dtype(caffe2::TypeMeta::fromScalarType(torch::kFloat32));
+        break;
+    case FLOAT64:
+        torch_input = torch::randn({8, 5}, torch::TensorOptions().dtype(torch::kFloat64).requires_grad(false));
+        torch_output = torch::randn({8, 1}, torch::TensorOptions().dtype(torch::kFloat64).requires_grad(false));
+        torch::set_default_dtype(caffe2::TypeMeta::fromScalarType(torch::kFloat64));
+        break;
+    default:
+        ck_abort_msg("unknown data type.");
+    }
+    SingleLayerFeedForward single_layer_feed_forward = SingleLayerFeedForward();
+    torch_models_single_layer_feed_forward[runtime][datatype].push_back(single_layer_feed_forward);
+    torch_inputs[runtime][datatype][SINGLE_LAYER_FEED_FORWARD].push_back(torch_input);
+    torch_outputs[runtime][datatype][SINGLE_LAYER_FEED_FORWARD].push_back(torch_output);
+
+    // NW Model
+    model_t *model = NULL;
+    tensor_t *input = torch_to_tensor(torch_input, runtime, datatype);
+    tensor_t *output = torch_to_tensor(torch_output, runtime, datatype);
+
+    layer_t *hidden_layer = NULL;
+    layer_t *output_layer = NULL;
+    layer_t *hidden_activation_layer = NULL;
+    layer_t *output_activation_layer = NULL;
+    block_t *block = NULL;
+
+    error = rectified_linear_activation_layer_create(&hidden_activation_layer);
+    ck_assert_ptr_null(error);
+    ck_assert_ptr_nonnull(hidden_activation_layer);
+
+    error = sigmoid_activation_layer_create(&output_activation_layer);
+    ck_assert_ptr_null(error);
+    ck_assert_ptr_nonnull(output_activation_layer);
+
+    error = linear_layer_create_from_parameters(&hidden_layer, torch_to_tensor(single_layer_feed_forward->hidden->weight.t(), runtime, datatype), 
+                                                torch_to_tensor(single_layer_feed_forward->hidden->bias, runtime, datatype));
+    ck_assert_ptr_null(error);
+    ck_assert_ptr_nonnull(hidden_layer);
+
+    error = linear_layer_create_from_parameters(&output_layer, torch_to_tensor(single_layer_feed_forward->output->weight.t(), runtime, datatype), 
+                                                torch_to_tensor(single_layer_feed_forward->output->bias, runtime, datatype));
+    ck_assert_ptr_null(error);
+    ck_assert_ptr_nonnull(output_layer);
+
+    error = block_create(&block, 4, hidden_layer, hidden_activation_layer, output_layer, output_activation_layer);
+    ck_assert_ptr_null(error);
+    ck_assert_ptr_nonnull(block);
+
+    error = model_create(&model, block);
+    ck_assert_ptr_null(error);
+
+    models[runtime][datatype][SINGLE_LAYER_FEED_FORWARD].push_back(model);
+    inputs[runtime][datatype][SINGLE_LAYER_FEED_FORWARD].push_back(input);
+    outputs[runtime][datatype][SINGLE_LAYER_FEED_FORWARD].push_back(output);
+}
+
+void setup_convolutional_discriminator(runtime_t runtime, datatype_t datatype)
+{
         torch::Tensor torch_input;
+        torch::Tensor torch_output;
         switch (datatype)
         {
         case FLOAT32:
-            torch_weights = torch::randn({5, 6}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(true));
-            torch_bias = torch::randn({6}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(true));
-            torch_input = torch::randn({8, 5}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false));
+            torch_input = torch::rand({3, 1, 28, 28}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false)).sub(0.5).div(0.5);
+            torch_output = torch::rand({3}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false));
+            torch::set_default_dtype(caffe2::TypeMeta::fromScalarType(torch::kFloat32));
             break;
         case FLOAT64:
-            torch_weights = torch::randn({5, 6}, torch::TensorOptions().dtype(torch::kFloat64).requires_grad(true));
-            torch_bias = torch::randn({6}, torch::TensorOptions().dtype(torch::kFloat64).requires_grad(true));
-            torch_input = torch::randn({8, 5}, torch::TensorOptions().dtype(torch::kFloat64).requires_grad(false));
+            torch_input = torch::rand({3, 1, 28, 28}, torch::TensorOptions().dtype(torch::kFloat64).requires_grad(false)).sub(0.5).div(0.5);
+            torch_output = torch::rand({3}, torch::TensorOptions().dtype(torch::kFloat64).requires_grad(false));
+            torch::set_default_dtype(caffe2::TypeMeta::fromScalarType(torch::kFloat64));
             break;
         default:
             ck_abort_msg("unknown data type.");
         }
-        torch_models_0[runtime][datatype].push_back(Model0(torch_weights, torch_bias));
-        torch_inputs[runtime][datatype][model_type].push_back(torch_input);
+        ConvolutionalDiscriminator convolutional_discriminator = ConvolutionalDiscriminator();
+        torch_models_convolutional_discriminator[runtime][datatype].push_back(convolutional_discriminator);
+        torch_inputs[runtime][datatype][CONVOLUTIONAL_DISCRIMINATOR].push_back(torch_input);
+        torch_outputs[runtime][datatype][CONVOLUTIONAL_DISCRIMINATOR].push_back(torch_output);
 
         // NW Model
         model_t *model = NULL;
-        tensor_t *weights = torch_to_tensor(torch_weights, runtime, datatype);
-        tensor_t *bias = torch_to_tensor(torch_bias, runtime, datatype);
         tensor_t *input = torch_to_tensor(torch_input, runtime, datatype);
+        tensor_t *output = torch_to_tensor(torch_output, runtime, datatype);
 
-        layer_t *linear_layer = NULL;
-        layer_t *activation_layer = NULL;
+        layer_t *conv1 = NULL, *conv2 = NULL, *conv3 = NULL, *conv4 = NULL;
+        layer_t *batch_norm1 = NULL, *batch_norm2 = NULL;
+        layer_t *leaky_relu1 = NULL, *leaky_relu2 = NULL, *leaky_relu3 = NULL;
+        void *momentum = NULL, *epsilon = NULL, *c = NULL;
+        layer_t *sigmoid = NULL;
+        layer_t *reshape = NULL;
         block_t *block = NULL;
-        
-        error = rectified_linear_activation_layer_create(&activation_layer);
-        ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(activation_layer);
 
-        error = linear_layer_create_from_parameters(&linear_layer, weights, bias);
-        ck_assert_ptr_null(error);
-        ck_assert_ptr_nonnull(linear_layer);
+        momentum = (void *) malloc(datatype_size(datatype));
+        ck_assert_ptr_nonnull(momentum);
+        epsilon = (void *) malloc(datatype_size(datatype));
+        ck_assert_ptr_nonnull(epsilon);
+        c = (void *) malloc(datatype_size(datatype));
+        ck_assert_ptr_nonnull(c);
 
-        error = block_create(&block, 2, linear_layer, activation_layer);
+        switch (datatype)
+        {
+        case FLOAT32:
+            *(float32_t *) momentum = (float32_t) 0.1;
+            *(float32_t *) epsilon = (float32_t) 1e-5;
+            *(float32_t *) c = (float32_t) 0.2;
+            break;
+        case FLOAT64:
+            *(float64_t *) momentum = (float64_t) 0.1;
+            *(float64_t *) epsilon = (float64_t) 1e-5;
+            *(float64_t *) c = (float64_t) 0.2;
+            break;
+        default:
+            ck_abort_msg("unknown datatype");
+        }
+
+        error = convolution_2d_layer_create_from_parameters(&conv1, 1, 2, torch_to_tensor(convolutional_discriminator->conv1->weight, runtime, datatype), NULL);
+        ck_assert_ptr_null(error);
+        ck_assert_ptr_nonnull(conv1);
+
+        error = convolution_2d_layer_create_from_parameters(&conv2, 1, 2, torch_to_tensor(convolutional_discriminator->conv2->weight, runtime, datatype), NULL);
+        ck_assert_ptr_null(error);
+        ck_assert_ptr_nonnull(conv2);
+
+        error = convolution_2d_layer_create_from_parameters(&conv3, 1, 2, torch_to_tensor(convolutional_discriminator->conv3->weight, runtime, datatype), NULL);
+        ck_assert_ptr_null(error);
+        ck_assert_ptr_nonnull(conv3);
+
+        error = convolution_2d_layer_create_from_parameters(&conv4, 0, 1, torch_to_tensor(convolutional_discriminator->conv4->weight, runtime, datatype), NULL);
+        ck_assert_ptr_null(error);
+        ck_assert_ptr_nonnull(conv4);
+
+        error = batch_normalization_2d_layer_create(&batch_norm1, 3, momentum, epsilon, true, true, datatype, runtime);
+        ck_assert_ptr_null(error);
+        ck_assert_ptr_nonnull(batch_norm1);
+
+        error = batch_normalization_2d_layer_create(&batch_norm2, 4, momentum, epsilon, true, true, datatype, runtime);
+        ck_assert_ptr_null(error);
+        ck_assert_ptr_nonnull(batch_norm2);
+
+        error = leaky_rectified_linear_activation_layer_create(&leaky_relu1, c, datatype);
+        ck_assert_ptr_null(error);
+        ck_assert_ptr_nonnull(leaky_relu1);
+
+        error = leaky_rectified_linear_activation_layer_create(&leaky_relu2, c, datatype);
+        ck_assert_ptr_null(error);
+        ck_assert_ptr_nonnull(leaky_relu2);
+
+        error = leaky_rectified_linear_activation_layer_create(&leaky_relu3, c, datatype);
+        ck_assert_ptr_null(error);
+        ck_assert_ptr_nonnull(leaky_relu3);
+
+        error = sigmoid_activation_layer_create(&sigmoid);
+        ck_assert_ptr_null(error);
+        ck_assert_ptr_nonnull(sigmoid);
+
+        int64_t shape[] = {3};
+        error = reshape_layer_create(&reshape, shape, 1);
+        ck_assert_ptr_null(error);
+        ck_assert_ptr_nonnull(reshape);
+
+        error = block_create(&block, 11, conv1, leaky_relu1, conv2, batch_norm1, leaky_relu2, conv3, batch_norm2, leaky_relu3, conv4, sigmoid, reshape);
         ck_assert_ptr_null(error);
         ck_assert_ptr_nonnull(block);
 
         error = model_create(&model, block);
         ck_assert_ptr_null(error);
 
-        models[runtime][datatype][model_type].push_back(model);
-        inputs[runtime][datatype][model_type].push_back(input);
+        models[runtime][datatype][CONVOLUTIONAL_DISCRIMINATOR].push_back(model);
+        inputs[runtime][datatype][CONVOLUTIONAL_DISCRIMINATOR].push_back(input);
+        outputs[runtime][datatype][CONVOLUTIONAL_DISCRIMINATOR].push_back(output);
+
+        free(momentum);
+        free(epsilon);
+        free(c);
+}
+
+void setup_model(runtime_t runtime, datatype_t datatype, model_type_t model_type)
+{
+    switch (model_type)
+    {
+    case SINGLE_LAYER_FEED_FORWARD:
+        setup_single_layer_feed_forward(runtime, datatype);
+        break;
+    case CONVOLUTIONAL_DISCRIMINATOR:
+        setup_convolutional_discriminator(runtime, datatype);
+        break;
+    default:
+        ck_abort_msg("unknown model");
     }
 }
 
@@ -476,17 +663,37 @@ void setup_optimizer(algorithm_type_t algorithm_type)
             for (int k = 0; k < MODELS; ++k)
             {
                 model_type_t model_type = (model_type_t) k;
+                optimizers[i][j][k].clear();
                 optimizers[i][j][k] = std::vector<optimizer_t *>(CASES);
                 inputs[i][j][k].clear();
+                outputs[i][j][k].clear();
                 models[i][j][k].clear();
                 torch_inputs[i][j][k].clear();
+                torch_outputs[i][j][k].clear();
                 switch (model_type)
                 {
                 case SINGLE_LAYER_FEED_FORWARD:
-                    torch_models_0[i][j].clear();
+                    torch_models_single_layer_feed_forward[i][j].clear();
+                    break;
+                case CONVOLUTIONAL_DISCRIMINATOR:
+                    torch_models_convolutional_discriminator[i][j].clear();
                     break;
                 default:
                     ck_abort_msg("unknwown model type.");
+                }
+                switch (algorithm_type)
+                {
+                case STOCASTIC_GRADIENT_DESCENT:
+                    torch_optimizers_sgd[i][j][k].clear();
+                    break;
+                case RMS_PROP:
+                    torch_optimizers_rms_prop[i][j][k].clear();
+                    break;
+                case ADAM:
+                    torch_optimizers_adam[i][j][k].clear();
+                    break;
+                default:
+                    ck_abort_msg("unknown optimizer.");
                 }
                 for (int l = 0; l < CASES; ++l)
                 {
@@ -496,7 +703,10 @@ void setup_optimizer(algorithm_type_t algorithm_type)
                     switch (model_type)
                     {
                     case SINGLE_LAYER_FEED_FORWARD:
-                        parameters = torch_models_0[i][j][l]->parameters();
+                        parameters = torch_models_single_layer_feed_forward[i][j][l]->parameters();
+                        break;
+                    case CONVOLUTIONAL_DISCRIMINATOR:
+                        parameters = torch_models_convolutional_discriminator[i][j][l]->parameters();
                         break;
                     default:
                         ck_abort_msg("unknown model.");
@@ -593,29 +803,98 @@ void teardown_optimizer(algorithm_type_t algorithm_type)
                     model_destroy(models[i][j][k][l]);
                     optimizer_destroy(optimizers[i][j][k][l]);
                     tensor_destroy(inputs[i][j][k][l]);
+                    tensor_destroy(outputs[i][j][k][l]);
 
                     models[i][j][k][l] = NULL;
                     optimizers[i][j][k][l] = NULL;
                     inputs[i][j][k][l] = NULL;
+                    outputs[i][j][k][l] = NULL;
                 }
             }
         }
     }
 }
 
+void ck_compare_linear(torch::nn::Linear torch_linear, linear_t *linear, runtime_t runtime, datatype_t datatype)
+{
+    tensor_t *torch_weights = torch_to_tensor(torch_linear->weight.t(), runtime, datatype); 
+    tensor_t *torch_bias = (linear->bias) ? torch_to_tensor(torch_linear->bias, runtime, datatype) : NULL;
+
+    ck_assert_tensor_equiv(linear->weights, torch_weights);
+    if (linear->bias)
+    {
+        ck_assert_tensor_equiv(linear->bias, torch_bias);
+    }
+
+    tensor_destroy(torch_weights);
+    tensor_destroy(torch_bias);
+}
+
+void ck_compare_convolution_2d(torch::nn::Conv2d torch_conv2d, convolution_2d_t *convolution_2d, runtime_t runtime, datatype_t datatype)
+{
+    tensor_t *torch_weights = torch_to_tensor(torch_conv2d->weight, runtime, datatype); 
+    tensor_t *torch_bias = (convolution_2d->bias) ? torch_to_tensor(torch_conv2d->bias, runtime, datatype) : NULL;
+
+    ck_assert_tensor_equiv(convolution_2d->kernel, torch_weights);
+    if (convolution_2d->bias)
+    {
+        ck_assert_tensor_equiv(convolution_2d->bias, torch_bias);
+    }
+
+    tensor_destroy(torch_weights);
+    tensor_destroy(torch_bias);
+}
+
+void ck_compare_batch_normalization_2d(torch::nn::BatchNorm2d torch_batch_normalization_2d, 
+                                       batch_normalization_2d_t *batch_normalization_2d, 
+                                       runtime_t runtime, datatype_t datatype)
+{
+    tensor_t *torch_weights = (batch_normalization_2d->weights) ? torch_to_tensor(torch_batch_normalization_2d->weight, runtime, datatype) : NULL;
+    tensor_t *torch_bias = (batch_normalization_2d->bias) ? torch_to_tensor(torch_batch_normalization_2d->bias, runtime, datatype) : NULL;
+    tensor_t *torch_running_mean = torch_to_tensor(torch_batch_normalization_2d->running_mean, runtime, datatype);
+    tensor_t *torch_running_variance = torch_to_tensor(torch_batch_normalization_2d->running_var, runtime, datatype);
+
+    if (batch_normalization_2d->weights)
+    {
+        ck_assert_tensor_equiv(batch_normalization_2d->weights, torch_weights);
+    }
+    if (batch_normalization_2d->bias)
+    {
+        ck_assert_tensor_equiv(batch_normalization_2d->bias, torch_bias);
+    }
+    ck_assert_tensor_equiv(batch_normalization_2d->running_mean, torch_running_mean);
+    ck_assert_tensor_equiv(batch_normalization_2d->running_variance, torch_running_variance);
+
+    tensor_destroy(torch_weights);
+    tensor_destroy(torch_bias);
+    tensor_destroy(torch_running_mean);
+    tensor_destroy(torch_running_variance);
+}
+
 void ck_compare_models(runtime_t runtime, datatype_t datatype, model_type_t model_type, int test_case)
 {
-    tensor_t *torch_parameters = NULL; 
 
     switch (model_type)
     {
     case SINGLE_LAYER_FEED_FORWARD:
-        torch_parameters = torch_to_tensor(torch_models_0[runtime][datatype][test_case]->weight, runtime, datatype);
-        ck_assert_tensor_eq(models[runtime][datatype][model_type][test_case]->block->layers[0]->transform->linear->weights, torch_parameters);
-        tensor_destroy(torch_parameters);
-        torch_parameters = torch_to_tensor(torch_models_0[runtime][datatype][test_case]->bias, runtime, datatype);
-        ck_assert_tensor_eq(models[runtime][datatype][model_type][test_case]->block->layers[0]->transform->linear->bias, torch_parameters);
-        tensor_destroy(torch_parameters);
+        ck_compare_linear(torch_models_single_layer_feed_forward[runtime][datatype][test_case]->hidden,
+                          models[runtime][datatype][model_type][test_case]->block->layers[0]->transform->linear, runtime, datatype);
+        ck_compare_linear(torch_models_single_layer_feed_forward[runtime][datatype][test_case]->output,
+                          models[runtime][datatype][model_type][test_case]->block->layers[2]->transform->linear, runtime, datatype);
+        break;
+    case CONVOLUTIONAL_DISCRIMINATOR:
+        ck_compare_convolution_2d(torch_models_convolutional_discriminator[runtime][datatype][test_case]->conv1,
+                                  models[runtime][datatype][model_type][test_case]->block->layers[0]->transform->convolution_2d, runtime, datatype);
+        ck_compare_convolution_2d(torch_models_convolutional_discriminator[runtime][datatype][test_case]->conv2,
+                                  models[runtime][datatype][model_type][test_case]->block->layers[2]->transform->convolution_2d, runtime, datatype);
+        ck_compare_convolution_2d(torch_models_convolutional_discriminator[runtime][datatype][test_case]->conv3,
+                                  models[runtime][datatype][model_type][test_case]->block->layers[5]->transform->convolution_2d, runtime, datatype);
+        ck_compare_convolution_2d(torch_models_convolutional_discriminator[runtime][datatype][test_case]->conv4,
+                                  models[runtime][datatype][model_type][test_case]->block->layers[8]->transform->convolution_2d, runtime, datatype);
+        ck_compare_batch_normalization_2d(torch_models_convolutional_discriminator[runtime][datatype][test_case]->batch_norm1,
+                                          models[runtime][datatype][model_type][test_case]->block->layers[3]->transform->batch_normalization_2d, runtime, datatype);
+        ck_compare_batch_normalization_2d(torch_models_convolutional_discriminator[runtime][datatype][test_case]->batch_norm2,
+                                          models[runtime][datatype][model_type][test_case]->block->layers[6]->transform->batch_normalization_2d, runtime, datatype);
         break;
     default:
         ck_abort_msg("unknown model.");
@@ -637,27 +916,37 @@ void test_optimizer(algorithm_type_t algorithm_type)
                 {
                     for (int m = 0; m < iterations(algorithm_type, l); ++m)
                     {
+                        torch::Tensor torch_output;
                         tensor_t *output = NULL;
                         tensor_t *cost = NULL;
 
                         error = model_forward(models[i][j][k][l], inputs[i][j][k][l], &output);
                         ck_assert_ptr_null(error);
-                        error = tensor_summation(output, &cost, NULL, 0, false);
-                        ck_assert_ptr_null(error);
-                        error = tensor_backward(cost, NULL);
-                        ck_assert_ptr_null(error);
-                        error = optimizer_step(optimizers[i][j][k][l], models[i][j][k][l]);
-                        ck_assert_ptr_null(error);
 
                         switch (model_type)
                         {
                         case SINGLE_LAYER_FEED_FORWARD:
-                            torch_models_0[i][j][l]->zero_grad();
-                            torch_models_0[i][j][l]->forward(torch_inputs[i][j][k][l]).sum().backward();
+                            torch_models_single_layer_feed_forward[i][j][l]->zero_grad();
+                            torch_output = torch_models_single_layer_feed_forward[i][j][l]->forward(torch_inputs[i][j][k][l]);
+                            torch::nn::functional::binary_cross_entropy(torch_output, torch_outputs[i][j][k][l]).backward();
+                            error = binary_cross_entropy(outputs[i][j][k][l], output, &cost);
+                            ck_assert_ptr_null(error);
+                            break;
+                        case CONVOLUTIONAL_DISCRIMINATOR:
+                            torch_models_convolutional_discriminator[i][j][l]->zero_grad();
+                            torch_output = torch_models_convolutional_discriminator[i][j][l]->forward(torch_inputs[i][j][k][l]);
+                            torch::nn::functional::binary_cross_entropy(torch_output, torch_outputs[i][j][k][l]).backward();
+                            error = binary_cross_entropy(outputs[i][j][k][l], output, &cost);
+                            ck_assert_ptr_null(error);
                             break;
                         default:
                             ck_abort_msg("unknown model.");
                         }
+
+                        error = tensor_backward(cost, NULL);
+                        ck_assert_ptr_null(error);
+                        error = optimizer_step(optimizers[i][j][k][l], models[i][j][k][l]);
+                        ck_assert_ptr_null(error);
 
                         switch (algorithm_type)
                         {

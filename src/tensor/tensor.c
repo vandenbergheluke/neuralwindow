@@ -404,6 +404,62 @@ nw_error_t *tensor_sigmoid(const tensor_t *x, tensor_t **y)
     return error;
 }
 
+nw_error_t *tensor_absolute(const tensor_t *x, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    nw_error_t *error = NULL;
+    tensor_t *x_i = NULL;
+    tensor_t *x_j = NULL;
+    tensor_t *x_k = NULL;
+
+    error = tensor_rectified_linear(x, &x_i);
+    if (error)
+    {
+        error = ERROR(ERROR_RECTIFIED_LINEAR, string_create("failed to apply rectified linear function on tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_negation(x, &x_j);
+    if (error)
+    {
+        error = ERROR(ERROR_NEGATION, string_create("failed to negate tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_rectified_linear(x_j, &x_k);
+    if (error)
+    {
+        error = ERROR(ERROR_RECTIFIED_LINEAR, string_create("failed to apply rectified linear function on tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_addition(x_i, x_k, y);
+    if (error)
+    {
+        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    if (!x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(x_i);
+        tensor_destroy(x_j);
+        tensor_destroy(x_k);
+    }
+
+    return error;
+}
+
 nw_error_t *tensor_expand(const tensor_t *x, const int64_t *shape, int64_t length, tensor_t **y)
 {
     PRINTLN_DEBUG_LOCATION("input");
@@ -1442,38 +1498,18 @@ nw_error_t *tensor_convolution_2d(const tensor_t *w, const tensor_t *x, const te
     PRINTLN_DEBUG_TENSOR("x", x);
     PRINTLN_DEBUG_TENSOR("y", y);
     PRINTLN_DEBUG_TENSOR("z", *z);
+    PRINTLN_DEBUG_BOOLEAN("no_gradient", no_gradient);
     PRINT_DEBUG_NEWLINE;
 
 cleanup:
-
-    if (!w->requires_gradient || no_gradient)
-    {
-        if (w != w_toeplitz)
-        {
-            tensor_destroy(w_toeplitz);
-        }
-    }
-
-    if (!x->requires_gradient || no_gradient)
-    {
-        if (x != x_reshape)
-        {
-            tensor_destroy(x_reshape);
-        }
-    }
-
     if (y)
     {
-        if (!y->requires_gradient || no_gradient)
+        if ((!v->requires_gradient && !y->requires_gradient) || no_gradient)
         {
             if (y != y_reshape)
             {
                 tensor_destroy(y_reshape);
             }
-        }
-
-        if ((!v->requires_gradient && !y->requires_gradient) || no_gradient)
-        {
             if (*z != u)
             {
                 tensor_destroy(u);
@@ -1483,7 +1519,15 @@ cleanup:
 
     if ((!x->requires_gradient && !w->requires_gradient) || no_gradient)
     {
-        tensor_destroy(v);
+        tensor_destroy(w_toeplitz);
+        if (x != x_reshape)
+        {
+            tensor_destroy(x_reshape);
+        }
+        if (v != *z)
+        {
+            tensor_destroy(v);
+        }
     }
 
     return error;
@@ -2827,9 +2871,9 @@ nw_error_t *tensor_leaky_rectified_linear(const tensor_t *x, void *c, tensor_t *
 cleanup:
 
     tensor_destroy(c_i);
+    tensor_destroy(c_j);
     if (!x->requires_gradient || no_gradient)
     {
-        tensor_destroy(c_j);
         tensor_destroy(x_i);
         tensor_destroy(x_j);
         tensor_destroy(x_k);
