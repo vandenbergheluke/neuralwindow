@@ -20,6 +20,7 @@ typedef enum tensor_reduction_type_t
     TENSOR_SOFTMAX,
     TENSOR_LOGSOFTMAX,
     TENSOR_ARGUMENT_MAXIMUM,
+    TENSOR_VARIANCE,
 } tensor_reduction_type_t;
 
 #define CASES_0_0 2
@@ -427,6 +428,12 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type, bool_t test_g
                     case TENSOR_ARGUMENT_MAXIMUM:
                         expected_tensor = torch::argmax(torch_tensors[i][j][k][l], (axis[k].size()) ? axis[k][0] : 0, (bool_t) l);
                         break;
+                    case TENSOR_VARIANCE:
+                        if (axis[k].size())
+                            expected_tensor = torch::var(torch_tensors[i][j][k][l], axis[k], true, (bool_t) l);
+                        else
+                            expected_tensor = torch::var(torch_tensors[i][j][k][l], torch::nullopt, true, (bool_t) l);
+                        break;
                     default:
                         ck_abort_msg("unknown reduction type.");
                     }
@@ -471,6 +478,19 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type, bool_t test_g
                                                         &returned_tensors[i][j][k][l],
                                                         (axis[k].size()) ? *(int64_t *) axis[k].data() : (int64_t) 0,
                                                         (bool_t) l);
+                        break;
+                    case TENSOR_VARIANCE:
+                        error = tensor_variance(tensors[i][j][k][l], 
+                                                &returned_tensors[i][j][k][l],
+                                                (int64_t *) axis[k].data(),
+                                                (int64_t) axis[k].size(),
+                                                (bool_t) l, true);
+                        if (error)
+                        {
+                            error_print(error);
+                            error_destroy(error);
+                            continue;
+                        }
                         break;
                     default:
                         ck_abort_msg("unknown reduction type.");
@@ -538,6 +558,12 @@ START_TEST(test_argument_maximum)
 }
 END_TEST
 
+START_TEST(test_variance)
+{
+    test_reduction(TENSOR_VARIANCE, true);
+}
+END_TEST
+
 Suite *make_reduction_suite(void)
 {
     Suite *s;
@@ -553,6 +579,7 @@ Suite *make_reduction_suite(void)
     tcase_add_test(tc_reduction, test_softmax);
     tcase_add_test(tc_reduction, test_logsoftmax);
     tcase_add_test(tc_reduction, test_argument_maximum);
+    tcase_add_test(tc_reduction, test_variance);
 
     suite_add_tcase(s, tc_reduction);
 

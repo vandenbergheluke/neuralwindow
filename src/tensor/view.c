@@ -511,10 +511,22 @@ nw_error_t *view_recover_dimensions(const view_t *reduced_view, view_t **recover
  */
 nw_error_t *view_reduce(const view_t *original_view, view_t **reduced_view, const int64_t *axis, int64_t length, bool_t keep_dimensions)
 {
+    CHECK_NEGATIVE_ARGUMENT(length, "length");
     CHECK_NULL_ARGUMENT(original_view, "original_view");
     CHECK_NULL_ARGUMENT(reduced_view , "reduced_view");
-    CHECK_NULL_ARGUMENT(axis, "axis");
-    CHECK_NEGATIVE_ARGUMENT(length, "length");
+
+    if (!axis || !length)
+    {
+        int64_t reduce_length = length ? length : original_view->rank;
+        int64_t reduce_axis[reduce_length];
+        for (int64_t i = 0; i < reduce_length; ++i)
+        {
+            reduce_axis[i] = (!axis || !length) ? i : dimension_to_index(axis[i], original_view->rank);
+        }
+        axis = reduce_axis;
+        length = reduce_length;
+    }
+
     CHECK_UNIQUE(axis, length, "axis");
 
     if (length > original_view->rank)
