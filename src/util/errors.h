@@ -670,6 +670,10 @@ typedef enum nw_error_type_t
     ERROR_SLICE,
     ERROR_GET,
     ERROR_LINEAR,
+    ERROR_VARIANCE,
+    ERROR_STANDARD_DEVIATION,
+    ERROR_BATCH_NORMALIZATION,
+    ERROR_ABSOLUTE,
 } nw_error_type_t;
 
 typedef struct nw_error_t

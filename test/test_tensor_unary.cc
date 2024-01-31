@@ -25,6 +25,7 @@ typedef enum tensor_unary_type_t
     TENSOR_RECTIFIED_LINEAR,
     TENSOR_SIGMOID,
     TENSOR_TANH,
+    TENSOR_ABSOLUTE,
     TENSOR_LEAKY_RECTIFIED_LINEAR,
 } tensor_unary_type_t;
 
@@ -409,6 +410,9 @@ void test_unary(tensor_unary_type_t tensor_unary_type)
                 case TENSOR_TANH:
                     expected_tensor = torch::tanh(torch_tensors[i][j][k]);
                     break;
+                case TENSOR_ABSOLUTE:
+                    expected_tensor = torch::abs(torch_tensors[i][j][k]);
+                    break;
                 case TENSOR_LEAKY_RECTIFIED_LINEAR:
                     switch (datatype)
                     {
@@ -463,6 +467,9 @@ void test_unary(tensor_unary_type_t tensor_unary_type)
                     break;
                 case TENSOR_TANH:
                     error = tensor_tanh(tensors[i][j][k], &returned_tensors[i][j][k]);
+                    break;
+                case TENSOR_ABSOLUTE:
+                    error = tensor_absolute(tensors[i][j][k], &returned_tensors[i][j][k]);
                     break;
                 case TENSOR_LEAKY_RECTIFIED_LINEAR:
                     switch (datatype)
@@ -566,6 +573,12 @@ START_TEST(test_sigmoid)
 }
 END_TEST
 
+START_TEST(test_absolute)
+{
+    test_unary(TENSOR_ABSOLUTE);
+}
+END_TEST
+
 START_TEST(test_leaky_rectified_linear)
 {
     test_unary(TENSOR_LEAKY_RECTIFIED_LINEAR);
@@ -597,6 +610,7 @@ Suite *make_unary_suite(void)
     tcase_add_test(tc_unary, test_negation);
     tcase_add_test(tc_unary, test_rectified_linear);
     tcase_add_test(tc_unary, test_sigmoid);
+    tcase_add_test(tc_unary, test_absolute);
     tcase_add_test(tc_unary, test_leaky_rectified_linear);
     tcase_add_test(tc_unary, test_tanh);
 

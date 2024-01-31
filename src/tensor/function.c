@@ -809,8 +809,6 @@ static nw_error_t *unary_operation_forward(unary_operation_t *unary_operation, t
     case SIGMOID_OPERATION:
         error = sigmoid_operation_forward(unary_operation->x, result);
         break;
-    case TANH_OPERATION:
-        break;
     case AS_OPERATION:
         error = as_operation_forward(unary_operation->x, result);
         break;

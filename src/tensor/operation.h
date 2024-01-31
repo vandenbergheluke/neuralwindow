@@ -24,7 +24,6 @@ typedef enum unary_operation_type_t
     NEGATION_OPERATION,
     RECTIFIED_LINEAR_OPERATION,
     SIGMOID_OPERATION,
-    TANH_OPERATION,
     AS_OPERATION,
 } unary_operation_type_t;
 

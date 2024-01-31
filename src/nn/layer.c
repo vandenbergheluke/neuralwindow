@@ -130,6 +130,12 @@ nw_error_t *transform_create(transform_t **transform, transform_type_t transform
     case DROPOUT:
         (*transform)->dropout = (dropout_t *) type_transform;
         break;
+    case BATCH_NORMALIZATION_2D:
+        (*transform)->batch_normalization_2d = (batch_normalization_2d_t *) type_transform;
+        break;
+    case RESHAPE:
+        (*transform)->reshape = (reshape_t *) type_transform;
+        break;
     case ACTIVATION:
         (*transform)->activation = (activation_t *) type_transform;
         break;
@@ -160,6 +166,13 @@ void transform_destroy(transform_t *transform, transform_type_t transform_type)
         case DROPOUT:
             dropout_destroy(transform->dropout);
             break;
+        case BATCH_NORMALIZATION_2D:
+            batch_normalization_2d_destroy(transform->batch_normalization_2d);
+            break;
+        case RESHAPE:
+            reshape_destroy(transform->reshape);
+            break;
+            break;
         case ACTIVATION:
             activation_destroy(transform->activation);
             break;
@@ -185,6 +198,10 @@ string_t transform_type_string(transform_type_t transform_type)
         return "CONVOLUTION_TRANSPOSE_2D";
     case DROPOUT:
         return "DROPOUT";
+    case BATCH_NORMALIZATION_2D:
+        return "BATCH_NORMALIZATION_2D";
+    case RESHAPE:
+        return "RESHAPE";
     case ACTIVATION:
         return "ACTIVATION";
     case BLOCK:
@@ -221,23 +238,19 @@ void linear_destroy(linear_t *linear)
     }
 }
 
-nw_error_t *convolution_2d_create(convolution_2d_t **convolution_2d, int64_t kernel_size, int64_t padding, int64_t stride,
-                                  int64_t in_channels, int64_t out_channels, tensor_t *kernel, tensor_t *bias)
+nw_error_t *convolution_2d_create(convolution_2d_t **convolution_2d, int64_t padding, int64_t stride, tensor_t *kernel, tensor_t *bias)
 {
     CHECK_NULL_ARGUMENT(convolution_2d, "convolution_2d");
     CHECK_NULL_ARGUMENT(kernel, "kernel");
 
-    *convolution_2d = (convolution_2d_t *) malloc(sizeof(linear_t));
+    *convolution_2d = (convolution_2d_t *) malloc(sizeof(convolution_2d_t));
     if (!*convolution_2d)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(convolution_2d_t)), NULL);
     }
 
-    (*convolution_2d)->kernel_size = kernel_size;
     (*convolution_2d)->padding = padding;
     (*convolution_2d)->stride = stride;
-    (*convolution_2d)->in_channels = in_channels;
-    (*convolution_2d)->out_channels = out_channels;
     (*convolution_2d)->kernel = kernel;
     (*convolution_2d)->bias = bias;
 
@@ -273,8 +286,8 @@ nw_error_t *dropout_create(dropout_t **dropout, void *probability, datatype_t da
     }
 
     memcpy((*dropout)->probability, probability, datatype_size(datatype));
-    (*dropout)->datatype = datatype;
     (*dropout)->inference = false;
+    (*dropout)->datatype = datatype;
 
     return NULL;
 }
@@ -285,6 +298,142 @@ void dropout_destroy(dropout_t *dropout)
     {
         free(dropout->probability);
         free(dropout);
+    }
+}
+
+nw_error_t *batch_normalization_2d_create(batch_normalization_2d_t **batch_normalization_2d, int64_t number_of_features,
+                                          void *momentum, void *epsilon, bool_t track_running_stats,
+                                          bool_t affine, datatype_t datatype, runtime_t runtime)
+{
+    CHECK_NULL_ARGUMENT(batch_normalization_2d, "batch_normalization_2d");
+    CHECK_NULL_ARGUMENT(epsilon, "epsilon");
+    if (track_running_stats)
+    {
+        CHECK_NULL_ARGUMENT(momentum, "momentum");
+    }
+
+    *batch_normalization_2d = (batch_normalization_2d_t *) malloc(sizeof(batch_normalization_2d_t));
+    if (!*batch_normalization_2d)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(batch_normalization_2d_t)), NULL);
+    }
+
+    nw_error_t *error = NULL;
+
+    (*batch_normalization_2d)->momentum = NULL;
+    (*batch_normalization_2d)->epsilon = NULL;
+    (*batch_normalization_2d)->bias = NULL;
+    (*batch_normalization_2d)->weights = NULL;
+    (*batch_normalization_2d)->running_mean = NULL;
+    (*batch_normalization_2d)->running_variance = NULL;
+    (*batch_normalization_2d)->track_running_stats = track_running_stats;
+    (*batch_normalization_2d)->inference = false;
+
+    (*batch_normalization_2d)->momentum = (void *) malloc(datatype_size(datatype));
+    if (!(*batch_normalization_2d)->momentum)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
+        goto cleanup;
+    }
+    memcpy((*batch_normalization_2d)->momentum, momentum, datatype_size(datatype));
+
+    (*batch_normalization_2d)->epsilon = (void *) malloc(datatype_size(datatype));
+    if (!(*batch_normalization_2d)->epsilon)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
+        goto cleanup;
+    }
+    memcpy((*batch_normalization_2d)->epsilon, epsilon, datatype_size(datatype));
+
+    if (affine)
+    {
+        error = tensor_create_ones(&(*batch_normalization_2d)->weights, (int64_t[]){number_of_features}, 1, runtime, datatype, true, true);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            goto cleanup;
+        }
+
+        error = tensor_create_zeroes(&(*batch_normalization_2d)->bias, (int64_t[]){number_of_features}, 1, runtime, datatype, true, true);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            goto cleanup;
+        }
+    }
+
+    error = tensor_create_ones(&(*batch_normalization_2d)->running_variance, (int64_t[]){number_of_features}, 1, runtime, datatype, true, true);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_create_zeroes(&(*batch_normalization_2d)->running_mean, (int64_t[]){number_of_features}, 1, runtime, datatype, true, true);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+    
+    return error;
+
+cleanup:
+
+    batch_normalization_2d_destroy(*batch_normalization_2d);
+
+    return error;
+}
+
+void batch_normalization_2d_destroy(batch_normalization_2d_t *batch_normalization_2d)
+{
+    if (batch_normalization_2d)
+    {
+        tensor_destroy(batch_normalization_2d->weights);
+        tensor_destroy(batch_normalization_2d->bias);
+        tensor_destroy(batch_normalization_2d->running_mean);
+        tensor_destroy(batch_normalization_2d->running_variance);
+        free(batch_normalization_2d->epsilon);
+        free(batch_normalization_2d->momentum);
+        free(batch_normalization_2d);
+    }
+}
+
+nw_error_t *reshape_create(reshape_t **reshape, int64_t *shape, int64_t length)
+{
+    CHECK_NULL_ARGUMENT(reshape, "reshape");
+    CHECK_NULL_ARGUMENT(shape, "shape");
+
+    *reshape = (reshape_t *) malloc(sizeof(reshape_t));
+    if (!*reshape)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(reshape_t)), NULL);
+    }
+
+    (*reshape)->shape = NULL;
+    (*reshape)->length = length;
+
+    (*reshape)->shape = (int64_t *) malloc(length * sizeof(int64_t));
+    if (!(*reshape)->shape)
+    {
+        free(*reshape);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", length * sizeof(int64_t)), NULL);
+    }
+
+    for (int64_t i = 0; i < length; ++i)
+    {
+        (*reshape)->shape[i] = shape[i];
+    }
+
+    return NULL;
+}
+
+void reshape_destroy(reshape_t *reshape)
+{
+    if (reshape)
+    {
+        free(reshape->shape);
+        free(reshape);
     }
 }
 
@@ -380,7 +529,42 @@ nw_error_t *linear_layer_create_from_parameters(layer_t **layer, tensor_t *weigh
     return error;
 }
 
-nw_error_t *convolution_2d_transpose_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride,
+nw_error_t *convolution_transpose_2d_layer_create_from_parameters(layer_t **layer, int64_t padding, int64_t stride, tensor_t *kernel, tensor_t *bias)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    convolution_2d_t *convolution_2d = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = CONVOLUTION_TRANSPOSE_2D;
+
+    error = convolution_2d_create(&convolution_2d, padding, stride, kernel, bias);
+    if (error)
+    {
+        tensor_destroy(kernel);
+        tensor_destroy(bias);
+        return ERROR(ERROR_CREATE, string_create("failed to create linear."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) convolution_2d);
+    if (error)
+    {
+        convolution_2d_destroy(convolution_2d);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+
+nw_error_t *convolution_transpose_2d_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride,
                                                   int64_t in_channels, int64_t out_channels, runtime_t runtime, datatype_t datatype,
                                                   parameter_init_t *kernel_init, parameter_init_t *bias_init)
 {
@@ -393,6 +577,40 @@ nw_error_t *convolution_2d_transpose_layer_create(layer_t **layer, int64_t kerne
     }
 
     (*layer)->transform_type = CONVOLUTION_TRANSPOSE_2D;
+
+    return error;
+}
+
+nw_error_t *convolution_2d_layer_create_from_parameters(layer_t **layer, int64_t padding, int64_t stride, tensor_t *kernel, tensor_t *bias)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    convolution_2d_t *convolution_2d = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = CONVOLUTION_2D;
+
+    error = convolution_2d_create(&convolution_2d, padding, stride, kernel, bias);
+    if (error)
+    {
+        tensor_destroy(kernel);
+        tensor_destroy(bias);
+        return ERROR(ERROR_CREATE, string_create("failed to create linear."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) convolution_2d);
+    if (error)
+    {
+        convolution_2d_destroy(convolution_2d);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
 
     return error;
 }
@@ -431,7 +649,7 @@ nw_error_t *convolution_2d_layer_create(layer_t **layer, int64_t kernel_size, in
         }
     }
 
-    error = convolution_2d_create(&convolution_2d, kernel_size, padding, stride, in_channels, out_channels, kernel, bias);
+    error = convolution_2d_create(&convolution_2d, padding, stride, kernel, bias);
     if (error)
     {
         tensor_destroy(kernel);
@@ -476,6 +694,73 @@ nw_error_t *dropout_layer_create(layer_t **layer, void *probability, datatype_t 
     if (error)
     {
         dropout_destroy(dropout);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *batch_normalization_2d_layer_create(layer_t **layer, int64_t number_of_features,
+                                                void *momentum, void *epsilon, bool_t track_running_stats,
+                                                bool_t affine, datatype_t datatype, runtime_t runtime)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+    CHECK_NULL_ARGUMENT(epsilon, "epsilon");
+
+    nw_error_t *error = NULL;
+    batch_normalization_2d_t *batch_normalization_2d = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = BATCH_NORMALIZATION_2D;
+
+    error = batch_normalization_2d_create(&batch_normalization_2d, number_of_features, momentum, epsilon, track_running_stats, affine, datatype, runtime);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create batch normalization layer."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) batch_normalization_2d);
+    if (error)
+    {
+        batch_normalization_2d_destroy(batch_normalization_2d);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *reshape_layer_create(layer_t **layer, int64_t *shape, int64_t length)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    reshape_t *reshape = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = RESHAPE;
+
+    error = reshape_create(&reshape, shape, length);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create reshape layer."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) reshape);
+    if (error)
+    {
+        reshape_destroy(reshape);
         return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
     }
 
@@ -650,6 +935,38 @@ nw_error_t *leaky_rectified_linear_activation_layer_create(layer_t **layer, void
     return error;
 }
 
+nw_error_t *tanh_activation_layer_create(layer_t **layer)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    activation_t *activation = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = ACTIVATION;
+
+    error = tanh_activation_create(&activation);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) activation);
+    if (error)
+    {
+        activation_destroy(activation);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
 nw_error_t *model_forward(model_t *model, tensor_t *x, tensor_t **y)
 {
     PRINTLN_DEBUG_LOCATION("input");
@@ -715,10 +1032,16 @@ nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
             error = convolution_2d_forward(transform->convolution_2d, x, &feature_map);
             break;
         case CONVOLUTION_TRANSPOSE_2D:
-            error = convolution_2d_transpose_forward(transform->convolution_2d, x, &feature_map);
+            error = convolution_transpose_2d_forward(transform->convolution_2d, x, &feature_map);
             break;
         case DROPOUT:
             error = dropout_forward(transform->dropout, x, &feature_map);
+            break;
+        case BATCH_NORMALIZATION_2D:
+            error = batch_normalization_2d_forward(transform->batch_normalization_2d, x, &feature_map);
+            break;
+        case RESHAPE:
+            error = reshape_forward(transform->reshape, x, &feature_map);
             break;
         case ACTIVATION:
             error = activation_forward(transform->activation, x, &feature_map);
@@ -805,7 +1128,7 @@ nw_error_t *convolution_2d_forward(convolution_2d_t *convolution_2d, tensor_t *x
     return error;
 }
 
-nw_error_t *convolution_2d_transpose_forward(convolution_2d_t *convolution_2d, tensor_t *x, tensor_t **y)
+nw_error_t *convolution_transpose_2d_forward(convolution_2d_t *convolution_2d, tensor_t *x, tensor_t **y)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
@@ -817,7 +1140,7 @@ nw_error_t *convolution_2d_transpose_forward(convolution_2d_t *convolution_2d, t
 
     nw_error_t *error = NULL;
 
-    error = tensor_convolution_2d_transpose(x, convolution_2d->kernel, convolution_2d->bias, y, convolution_2d->stride, convolution_2d->padding);
+    error = tensor_convolution_transpose_2d(x, convolution_2d->kernel, convolution_2d->bias, y, convolution_2d->stride, convolution_2d->padding);
     if (error)
     {
         return ERROR(ERROR_CONVOLUTION, string_create("failed to apply convolution_2d transpose."), error);
@@ -961,6 +1284,59 @@ cleanup:
     return NULL;
 }
 
+nw_error_t *batch_normalization_2d_forward(batch_normalization_2d_t *batch_normalization_2d, tensor_t *x, tensor_t **y)
+{
+    CHECK_NULL_ARGUMENT(batch_normalization_2d, "batch_normalization_2d");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+
+    if (batch_normalization_2d->track_running_stats)
+    {
+        error = tensor_batch_normalization_2d(x, batch_normalization_2d->weights, batch_normalization_2d->bias, batch_normalization_2d->running_mean, 
+                                              batch_normalization_2d->running_variance, y, batch_normalization_2d->inference, batch_normalization_2d->momentum, 
+                                              batch_normalization_2d->epsilon);
+    }
+    else
+    {
+        error = tensor_batch_normalization_2d(x, batch_normalization_2d->weights, batch_normalization_2d->bias, NULL, NULL, y,
+                                              batch_normalization_2d->inference, batch_normalization_2d->momentum, batch_normalization_2d->epsilon);
+    }
+
+    if (error)
+    {
+        return ERROR(ERROR_BATCH_NORMALIZATION, string_create("failed to apply batch normalization 2d."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *reshape_forward(reshape_t *reshape, tensor_t *x, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(reshape, "reshape");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_reshape(x, y, reshape->shape, reshape->length);
+    if (error)
+    {
+        return ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+    return error;
+}
+
 nw_error_t *model_inference(model_t *model, bool_t inference)
 {
     CHECK_NULL_ARGUMENT(model, "model");
@@ -986,6 +1362,9 @@ nw_error_t *block_inference(block_t *block, bool_t inference)
         {
         case DROPOUT:
             block->layers[i]->transform->dropout->inference = inference;
+            break;
+        case BATCH_NORMALIZATION_2D:
+            block->layers[i]->transform->batch_normalization_2d->inference = inference;
             break;
         case BLOCK:
             error = block_inference(block->layers[i]->transform->block, inference);

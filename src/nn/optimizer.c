@@ -651,7 +651,12 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
             parameters[0] = transform->convolution_2d->kernel;
             parameters[1] = transform->convolution_2d->bias;
             break;
+        case BATCH_NORMALIZATION_2D:
+            parameters[0] = transform->batch_normalization_2d->weights;
+            parameters[1] = transform->batch_normalization_2d->bias;
+            break;
         case DROPOUT:
+        case RESHAPE:
         case ACTIVATION:
             continue;
         case BLOCK:

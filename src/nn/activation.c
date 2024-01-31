@@ -49,6 +49,9 @@ nw_error_t *activation_function_create(activation_function_t **activation_functi
     case ACTIVATION_LOGSOFTMAX:
         (*activation_function)->softmax = (softmax_t *) type_activation_function;
         break;
+    case ACTIVATION_LEAKY_RECTIFIED_LINEAR:
+        (*activation_function)->leaky_rectified_linear = (leaky_rectified_linear_t *) type_activation_function;
+        break;
     default:
         free(*activation_function);
         return ERROR(ERROR_ACTIVATION_TYPE, string_create("unknown activation type %d.", (int) activation_function_type), NULL);
@@ -66,6 +69,9 @@ void activation_function_destroy(activation_function_t *activation_function, act
         case ACTIVATION_SOFTMAX:
         case ACTIVATION_LOGSOFTMAX:
             softmax_destroy(activation_function->softmax);
+            break;
+        case ACTIVATION_LEAKY_RECTIFIED_LINEAR:
+            leaky_rectified_linear_destroy(activation_function->leaky_rectified_linear);
             break;
         default:
             break;
@@ -88,6 +94,8 @@ string_t activation_function_type_string(activation_function_type_t activation_f
         return "ACTIVATION_SOFTMAX";
     case ACTIVATION_LOGSOFTMAX:
         return "ACTIVATION_LOGSOFTMAX";
+    case ACTIVATION_LEAKY_RECTIFIED_LINEAR:
+        return "ACTIVATION_LEAKY_RECTIFIED_LINEAR";
     default:
         return "ACTIVATION_FUNCTION_TYPE";
     }
@@ -143,6 +151,7 @@ void leaky_rectified_linear_destroy(leaky_rectified_linear_t *leaky_rectified_li
 {
     if (leaky_rectified_linear)
     {
+        free(leaky_rectified_linear->c);
         free(leaky_rectified_linear);
     }
 }
