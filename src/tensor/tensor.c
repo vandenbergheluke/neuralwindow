@@ -2037,6 +2037,34 @@ nw_error_t *tensor_variance(const tensor_t *x, tensor_t **y, const int64_t *axis
     datatype_t datatype = x->buffer->storage->datatype;
     size_t size = datatype_size(datatype);
     int64_t n, n_i;
+    view_t *view = NULL;
+
+    error = view_reduce(x->buffer->view, &view, axis, length, keep_dimension);
+    if (error)
+    {
+        error = ERROR(ERROR_REDUCTION, string_create("failed to reduce tensor."), error);
+        goto cleanup;
+    }
+
+    error = view_logical_size(view, &n_i);
+    if (error)
+    {
+        error = ERROR(ERROR_N, string_create("failed to get number of elements of tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_number_of_elements(x, &n);
+    if (error)
+    {
+        error = ERROR(ERROR_N, string_create("failed to get number of elements of tensor."), error);
+        goto cleanup;
+    }
+
+    if (n_i == n)
+    {
+        error = ERROR(ERROR_DIVISION, string_create("divide by zero error."), NULL);
+        goto cleanup;
+    }
 
     value = (void *) malloc(size);
     if (!value)
@@ -2070,26 +2098,6 @@ nw_error_t *tensor_variance(const tensor_t *x, tensor_t **y, const int64_t *axis
     if (error)
     {
         error = ERROR(ERROR_SUMMATION, string_create("failed to sum tensor."), error);
-        goto cleanup;
-    }
-
-    error = tensor_number_of_elements(x, &n);
-    if (error)
-    {
-        error = ERROR(ERROR_N, string_create("failed to get number of elements of tensor."), error);
-        goto cleanup;
-    }
-
-    error = tensor_number_of_elements(x_l, &n_i);
-    if (error)
-    {
-        error = ERROR(ERROR_N, string_create("failed to get number of elements of tensor."), error);
-        goto cleanup;
-    }
-
-    if (n_i == n)
-    {
-        error = ERROR(ERROR_DIVISION, string_create("divide by zero error."), NULL);
         goto cleanup;
     }
 
@@ -2136,6 +2144,7 @@ nw_error_t *tensor_variance(const tensor_t *x, tensor_t **y, const int64_t *axis
 cleanup:
 
     free(value);
+    view_destroy(view);
     if (!x->requires_gradient || no_gradient)
     {
         if (x_i != x)
