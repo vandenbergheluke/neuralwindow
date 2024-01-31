@@ -43,6 +43,7 @@ nw_error_t *activation_function_create(activation_function_t **activation_functi
     {
     case ACTIVATION_RECTIFIED_LINEAR:
     case ACTIVATION_SIGMOID:
+    case ACTIVATION_TANH:
         return NULL;
     case ACTIVATION_SOFTMAX:
     case ACTIVATION_LOGSOFTMAX:
@@ -87,6 +88,8 @@ string_t activation_function_type_string(activation_function_type_t activation_f
         return "ACTIVATION_RECTIFIED_LINEAR";
     case ACTIVATION_SIGMOID:
         return "ACTIVATION_SIGMOID";
+    case ACTIVATION_TANH:
+        return "ACTIVATION_TANH";
     case ACTIVATION_SOFTMAX:
         return "ACTIVATION_SOFTMAX";
     case ACTIVATION_LOGSOFTMAX:
@@ -184,6 +187,30 @@ nw_error_t *sigmoid_activation_create(activation_t **activation)
     nw_error_t *error = NULL;
     activation_function_t *activation_function = NULL;
     activation_function_type_t activation_function_type = ACTIVATION_SIGMOID;
+
+    error = activation_function_create(&activation_function, activation_function_type, NULL);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create activation function."), error);
+    }
+
+    error = activation_create(activation, activation_function, activation_function_type);
+    if (error)
+    {
+        activation_function_destroy(activation_function, activation_function_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create activation."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *tanh_activation_create(activation_t **activation)
+{
+    CHECK_NULL_ARGUMENT(activation, "activation");
+
+    nw_error_t *error = NULL;
+    activation_function_t *activation_function = NULL;
+    activation_function_type_t activation_function_type = ACTIVATION_TANH;
 
     error = activation_function_create(&activation_function, activation_function_type, NULL);
     if (error)
@@ -312,6 +339,9 @@ nw_error_t *activation_forward(activation_t *activation, tensor_t *x, tensor_t *
         break;
     case ACTIVATION_SIGMOID:
         error = tensor_sigmoid(x, y);
+        break;
+    case ACTIVATION_TANH:
+        error = tensor_tanh(x, y);
         break;
     case ACTIVATION_SOFTMAX:
         if (!activation_function->softmax)

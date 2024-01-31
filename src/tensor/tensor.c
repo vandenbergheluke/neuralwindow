@@ -404,11 +404,109 @@ nw_error_t *tensor_sigmoid(const tensor_t *x, tensor_t **y)
     return error;
 }
 
+nw_error_t *tensor_tanh(const tensor_t *x, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *const_tensor_1 = NULL;
+    tensor_t *const_tensor_2 = NULL;
+    tensor_t *double_x = NULL;
+    tensor_t *sigmoid_2x = NULL;
+    tensor_t *double_sigmoid = NULL;
+    datatype_t datatype = x->buffer->storage->datatype;
+    runtime_t runtime = x->buffer->storage->runtime;
+
+    switch(datatype)
+    {
+    case FLOAT32:
+        float32_t scalar_1_32 = (float32_t) 1;
+        float32_t scalar_2_32 = (float32_t) 2;
+        error = tensor_constant(&scalar_1_32, datatype, runtime, false, false, &const_tensor_1);
+        error = tensor_constant(&scalar_2_32, datatype, runtime, false, false, &const_tensor_2);
+        break;
+    case FLOAT64:
+        float64_t scalar_1_64 = (float64_t) 1;
+        float64_t scalar_2_64 = (float64_t) 2;
+        error = tensor_constant(&scalar_1_64, datatype, runtime, false, false, &const_tensor_1);
+        error = tensor_constant(&scalar_2_64, datatype, runtime, false, false, &const_tensor_2);
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int)datatype), NULL);
+        break;
+    }
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(const_tensor_2, x, &double_x);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_sigmoid(double_x, &sigmoid_2x);
+    if (error)
+    {
+        error = ERROR(ERROR_SIGMOID, string_create("failed to perform sigmoid operation."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(const_tensor_2, sigmoid_2x, &double_sigmoid);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_subtraction(double_sigmoid, const_tensor_1, y);
+    if (error)
+    {
+        error = ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+    if (!tensor_shapes_equal(const_tensor_1, x))
+    {
+        tensor_destroy(const_tensor_1);
+    }
+
+    if (!tensor_shapes_equal(const_tensor_2, x))
+    {
+        tensor_destroy(const_tensor_2);
+    }
+
+    if (!x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(double_x);
+        tensor_destroy(sigmoid_2x);
+        tensor_destroy(double_sigmoid);
+    }
+    return error;
+}
+
 nw_error_t *tensor_absolute(const tensor_t *x, tensor_t **y)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_TENSOR("x", x);
     PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
     tensor_t *x_i = NULL;
