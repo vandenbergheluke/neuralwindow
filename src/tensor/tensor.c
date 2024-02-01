@@ -1518,6 +1518,161 @@ cleanup:
     return error;
 }
 
+nw_error_t *tensor_layer_normalization(const tensor_t *x, const tensor_t *weights, const tensor_t *bias, tensor_t **y, int64_t *normalized_shape, int64_t length, void *epsilon)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("weights", weights);
+    PRINTLN_DEBUG_TENSOR("bias", bias);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(weights, "weights");
+    CHECK_NULL_ARGUMENT(bias, "bias");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(normalized_shape, "normalized_shape");
+    CHECK_NULL_ARGUMENT(epsilon, "epsilon");
+
+    nw_error_t *error = NULL;
+    tensor_t *epsilon_constant = NULL;
+    tensor_t *mean = NULL;
+    tensor_t *variance = NULL;
+    tensor_t *variance_perturbed = NULL;
+    tensor_t *denominator = NULL;
+    tensor_t *numerator = NULL;
+    tensor_t *standard_normal_x = NULL;
+    tensor_t *scaled_standard_normal_x = NULL;
+    int64_t axis[length];
+    datatype_t datatype = x->buffer->storage->datatype;
+    runtime_t runtime = x->buffer->storage->runtime;
+
+    for (int64_t i = 0; i < length; ++i)
+    {
+        axis[i] = -1 - i;
+    }
+
+    error = tensor_constant(epsilon, datatype, runtime, false, false, &epsilon_constant);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_mean(x, &mean, axis, length, true);
+    if (error)
+    {
+        error = ERROR(ERROR_MEAN, string_create("failed to compute mean."), error);
+        goto cleanup;
+    }
+
+    error = tensor_variance(x, &variance, axis, length, true, false);
+    if (error)
+    {
+        error = ERROR(ERROR_VARIANCE, string_create("failed to compute variance."), error);
+        goto cleanup;
+    }
+
+    error = tensor_addition(variance, epsilon_constant, &variance_perturbed);
+    if (error)
+    {
+        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_square_root(variance_perturbed, &denominator);
+    if (error)
+    {
+        error = ERROR(ERROR_SQUARE_ROOT, string_create("failed to square root tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_subtraction(x, mean, &numerator);
+    if (error)
+    {
+        error = ERROR(ERROR_SUBTRACTION, string_create("failed to subtract tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_division(numerator, denominator, &standard_normal_x);
+    if (error)
+    {
+        error = ERROR(ERROR_DIVISION, string_create("failed to divide tensors."), error);
+        goto cleanup;
+    }
+
+    if (weights)
+    {
+        error = tensor_multiplication(weights, standard_normal_x, &scaled_standard_normal_x);
+        if (error)
+        {
+            error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+            goto cleanup;
+        }
+    }
+    else
+    {
+        scaled_standard_normal_x = standard_normal_x;
+    }
+
+    if (bias)
+    {
+        error = tensor_addition(bias, scaled_standard_normal_x, y);
+        if (error)
+        {
+            error = ERROR(ERROR_DIVISION, string_create("failed to divide tensors."), error);
+            goto cleanup;
+        }
+    }
+    else
+    {
+        *y = scaled_standard_normal_x;
+    }
+
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("weights", weights);
+    PRINTLN_DEBUG_TENSOR("bias", bias);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+
+    if (!x->requires_gradient || no_gradient || !tensor_shapes_equal(variance, epsilon_constant))
+    {
+        tensor_destroy(epsilon_constant);
+    }
+
+    if (!x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(mean);
+        tensor_destroy(variance);
+        tensor_destroy(variance_perturbed);
+        tensor_destroy(denominator);
+        tensor_destroy(numerator);
+    }
+
+    if (!weights || !weights->requires_gradient || no_gradient)
+    {
+        if (standard_normal_x != scaled_standard_normal_x)
+        {
+            tensor_destroy(standard_normal_x);
+        }
+    }
+
+    if (!bias || !bias->requires_gradient || no_gradient)
+    {
+        if (scaled_standard_normal_x != *y)
+        {
+            tensor_destroy(scaled_standard_normal_x);
+        }
+    }
+
+    return error;
+
+}
+
 nw_error_t *tensor_convolution_2d(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z, int64_t stride, int64_t padding)
 {
     CHECK_NULL_ARGUMENT(w, "w");

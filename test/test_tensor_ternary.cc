@@ -14,6 +14,7 @@ extern "C"
 #define CONVOLUTION_2D_CASES 3
 #define CONVOLUTION_TRANSPOSE_2D_CASES 3
 #define BATCH_NORMALIZATION_2D_CASES 3
+#define LAYER_NORMALIZATION_CASES 3
 
 std::vector<int64_t> convolution_2d_shapes_x[CONVOLUTION_2D_CASES] = {
     {5, 3, 6, 7},
@@ -117,6 +118,30 @@ bool_t batch_normalization_2d_inference[BATCH_NORMALIZATION_2D_CASES] = {
     false,
 };
 
+std::vector<int64_t> layer_normalization_shapes_x[LAYER_NORMALIZATION_CASES] = {
+    {3, 2, 3, 3},
+    {7, 3, 5, 4},
+    {7, 1, 2, 3},
+};
+
+std::vector<int64_t> layer_normalization_normalized_shapes[LAYER_NORMALIZATION_CASES] = {
+    {2, 3, 3},
+    {3, 5, 4},
+    {1, 2, 3},
+};
+
+float32_t layer_normalization_epsilon_f[LAYER_NORMALIZATION_CASES] = {
+    1e-6,
+    1e-4,
+    1e-7,
+};
+
+float64_t layer_normalization_epsilon[LAYER_NORMALIZATION_CASES] = {
+    1e-6,
+    1e-4,
+    1e-7,
+};
+
 nw_error_t *error = NULL;
 
 // All
@@ -146,6 +171,7 @@ typedef enum tensor_ternary_operation_type_t
     TENSOR_CONVOLUTION_2D,
     TENSOR_CONVOLUTION_TRANSPOSE_2D,
     TENSOR_BATCH_NORMALIZATION_2D,
+    TENSOR_LAYER_NORMALIZATION,
 } tensor_reduction_operation_type_t;
 
 int cases(tensor_ternary_operation_type_t tensor_ternary_operation_type)
@@ -158,6 +184,8 @@ int cases(tensor_ternary_operation_type_t tensor_ternary_operation_type)
         return CONVOLUTION_TRANSPOSE_2D_CASES;
     case TENSOR_BATCH_NORMALIZATION_2D:
         return BATCH_NORMALIZATION_2D_CASES;
+    case TENSOR_LAYER_NORMALIZATION:
+        return LAYER_NORMALIZATION_CASES;
     default:
         return 0;
     }
@@ -173,6 +201,8 @@ std::vector<int64_t> shapes_x(tensor_ternary_operation_type_t tensor_ternary_ope
         return convolution_transpose_2d_shapes_x[i];
     case TENSOR_BATCH_NORMALIZATION_2D:
         return batch_normalization_2d_shapes_x[i];
+    case TENSOR_LAYER_NORMALIZATION:
+        return layer_normalization_shapes_x[i];
     default:
         return std::vector<int64_t>{};
     }
@@ -188,6 +218,8 @@ std::vector<int64_t> shapes_weights(tensor_ternary_operation_type_t tensor_terna
         return convolution_transpose_2d_shapes_weights[i];
     case TENSOR_BATCH_NORMALIZATION_2D:
         return batch_normalization_2d_features[i];
+    case TENSOR_LAYER_NORMALIZATION:
+        return layer_normalization_normalized_shapes[i];
     default:
         return std::vector<int64_t>{};
     }
@@ -203,6 +235,8 @@ std::vector<int64_t> shapes_bias(tensor_ternary_operation_type_t tensor_ternary_
         return convolution_transpose_2d_shapes_bias[i];
     case TENSOR_BATCH_NORMALIZATION_2D:
         return batch_normalization_2d_features[i];
+    case TENSOR_LAYER_NORMALIZATION:
+        return layer_normalization_normalized_shapes[i];
     default:
         return std::vector<int64_t>{};
     }
@@ -257,6 +291,7 @@ void setup(tensor_ternary_operation_type_t tensor_ternary_operation_type)
             {
             case TENSOR_CONVOLUTION_2D:
             case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+            case TENSOR_LAYER_NORMALIZATION:
                 break;
             case TENSOR_BATCH_NORMALIZATION_2D:
                 running_means[i][j] = std::vector<tensor_t *>(CASES);
@@ -284,6 +319,7 @@ void setup(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                 {
                 case TENSOR_CONVOLUTION_2D:
                 case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+                case TENSOR_LAYER_NORMALIZATION:
                     break;
                 case TENSOR_BATCH_NORMALIZATION_2D:
                     running_means[i][j][k] = NULL;
@@ -314,6 +350,7 @@ void setup(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                     {
                     case TENSOR_CONVOLUTION_2D:
                     case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+                    case TENSOR_LAYER_NORMALIZATION:
                         break;
                     case TENSOR_BATCH_NORMALIZATION_2D:
                         torch_running_means[i][j][k] = torch::randn(batch_normalization_2d_features[k], torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false));
@@ -340,6 +377,7 @@ void setup(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                     {
                     case TENSOR_CONVOLUTION_2D:
                     case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+                    case TENSOR_LAYER_NORMALIZATION:
                         break;
                     case TENSOR_BATCH_NORMALIZATION_2D:
                         torch_running_means[i][j][k] = torch::randn(batch_normalization_2d_features[k], torch::TensorOptions().dtype(torch::kFloat64).requires_grad(false));
@@ -363,6 +401,7 @@ void setup(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                 {
                 case TENSOR_CONVOLUTION_2D:
                 case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+                case TENSOR_LAYER_NORMALIZATION:
                     break;
                 case TENSOR_BATCH_NORMALIZATION_2D:
                     running_means[i][j][k] = torch_to_tensor(torch_running_means[i][j][k], (runtime_t) i, (datatype_t) j);
@@ -397,6 +436,7 @@ void teardown(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                 {
                 case TENSOR_CONVOLUTION_2D:
                 case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+                case TENSOR_LAYER_NORMALIZATION:
                     break;
                 case TENSOR_BATCH_NORMALIZATION_2D:
                     tensor_destroy(running_means[i][j][k]);
@@ -462,6 +502,25 @@ void test_ternary(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                         ck_abort_msg("unknown datatype.");
                     }
                     break;
+                case TENSOR_LAYER_NORMALIZATION:
+                    switch (datatype)
+                    {
+                    case FLOAT32:
+                        expected_tensor = torch::nn::functional::layer_norm(torch_tensors_x[i][j][k], torch::nn::functional::LayerNormFuncOptions(layer_normalization_normalized_shapes[k])
+                                                                                                        .weight(torch_tensors_weights[i][j][k])
+                                                                                                        .bias(torch_tensors_bias[i][j][k])
+                                                                                                        .eps(layer_normalization_epsilon_f[k]));
+                        break;
+                    case FLOAT64:
+                        expected_tensor = torch::nn::functional::layer_norm(torch_tensors_x[i][j][k], torch::nn::functional::LayerNormFuncOptions(layer_normalization_normalized_shapes[k])
+                                                                                                        .weight(torch_tensors_weights[i][j][k])
+                                                                                                        .bias(torch_tensors_bias[i][j][k])
+                                                                                                        .eps(layer_normalization_epsilon[k]));
+                        break;
+                    default:
+                        ck_abort_msg("unknown datatype.");
+                    }
+                    break;
                 default:
                     ck_abort_msg("unsupported binary operation type.");
                 }
@@ -499,6 +558,23 @@ void test_ternary(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                         ck_abort_msg("unknown datatype.");
                     }
                     break;
+                case TENSOR_LAYER_NORMALIZATION:
+                    switch (datatype)
+                    {
+                    case FLOAT32:
+                        error = tensor_layer_normalization(tensors_x[i][j][k], tensors_weights[i][j][k], tensors_bias[i][j][k],&returned_tensors[i][j][k],
+                                                           (int64_t *) layer_normalization_normalized_shapes[k].data(), (int64_t) layer_normalization_normalized_shapes[k].size(),
+                                                            &layer_normalization_epsilon_f[k]);
+                        break;
+                    case FLOAT64:
+                        error = tensor_layer_normalization(tensors_x[i][j][k], tensors_weights[i][j][k], tensors_bias[i][j][k],&returned_tensors[i][j][k],
+                                                           (int64_t *) layer_normalization_normalized_shapes[k].data(), (int64_t) layer_normalization_normalized_shapes[k].size(),
+                                                            &layer_normalization_epsilon[k]);
+                        break;
+                    default:
+                        ck_abort_msg("unknown datatype.");
+                    }
+                    break;
                 default:
                     ck_abort_msg("unsupported operation type.");
                 }
@@ -509,6 +585,7 @@ void test_ternary(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                 {
                 case TENSOR_CONVOLUTION_2D:
                 case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+                case TENSOR_LAYER_NORMALIZATION:
                     break;
                 case TENSOR_BATCH_NORMALIZATION_2D:
                     expected_running_means[i][j][k] = torch_to_tensor(torch_running_means[i][j][k], (runtime_t) i, (datatype_t) j);
@@ -574,6 +651,16 @@ void teardown_batch_normalization_2d(void)
     teardown(TENSOR_BATCH_NORMALIZATION_2D);
 }
 
+void setup_layer_normalization(void)
+{
+    setup(TENSOR_LAYER_NORMALIZATION);
+}
+
+void teardown_layer_normalization(void)
+{
+    teardown(TENSOR_LAYER_NORMALIZATION);
+}
+
 START_TEST(test_tensor_convolution_2d)
 {
     test_ternary(TENSOR_CONVOLUTION_2D);
@@ -592,12 +679,19 @@ START_TEST(test_tensor_batch_normalization_2d)
 }
 END_TEST
 
+START_TEST(test_tensor_layer_normalization)
+{
+    test_ternary(TENSOR_LAYER_NORMALIZATION);
+}
+END_TEST
+
 Suite *make_ternary_suite(void)
 {
     Suite *s;
     TCase *tc_convolution_2d;
     TCase *tc_convolution_transpose_2d;
     TCase *tc_batch_normalization_2d;
+    TCase *tc_layer_normalization;
 
     s = suite_create("Test Ternary Tensor Suite");
 
@@ -609,13 +703,18 @@ Suite *make_ternary_suite(void)
     tcase_add_checked_fixture(tc_convolution_transpose_2d, setup_convolution_transpose_2d, teardown_convolution_transpose_2d);
     tcase_add_test(tc_convolution_transpose_2d, test_tensor_convolution_transpose_2d);
 
-    tc_batch_normalization_2d = tcase_create("Test Batch Normalization Case");
+    tc_batch_normalization_2d = tcase_create("Test Batch Normalization 2D Case");
     tcase_add_checked_fixture(tc_batch_normalization_2d, setup_batch_normalization_2d, teardown_batch_normalization_2d);
     tcase_add_test(tc_batch_normalization_2d, test_tensor_batch_normalization_2d);
+    
+    tc_layer_normalization = tcase_create("Test Layer Normalization Case");
+    tcase_add_checked_fixture(tc_layer_normalization, setup_layer_normalization, teardown_layer_normalization);
+    tcase_add_test(tc_layer_normalization, test_tensor_layer_normalization);
 
     suite_add_tcase(s, tc_convolution_2d);
     suite_add_tcase(s, tc_convolution_transpose_2d);
     suite_add_tcase(s, tc_batch_normalization_2d);
+    suite_add_tcase(s, tc_layer_normalization);
 
     return s;
 }

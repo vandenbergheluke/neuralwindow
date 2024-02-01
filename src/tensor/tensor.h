@@ -83,6 +83,7 @@ nw_error_t *tensor_convolution_transpose_2d(const tensor_t *w, const tensor_t *x
 nw_error_t *tensor_linear(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z);
 nw_error_t *tensor_batch_normalization_2d(const tensor_t *x, const tensor_t *weights, const tensor_t *bias, tensor_t *running_mean, 
                                           tensor_t *running_variance, tensor_t **y, bool_t inference, void *momentum, void *epsilon);
+nw_error_t *tensor_layer_normalization(const tensor_t *x, const tensor_t *weights, const tensor_t *bias, tensor_t **y, int64_t *normalized_shape, int64_t length, void *epsilon);
 
 // Reduction Operations
 nw_error_t *tensor_summation(const tensor_t *x, tensor_t **y, const int64_t *axis, int64_t length, bool_t keep_dimension);
