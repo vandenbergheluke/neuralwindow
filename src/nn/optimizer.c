@@ -655,6 +655,10 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
             parameters[0] = transform->batch_normalization_2d->weights;
             parameters[1] = transform->batch_normalization_2d->bias;
             break;
+        case LAYER_NORMALIZATION:
+            parameters[0] = transform->layer_normalization->weights;
+            parameters[1] = transform->layer_normalization->bias;
+            break;
         case DROPOUT:
         case RESHAPE:
         case ACTIVATION:
@@ -1761,6 +1765,10 @@ nw_error_t *block_zero_gradient(block_t *block)
         case BATCH_NORMALIZATION_2D:
             parameters[0] = transform->batch_normalization_2d->weights;
             parameters[1] = transform->batch_normalization_2d->bias;
+            break;
+        case LAYER_NORMALIZATION:
+            parameters[0] = transform->layer_normalization->weights;
+            parameters[1] = transform->layer_normalization->bias;
             break;
         case DROPOUT:
         case RESHAPE:
