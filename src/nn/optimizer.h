@@ -107,4 +107,7 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
 nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters);
 nw_error_t *adam(adam_t *optimizer, tensor_t *parameters);
 
+// Zero Gradient
+nw_error_t *model_zero_gradient(model_t *model);
+nw_error_t *block_zero_gradient(block_t *block);
 #endif

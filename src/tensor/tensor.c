@@ -83,6 +83,8 @@ void tensor_destroy(tensor_t *tensor)
 {
     if (tensor)
     {
+        PRINTLN_DEBUG_LOCATION("input");
+        PRINTLN_DEBUG_TENSOR("tensor", tensor);
         id_pool_put(id_pool, tensor->id);
         if (id_pool->size == id)
         {
@@ -3258,18 +3260,69 @@ nw_error_t *tensor_create_normal(tensor_t **x, const int64_t *shape, int64_t ran
     return error;
 }
 
+static nw_error_t *compute_fan(const int64_t *shape, int64_t rank, int64_t *fan, bool_t mode)
+{
+    if (!mode)
+    {
+        if (rank == 2)
+        {
+            *fan = shape[0];
+        }
+        else if (rank == 4)
+        {
+            *fan = shape[1] * shape[2] * shape[3];
+        }
+        else if (rank == 5)
+        {
+            *fan = shape[1] * shape[2] * shape[3] * shape[3];
+        }
+        else
+        {
+            return ERROR(ERROR_RANK, string_create("unable to compute fan_in for tensor."), NULL);
+        }
+    }
+    else
+    {
+        if (rank == 2)
+        {
+            *fan = shape[1];
+        }
+        else if (rank == 4)
+        {
+            *fan = shape[0] * shape[2] * shape[3];
+        }
+        else if (rank == 5)
+        {
+            *fan = shape[0] * shape[2] * shape[3] * shape[3];
+        }
+        else
+        {
+            return ERROR(ERROR_RANK, string_create("unable to compute fan_out for tensor."), NULL);
+        }
+    }
+
+    return NULL;
+}
+
 nw_error_t *tensor_create_kaiming_uniform(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime,
-                                          datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan)
+                                          datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, bool_t mode)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(shape, "shape");
     CHECK_NULL_ARGUMENT(gain, "gain");
-    CHECK_NULL_ARGUMENT(fan, "fan");
 
     nw_error_t *error = NULL;
     void *lower_bound = NULL;
     void *upper_bound = NULL;
     size_t size = datatype_size(datatype);
+    int64_t fan = 0;
+
+    error = compute_fan(shape, rank, &fan, mode);
+    if (error)
+    {
+        error = ERROR(ERROR_FAN, string_create("failed to compute fan."), error);
+        goto cleanup;
+    }
 
     lower_bound = (void *) malloc(size);
     if (!lower_bound)
@@ -3288,11 +3341,11 @@ nw_error_t *tensor_create_kaiming_uniform(tensor_t **x, const int64_t *shape, in
     switch (datatype)
     {
     case FLOAT32:
-        *(float32_t *) upper_bound = *(float32_t *) gain * sqrtf(3.0 / *(float32_t *) fan);
+        *(float32_t *) upper_bound = *(float32_t *) gain * sqrtf(3.0 / (float32_t) fan);
         *(float32_t *) lower_bound = -*(float32_t *) upper_bound;
         break;
     case FLOAT64:
-        *(float64_t *) upper_bound = *(float64_t *) gain * sqrtf(3.0 / *(float64_t *) fan);
+        *(float64_t *) upper_bound = *(float64_t *) gain * sqrtf(3.0 / (float64_t) fan);
         *(float64_t *) lower_bound = -*(float64_t *) upper_bound;
         break;
     default:
@@ -3316,17 +3369,24 @@ cleanup:
 }
 
 nw_error_t *tensor_create_kaiming_normal(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime,
-                                         datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan)
+                                         datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, bool_t mode)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(shape, "shape");
     CHECK_NULL_ARGUMENT(gain, "gain");
-    CHECK_NULL_ARGUMENT(fan, "fan");
 
     nw_error_t *error = NULL;
     void *mean = NULL;
     void *standard_deviation = NULL;
     size_t size = datatype_size(datatype);
+    int64_t fan = 0;
+
+    error = compute_fan(shape, rank, &fan, mode);
+    if (error)
+    {
+        error = ERROR(ERROR_FAN, string_create("failed to compute fan."), error);
+        goto cleanup;
+    }
 
     mean = (void *) malloc(size);
     if (!mean)
@@ -3345,12 +3405,11 @@ nw_error_t *tensor_create_kaiming_normal(tensor_t **x, const int64_t *shape, int
     switch (datatype)
     {
     case FLOAT32:
-        
-        *(float32_t *) standard_deviation = *(float32_t *) gain / sqrtf(*(float32_t *) fan);
+        *(float32_t *) standard_deviation = *(float32_t *) gain / sqrtf((float32_t) fan);
         *(float32_t *) mean = (float32_t) 0.0;
         break;
     case FLOAT64:
-        *(float64_t *) standard_deviation = *(float64_t *) gain / sqrt(*(float64_t *) fan);
+        *(float64_t *) standard_deviation = *(float64_t *) gain / sqrt((float64_t) fan);
         *(float64_t *) mean = (float64_t) 0.0;
         break;
     default:
@@ -3374,18 +3433,31 @@ cleanup:
 }
 
 nw_error_t *tensor_create_glorot_uniform(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype,
-                                         bool_t requires_gradient, bool_t perist, void *gain, void *fan_in, void *fan_out)
+                                         bool_t requires_gradient, bool_t perist, void *gain)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(shape, "shape");
     CHECK_NULL_ARGUMENT(gain, "gain");
-    CHECK_NULL_ARGUMENT(fan_in, "fan_in");
-    CHECK_NULL_ARGUMENT(fan_out, "fan_out");
 
     nw_error_t *error = NULL;
     void *lower_bound = NULL;
     void *upper_bound = NULL;
     size_t size = datatype_size(datatype);
+    int64_t fan_in = 0, fan_out = 0;
+
+    error = compute_fan(shape, rank, &fan_in, false);
+    if (error)
+    {
+        error = ERROR(ERROR_FAN, string_create("failed to compute fan."), error);
+        goto cleanup;
+    }
+
+    error = compute_fan(shape, rank, &fan_out, true);
+    if (error)
+    {
+        error = ERROR(ERROR_FAN, string_create("failed to compute fan."), error);
+        goto cleanup;
+    }
 
     lower_bound = (void *) malloc(size);
     if (!lower_bound)
@@ -3404,11 +3476,11 @@ nw_error_t *tensor_create_glorot_uniform(tensor_t **x, const int64_t *shape, int
     switch (datatype)
     {
     case FLOAT32:
-        *(float32_t *) upper_bound = *(float32_t *) gain * sqrtf(6.0 / (*(float32_t *) fan_in + *(float32_t *) fan_out));
+        *(float32_t *) upper_bound = *(float32_t *) gain * sqrtf(6.0 / ((float32_t) fan_in + (float32_t) fan_out));
         *(float32_t *) lower_bound = -*(float32_t *) upper_bound;
         break;
     case FLOAT64:
-        *(float64_t *) upper_bound =  *(float64_t *) gain * sqrt(6.0 / (*(float64_t *) fan_in + *(float64_t *) fan_out));
+        *(float64_t *) upper_bound =  *(float64_t *) gain * sqrt(6.0 / ((float64_t) fan_in + (float64_t) fan_out));
         *(float64_t *) lower_bound = -*(float64_t *) upper_bound;
         break;
     default:
@@ -3432,19 +3504,31 @@ cleanup:
 }
 
 nw_error_t *tensor_create_glorot_normal(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype,
-                                        bool_t requires_gradient, bool_t persist, void *gain, void *fan_in, void *fan_out)
+                                        bool_t requires_gradient, bool_t persist, void *gain)
 {
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(shape, "shape");
     CHECK_NULL_ARGUMENT(gain, "gain");
-    CHECK_NULL_ARGUMENT(fan_in, "fan_in");
-    CHECK_NULL_ARGUMENT(fan_out, "fan_out");
 
     nw_error_t *error = NULL;
     void *mean = NULL;
     void *standard_deviation = NULL;
-
     size_t size = datatype_size(datatype);
+    int64_t fan_in = 0, fan_out = 0;
+
+    error = compute_fan(shape, rank, &fan_in, false);
+    if (error)
+    {
+        error = ERROR(ERROR_FAN, string_create("failed to compute fan."), error);
+        goto cleanup;
+    }
+
+    error = compute_fan(shape, rank, &fan_out, true);
+    if (error)
+    {
+        error = ERROR(ERROR_FAN, string_create("failed to compute fan."), error);
+        goto cleanup;
+    }
 
     mean = (void *) malloc(size);
     if (!mean)
@@ -3463,11 +3547,11 @@ nw_error_t *tensor_create_glorot_normal(tensor_t **x, const int64_t *shape, int6
     switch (datatype)
     {
     case FLOAT32:
-        *(float32_t *) standard_deviation = *(float32_t *) gain * sqrtf(2.0 / (*(float32_t *) fan_in + *(float32_t *) fan_out));
+        *(float32_t *) standard_deviation = *(float32_t *) gain * sqrtf(2.0 / ((float32_t) fan_in + (float32_t) fan_out));
         *(float32_t *) mean = (float32_t) 0.0;
         break;
     case FLOAT64:
-        *(float64_t *) standard_deviation = *(float64_t *) gain * sqrt(2.0 / (*(float64_t *) fan_in + *(float64_t *) fan_out));
+        *(float64_t *) standard_deviation = *(float64_t *) gain * sqrt(2.0 / ((float64_t) fan_in + (float64_t) fan_out));
         *(float64_t *) mean = (float64_t) 0.0;
         break;
     default:
@@ -3653,11 +3737,13 @@ nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y)
 
     nw_error_t *error = NULL;
 
+    with_no_gradient(true);
     error = apply_operation_unary(AS_OPERATION, x, y);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
+    with_no_gradient(false);
 
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("x", x);

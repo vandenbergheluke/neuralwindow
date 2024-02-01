@@ -300,6 +300,8 @@
         }\
         fprintf(stderr, ", requires_gradient: ");\
         PRINT_DEBUG_BOOLEAN((tensor)->requires_gradient);\
+        fprintf(stderr, ", persist: ");\
+        PRINT_DEBUG_BOOLEAN((tensor)->persist);\
         fprintf(stderr, ")");\
     }\
 } while(0)
@@ -674,6 +676,8 @@ typedef enum nw_error_type_t
     ERROR_STANDARD_DEVIATION,
     ERROR_BATCH_NORMALIZATION,
     ERROR_ABSOLUTE,
+    ERROR_FAN,
+    ERROR_ZERO_GRADIENT,
 } nw_error_type_t;
 
 typedef struct nw_error_t

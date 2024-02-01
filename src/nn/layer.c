@@ -362,14 +362,14 @@ nw_error_t *batch_normalization_2d_create(batch_normalization_2d_t **batch_norma
         }
     }
 
-    error = tensor_create_ones(&(*batch_normalization_2d)->running_variance, (int64_t[]){number_of_features}, 1, runtime, datatype, true, true);
+    error = tensor_create_ones(&(*batch_normalization_2d)->running_variance, (int64_t[]){number_of_features}, 1, runtime, datatype, false, true);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
         goto cleanup;
     }
 
-    error = tensor_create_zeroes(&(*batch_normalization_2d)->running_mean, (int64_t[]){number_of_features}, 1, runtime, datatype, true, true);
+    error = tensor_create_zeroes(&(*batch_normalization_2d)->running_mean, (int64_t[]){number_of_features}, 1, runtime, datatype, false, true);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -570,7 +570,7 @@ nw_error_t *convolution_transpose_2d_layer_create(layer_t **layer, int64_t kerne
 {
     nw_error_t *error = NULL;
 
-    error = convolution_2d_layer_create(layer, kernel_size, padding, stride, in_channels, out_channels, runtime, datatype, kernel_init, bias_init);
+    error = convolution_2d_layer_create(layer, kernel_size, padding, stride, out_channels, in_channels, runtime, datatype, kernel_init, bias_init);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create convolution_2d layer."), error);

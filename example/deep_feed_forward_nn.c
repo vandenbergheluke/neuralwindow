@@ -1,3 +1,5 @@
+#include <mnist_data.h>
+#include <plots.h>
 #include <view.h>
 #include <runtime.h>
 #include <buffer.h>
@@ -14,140 +16,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <mgl2/base_cf.h>
-#include <mgl2/canvas_cf.h>
-#include <mgl2/mgl_cf.h>
-
-typedef struct mnist_dataset_t
-{
-    string_t images_path;
-    string_t labels_path;
-    FILE *images_file;
-    FILE *labels_file;
-    int64_t height;
-    int64_t width;
-    int64_t number_of_labels;
-    int64_t image_offset;
-    int64_t label_offset;
-} mnist_dataset_t;
-
-static uint32_t uint32_big_endian(uint8_t *buffer)
-{
-    uint32_t value = 0;
-    value |= buffer[0] << 24;
-    value |= buffer[1] << 16;
-    value |= buffer[2] << 8;
-    value |= buffer[3];
-    return value;
-}
 
 void *plt_accuracies = NULL;
 void *plt_costs = NULL;
 float32_t *plt_count = NULL;
-
-
-nw_error_t *bounded_plot(string_t title, string_t save_path,
-          string_t x_str, void* x, int x_n,
-          string_t y_str, void* y, int y_n,
-          float64_t y_min, float64_t y_max,
-          datatype_t datatype)
-{
-    HMGL graph = mgl_create_graph(800,400);
-
-    HMDT x_mgl = mgl_create_data();
-    HMDT y_mgl = mgl_create_data();
-
-    mgl_data_set_float(x_mgl, x, x_n, 1, 1);
-    switch (datatype)
-    {
-    case FLOAT32:
-        mgl_data_set_float(y_mgl, (float32_t *) y, y_n, 1, 1);
-        break;
-    case FLOAT64:
-        mgl_data_set_double(y_mgl, (float64_t *) y, y_n, 1, 1);
-        break;
-    default:
-        mgl_delete_graph(graph);
-
-        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
-    }
-
-    mgl_fill_background(graph, 1, 1, 1, 1);
-
-    //mgl_subplot(graph, 3, 3, 4, "");
-    mgl_inplot(graph, 0, 1, 0, 1);
-    mgl_title(graph, title, "", 5);
-    mgl_set_range_dat(graph, 'x', x_mgl, 0);
-    mgl_set_range_val(graph, 'y', y_min, y_max);
-    mgl_axis(graph, "xy", "", "");
-    // |    long dashed line
-    // h    grey
-    mgl_axis_grid(graph, "xy", "|h", "");
-    mgl_label(graph, 'x', x_str, 0, "");
-    mgl_label(graph, 'y', y_str, 0, "");
-    mgl_box(graph);
-    // u    blue purple
-    mgl_plot_xy(graph, x_mgl, y_mgl, "2u", "");
-
-    mgl_write_png(graph, save_path, "w");
-
-    mgl_delete_graph(graph);
-    mgl_delete_data(x_mgl);
-    mgl_delete_data(y_mgl);
-
-    return NULL;
-}
-
-nw_error_t *plot(string_t title, string_t save_path,
-          string_t x_str, void* x, int x_n,
-          string_t y_str, void* y, int y_n,
-          datatype_t datatype)
-{
-    HMGL graph = mgl_create_graph(800,400);
-
-    HMDT x_mgl = mgl_create_data();
-    HMDT y_mgl = mgl_create_data();
-
-    mgl_data_set_float(x_mgl, x, x_n, 1, 1);
-    switch (datatype)
-    {
-    case FLOAT32:
-        mgl_data_set_float(y_mgl, (float32_t *) y, y_n, 1, 1);
-        break;
-    case FLOAT64:
-        mgl_data_set_double(y_mgl, (float64_t *) y, y_n, 1, 1);
-        break;
-    default:
-        mgl_delete_graph(graph);
-
-        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
-    }
-
-    mgl_fill_background(graph, 1, 1, 1, 1);
-
-    //mgl_subplot(graph, 3, 3, 4, "");
-    mgl_inplot(graph, 0, 1, 0, 1);
-    mgl_title(graph, title, "", 5);
-    mgl_set_range_dat(graph, 'x', x_mgl, 0);
-    mgl_set_range_dat(graph, 'y', y_mgl, 0);
-    mgl_axis(graph, "xy", "", "");
-    // |    long dashed line
-    // h    grey
-    mgl_axis_grid(graph, "xy", "|h", "");
-    mgl_label(graph, 'x', x_str, 0, "");
-    mgl_label(graph, 'y', y_str, 0, "");
-    mgl_box(graph);
-    // u    blue purple
-    mgl_plot_xy(graph, x_mgl, y_mgl, "2u", "");
-
-    mgl_write_png(graph, save_path, "w");
-
-    mgl_delete_graph(graph);
-    mgl_delete_data(x_mgl);
-    mgl_delete_data(y_mgl);
-
-    return NULL;
-}
 
 nw_error_t *mnist_metrics(dataset_type_t dataset_type, 
                           const tensor_t *y_true,
@@ -160,7 +32,7 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
 {
     CHECK_NULL_ARGUMENT(y_pred, "y_pred");
     CHECK_NULL_ARGUMENT(y_true, "y_true");
-    CHECK_NULL_ARGUMENT(y_true, "cost");
+    CHECK_NULL_ARGUMENT(cost, "cost");
     static void *accuracy_data = NULL;
     static void *cost_data = NULL;
     static int64_t time = 0; 
@@ -362,207 +234,14 @@ cleanup:
     return error;
 }
 
-nw_error_t *mnist_setup(void *arguments) 
-{
-    CHECK_NULL_ARGUMENT(arguments, "arguments");
-
-    nw_error_t *error = NULL;
-    mnist_dataset_t *mnist_dataset = (mnist_dataset_t *) arguments;
-
-    uint8_t buffer[4];
-    size_t read;
-
-    mnist_dataset->images_file = fopen(mnist_dataset->images_path, "rb");
-    if (!mnist_dataset->images_file)
-    {
-        return ERROR(ERROR_FILE, string_create("failed to open %s.", mnist_dataset->images_path), NULL);
-    }
-
-    mnist_dataset->labels_file = fopen(mnist_dataset->labels_path, "rb");
-    if (!mnist_dataset->images_file)
-    {
-        return ERROR(ERROR_FILE, string_create("failed to open %s.", mnist_dataset->labels_path), NULL);
-    }
-
-    // Magic Number
-    read = fread(buffer, sizeof(buffer), 1, mnist_dataset->images_file);
-    if (!read)
-    {
-        ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
-    }
-
-    // Number of samples
-    read = fread(buffer, sizeof(buffer), 1, mnist_dataset->images_file);
-    if (!read)
-    {
-        ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
-    }
-
-    // Height
-    read = fread(buffer, sizeof(buffer), 1, mnist_dataset->images_file);
-    if (!read)
-    {
-        ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
-    }
-    mnist_dataset->height = (int64_t) uint32_big_endian(buffer);
-
-    // Width
-    read = fread(buffer, sizeof(buffer), 1, mnist_dataset->images_file);
-    if (!read)
-    {
-        ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
-    }
-    mnist_dataset->width = (int64_t) uint32_big_endian(buffer);
-
-    mnist_dataset->number_of_labels = 10;
-    mnist_dataset->image_offset = 16;
-    mnist_dataset->label_offset = 8;
-
-    return error;
-}
-
-nw_error_t *mnist_teardown(void *arguments) 
-{
-    CHECK_NULL_ARGUMENT(arguments, "arguments");
-
-    int status;
-    mnist_dataset_t *mnist_dataset = (mnist_dataset_t *) arguments;
-
-    status = fclose(mnist_dataset->images_file);
-    if (status)
-    {
-        return ERROR(ERROR_FILE, string_create("failed to close file %s.", mnist_dataset->images_path), NULL);
-    }
-
-    status = fclose(mnist_dataset->labels_file);
-    if (status)
-    {
-        return ERROR(ERROR_FILE, string_create("failed to close file %s.", mnist_dataset->labels_path), NULL);
-    }
-    
-    return NULL;
-}
-
-nw_error_t *mnist_dataloader(int64_t index, batch_t *batch, void *arguments)
-{
-    CHECK_NULL_ARGUMENT(arguments, "arguments");
-    CHECK_NULL_ARGUMENT(batch, "batch");
-
-    int status;
-    size_t read;
-    nw_error_t *error = NULL;
-    mnist_dataset_t *mnist_dataset = (mnist_dataset_t *) arguments;
-    int64_t number_of_pixels = mnist_dataset->height * mnist_dataset->width;
-    int64_t number_of_labels = mnist_dataset->number_of_labels;
-    int64_t batch_size = batch->batch_size;
-    int64_t m = batch_size * number_of_labels;
-    int64_t n = batch_size * number_of_pixels;
-    void *data = NULL;
-    void *labels = NULL;
-    datatype_t datatype = batch->datatype;
-    runtime_t runtime = batch->runtime;
-    uint8_t file_buffer[1];
-    bool_t copy = runtime == CU_RUNTIME;
-    size_t size = datatype_size(datatype);
-
-    data = (void *) malloc(size * n);
-    if (!data)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", (size_t) (size * n)), NULL);
-    }
-
-    labels = (void *) malloc(size * m);
-    if (!labels)
-    {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", (size_t) (size * m)), NULL);
-    }
-
-    status = fseek(mnist_dataset->images_file, mnist_dataset->image_offset + index * number_of_pixels , SEEK_SET);
-    if (status)
-    {
-        return ERROR(ERROR_FILE, string_create("failed to move to offset in file."), NULL);
-    }
-
-    status = fseek(mnist_dataset->labels_file, mnist_dataset->label_offset + index , SEEK_SET);
-    if (status)
-    {
-        return ERROR(ERROR_FILE, string_create("failed to move to offset in file."), NULL);
-    }
-
-    for (int64_t i = 0; i < n; ++i)
-    {
-        read = fread(file_buffer, sizeof(file_buffer), 1, mnist_dataset->images_file);
-        if (!read)
-        {
-            return ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
-        }
-
-        switch (datatype)
-        {
-        case FLOAT32:
-            ((float32_t *) data)[i] = (float32_t) *file_buffer / (float64_t) 255.0;
-            break;
-        case FLOAT64:
-            ((float64_t *) data)[i] = (float64_t) *file_buffer / (float64_t) 255.0;
-            break;
-        default:
-            return ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
-        }
-    }
-
-    for (int64_t i = 0; i < batch_size; ++i)
-    {
-        read = fread(file_buffer, sizeof(file_buffer), 1, mnist_dataset->labels_file);
-        if (!read)
-        {
-            return ERROR(ERROR_FILE, string_create("failed to read file."), NULL);
-        }
-
-        for (int64_t j = 0; j < number_of_labels; ++j)
-        {
-            switch (datatype)
-            {
-            case FLOAT32:
-                ((float32_t *) labels)[i * number_of_labels + j] = ((uint8_t) j == *file_buffer) ? (float32_t) 1.0 : (float32_t) 0.0;
-                break;
-            case FLOAT64:
-                ((float64_t *) labels)[i * number_of_labels + j] = ((uint8_t) j == *file_buffer) ? (float64_t) 1.0 : (float64_t) 0.0;
-                break;
-            default:
-                return ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
-            }
-        }
-    }
-
-    error = tensor_from_data(&batch->x, data, runtime, datatype, 2, (int64_t[]) {batch_size, number_of_pixels}, copy, false, true);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    error = tensor_from_data(&batch->y, labels, runtime, datatype, 2, (int64_t[]) {batch_size, number_of_labels}, copy, false, true);
-    if (error)
-    {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    if (copy)
-    {
-        free(data);
-        free(labels);
-    }
-
-    return error;
-}
-
-nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t datatype)
+nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t datatype, int64_t batch_size)
 {
     CHECK_NULL_ARGUMENT(model, "model");
 
     nw_error_t *error = NULL;
 
+    layer_t *reshape_layer = NULL;
     layer_t *input_layer = NULL;
-    layer_t *dropout_layer = NULL;
     layer_t *input_activation = NULL;
     layer_t *output_layer = NULL;
     layer_t *output_activation = NULL;
@@ -571,7 +250,6 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
     parameter_init_t *bias_init = NULL;
     void *mean = NULL;
     void *standard_deviation = NULL;
-    void *probability = NULL;
     size_t size = datatype_size(datatype);
 
     mean = (void *) malloc(size);
@@ -588,31 +266,22 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         goto cleanup;
     }
 
-    probability = (void *) malloc(size);
-    if (!probability)
-    {
-        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
-        goto cleanup;
-    }
-
     switch (datatype)
     {
     case FLOAT32:
         *(float32_t *) mean = (float32_t) 0.0;
         *(float32_t *) standard_deviation = (float32_t) 1.0;
-        *(float32_t *) probability = (float32_t) 0.5;
         break;
     case FLOAT64:
         *(float64_t *) mean = (float64_t) 0.0;
         *(float64_t *) standard_deviation = (float64_t) 1.0;
-        *(float64_t *) probability = (float64_t) 0.5;
         break;
     default:
         error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
         goto cleanup;
     }
 
-    error = normal_parameter_init(&weight_init, mean, standard_deviation);
+    error = normal_parameter_init(&weight_init, mean, standard_deviation, datatype);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create normal initializer."), error);
@@ -633,17 +302,17 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         goto cleanup;
     }
 
+    error = reshape_layer_create(&reshape_layer, (int64_t[]){batch_size, 784}, 2);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create reshape layer."), error);
+        goto cleanup;
+    }
+
     error = linear_layer_create(&input_layer, 784, 128, runtime, datatype, weight_init, bias_init);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
-        goto cleanup;
-    }
-
-    error = dropout_layer_create(&dropout_layer, probability, datatype);
-    if (error)
-    {
-        error = ERROR(ERROR_CREATE, string_create("failed to create dropout layer."), error);
         goto cleanup;
     }
 
@@ -661,7 +330,7 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         goto cleanup;
     }
 
-    error = block_create(&block, 5, input_layer, input_activation, dropout_layer, output_layer, output_activation);
+    error = block_create(&block, 5, reshape_layer, input_layer, input_activation, output_layer, output_activation);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create block."), error);
@@ -679,7 +348,6 @@ cleanup:
 
     free(mean);
     free(standard_deviation);
-    free(probability);
     parameter_init_destroy(weight_init);
     parameter_init_destroy(bias_init);
     if (!error)
@@ -689,11 +357,11 @@ cleanup:
 
     if (!block)
     {
+        layer_destroy(reshape_layer);
         layer_destroy(input_layer);
         layer_destroy(input_activation);
         layer_destroy(output_layer);
         layer_destroy(output_activation);
-        layer_destroy(dropout_layer);
     }
     block_destroy(block);
 
@@ -712,6 +380,7 @@ int main(void)
         .labels_path = "../data/train-labels-idx1-ubyte",
         .images_file = NULL,
         .labels_file = NULL,
+        .normalize = false,
     };
 
     nw_error_t *error = NULL;
@@ -753,7 +422,7 @@ int main(void)
         goto cleanup;
     }
 
-    error = mnist_model_create(&model, runtime, datatype);
+    error = mnist_model_create(&model, runtime, datatype, batch_size);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create model."), error);

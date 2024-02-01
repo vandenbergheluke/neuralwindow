@@ -203,6 +203,10 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_BATCH_NORMALIZATION";
     case ERROR_ABSOLUTE:
         return "ERROR_ABSOLUTE";
+    case ERROR_FAN:
+        return "ERROR_FAN";
+    case ERROR_ZERO_GRADIENT:
+        return "ERROR_ZERO_GRADIENT";
     default:
         return "ERROR";
     }

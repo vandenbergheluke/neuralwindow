@@ -693,10 +693,6 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
                 {
                     return ERROR(ERROR_UPDATE, string_create("failed update parameters."), error);
                 }
-
-                // Zero gradient 
-                tensor_destroy(parameters[j]->gradient);
-                parameters[j]->gradient = NULL;
             }
         }
     }
@@ -745,6 +741,7 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
     tensor_t *initial_momentum = NULL;
     tensor_t *nesterov_momentum = NULL;
     tensor_t *weight_decay_sum = NULL;
+    tensor_t *gradient = NULL;
     string_t key = string_create("%lu", parameters->id);
     datatype_t datatype = parameters->buffer->storage->datatype;
     runtime_t runtime = parameters->buffer->storage->runtime;
@@ -774,9 +771,16 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
             goto cleanup;
         }
 
-        tensor_destroy(parameters->gradient);
-        parameters->gradient = NULL;
-        error = tensor_as_tensor(weight_decay_sum, &parameters->gradient);
+        error = tensor_as_tensor(weight_decay_sum, &gradient);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            goto cleanup;
+        }
+    }
+    else
+    {
+        error = tensor_as_tensor(parameters->gradient, &gradient);
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -788,7 +792,7 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
     {
         if (!map_contains(optimizer->momentum_buffer, key))
         {
-            error = tensor_as_tensor(parameters->gradient, &updated_momentum);
+            error = tensor_as_tensor(gradient, &updated_momentum);
             if (error)
             {
                 error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -845,7 +849,7 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
                 goto cleanup;
             }
 
-            error = tensor_multiplication(dampening_constant, parameters->gradient, &dampening_gradient);
+            error = tensor_multiplication(dampening_constant, gradient, &dampening_gradient);
             if (error)
             {
                 error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
@@ -887,16 +891,16 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
                 goto cleanup;
             }
 
-            error = tensor_addition(modified_momentum, parameters->gradient, &nesterov_momentum);
+            error = tensor_addition(modified_momentum, gradient, &nesterov_momentum);
             if (error)
             {
                 error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
                 goto cleanup;
             }
 
-            tensor_destroy(parameters->gradient);
-            parameters->gradient = NULL;
-            error = tensor_as_tensor(nesterov_momentum, &parameters->gradient);
+            tensor_destroy(gradient);
+            gradient = NULL;
+            error = tensor_as_tensor(nesterov_momentum, &gradient);
             if (error)
             {
                 error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -905,9 +909,9 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
         }
         else
         {
-            tensor_destroy(parameters->gradient);
-            parameters->gradient = NULL;
-            error = tensor_as_tensor(updated_momentum, &parameters->gradient);
+            tensor_destroy(gradient);
+            gradient = NULL;
+            error = tensor_as_tensor(updated_momentum, &gradient);
             if (error)
             {
                 error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -923,7 +927,7 @@ nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer
         goto cleanup;
     }
     
-    error = tensor_multiplication(learning_rate, parameters->gradient, &parameter_update);
+    error = tensor_multiplication(learning_rate, gradient, &parameter_update);
     if (error)
     {
         error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
@@ -953,6 +957,7 @@ cleanup:
     tensor_destroy(initial_momentum);
     tensor_destroy(nesterov_momentum);
     tensor_destroy(weight_decay_sum);
+    tensor_destroy(gradient);
     return error;
 }
 
@@ -993,6 +998,7 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters)
     tensor_t *updated_average_grad = NULL;
     tensor_t *weight_decay_sum = NULL;
     tensor_t *initial_momentum = NULL;
+    tensor_t *gradient = NULL;
     datatype_t datatype = parameters->buffer->storage->datatype;
     runtime_t runtime = parameters->buffer->storage->runtime;
     string_t key = string_create("%lu", parameters->id);
@@ -1022,9 +1028,16 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters)
             goto cleanup;
         }
 
-        tensor_destroy(parameters->gradient);
-        parameters->gradient = NULL;
-        error = tensor_as_tensor(weight_decay_sum, &parameters->gradient);
+        error = tensor_as_tensor(weight_decay_sum, &gradient);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            goto cleanup;
+        }
+    }
+    else
+    {
+        error = tensor_as_tensor(parameters->gradient, &gradient);
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -1059,7 +1072,7 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters)
         goto cleanup;
     }
     
-    error = tensor_multiplication(parameters->gradient, parameters->gradient, &squared_current_gradient);
+    error = tensor_multiplication(gradient, gradient, &squared_current_gradient);
     if (error)
     {
         error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
@@ -1118,7 +1131,7 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters)
 
     if (optimizer->centered)
     {
-        error = tensor_multiplication(one_minus_alpha_constant, parameters->gradient, &centered_grad);
+        error = tensor_multiplication(one_minus_alpha_constant, gradient, &centered_grad);
         if (error)
         {
             error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
@@ -1213,7 +1226,7 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters)
         goto cleanup;
     }
 
-    error = tensor_division(parameters->gradient, square_average_telda_epsilon, &temp_gradient);
+    error = tensor_division(gradient, square_average_telda_epsilon, &temp_gradient);
     if (error)
     {
         error = ERROR(ERROR_DIVISION, string_create("failed to divide tensors."), error);
@@ -1341,10 +1354,9 @@ cleanup:
     tensor_destroy(average_gradient_initial);
     tensor_destroy(weight_decay_sum);
     tensor_destroy(initial_momentum);
+    tensor_destroy(gradient);
     return error;
 }
-
-
 
 nw_error_t *adam(adam_t *optimizer, tensor_t *parameters)
 {
@@ -1381,6 +1393,7 @@ nw_error_t *adam(adam_t *optimizer, tensor_t *parameters)
     tensor_t *modified_learning_rate = NULL;
     tensor_t *parameter_update = NULL;
     tensor_t *temp_gradient_addition = NULL;
+    tensor_t *gradient = NULL;
     int64_t *iteration = NULL;
     string_t key = string_create("%lu", parameters->id);
 
@@ -1445,9 +1458,16 @@ nw_error_t *adam(adam_t *optimizer, tensor_t *parameters)
             goto cleanup;
         }
 
-        tensor_destroy(parameters->gradient);
-        parameters->gradient = NULL;
-        error = tensor_as_tensor(temp_gradient_addition, &parameters->gradient);
+        error = tensor_as_tensor(temp_gradient_addition, &gradient);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            goto cleanup;
+        }
+    }
+    else
+    {
+        error = tensor_as_tensor(parameters->gradient, &gradient);
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -1489,7 +1509,7 @@ nw_error_t *adam(adam_t *optimizer, tensor_t *parameters)
     } 
 
     //first moment
-    error = tensor_multiplication(one_minus_beta_1_constant, parameters->gradient, &first_moment_part_0);
+    error = tensor_multiplication(one_minus_beta_1_constant, gradient, &first_moment_part_0);
     if (error)
     {
         error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
@@ -1540,7 +1560,7 @@ nw_error_t *adam(adam_t *optimizer, tensor_t *parameters)
     }
 
     // second moment
-    error = tensor_multiplication(parameters->gradient, parameters->gradient, &gradient_squared);
+    error = tensor_multiplication(gradient, gradient, &gradient_squared);
     if (error)
     {
         error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
@@ -1684,7 +1704,88 @@ cleanup:
     tensor_destroy(modified_learning_rate);
     tensor_destroy(parameter_update);
     tensor_destroy(temp_gradient_addition);
+    tensor_destroy(gradient);
     string_destroy(key);
     return error;
     
+}
+
+nw_error_t *model_zero_gradient(model_t *model)
+{
+    CHECK_NULL_ARGUMENT(model, "model");
+
+    nw_error_t *error = block_zero_gradient(model->block);
+    if (error)
+    {
+        return ERROR(ERROR_ZERO_GRADIENT, string_create("failed to zero gradient."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *block_zero_gradient(block_t *block)
+{
+    CHECK_NULL_ARGUMENT(block, "block");
+    CHECK_NULL_ARGUMENT(block->layers, "block->layers");
+
+    nw_error_t *error = NULL;
+
+    for (int64_t i = 0; i < block->depth; ++i)
+    {
+        layer_t *layer = block->layers[i];
+        if (!layer)
+        {
+            return ERROR(ERROR_NULL, string_create("failed to update null layer."), NULL);
+        }
+
+        transform_type_t transform_type = layer->transform_type;
+        transform_t *transform = layer->transform;
+        if (!transform)
+        {
+            return ERROR(ERROR_NULL, string_create("transform is null."), NULL);
+        }
+
+        int number_parameters = 2;
+        tensor_t *parameters[number_parameters];
+        switch (transform_type)
+        {
+        case LINEAR:
+            parameters[0] = transform->linear->weights;
+            parameters[1] = transform->linear->bias;
+            break;
+        case CONVOLUTION_2D:
+        case CONVOLUTION_TRANSPOSE_2D:
+            parameters[0] = transform->convolution_2d->kernel;
+            parameters[1] = transform->convolution_2d->bias;
+            break;
+        case BATCH_NORMALIZATION_2D:
+            parameters[0] = transform->batch_normalization_2d->weights;
+            parameters[1] = transform->batch_normalization_2d->bias;
+            break;
+        case DROPOUT:
+        case RESHAPE:
+        case ACTIVATION:
+            continue;
+        case BLOCK:
+            error = block_zero_gradient(transform->block);
+            if (error)
+            {
+                return ERROR(ERROR_ZERO_GRADIENT, string_create("failed to zero gradient."), error);
+            }
+            continue;
+        default:
+            return ERROR(ERROR_LAYER_TYPE, string_create("unknown layer type %d.", (int) transform_type), error);
+        }
+
+        for (int j = 0; j < number_parameters; ++j)
+        {
+            if (parameters[j])
+            {
+                // Zero gradient 
+                tensor_destroy(parameters[j]->gradient);
+                parameters[j]->gradient = NULL;
+            }
+        }
+    }
+    return error;
 }

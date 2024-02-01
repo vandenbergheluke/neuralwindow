@@ -561,7 +561,7 @@ void setup_convolutional_neural_network(runtime_t runtime, datatype_t datatype)
         tensor_t *input = torch_to_tensor(torch_input, runtime, datatype);
         tensor_t *output = torch_to_tensor(torch_output, runtime, datatype);
 
-        layer_t *convtranspose1 = NULL, *convtranspose2 = NULL, *convtranspose3 = NULL, *convtranpose4 = NULL;
+        layer_t *convtranspose1 = NULL, *convtranspose2 = NULL, *convtranspose3 = NULL, *convtranspose4 = NULL;
         layer_t *relu1 = NULL, *relu2 = NULL, *relu3 = NULL;
         layer_t *conv1 = NULL, *conv2 = NULL, *conv3 = NULL, *conv4 = NULL;
         layer_t *batch_norm1 = NULL, *batch_norm2 = NULL, *batch_norm3 = NULL, *batch_norm4 = NULL, *batch_norm5 = NULL;
@@ -604,7 +604,7 @@ void setup_convolutional_neural_network(runtime_t runtime, datatype_t datatype)
         error = convolution_transpose_2d_layer_create_from_parameters(&convtranspose3, 1, 2, torch_to_tensor(convolutional_neural_network->convtranspose3->weight, runtime, datatype), NULL);
         ck_assert_ptr_null(error);
 
-        error = convolution_transpose_2d_layer_create_from_parameters(&convtranpose4, 1, 2, torch_to_tensor(convolutional_neural_network->convtranspose4->weight, runtime, datatype), NULL);
+        error = convolution_transpose_2d_layer_create_from_parameters(&convtranspose4, 1, 2, torch_to_tensor(convolutional_neural_network->convtranspose4->weight, runtime, datatype), NULL);
         ck_assert_ptr_null(error);
 
         error = convolution_2d_layer_create_from_parameters(&conv1, 1, 2, torch_to_tensor(convolutional_neural_network->conv1->weight, runtime, datatype), NULL);
@@ -662,7 +662,7 @@ void setup_convolutional_neural_network(runtime_t runtime, datatype_t datatype)
         error = reshape_layer_create(&reshape, shape, 1);
         ck_assert_ptr_null(error);
 
-        error = block_create(&block, 22, convtranspose1, batch_norm1, relu1, convtranspose2, batch_norm2, relu2, convtranspose3, batch_norm3, relu3, convtranpose4,
+        error = block_create(&block, 22, convtranspose1, batch_norm1, relu1, convtranspose2, batch_norm2, relu2, convtranspose3, batch_norm3, relu3, convtranspose4,
                              tanh, conv1, leaky_relu1, conv2, batch_norm4, leaky_relu2, conv3, batch_norm5, leaky_relu3, conv4, sigmoid, reshape);
         ck_assert_ptr_null(error);
 
@@ -992,6 +992,8 @@ void test_optimizer(algorithm_type_t algorithm_type)
                         tensor_t *output = NULL;
                         tensor_t *cost = NULL;
 
+                        error = model_zero_gradient(models[i][j][k][l]);
+                        ck_assert_ptr_null(error);
                         error = model_forward(models[i][j][k][l], inputs[i][j][k][l], &output);
                         ck_assert_ptr_null(error);
 

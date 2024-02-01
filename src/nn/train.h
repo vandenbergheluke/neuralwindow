@@ -2,6 +2,7 @@
 #define TRAIN_H
 
 #include <errors.h>
+#include <runtime.h>
 
 typedef struct model_t model_t;
 typedef struct cost_t cost_t;
@@ -9,7 +10,6 @@ typedef struct dataset_t dataset_t;
 typedef struct batch_t batch_t;
 typedef struct optimizer_t optimizer_t;
 typedef struct tensor_t tensor_t;
-typedef enum runtime_t runtime_t;
 
 #define LOG_SCALAR_TENSOR(msg, tensor) do {\
     fprintf(stdout, "%s ", msg);\
