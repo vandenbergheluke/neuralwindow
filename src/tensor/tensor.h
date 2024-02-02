@@ -110,6 +110,7 @@ nw_error_t *tensor_sigmoid(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_tanh(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_absolute(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y);
+nw_error_t *tensor_lower_triangular(const tensor_t *x, tensor_t **y);
 
 // Back Propogation
 nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient);

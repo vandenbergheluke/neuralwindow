@@ -3068,6 +3068,169 @@ nw_error_t *tensor_rectified_linear(const tensor_t *x, tensor_t **y)
     return error;
 }
 
+nw_error_t *tensor_lower_triangular(const tensor_t *x, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    void *start = NULL, *stop = NULL, *step = NULL;
+    runtime_t runtime = x->buffer->storage->runtime;
+    datatype_t datatype = x->buffer->storage->datatype;
+    size_t size = datatype_size(datatype);
+    tensor_t *x_i = NULL;
+    tensor_t *x_j = NULL;
+    tensor_t *x_k = NULL;
+    tensor_t *x_l = NULL;
+    tensor_t *x_m = NULL;
+    tensor_t *x_n = NULL;
+    tensor_t *x_o = NULL;
+    int64_t r = x->buffer->view->shape[x->buffer->view->rank - 2];
+    int64_t c = x->buffer->view->shape[x->buffer->view->rank - 1];
+
+    start = (void *) malloc(size);
+    if (!start)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    stop = (void *) malloc(size);
+    if (!stop)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    step = (void *) malloc(size);
+    if (!stop)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) start = (float32_t) 0.0;
+        *(float32_t *) stop = (float32_t) r;
+        *(float32_t *) step = (float32_t) 1.0;
+        break;
+    case FLOAT64:
+        *(float64_t *) start = (float64_t) 0.0;
+        *(float64_t *) stop = (float64_t) r;
+        *(float64_t *) step = (float64_t) 1.0;
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype."), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_arange(&x_i, start, stop, step, runtime, datatype, false, false);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) start = (float32_t) -1.0;
+        *(float32_t *) stop = (float32_t) (c - 1);
+        *(float32_t *) step = (float32_t) 1.0;
+        break;
+    case FLOAT64:
+        *(float64_t *) start = (float64_t) -1.0;
+        *(float64_t *) stop = (float64_t) (c - 1);
+        *(float64_t *) step = (float64_t) 1.0;
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype."), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_arange(&x_j, start, stop, step, runtime, datatype, false, false);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_reshape(x_i, &x_k, (int64_t[]){r, 1}, 2);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_reshape(x_j, &x_l, (int64_t[]){1, c}, 2);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_expand(x_k, &x_m, (int64_t[]){r, c}, 2);
+    if (error)
+    {
+        error = ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_expand(x_m, &x_n, (int64_t[]){r, c}, 2);
+    if (error)
+    {
+        error = ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_compare_greater(x_m, x_n, &x_o);
+    if (error)
+    {
+        error = ERROR(ERROR_COMPARE_GREATER, string_create("failed to compare greater tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(x, x_o, y);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    free(start);
+    free(stop);
+    free(step);
+
+    if (!x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(x_o);
+    }
+
+    tensor_destroy(x_i);
+    tensor_destroy(x_j);
+    tensor_destroy(x_k);
+    tensor_destroy(x_l);
+    tensor_destroy(x_m);
+    tensor_destroy(x_n);
+
+
+    return error;
+}
+
 nw_error_t *tensor_leaky_rectified_linear(const tensor_t *x, void *c, tensor_t **y)
 {
     PRINTLN_DEBUG_LOCATION("input");
