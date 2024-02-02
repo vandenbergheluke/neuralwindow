@@ -107,6 +107,7 @@ nw_error_t *tensor_rectified_linear(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_leaky_rectified_linear(const tensor_t *x, void *c, tensor_t **y);
 nw_error_t *tensor_sigmoid(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_tanh(const tensor_t *x, tensor_t **y);
+nw_error_t *tensor_gelu(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_absolute(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y);
 

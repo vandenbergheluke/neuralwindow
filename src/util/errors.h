@@ -673,6 +673,8 @@ typedef enum nw_error_type_t
     ERROR_VARIANCE,
     ERROR_STANDARD_DEVIATION,
     ERROR_BATCH_NORMALIZATION,
+    ERROR_TANH,
+    ERROR_GELU,
     ERROR_ABSOLUTE,
 } nw_error_type_t;
 
