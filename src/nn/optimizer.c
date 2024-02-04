@@ -592,7 +592,7 @@ void adam_destroy(adam_t *adam)
     return;
 }
 
-nw_error_t *optimizer_step(optimizer_t *optimizer, model_t *model)
+nw_error_t *update_model(optimizer_t *optimizer, model_t *model)
 {
     PRINTLN_DEBUG_LOCATION("input");
     PRINTLN_DEBUG_OPTIMIZER("optimizer", optimizer);
@@ -602,7 +602,7 @@ nw_error_t *optimizer_step(optimizer_t *optimizer, model_t *model)
     CHECK_NULL_ARGUMENT(optimizer, "optimizer");
     CHECK_NULL_ARGUMENT(model, "model");
 
-    nw_error_t *error = update(optimizer->algorithm, optimizer->algorithm_type, model->block);
+    nw_error_t *error = update_block(optimizer, model->block);
     if (error)
     {
         return ERROR(ERROR_UPDATE, string_create("failed to update model parameters."), error);
@@ -615,9 +615,9 @@ nw_error_t *optimizer_step(optimizer_t *optimizer, model_t *model)
     return error;
 }
 
-nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, block_t *block)
+nw_error_t *update_block(optimizer_t *optimizer, block_t *block)
 {
-    CHECK_NULL_ARGUMENT(algorithm, "algorithm");
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
     CHECK_NULL_ARGUMENT(block, "block");
     CHECK_NULL_ARGUMENT(block->layers, "block->layers");
 
@@ -638,33 +638,27 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
             return ERROR(ERROR_NULL, string_create("transform is null."), NULL);
         }
 
-        int number_parameters = 2;
-        tensor_t *parameters[number_parameters];
         switch (transform_type)
         {
         case LINEAR:
-            parameters[0] = transform->linear->weights;
-            parameters[1] = transform->linear->bias;
+            error = update_linear(optimizer, transform->linear);
             break;
         case CONVOLUTION_2D:
         case CONVOLUTION_TRANSPOSE_2D:
-            parameters[0] = transform->convolution_2d->kernel;
-            parameters[1] = transform->convolution_2d->bias;
+            error = update_convolution_2d(optimizer, transform->convolution_2d);
             break;
         case BATCH_NORMALIZATION_2D:
-            parameters[0] = transform->batch_normalization_2d->weights;
-            parameters[1] = transform->batch_normalization_2d->bias;
+            error = update_batch_normalization_2d(optimizer, transform->batch_normalization_2d);
             break;
         case LAYER_NORMALIZATION:
-            parameters[0] = transform->layer_normalization->weights;
-            parameters[1] = transform->layer_normalization->bias;
+            error = update_layer_normalization(optimizer, transform->layer_normalization);
             break;
         case DROPOUT:
         case RESHAPE:
         case ACTIVATION:
             continue;
         case BLOCK:
-            error = update(algorithm, algorithm_type, transform->block);
+            error = update_block(optimizer, transform->block);
             if (error)
             {
                 return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
@@ -673,54 +667,129 @@ nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, bloc
         default:
             return ERROR(ERROR_LAYER_TYPE, string_create("unknown layer type %d.", (int) transform_type), error);
         }
-
-        for (int j = 0; j < number_parameters; ++j)
-        {
-            if (parameters[j])
-            {
-                switch (algorithm_type)
-                {
-                case STOCASTIC_GRADIENT_DESCENT:
-                    error = stochastic_gradient_descent(algorithm->stochastic_gradient_descent, parameters[j]);
-                    break;
-                case RMS_PROP:
-                    error = rms_prop(algorithm->rms_prop, parameters[j]);
-                    break;
-                case ADAM:
-                    error = adam(algorithm->adam, parameters[j]);
-                    break;
-                default:
-                    return ERROR(ERROR_ALGORITHM, string_create("unknown algorithm %d.", (int) algorithm_type), error);
-                }
-
-                if (error)
-                {
-                    return ERROR(ERROR_UPDATE, string_create("failed update parameters."), error);
-                }
-            }
-        }
     }
     return error;
 }
 
-static bool_t is_zero(void *value, datatype_t datatype)
+nw_error_t *update_linear(optimizer_t *optimizer, linear_t *linear)
 {
-    if (!value)
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(linear, "linear");
+
+    nw_error_t *error = NULL;
+
+    error = update_parameters(optimizer, linear->weights);
+    if (error)
     {
-        return true;
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
     }
 
-    switch (datatype)
+    error = update_parameters(optimizer, linear->bias);
+    if (error)
     {
-    case FLOAT32:
-        return fabsf(*(float32_t *) value) < FLT_EPSILON;
-        break;
-    case FLOAT64:
-        return fabs(*(float64_t *) value) < DBL_EPSILON;
-        break;
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
     }
 
-    return false;
+    return error;
+}
+
+nw_error_t *update_convolution_2d(optimizer_t *optimizer, convolution_2d_t *convolution_2d)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(convolution_2d, "convolution_2d");
+
+    nw_error_t *error = NULL;
+
+    error = update_parameters(optimizer, convolution_2d->kernel);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    error = update_parameters(optimizer, convolution_2d->bias);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *update_batch_normalization_2d(optimizer_t *optimizer, batch_normalization_2d_t *batch_normalization_2d)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(batch_normalization_2d, "batch_normalization_2d");
+
+    nw_error_t *error = NULL;
+
+    error = update_parameters(optimizer, batch_normalization_2d->weights);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    error = update_parameters(optimizer, batch_normalization_2d->bias);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *update_layer_normalization(optimizer_t *optimizer, layer_normalization_t *layer_normalization)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(layer_normalization, "layer_normalization");
+
+    nw_error_t *error = NULL;
+
+    error = update_parameters(optimizer, layer_normalization->weights);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    error = update_parameters(optimizer, layer_normalization->bias);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *update_parameters(optimizer_t *optimizer, tensor_t *parameters)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(optimizer->algorithm, "optimizer->algorithm");
+
+    nw_error_t *error = NULL;
+
+    if (parameters)
+    {
+        switch (optimizer->algorithm_type)
+        {
+        case STOCASTIC_GRADIENT_DESCENT:
+            error = stochastic_gradient_descent(optimizer->algorithm->stochastic_gradient_descent, parameters);
+            break;
+        case RMS_PROP:
+            error = rms_prop(optimizer->algorithm->rms_prop, parameters);
+            break;
+        case ADAM:
+            error = adam(optimizer->algorithm->adam, parameters);
+            break;
+        default:
+            return ERROR(ERROR_ALGORITHM, string_create("unknown algorithm %d.", (int) optimizer->algorithm_type), error);
+        }
+
+        if (error)
+        {
+            return ERROR(ERROR_UPDATE, string_create("failed update parameters."), error);
+        }
+    }
+
+    return error;
 }
 
 nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer, tensor_t *parameters)
@@ -1714,11 +1783,11 @@ cleanup:
     
 }
 
-nw_error_t *model_zero_gradient(model_t *model)
+nw_error_t *zero_gradient_model(model_t *model)
 {
     CHECK_NULL_ARGUMENT(model, "model");
 
-    nw_error_t *error = block_zero_gradient(model->block);
+    nw_error_t *error = zero_gradient_block(model->block);
     if (error)
     {
         return ERROR(ERROR_ZERO_GRADIENT, string_create("failed to zero gradient."), error);
@@ -1727,7 +1796,7 @@ nw_error_t *model_zero_gradient(model_t *model)
     return error;
 }
 
-nw_error_t *block_zero_gradient(block_t *block)
+nw_error_t *zero_gradient_block(block_t *block)
 {
     CHECK_NULL_ARGUMENT(block, "block");
     CHECK_NULL_ARGUMENT(block->layers, "block->layers");
@@ -1739,7 +1808,7 @@ nw_error_t *block_zero_gradient(block_t *block)
         layer_t *layer = block->layers[i];
         if (!layer)
         {
-            return ERROR(ERROR_NULL, string_create("failed to update null layer."), NULL);
+            return ERROR(ERROR_NULL, string_create("failed to zero gradient null layer."), NULL);
         }
 
         transform_type_t transform_type = layer->transform_type;
@@ -1749,51 +1818,84 @@ nw_error_t *block_zero_gradient(block_t *block)
             return ERROR(ERROR_NULL, string_create("transform is null."), NULL);
         }
 
-        int number_parameters = 2;
-        tensor_t *parameters[number_parameters];
         switch (transform_type)
         {
         case LINEAR:
-            parameters[0] = transform->linear->weights;
-            parameters[1] = transform->linear->bias;
+            error = zero_gradient_linear(transform->linear);
             break;
         case CONVOLUTION_2D:
         case CONVOLUTION_TRANSPOSE_2D:
-            parameters[0] = transform->convolution_2d->kernel;
-            parameters[1] = transform->convolution_2d->bias;
+            error = zero_gradient_convolution_2d(transform->convolution_2d);
             break;
         case BATCH_NORMALIZATION_2D:
-            parameters[0] = transform->batch_normalization_2d->weights;
-            parameters[1] = transform->batch_normalization_2d->bias;
+            error = zero_gradient_batch_normalization_2d(transform->batch_normalization_2d);
             break;
         case LAYER_NORMALIZATION:
-            parameters[0] = transform->layer_normalization->weights;
-            parameters[1] = transform->layer_normalization->bias;
+            error = zero_gradient_layer_normalization(transform->layer_normalization);
             break;
         case DROPOUT:
         case RESHAPE:
         case ACTIVATION:
             continue;
         case BLOCK:
-            error = block_zero_gradient(transform->block);
+            error = zero_gradient_block(transform->block);
             if (error)
             {
-                return ERROR(ERROR_ZERO_GRADIENT, string_create("failed to zero gradient."), error);
+                return ERROR(ERROR_ZERO_GRADIENT, string_create("failed to zero gradient parameters."), error);
             }
             continue;
         default:
             return ERROR(ERROR_LAYER_TYPE, string_create("unknown layer type %d.", (int) transform_type), error);
         }
-
-        for (int j = 0; j < number_parameters; ++j)
-        {
-            if (parameters[j])
-            {
-                // Zero gradient 
-                tensor_destroy(parameters[j]->gradient);
-                parameters[j]->gradient = NULL;
-            }
-        }
     }
     return error;
+}
+
+nw_error_t *zero_gradient_linear(linear_t *linear)
+{
+    CHECK_NULL_ARGUMENT(linear, "linear");
+
+    zero_gradient_parameters(linear->weights);
+    zero_gradient_parameters(linear->bias);
+
+    return NULL;
+}
+
+nw_error_t *zero_gradient_convolution_2d(convolution_2d_t *convolution_2d)
+{
+    CHECK_NULL_ARGUMENT(convolution_2d, "convolution_2d");
+
+    zero_gradient_parameters(convolution_2d->kernel);
+    zero_gradient_parameters(convolution_2d->bias);
+
+    return NULL;
+}
+
+nw_error_t *zero_gradient_batch_normalization_2d(batch_normalization_2d_t *batch_normalization_2d)
+{
+    CHECK_NULL_ARGUMENT(batch_normalization_2d, "batch_normalization_2d");
+
+    zero_gradient_parameters(batch_normalization_2d->weights);
+    zero_gradient_parameters(batch_normalization_2d->bias);
+
+    return NULL;
+}
+
+nw_error_t *zero_gradient_layer_normalization(layer_normalization_t *layer_normalization)
+{
+    CHECK_NULL_ARGUMENT(layer_normalization, "layer_normalization");
+
+    zero_gradient_parameters(layer_normalization->weights);
+    zero_gradient_parameters(layer_normalization->bias);
+
+    return NULL;
+}
+
+void zero_gradient_parameters(tensor_t *parameters)
+{
+    if (parameters)
+    {
+        tensor_destroy(parameters->gradient);
+        parameters->gradient = NULL;
+    }
 }

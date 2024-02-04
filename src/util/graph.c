@@ -22,6 +22,7 @@ static void initialize_legend(void)
     legend = agsubg(graph, "Legend", 1);
     add_legend_entry(legend, UNARY_OPERATION, "orange");
     add_legend_entry(legend, BINARY_OPERATION, "green");
+    add_legend_entry(legend, TERNARY_OPERATION, "pink");
     add_legend_entry(legend, REDUCTION_OPERATION, "red");
     add_legend_entry(legend, STRUCTURE_OPERATION, "blue");
 }
@@ -168,6 +169,12 @@ void graph_function_node(function_t *function, Agnode_t **node)
                               binary_operation_type_string(function->operation->binary_operation->operation_type));
         color = "green";
         break;
+    case TERNARY_OPERATION:
+        label = string_create("<F0> Type: %s|Operation: %s", 
+                              operation_type_string(function->operation_type),
+                              ternary_operation_type_string(function->operation->ternary_operation->operation_type));
+        color = "pink";
+        break;
     case REDUCTION_OPERATION:
         arguments = int64_array_to_string(function->operation->reduction_operation->axis, 
                                           function->operation->reduction_operation->length);
@@ -208,7 +215,7 @@ nw_error_t *graph_function(function_t *function, tensor_t *z)
     }
 
     nw_error_t *error = NULL;
-    Agnode_t *node_x, *node_y, *node_z, *function_node;
+    Agnode_t *node_w, *node_x, *node_y, *node_z, *function_node;
 
     switch (function->operation_type)
     {
@@ -230,6 +237,27 @@ nw_error_t *graph_function(function_t *function, tensor_t *z)
         }
         agedge(graph, node_x, function_node, NULL, 1);
         error = graph_tensor_node(function->operation->binary_operation->y, &node_y);
+        if (error)
+        {
+            return ERROR(ERROR_GRAPH, string_create("failed to graph tensor node."), NULL);
+        }
+        agedge(graph, node_y, function_node, NULL, 1);
+        break;
+    case TERNARY_OPERATION:
+        graph_function_node(function, &function_node);
+        error = graph_tensor_node(function->operation->ternary_operation->w, &node_w);
+        if (error)
+        {
+            return ERROR(ERROR_GRAPH, string_create("failed to graph tensor node."), NULL);
+        }
+        agedge(graph, node_w, function_node, NULL, 1);
+        error = graph_tensor_node(function->operation->ternary_operation->x, &node_x);
+        if (error)
+        {
+            return ERROR(ERROR_GRAPH, string_create("failed to graph tensor node."), NULL);
+        }
+        agedge(graph, node_x, function_node, NULL, 1);
+        error = graph_tensor_node(function->operation->ternary_operation->y, &node_y);
         if (error)
         {
             return ERROR(ERROR_GRAPH, string_create("failed to graph tensor node."), NULL);

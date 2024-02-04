@@ -725,6 +725,293 @@ nw_error_t *buffer_binary(binary_operation_type_t operation_type, buffer_t *x_bu
     return error;
 }
 
+nw_error_t *buffer_ternary(ternary_operation_type_t ternary_operation_type, buffer_t *w_buffer, buffer_t *x_buffer, buffer_t *y_buffer, buffer_t **z_buffer)
+{
+    CHECK_NULL_ARGUMENT(w_buffer, "w_buffer");
+    CHECK_NULL_ARGUMENT(x_buffer, "x_buffer");
+    CHECK_NULL_ARGUMENT(y_buffer, "y_buffer");
+    CHECK_NULL_ARGUMENT(z_buffer, "z_buffer");
+    CHECK_NULL_ARGUMENT(w_buffer->view, "w_buffer->view");
+    CHECK_NULL_ARGUMENT(x_buffer->view, "x_buffer->view");
+    CHECK_NULL_ARGUMENT(y_buffer->view, "y_buffer->view");
+    CHECK_NULL_ARGUMENT(w_buffer->view->strides, "w_buffer->view->strides");
+    CHECK_NULL_ARGUMENT(x_buffer->view->strides, "x_buffer->view->strides");
+    CHECK_NULL_ARGUMENT(y_buffer->view->strides, "y_buffer->view->strides");
+    CHECK_NULL_ARGUMENT(w_buffer->view->shape, "w_buffer->view->shape");
+    CHECK_NULL_ARGUMENT(x_buffer->view->shape, "x_buffer->view->shape");
+    CHECK_NULL_ARGUMENT(y_buffer->view->shape, "y_buffer->view->shape");
+    CHECK_NULL_ARGUMENT(w_buffer->storage, "w_buffer->storage");
+    CHECK_NULL_ARGUMENT(x_buffer->storage, "x_buffer->storage");
+    CHECK_NULL_ARGUMENT(y_buffer->storage, "y_buffer->storage");
+    CHECK_NULL_ARGUMENT(w_buffer->storage->data, "w_buffer->storage->data");
+    CHECK_NULL_ARGUMENT(x_buffer->storage->data, "x_buffer->storage->data");
+    CHECK_NULL_ARGUMENT(y_buffer->storage->data, "y_buffer->storage->data");
+
+    nw_error_t *error = NULL;
+    bool_t overwrite = (bool_t) *z_buffer;
+    int64_t rank;
+
+    if (x_buffer->view->rank != y_buffer->view->rank || y_buffer->view->rank != w_buffer->view->rank)
+    {
+        return ERROR(ERROR_RANK, string_create("ranks are incompatible."), NULL);
+    }
+    else
+    {
+        rank = w_buffer->view->rank;
+    }
+
+    int64_t shape[rank];
+    runtime_t runtime;
+    datatype_t datatype;
+
+    if (x_buffer->storage->datatype != y_buffer->storage->datatype || y_buffer->storage->datatype != w_buffer->storage->datatype)
+    {
+        error = ERROR(ERROR_DATATYPE, string_create("datatypes are incompatible."), NULL);
+        goto cleanup;
+    }
+    else
+    {
+        datatype = w_buffer->storage->datatype;
+    }
+
+    if (x_buffer->storage->runtime != y_buffer->storage->runtime || y_buffer->storage->runtime != w_buffer->storage->runtime)
+    {
+        error = ERROR(ERROR_RUNTIME, string_create("runtimes are incompatible."), NULL);
+        goto cleanup;
+    }
+    else
+    {
+        runtime = w_buffer->storage->runtime;
+    }
+
+    if (!overwrite)
+    {
+        if (!view_shapes_equal(x_buffer->view, y_buffer->view) || !view_shapes_equal(y_buffer->view, w_buffer->view))
+        {
+            error = ERROR(ERROR_SHAPE, string_create("incompatible tensor shapes."), NULL);
+            goto cleanup;
+        }
+        else
+        {
+            memcpy(shape, w_buffer->view->shape, rank * sizeof(int64_t));
+        }
+
+        error = buffer_creation(EMPTY_OPERATION, z_buffer, shape, rank, NULL, 0, runtime, datatype, NULL, 0, NULL);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
+            goto cleanup;
+        }
+    }
+
+    void *w_data = w_buffer->storage->data;
+    void *x_data = x_buffer->storage->data;
+    void *y_data = y_buffer->storage->data;
+    void *z_data = (*z_buffer)->storage->data;
+
+    int64_t n;
+    int64_t w_stride;
+    int64_t x_stride;
+    int64_t y_stride;
+    int64_t z_stride;
+    int64_t w_offset;
+    int64_t x_offset;
+    int64_t y_offset;
+    int64_t z_offset;
+
+    switch (rank)
+    {
+    case 0:
+        n = 1;
+        w_stride = 0;
+        x_stride = 0;
+        y_stride = 0;
+        z_stride = 0;
+        w_offset = w_buffer->view->offset;
+        x_offset = x_buffer->view->offset;
+        y_offset = y_buffer->view->offset;
+        z_offset = (*z_buffer)->view->offset;
+        runtime_ternary(ternary_operation_type, 
+                        runtime, datatype, n, 
+                        w_data, w_stride, w_offset, 
+                        x_data, x_stride, x_offset, 
+                        y_data, y_stride, y_offset,
+                        z_data, z_stride, z_offset);
+        break;
+    case 1:
+        n = (*z_buffer)->view->shape[0];
+        w_stride = w_buffer->view->strides[0];
+        x_stride = x_buffer->view->strides[0];
+        y_stride = y_buffer->view->strides[0];
+        z_stride = (*z_buffer)->view->strides[0];
+        w_offset = w_buffer->view->offset;
+        x_offset = x_buffer->view->offset;
+        y_offset = y_buffer->view->offset;
+        z_offset = (*z_buffer)->view->offset;
+        runtime_ternary(ternary_operation_type, 
+                        runtime, datatype, n, 
+                        w_data, w_stride, w_offset, 
+                        x_data, x_stride, x_offset, 
+                        y_data, y_stride, y_offset,
+                        z_data, z_stride, z_offset);
+        break;
+    case 2:
+        for (int64_t i = 0; i < (*z_buffer)->view->shape[0]; ++i)
+        {
+            n = (*z_buffer)->view->shape[1];
+            w_stride = w_buffer->view->strides[1];
+            x_stride = x_buffer->view->strides[1];
+            y_stride = y_buffer->view->strides[1];
+            z_stride = (*z_buffer)->view->strides[1];
+            w_offset = w_buffer->view->offset
+                       + i * w_buffer->view->strides[0];
+            x_offset = x_buffer->view->offset
+                       + i * x_buffer->view->strides[0];
+            y_offset = y_buffer->view->offset
+                       + i * y_buffer->view->strides[0];
+            z_offset = (*z_buffer)->view->offset
+                       + i * (*z_buffer)->view->strides[0];
+            runtime_ternary(ternary_operation_type, 
+                            runtime, datatype, n, 
+                            w_data, w_stride, w_offset, 
+                            x_data, x_stride, x_offset, 
+                            y_data, y_stride, y_offset,
+                            z_data, z_stride, z_offset);
+        }
+        break;
+    case 3:
+        for (int64_t i = 0; i < (*z_buffer)->view->shape[0]; ++i)
+        {
+            for (int64_t j = 0; j < (*z_buffer)->view->shape[1]; ++j)
+            {
+                n = (*z_buffer)->view->shape[2];
+                w_stride = w_buffer->view->strides[2];
+                x_stride = x_buffer->view->strides[2];
+                y_stride = y_buffer->view->strides[2];
+                z_stride = (*z_buffer)->view->strides[2];
+                w_offset = w_buffer->view->offset
+                           + i * w_buffer->view->strides[0]
+                           + j * w_buffer->view->strides[1];
+                x_offset = x_buffer->view->offset
+                           + i * x_buffer->view->strides[0]
+                           + j * x_buffer->view->strides[1];
+                y_offset = y_buffer->view->offset
+                           + i * y_buffer->view->strides[0]
+                           + j * y_buffer->view->strides[1];
+                z_offset = (*z_buffer)->view->offset
+                           + i * (*z_buffer)->view->strides[0]
+                           + j * (*z_buffer)->view->strides[1];
+
+                runtime_ternary(ternary_operation_type, 
+                                runtime, datatype, n, 
+                                w_data, w_stride, w_offset, 
+                                x_data, x_stride, x_offset, 
+                                y_data, y_stride, y_offset,
+                                z_data, z_stride, z_offset);
+            }
+        }
+        break;
+    case 4:
+        for (int64_t i = 0; i < (*z_buffer)->view->shape[0]; ++i)
+        {
+            for (int64_t j = 0; j < (*z_buffer)->view->shape[1]; ++j)
+            {
+                for (int64_t k = 0; k < (*z_buffer)->view->shape[2]; ++k)
+                {
+                    n = (*z_buffer)->view->shape[3];
+                    w_stride = w_buffer->view->strides[3];
+                    x_stride = x_buffer->view->strides[3];
+                    y_stride = y_buffer->view->strides[3];
+                    z_stride = (*z_buffer)->view->strides[3];
+                    w_offset = w_buffer->view->offset
+                               + i * w_buffer->view->strides[0]
+                               + j * w_buffer->view->strides[1]
+                               + k * w_buffer->view->strides[2];
+                    x_offset = x_buffer->view->offset
+                               + i * x_buffer->view->strides[0]
+                               + j * x_buffer->view->strides[1]
+                               + k * x_buffer->view->strides[2];
+                    y_offset = y_buffer->view->offset
+                               + i * y_buffer->view->strides[0]
+                               + j * y_buffer->view->strides[1]
+                               + k * y_buffer->view->strides[2];
+                    z_offset = (*z_buffer)->view->offset
+                               + i * (*z_buffer)->view->strides[0]
+                               + j * (*z_buffer)->view->strides[1]
+                               + k * (*z_buffer)->view->strides[2];
+
+                    runtime_ternary(ternary_operation_type, 
+                                    runtime, datatype, n, 
+                                    w_data, w_stride, w_offset, 
+                                    x_data, x_stride, x_offset, 
+                                    y_data, y_stride, y_offset,
+                                    z_data, z_stride, z_offset);
+                }
+            }
+        }
+        break;
+    case 5:
+        for (int64_t i = 0; i < (*z_buffer)->view->shape[0]; ++i)
+        {
+            for (int64_t j = 0; j < (*z_buffer)->view->shape[1]; ++j)
+            {
+                for (int64_t k = 0; k < (*z_buffer)->view->shape[2]; ++k)
+                {
+                    for (int64_t l = 0; l < (*z_buffer)->view->shape[3]; ++l)
+                    {
+                        n = (*z_buffer)->view->shape[4];
+                        w_stride = w_buffer->view->strides[4];
+                        x_stride = x_buffer->view->strides[4];
+                        y_stride = y_buffer->view->strides[4];
+                        z_stride = (*z_buffer)->view->strides[4];
+                        w_offset = w_buffer->view->offset
+                                   + i * w_buffer->view->strides[0]
+                                   + j * w_buffer->view->strides[1]
+                                   + k * w_buffer->view->strides[2]
+                                   + l * w_buffer->view->strides[3];
+                        x_offset = x_buffer->view->offset
+                                   + i * x_buffer->view->strides[0]
+                                   + j * x_buffer->view->strides[1]
+                                   + k * x_buffer->view->strides[2]
+                                   + l * x_buffer->view->strides[3];
+                        y_offset = y_buffer->view->offset
+                                   + i * y_buffer->view->strides[0]
+                                   + j * y_buffer->view->strides[1]
+                                   + k * y_buffer->view->strides[2]
+                                   + l * y_buffer->view->strides[3];
+                        z_offset = (*z_buffer)->view->offset
+                                   + i * (*z_buffer)->view->strides[0]
+                                   + j * (*z_buffer)->view->strides[1]
+                                   + k * (*z_buffer)->view->strides[2]
+                                   + l * (*z_buffer)->view->strides[3];
+                        runtime_ternary(ternary_operation_type, 
+                                        runtime, datatype, n, 
+                                        w_data, w_stride, w_offset, 
+                                        x_data, x_stride, x_offset, 
+                                        y_data, y_stride, y_offset,
+                                        z_data, z_stride, z_offset);
+                    }
+                }
+            }
+        }
+        break;
+    default:
+        error = ERROR(ERROR_RANK, string_create("unsupported rank %d", (int) rank), NULL);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    if (!overwrite)
+    {
+        buffer_destroy(*z_buffer);
+    }
+
+    return error;
+}
+
 static nw_error_t *runtime_reduction_dimension(reduction_operation_type_t reduction_operation_type, buffer_t *x_buffer, buffer_t *y_buffer, int64_t axis, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x_buffer, "x_buffer");

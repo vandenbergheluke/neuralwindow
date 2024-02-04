@@ -99,8 +99,13 @@ nw_error_t *adam_create(adam_t **adam, datatype_t datatype, void *learning_rate,
 void adam_destroy(adam_t *adam);
 
 // Update
-nw_error_t *optimizer_step(optimizer_t *optimizer, model_t *model);
-nw_error_t *update(algorithm_t *algorithm, algorithm_type_t algorithm_type, block_t *block);
+nw_error_t *update_model(optimizer_t *optimizer, model_t *model);
+nw_error_t *update_block(optimizer_t *optimizer, block_t *block);
+nw_error_t *update_linear(optimizer_t *optimizer, linear_t *linear);
+nw_error_t *update_convolution_2d(optimizer_t *optimizer, convolution_2d_t *convolution_2d);
+nw_error_t *update_batch_normalization_2d(optimizer_t *optimizer, batch_normalization_2d_t *batch_normalization_2d);
+nw_error_t *update_layer_normalization(optimizer_t *optimizer, layer_normalization_t *layer_normalization);
+nw_error_t *update_parameters(optimizer_t *optimizer, tensor_t *parameters);
 
 // Update Specializations
 nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer, tensor_t *parameters);
@@ -108,6 +113,11 @@ nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters);
 nw_error_t *adam(adam_t *optimizer, tensor_t *parameters);
 
 // Zero Gradient
-nw_error_t *model_zero_gradient(model_t *model);
-nw_error_t *block_zero_gradient(block_t *block);
+nw_error_t *zero_gradient_model(model_t *model);
+nw_error_t *zero_gradient_block(block_t *block);
+nw_error_t *zero_gradient_linear(linear_t *linear);
+nw_error_t *zero_gradient_convolution_2d(convolution_2d_t *convolution_2d);
+nw_error_t *zero_gradient_batch_normalization_2d(batch_normalization_2d_t *batch_normalization_2d);
+nw_error_t *zero_gradient_layer_normalization(layer_normalization_t *layer_normalization);
+void zero_gradient_parameters(tensor_t *parameters);
 #endif

@@ -7,6 +7,7 @@ typedef enum operation_type_t
 {
     UNARY_OPERATION,
     BINARY_OPERATION,
+    TERNARY_OPERATION,
     REDUCTION_OPERATION,
     STRUCTURE_OPERATION,
     CREATION_OPERATION,
@@ -39,6 +40,11 @@ typedef enum binary_operation_type_t
     COMPARE_GREATER_OPERATION,
 } binary_operation_type_t;
 
+typedef enum ternary_operation_type_t
+{
+    WHERE_OPERATION,
+} ternary_operation_type_t;
+
 typedef enum reduction_operation_type_t
 {
     SUMMATION_OPERATION,
@@ -70,6 +76,7 @@ typedef enum creation_operation_type_t
 
 string_t unary_operation_type_string(unary_operation_type_t unary_operation_type);
 string_t binary_operation_type_string(binary_operation_type_t binary_operation_type);
+string_t ternary_operation_type_string(ternary_operation_type_t ternary_operation_type);
 string_t reduction_operation_type_string(reduction_operation_type_t reduction_operation_type);
 string_t structure_operation_type_string(structure_operation_type_t structure_operation_type);
 string_t creation_operation_type_string(creation_operation_type_t creation_operation_type);

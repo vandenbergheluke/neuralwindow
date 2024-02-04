@@ -625,6 +625,37 @@ nw_error_t *tensor_addition(const tensor_t *x, const tensor_t *y, tensor_t **z)
     return error;
 }
 
+nw_error_t *tensor_where(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("w", w);
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(w, "w");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(z, "z");
+
+    nw_error_t *error = NULL;
+
+    error = apply_operation_ternary(WHERE_OPERATION, w, x, y, z);
+    if (error)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to where tensors."), error);
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", y);
+    PRINTLN_DEBUG_TENSOR("w", w);
+    PRINTLN_DEBUG_TENSOR("z", *z);
+    PRINT_DEBUG_NEWLINE;
+
+    return error;
+}
+
 nw_error_t *tensor_subtraction(const tensor_t *x, const tensor_t *y, tensor_t **z)
 {
     PRINTLN_DEBUG_LOCATION("input");
@@ -2806,14 +2837,16 @@ nw_error_t *tensor_transpose(const tensor_t *x, tensor_t **y, int64_t axis1, int
     nw_error_t *error = NULL;
 
     int64_t rank = x->buffer->view->rank;
+    int64_t index1 = dimension_to_index(axis1, rank);
+    int64_t index2 = dimension_to_index(axis2, rank);
     int64_t axis[rank];
     for (int64_t i = 0; i < rank; ++i)
     {
         axis[i] = i;
     }
-    int64_t temp = axis[axis2];
-    axis[axis2] = axis[axis1];
-    axis[axis1] = temp;
+    int64_t temp = axis[index2];
+    axis[index2] = axis[index1];
+    axis[index1] = temp;
 
     error = apply_operation_structure(PERMUTE_OPERATION, x, axis, rank, y);
     if (error)
@@ -3176,14 +3209,14 @@ nw_error_t *tensor_lower_triangular(const tensor_t *x, tensor_t **y)
         goto cleanup;
     }
 
-    error = tensor_expand(x_k, &x_m, (int64_t[]){r, c}, 2);
+    error = tensor_expand(x_k, (int64_t[]){r, c}, 2, &x_m);
     if (error)
     {
         error = ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
         goto cleanup;
     }
 
-    error = tensor_expand(x_m, &x_n, (int64_t[]){r, c}, 2);
+    error = tensor_expand(x_l, (int64_t[]){r, c}, 2, &x_n);
     if (error)
     {
         error = ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
@@ -3215,7 +3248,7 @@ cleanup:
     free(stop);
     free(step);
 
-    if (!x->requires_gradient || no_gradient)
+    if (!x->requires_gradient || no_gradient || !tensor_shapes_equal(x_o, x))
     {
         tensor_destroy(x_o);
     }
@@ -3307,6 +3340,542 @@ cleanup:
         tensor_destroy(x_i);
         tensor_destroy(x_j);
         tensor_destroy(x_k);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_causal_multihead_self_attention(tensor_t *x, const tensor_t *input_weights, const tensor_t *input_bias, const tensor_t *output_weights, const tensor_t *output_bias,
+                                                   int64_t number_of_heads, void *dropout_probability, bool_t inference, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("input_weights", input_weights);
+    PRINTLN_DEBUG_TENSOR("input_bias", input_bias);
+    PRINTLN_DEBUG_TENSOR("output_weights", output_weights);
+    PRINTLN_DEBUG_TENSOR("output_bias", output_bias);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(input_weights, "input_weights");
+    CHECK_NULL_ARGUMENT(input_bias, "input_bias");
+    CHECK_NULL_ARGUMENT(output_weights, "output_weights");
+    CHECK_NULL_ARGUMENT(output_bias, "output_bias");
+
+    nw_error_t *error = NULL;
+    tensor_t *input_projection = NULL;
+    tensor_t *query = NULL;
+    tensor_t *key = NULL;
+    tensor_t *value = NULL;
+    tensor_t *query_reshaped = NULL;
+    tensor_t *key_reshaped = NULL;
+    tensor_t *value_reshaped = NULL;
+    tensor_t *query_transposed = NULL;
+    tensor_t *key_transposed = NULL;
+    tensor_t *value_transposed = NULL;
+    tensor_t *attention = NULL;
+    tensor_t *attention_transpose = NULL;
+    tensor_t *attention_reshaped = NULL;
+    tensor_t *output_projection = NULL;
+    int64_t rank = x->buffer->view->rank;
+    int64_t batch_size = x->buffer->view->shape[0];
+    int64_t sequence_length = x->buffer->view->shape[1];
+    int64_t embedding_size = x->buffer->view->shape[2];
+    int64_t head_size = embedding_size / number_of_heads;
+
+    error = tensor_linear(x, input_weights, input_bias, &input_projection);
+    if (error)
+    {
+        error = ERROR(ERROR_LINEAR, string_create("failed to employ linear operation."), error);
+        goto cleanup;
+    }
+
+    error = tensor_slice(input_projection, &query, (int64_t[]){0, batch_size, 0, sequence_length, 0, embedding_size}, 2 * rank);
+    if (error)
+    {
+        error = ERROR(ERROR_SLICE, string_create("failed to slice tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_slice(input_projection, &key, (int64_t[]){0, batch_size, 0, sequence_length, embedding_size, 2 * embedding_size}, 2 * rank);
+    if (error)
+    {
+        error = ERROR(ERROR_SLICE, string_create("failed to slice tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_slice(input_projection, &value, (int64_t[]){0, batch_size, 0, sequence_length, 2 * embedding_size, 3 * embedding_size}, 2 * rank);
+    if (error)
+    {
+        error = ERROR(ERROR_SLICE, string_create("failed to slice tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_reshape(query, &query_reshaped, (int64_t[]){batch_size, sequence_length, number_of_heads, head_size}, rank + 1);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_reshape(key, &key_reshaped, (int64_t[]){batch_size, sequence_length, number_of_heads, head_size}, rank + 1);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_reshape(value, &value_reshaped, (int64_t[]){batch_size, sequence_length, number_of_heads, head_size}, rank + 1);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_transpose(query_reshaped, &query_transposed, 1, 2);
+    if (error)
+    {
+        error = ERROR(ERROR_TRANSPOSE, string_create("failed to tranpose tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_transpose(key_reshaped, &key_transposed, 1, 2);
+    if (error)
+    {
+        error = ERROR(ERROR_TRANSPOSE, string_create("failed to tranpose tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_transpose(value_reshaped, &value_transposed, 1, 2);
+    if (error)
+    {
+        error = ERROR(ERROR_TRANSPOSE, string_create("failed to tranpose tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_scaled_dot_product_attention(query_transposed, key_transposed, value_transposed, &attention, dropout_probability, inference);
+    if (error)
+    {
+        error = ERROR(ERROR_ATTENTION, string_create("failed to employ scaled dot product attention operation."), error);
+        goto cleanup;
+    }
+
+    error = tensor_transpose(attention, &attention_transpose, 1, 2);
+    if (error)
+    {
+        error = ERROR(ERROR_TRANSPOSE, string_create("failed to tranpose tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_reshape(attention_transpose, &attention_reshaped, (int64_t[]){batch_size, sequence_length, embedding_size}, rank);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_linear(attention_reshaped, output_weights, output_bias, &output_projection);
+    if (error)
+    {
+        error = ERROR(ERROR_LINEAR, string_create("failed to employ linear operation."), error);
+        goto cleanup;
+    }
+
+    error = tensor_dropout(output_projection, y, dropout_probability, inference);
+    if (error)
+    {
+        error = ERROR(ERROR_DROPOUT, string_create("failed to dropout tensor."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+    
+    if (!(x->requires_gradient || input_weights->requires_gradient || input_bias->requires_gradient) || no_gradient)
+    {
+        tensor_destroy(input_projection);
+        tensor_destroy(query);
+        tensor_destroy(key);
+        tensor_destroy(value);
+        tensor_destroy(query_reshaped);
+        tensor_destroy(key_reshaped);
+        tensor_destroy(value_reshaped);
+        tensor_destroy(query_transposed);
+        tensor_destroy(key_transposed);
+        tensor_destroy(value_transposed);
+        tensor_destroy(attention);
+        if (attention_transpose != attention_reshaped)
+        {
+            tensor_destroy(attention_transpose);
+        }
+        if (!(output_weights->requires_gradient || output_bias->requires_gradient) || no_gradient)
+        {
+            tensor_destroy(attention_reshaped);
+        }
+        if (output_projection != *y)
+        {
+            tensor_destroy(output_projection);
+        }
+    }
+
+
+    return error;
+}
+
+nw_error_t *tensor_scaled_dot_product_attention(const tensor_t *query, const tensor_t *key, const tensor_t *value, tensor_t **y, void *dropout_probability, bool_t inference)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("query", query);
+    PRINTLN_DEBUG_TENSOR("key", key);
+    PRINTLN_DEBUG_TENSOR("value", value);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(query, "query");
+    CHECK_NULL_ARGUMENT(key, "key");
+    CHECK_NULL_ARGUMENT(value, "value");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *key_transposed = NULL;
+    void *scale = NULL;
+    void *negative_infinity = NULL;
+    tensor_t *zero_constant = NULL;
+    tensor_t *scale_constant = NULL;
+    tensor_t *negative_infinity_constant = NULL;
+    tensor_t *similarity = NULL;
+    tensor_t *scaled_similarity = NULL;
+    tensor_t *bias = NULL;
+    tensor_t *lower_triangular = NULL;
+    tensor_t *upper_triangular = NULL;
+    tensor_t *attention_i = NULL;
+    tensor_t *attention_j = NULL;
+    tensor_t *attention_k = NULL;
+    tensor_t *attention_l = NULL;
+    tensor_t *attention_m = NULL;
+    datatype_t datatype = query->buffer->storage->datatype;
+    runtime_t runtime = query->buffer->storage->runtime;
+    int64_t d_k = key->buffer->view->shape[key->buffer->view->rank - 1];
+    int64_t T = query->buffer->view->shape[query->buffer->view->rank - 2];
+    size_t size = datatype_size(datatype);
+
+    scale = (void *) malloc(size);
+    if (!scale)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    negative_infinity = (void *) malloc(size);
+    if (!negative_infinity)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) scale = (float32_t) 1.0 / sqrtf((float32_t) d_k);
+        *(float32_t *) negative_infinity = -FLT_MAX;
+        break;
+    case FLOAT64:
+        *(float64_t *) scale = (float64_t) 1.0 / sqrtf((float64_t) d_k);
+        *(float64_t *) negative_infinity = -DBL_MAX;
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype."), error);
+        goto cleanup;
+    }
+
+    error = tensor_create_zeroes(&zero_constant, (int64_t[]){}, 0, runtime, datatype, false, false);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create zero tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_constant(negative_infinity, datatype, runtime, false, false, &negative_infinity_constant);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create constant tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_constant(scale, datatype, runtime, false, false, &scale_constant);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create constant tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_transpose(key, &key_transposed, -2, -1);
+    if (error)
+    {
+        error = ERROR(ERROR_TRANSPOSE, string_create("failed to transpose tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_matrix_multiplication(query, key_transposed, &similarity);
+    if (error)
+    {
+        error = ERROR(ERROR_MATRIX_MULTIPLICATION, string_create("failed to matrix multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(similarity, scale_constant, &scaled_similarity);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_create_ones(&bias, (int64_t[]){T, T}, 2, runtime, datatype, false, false);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_lower_triangular(bias, &lower_triangular);
+    if (error)
+    {
+        error = ERROR(ERROR_LOWER_TRIANGULAR, string_create("failed to get lower triangular tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_compare_equal(lower_triangular, zero_constant, &upper_triangular);
+    if (error)
+    {
+        error = ERROR(ERROR_COMPARE_EQUAL, string_create("failed to compare equal tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(upper_triangular, negative_infinity_constant, &attention_i);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    // error = tensor_where(upper_triangular, negative_infinity_constant, upper_triangular, &attention_i);
+    // if (error)
+    // {
+    //     error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+    //     goto cleanup;
+    // }
+
+    error = tensor_multiplication(lower_triangular, scaled_similarity, &attention_j);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_addition(attention_i, attention_j, &attention_k);
+    if (error)
+    {
+        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_softmax(attention_k, &attention_l, -1);
+    if (error)
+    {
+        error = ERROR(ERROR_SOFTMAX, string_create("failed to softmax tensor."), error);
+        goto cleanup;
+    }
+    
+    error = tensor_dropout(attention_l, &attention_m, dropout_probability, inference);
+    if (error)
+    {
+        error = ERROR(ERROR_DROPOUT, string_create("failed to dropout tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_matrix_multiplication(attention_m, value, y);
+    if (error)
+    {
+        error = ERROR(ERROR_MATRIX_MULTIPLICATION, string_create("failed to matrix multiply tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+    free(scale);
+    free(negative_infinity);
+    tensor_destroy(bias);
+    tensor_destroy(zero_constant);
+    tensor_destroy(upper_triangular);
+    tensor_destroy(negative_infinity_constant);
+
+    if (!(key->requires_gradient || query->requires_gradient) || no_gradient || !tensor_shapes_equal(similarity, scale_constant))
+    {
+        tensor_destroy(scale_constant);
+    }
+
+    if (!(key->requires_gradient || query->requires_gradient) || no_gradient || !tensor_shapes_equal(attention_j, attention_i))
+    {
+        tensor_destroy(attention_i);
+    }
+
+    if (!(key->requires_gradient || query->requires_gradient) || no_gradient || !tensor_shapes_equal(scaled_similarity, lower_triangular))
+    {
+        tensor_destroy(lower_triangular);
+    }
+
+    if (!(key->requires_gradient || query->requires_gradient) || no_gradient)
+    {
+        tensor_destroy(key_transposed);
+        tensor_destroy(similarity);
+        tensor_destroy(scaled_similarity);
+        tensor_destroy(attention_j);
+        tensor_destroy(attention_k);
+        if (attention_l != attention_m)
+        {
+            tensor_destroy(attention_l);
+        }
+    }
+
+    if (!(value->requires_gradient) || no_gradient)
+    {
+        tensor_destroy(attention_m);
+    }
+
+    return error;
+}
+
+
+nw_error_t *tensor_dropout(const tensor_t *x, tensor_t **y, void *probability, bool_t inference)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *probability_constant = NULL;
+    tensor_t *scale = NULL;
+    tensor_t *mask = NULL;
+    tensor_t *rand_tensor = NULL;
+    tensor_t *x_i = NULL;
+    void *min = NULL;
+    void *max = NULL;
+    void *scalar = NULL;
+    datatype_t datatype = x->buffer->storage->datatype;
+    runtime_t runtime = x->buffer->storage->runtime;
+    size_t size = datatype_size(datatype);
+
+    if (inference || !probability || is_zero(probability, datatype))
+    {
+        *y = (tensor_t *) x;
+        return error;
+    }
+
+    min = (void *) malloc(size);
+    if (!min) 
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    max = (void *) malloc(size);
+    if (!max) 
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    scalar = (void *) malloc(size);
+    if (!scalar) 
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) min = (float32_t) 0.0;
+        *(float32_t *) max = (float32_t) 1.0;
+        *(float32_t *) scalar = (float32_t) 1.0 / ((float32_t) 1.0 - *(float32_t *) probability);
+        break;
+    case FLOAT64:
+        *(float64_t *) min = (float64_t) 0.0;
+        *(float64_t *) max = (float64_t) 1.0;
+        *(float64_t *) scalar = (float64_t) 1.0 / ((float64_t) 1.0 - *(float64_t *) probability);
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype."), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_constant(probability, datatype, runtime, false, false, &probability_constant);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    error = tensor_constant(scalar, datatype, runtime, false, false, &scale);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_create_uniform(&rand_tensor, x->buffer->view->shape, x->buffer->view->rank, runtime, datatype, false, false, min, max);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_compare_greater(rand_tensor, probability_constant, &mask);
+    if (error)
+    {
+        error = ERROR(ERROR_COMPARE_GREATER, string_create("failed to compare greater tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(x, mask, &x_i);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(x_i, scale, y);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    free(scalar);
+    free(min);
+    free(max);
+    
+    tensor_destroy(probability_constant);
+    tensor_destroy(rand_tensor);
+    tensor_destroy(scale);
+
+    if (!x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(mask);
+        tensor_destroy(x_i);
     }
 
     return error;

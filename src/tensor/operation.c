@@ -13,6 +13,8 @@ string_t operation_type_string(operation_type_t operation_type)
         return "UNARY_OPERATION";
     case BINARY_OPERATION:
         return "BINARY_OPERATION";
+    case TERNARY_OPERATION:
+        return "TERNARY_OPERATION";
     case REDUCTION_OPERATION:
         return "REDUCTION_OPERATION";
     case STRUCTURE_OPERATION:
@@ -80,6 +82,17 @@ string_t binary_operation_type_string(binary_operation_type_t binary_operation_t
         return "COMPARE_EQUAL_OPERATION";
     case COMPARE_GREATER_OPERATION:
         return "COMPARE_GREATER_OPERATION";
+    default:
+        return "OPERATION";
+    }
+}
+
+string_t ternary_operation_type_string(ternary_operation_type_t ternary_operation_type)
+{
+    switch (ternary_operation_type)
+    {
+    case WHERE_OPERATION:
+        return "WHERE_OPERATION";
     default:
         return "OPERATION";
     }

@@ -992,7 +992,7 @@ void test_optimizer(algorithm_type_t algorithm_type)
                         tensor_t *output = NULL;
                         tensor_t *cost = NULL;
 
-                        error = model_zero_gradient(models[i][j][k][l]);
+                        error = zero_gradient_model(models[i][j][k][l]);
                         ck_assert_ptr_null(error);
                         error = model_forward(models[i][j][k][l], inputs[i][j][k][l], &output);
                         ck_assert_ptr_null(error);
@@ -1019,7 +1019,7 @@ void test_optimizer(algorithm_type_t algorithm_type)
 
                         error = tensor_backward(cost, NULL);
                         ck_assert_ptr_null(error);
-                        error = optimizer_step(optimizers[i][j][k][l], models[i][j][k][l]);
+                        error = update_model(optimizers[i][j][k][l], models[i][j][k][l]);
                         ck_assert_ptr_null(error);
 
                         switch (algorithm_type)
