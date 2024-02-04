@@ -849,11 +849,11 @@ Suite *make_ternary_suite(void)
     tcase_add_checked_fixture(tc_causal_multihead_self_attention, setup_causal_multihead_self_attention, teardown_causal_multihead_self_attention);
     tcase_add_test(tc_causal_multihead_self_attention, test_causal_multihead_self_attention);
 
-    suite_add_tcase(s, tc_causal_multihead_self_attention);
     suite_add_tcase(s, tc_convolution_2d);
     suite_add_tcase(s, tc_convolution_transpose_2d);
     suite_add_tcase(s, tc_batch_normalization_2d);
     suite_add_tcase(s, tc_layer_normalization);
+    suite_add_tcase(s, tc_causal_multihead_self_attention);
 
     return s;
 }
