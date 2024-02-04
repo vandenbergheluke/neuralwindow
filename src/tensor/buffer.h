@@ -32,6 +32,7 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
 void storage_destroy(storage_t *storage);
 nw_error_t *buffer_unary(unary_operation_type_t unary_operation_type, buffer_t *x_buffer, buffer_t **y_buffer);
 nw_error_t *buffer_binary(binary_operation_type_t operation_type, buffer_t *x_buffer, buffer_t *y_buffer, buffer_t **z_buffer);
+nw_error_t *buffer_ternary(ternary_operation_type_t operation_type, buffer_t *w_buffer, buffer_t *x_buffer, buffer_t *y_buffer, buffer_t **z_buffer);
 nw_error_t *buffer_reduction(reduction_operation_type_t reduction_operation_type, buffer_t *x, int64_t *axis, int64_t length, buffer_t **result, bool_t keep_dimension);
 nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type, buffer_t *x, int64_t *arguments, int64_t length, buffer_t **result);
 nw_error_t *buffer_creation(creation_operation_type_t creation_operation_type, buffer_t **buffer, const int64_t *shape, int64_t rank, const int64_t *strides,

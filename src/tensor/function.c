@@ -1488,6 +1488,144 @@ static nw_error_t *binary_operation_backward(binary_operation_t *binary_operatio
     return error;
 }
 
+static nw_error_t *where_operation_forward(tensor_t *w, tensor_t *x, tensor_t *y, tensor_t *result)
+{
+    CHECK_NULL_ARGUMENT(w, "w");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    nw_error_t *error = NULL;
+
+    error = buffer_ternary(WHERE_OPERATION, w->buffer, x->buffer, y->buffer, &result->buffer);
+    if (error)
+    {
+        return ERROR(ERROR_WHERE, string_create("failed to run where operation."), error);
+    }
+
+    return error;
+}
+
+static nw_error_t *where_operation_backward(tensor_t *w, tensor_t *x, tensor_t *y, tensor_t *gradient)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(gradient, "gradient");
+    CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
+    CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
+    CHECK_NULL_ARGUMENT(y->buffer, "y->buffer");
+    CHECK_NULL_ARGUMENT(y->buffer->view, "y->buffer->view");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_gradient = NULL;
+    tensor_t *y_gradient = NULL;
+    tensor_t *zero_constant = NULL;
+    runtime_t runtime = w->buffer->storage->runtime;
+    datatype_t datatype = w->buffer->storage->datatype;
+
+    error = tensor_create_zeroes(&zero_constant, (int64_t[]){}, 0, runtime, datatype, false, false);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create zeroes tensor."), error);
+        goto cleanup;
+    }
+
+    if (x->requires_gradient)
+    {
+        error = tensor_where(w, gradient, zero_constant, &x_gradient);
+        if (error)
+        {
+            error = ERROR(ERROR_WHERE, string_create("failed to apply where operation to tensor."), error);
+            goto cleanup;
+        }
+
+        error = tensor_accumulate_gradient(x, x_gradient);
+        if (error) 
+        {
+            error = ERROR(ERROR_ADDITION, string_create("failed to accumulate gradient."), error);
+            goto cleanup;
+        }
+    }
+
+    if (y->requires_gradient)
+    {
+        error = tensor_where(w, zero_constant, gradient, &y_gradient);
+        if (error)
+        {
+            error = ERROR(ERROR_WHERE, string_create("failed to apply where operation to tensor."), error);
+            goto cleanup;
+        }
+
+        error = tensor_accumulate_gradient(y, y_gradient);
+        if (error) 
+        {
+            error = ERROR(ERROR_ADDITION, string_create("failed to accumulate gradient."), error);
+            goto cleanup;
+        }
+    }
+
+cleanup:
+
+    tensor_destroy(zero_constant);
+    tensor_destroy(x_gradient);
+    tensor_destroy(y_gradient);
+
+    return error;
+}
+
+static nw_error_t *ternary_operation_forward(ternary_operation_t *ternary_operation, tensor_t *result)
+{
+    CHECK_NULL_ARGUMENT(ternary_operation, "ternary_operation");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    nw_error_t *error = NULL;
+
+    switch (ternary_operation->operation_type)
+    {
+    case WHERE_OPERATION:
+        error = where_operation_forward(ternary_operation->w, ternary_operation->x, ternary_operation->y, result);
+        break;
+    default:
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unsupported ternary operation type %d.", (int) ternary_operation->operation_type), NULL);
+        break;
+    }
+
+    if (error)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to execute ternary operation forward pass."), error);
+    }
+
+    result->requires_gradient = ternary_operation->w->requires_gradient || ternary_operation->x->requires_gradient || ternary_operation->y->requires_gradient;
+
+    return error;
+}
+
+static nw_error_t *ternary_operation_backward(ternary_operation_t *ternary_operation, tensor_t *result, tensor_t *gradient)
+{
+    CHECK_NULL_ARGUMENT(ternary_operation, "ternary_operation");
+    CHECK_NULL_ARGUMENT(result, "result");
+    CHECK_NULL_ARGUMENT(gradient, "gradient");
+
+    nw_error_t *error = NULL;
+
+    switch (ternary_operation->operation_type)
+    {
+    case WHERE_OPERATION:
+        error = where_operation_backward(ternary_operation->w, ternary_operation->x, ternary_operation->y, gradient);
+        break;
+    default:
+        error = ERROR(ERROR_OPERATION_TYPE, string_create("unsupported operation type %d.", (int) ternary_operation->operation_type), NULL);
+        break;
+    }
+
+    if (error)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to execute ternary operation backward pass."), error);
+    }
+    
+    return error;
+}
+
 static nw_error_t *summation_operation_forward(tensor_t *x, int64_t *axis, int64_t length, tensor_t *result, bool_t keep_dimension)
 {
     CHECK_NULL_ARGUMENT(x, "x");
@@ -2575,6 +2713,35 @@ static nw_error_t *binary_operation_create(binary_operation_t **binary_operation
     return NULL;
 }
 
+static void ternary_operation_destroy(ternary_operation_t *ternary_operation)
+{
+    if (ternary_operation)
+    {
+        free(ternary_operation);
+    }
+}
+
+static nw_error_t *ternary_operation_create(ternary_operation_t **ternary_operation, ternary_operation_type_t ternary_operation_type, const tensor_t *w, const tensor_t *x, const tensor_t *y)
+{
+    CHECK_NULL_ARGUMENT(ternary_operation, "ternary_operation");
+    CHECK_NULL_ARGUMENT(w, "w");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    *ternary_operation = (ternary_operation_t *) malloc(sizeof(ternary_operation_t));
+    if (!*ternary_operation)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(ternary_operation_t)), NULL);
+    }
+
+    (*ternary_operation)->operation_type = ternary_operation_type;
+    (*ternary_operation)->w = (tensor_t *) w; 
+    (*ternary_operation)->x = (tensor_t *) x; 
+    (*ternary_operation)->y = (tensor_t *) y;
+
+    return NULL;
+}
+
 static void reduction_operation_destroy(reduction_operation_t *reduction_operation)
 {
     if (reduction_operation)
@@ -2803,6 +2970,9 @@ static void operation_destroy(operation_t *operation, operation_type_t operation
             case BINARY_OPERATION:
                 binary_operation_destroy(operation->binary_operation);
                 break;
+            case TERNARY_OPERATION:
+                ternary_operation_destroy(operation->ternary_operation);
+                break;
             case REDUCTION_OPERATION:
                 reduction_operation_destroy(operation->reduction_operation);
                 break;
@@ -2851,6 +3021,9 @@ static nw_error_t *operation_create(operation_t **operation, operation_type_t op
         break;
     case BINARY_OPERATION:
         (*operation)->binary_operation = (binary_operation_t *) type_operation;
+        break;
+    case TERNARY_OPERATION:
+        (*operation)->ternary_operation = (ternary_operation_t *) type_operation;
         break;
     case REDUCTION_OPERATION:
         (*operation)->reduction_operation = (reduction_operation_t *) type_operation;
@@ -2943,6 +3116,9 @@ static nw_error_t *operation_forward(operation_t *operation, operation_type_t op
     case BINARY_OPERATION:
         error = binary_operation_forward(operation->binary_operation, result);
         break;
+    case TERNARY_OPERATION:
+        error = ternary_operation_forward(operation->ternary_operation, result);
+        break;
     case REDUCTION_OPERATION:
         error = reduction_operation_forward(operation->reduction_operation, result);
         break;
@@ -2989,6 +3165,9 @@ static nw_error_t *operation_backward(operation_t *operation, operation_type_t o
         break;
     case BINARY_OPERATION:
         error = binary_operation_backward(operation->binary_operation, result, gradient);
+        break;
+    case TERNARY_OPERATION:
+        error = ternary_operation_backward(operation->ternary_operation, result, gradient);
         break;
     case REDUCTION_OPERATION:
         error = reduction_operation_backward(operation->reduction_operation, result, gradient);
@@ -3275,9 +3454,137 @@ nw_error_t *apply_operation_binary(binary_operation_type_t binary_operation_type
 
 cleanup:
 
-    tensor_destroy(x_broadcasted);    
-    tensor_destroy(y_broadcasted);    
+    if (x != x_broadcasted)
+    {
+        tensor_destroy(x_broadcasted);    
+    }
+
+    if (y != y_broadcasted)
+    {
+        tensor_destroy(y_broadcasted);    
+    }
     binary_operation_destroy(binary_operation);
+
+    return error;
+}
+
+nw_error_t *apply_operation_ternary(ternary_operation_type_t ternary_operation_type, const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **result)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+    CHECK_NULL_ARGUMENT(result, "result");
+
+    nw_error_t *error = NULL;
+    ternary_operation_t *ternary_operation = NULL;
+    tensor_t *w_broadcasted = NULL;
+    tensor_t *w_broadcasted_ = NULL;
+    tensor_t *x_broadcasted_ = NULL;
+    tensor_t *x_broadcasted = NULL;
+    tensor_t *y_broadcasted_ = NULL;
+    tensor_t *y_broadcasted = NULL;
+
+    error = tensor_broadcast(x, y, &x_broadcasted_, &y_broadcasted_);
+    if (error)
+    {
+        error = ERROR(ERROR_BROADCAST, string_create("failed to broadcast tensors."), error);
+        goto cleanup;
+    } 
+
+    error = tensor_broadcast(w, x_broadcasted_, &w_broadcasted_, &x_broadcasted);
+    if (error)
+    {
+        error = ERROR(ERROR_BROADCAST, string_create("failed to broadcast tensors."), error);
+        goto cleanup;
+    } 
+
+    error = tensor_broadcast(w_broadcasted_, y_broadcasted_, &w_broadcasted, &y_broadcasted);
+    if (error)
+    {
+        error = ERROR(ERROR_BROADCAST, string_create("failed to broadcast tensors."), error);
+        goto cleanup;
+    } 
+
+    error = ternary_operation_create(&ternary_operation, ternary_operation_type, w_broadcasted, x_broadcasted, y_broadcasted);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create terney operation."), error);
+        goto cleanup;
+    }
+
+    error = apply_operation(TERNARY_OPERATION, (void *) ternary_operation, result);
+    if (error)
+    {
+        error = ERROR(ERROR_FORWARD, string_create("failed to apply ternary function."), error);
+        goto cleanup;
+    }
+
+    if (!(w->requires_gradient || x->requires_gradient || y->requires_gradient) || no_gradient)
+    {
+        if (w_broadcasted_ != w_broadcasted)
+        {
+            tensor_destroy(w_broadcasted);    
+        }
+
+        if (x_broadcasted_ != x_broadcasted)
+        {
+            tensor_destroy(x_broadcasted);    
+        }
+
+        if (y_broadcasted_ != y_broadcasted)
+        {
+            tensor_destroy(y_broadcasted);    
+        }
+
+        if (w_broadcasted_ != w)
+        {
+            tensor_destroy(w_broadcasted_);    
+        }
+
+        if (x_broadcasted_ != x)
+        {
+            tensor_destroy(x_broadcasted_);    
+        }
+
+        if (y_broadcasted_ != y)
+        {
+            tensor_destroy(y_broadcasted_);    
+        }
+    }
+
+    return error;
+
+cleanup:
+
+    if (w_broadcasted_ != w_broadcasted)
+    {
+        tensor_destroy(w_broadcasted);    
+    }
+
+    if (x_broadcasted_ != x_broadcasted)
+    {
+        tensor_destroy(x_broadcasted);    
+    }
+
+    if (y_broadcasted_ != y_broadcasted)
+    {
+        tensor_destroy(y_broadcasted);    
+    }
+
+    if (w_broadcasted_ != w)
+    {
+        tensor_destroy(w_broadcasted_);    
+    }
+
+    if (x_broadcasted_ != x)
+    {
+        tensor_destroy(x_broadcasted_);    
+    }
+
+    if (y_broadcasted_ != y)
+    {
+        tensor_destroy(y_broadcasted_);    
+    }
+    ternary_operation_destroy(ternary_operation);
 
     return error;
 }

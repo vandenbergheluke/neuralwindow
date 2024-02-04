@@ -628,7 +628,7 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
             }
 
             // Train discriminator with real images.
-            error = model_zero_gradient(discriminator);
+            error = zero_gradient_model(discriminator);
             if (error)
             {
                 return ERROR(ERROR_ZERO_GRADIENT, string_create("failed zero gradient."), error);
@@ -726,7 +726,7 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
                 return ERROR(ERROR_BACKWARD, string_create("failed to apply backpropogation."), error);
             }
 
-            error = optimizer_step(discriminator_optimizer, discriminator);
+            error = update_model(discriminator_optimizer, discriminator);
             if (error)
             {
                 return ERROR(ERROR_STEP, string_create("failed to apply optimizer step."), error);
@@ -737,7 +737,7 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
             fake_labels = NULL;
             tensor_t *generator_loss = NULL;
 
-            error = model_zero_gradient(generator);
+            error = zero_gradient_model(generator);
             if (error)
             {
                 return ERROR(ERROR_ZERO_GRADIENT, string_create("failed zero gradient."), error);
@@ -770,7 +770,7 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
                 return ERROR(ERROR_BACKWARD, string_create("failed to apply backpropogation."), error);
             }
 
-            error = optimizer_step(generator_optimizer, generator);
+            error = update_model(generator_optimizer, generator);
             if (error)
             {
                 return ERROR(ERROR_STEP, string_create("failed to apply optimizer step."), error);

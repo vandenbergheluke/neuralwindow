@@ -43,5 +43,6 @@ string_t datatype_string(datatype_t datatype);
 size_t datatype_size(datatype_t datatype);
 string_t string_create(string_t format, ...);
 void string_destroy(string_t string);
+bool_t is_zero(void *value, datatype_t datatype);
 
 #endif

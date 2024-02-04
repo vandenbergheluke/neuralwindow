@@ -1285,121 +1285,16 @@ nw_error_t *dropout_forward(dropout_t *dropout, tensor_t *x, tensor_t **y)
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
-    tensor_t *probability = NULL;
-    tensor_t *scale = NULL;
-    tensor_t *mask= NULL;
-    tensor_t *rand_tensor = NULL;
-    tensor_t *x_i = NULL;
-    void *min = NULL;
-    void *max = NULL;
-    void *scalar = NULL;
-    datatype_t datatype = x->buffer->storage->datatype;
-    runtime_t runtime = x->buffer->storage->runtime;
 
-    if (dropout->inference)
-    {
-        *y = x;
-        return NULL;
-    }
-
-    min = (void *) malloc(datatype_size(datatype));
-    if (!min) 
-    {
-        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
-        goto cleanup;
-    }
-
-    max = (void *) malloc(datatype_size(datatype));
-    if (!max) 
-    {
-        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
-        goto cleanup;
-    }
-
-    scalar = (void *) malloc(datatype_size(datatype));
-    if (!scalar) 
-    {
-        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
-        goto cleanup;
-    }
-
-    switch (datatype)
-    {
-    case FLOAT32:
-        *(float32_t *) min = (float32_t) 0.0;
-        *(float32_t *) max = (float32_t) 1.0;
-        *(float32_t *) scalar = (float32_t) 1.0 / ((float32_t) 1.0 - *(float32_t *) dropout->probability);
-        break;
-    case FLOAT64:
-        *(float64_t *) min = (float64_t) 0.0;
-        *(float64_t *) max = (float64_t) 1.0;
-        *(float64_t *) scalar = (float64_t) 1.0 / ((float64_t) 1.0 - *(float64_t *) dropout->probability);
-        break;
-    default:
-        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype."), NULL);
-        goto cleanup;
-    }
-
-    error = tensor_constant(dropout->probability, datatype, runtime, false, false, &probability);
+    error = tensor_dropout(x, y, dropout->probability, dropout->inference);
     if (error)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    error = tensor_constant(scalar, datatype, runtime, false, false, &scale);
-    if (error)
-    {
-        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-        goto cleanup;
-    }
-
-    error = tensor_create_uniform(&rand_tensor, x->buffer->view->shape, x->buffer->view->rank, runtime, datatype, false, false, min, max);
-    if (error)
-    {
-        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-        goto cleanup;
-    }
-
-    error = tensor_compare_greater(rand_tensor, probability, &mask);
-    if (error)
-    {
-        error = ERROR(ERROR_COMPARE_GREATER, string_create("failed to compare greater tensors."), error);
-        goto cleanup;
-    }
-
-    error = tensor_multiplication(x, mask, &x_i);
-    if (error)
-    {
-        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
-        goto cleanup;
-    }
-
-    error = tensor_multiplication(x_i, scale, y);
-    if (error)
-    {
-        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
-        goto cleanup;
+        return ERROR(ERROR_DROPOUT, string_create("failed to apply dropout."), error);
     }
 
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("y", *y);
     PRINT_DEBUG_NEWLINE;
-
-cleanup:
-
-    free(scalar);
-    free(min);
-    free(max);
-    
-    tensor_destroy(probability);
-    tensor_destroy(rand_tensor);
-    tensor_destroy(scale);
-
-    if (!x->requires_gradient || no_gradient)
-    {
-        tensor_destroy(mask);
-        tensor_destroy(x_i);
-    }
 
     return NULL;
 }

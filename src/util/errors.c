@@ -207,6 +207,12 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_FAN";
     case ERROR_ZERO_GRADIENT:
         return "ERROR_ZERO_GRADIENT";
+    case ERROR_LOWER_TRIANGULAR:
+        return "ERROR_LOWER_TRIANGULAR";
+    case ERROR_ATTENTION:
+        return "ERROR_ATTENTION";
+    case ERROR_WHERE:
+        return "ERROR_WHERE";
     default:
         return "ERROR";
     }

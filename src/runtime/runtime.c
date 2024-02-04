@@ -352,6 +352,52 @@ void runtime_matrix_multiplication(runtime_t runtime, datatype_t datatype, int64
     }
 }
 
+void runtime_where(runtime_t runtime, datatype_t datatype, int64_t n,
+                   void *w_data, int64_t w_stride, int64_t w_offset, void *x_data, int64_t x_stride, int64_t x_offset, 
+                   void *y_data, int64_t y_stride, int64_t y_offset, void *z_data, int64_t z_stride, int64_t z_offset)
+{
+    switch (runtime)
+    {
+    case OPENBLAS_RUNTIME:
+    case MKL_RUNTIME:
+    #ifndef CPU_ONLY
+    case CU_RUNTIME:
+    #endif
+        for (int64_t i = 0; i < n; ++i)
+        {
+            switch (datatype)
+            {
+            case FLOAT32:
+                ((float32_t *) z_data)[z_offset + i * z_stride] = fabsf(((float32_t *) w_data)[w_offset + i * w_stride]) > EPSILON ? 
+                                                                ((float32_t *) x_data)[x_offset + i * x_stride] : ((float32_t *) y_data)[y_offset + i * y_stride];
+                break;
+            case FLOAT64:
+                ((float64_t *) z_data)[z_offset + i * z_stride] = fabs(((float64_t *) w_data)[w_offset + i * w_stride]) > EPSILON ? 
+                                                                ((float64_t *) x_data)[x_offset + i * x_stride] : ((float64_t *) y_data)[y_offset + i * y_stride];
+                break;
+            default:
+                break;
+            }
+        }
+    default:
+        break;
+    }
+}
+
+void runtime_ternary(ternary_operation_type_t ternary_operation_type, runtime_t runtime, datatype_t datatype, int64_t n,
+                     void *w_data, int64_t w_stride, int64_t w_offset, void *x_data, int64_t x_stride, int64_t x_offset, 
+                     void *y_data, int64_t y_stride, int64_t y_offset, void *z_data, int64_t z_stride, int64_t z_offset)
+{
+    switch (ternary_operation_type)
+    {
+    case WHERE_OPERATION:
+        runtime_where(runtime, datatype, n, w_data, w_stride, w_offset, x_data, x_stride, x_offset, y_data, y_stride, y_offset, z_data, z_stride, z_offset);
+        break;
+    default:
+        break;
+    }
+}
+
 void runtime_reduction(reduction_operation_type_t reduction_operation_type, runtime_t runtime, datatype_t datatype, int64_t n,
                        void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_offset)
 {

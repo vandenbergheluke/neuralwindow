@@ -4,6 +4,7 @@
  */
 
 #include <datatype.h>
+#include <math.h>
 
 string_t datatype_string(datatype_t datatype)
 {
@@ -56,4 +57,24 @@ string_t string_create(string_t format, ...)
 void string_destroy(string_t string)
 {
     free((char *) string);
+}
+
+bool_t is_zero(void *value, datatype_t datatype)
+{
+    if (!value)
+    {
+        return true;
+    }
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        return fabsf(*(float32_t *) value) < FLT_EPSILON;
+        break;
+    case FLOAT64:
+        return fabs(*(float64_t *) value) < DBL_EPSILON;
+        break;
+    }
+
+    return false;
 }
