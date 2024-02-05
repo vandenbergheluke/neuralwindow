@@ -159,6 +159,7 @@ nw_error_t *softmax_activation_layer_create(layer_t **layer, int64_t axis);
 nw_error_t *logsoftmax_activation_layer_create(layer_t **layer, int64_t axis);
 nw_error_t *leaky_rectified_linear_activation_layer_create(layer_t **layer, void *c, datatype_t datatype);
 nw_error_t *tanh_activation_layer_create(layer_t **layer);
+nw_error_t *gelu_activation_layer_create(layer_t **layer);
 
 // Model Forward
 nw_error_t *model_forward(model_t *model, tensor_t *x, tensor_t **y);

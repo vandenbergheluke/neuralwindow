@@ -201,6 +201,10 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_STANDARD_DEVIATION";
     case ERROR_BATCH_NORMALIZATION:
         return "ERROR_BATCH_NORMALIZATION";
+    case ERROR_TANH:
+        return "ERROR_TANH";
+    case ERROR_GELU:
+        return "ERROR_GELU";
     case ERROR_ABSOLUTE:
         return "ERROR_ABSOLUTE";
     case ERROR_FAN:

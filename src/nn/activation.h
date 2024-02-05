@@ -26,6 +26,7 @@ typedef enum activation_function_type_t
     ACTIVATION_RECTIFIED_LINEAR,
     ACTIVATION_SIGMOID,
     ACTIVATION_TANH,
+    ACTIVATION_GELU,
     ACTIVATION_SOFTMAX,
     ACTIVATION_LOGSOFTMAX,
     ACTIVATION_LEAKY_RECTIFIED_LINEAR,
@@ -54,6 +55,7 @@ void leaky_rectified_linear_destroy(leaky_rectified_linear_t *leaky_rectified_li
 nw_error_t *rectified_linear_activation_create(activation_t **activation);
 nw_error_t *sigmoid_activation_create(activation_t **activation);
 nw_error_t *tanh_activation_create(activation_t **activation);
+nw_error_t *gelu_activation_create(activation_t **activation);
 nw_error_t *softmax_activation_create(activation_t **activation, int64_t axis);
 nw_error_t *logsoftmax_activation_create(activation_t **activation, int64_t axis);
 nw_error_t *leaky_rectified_linear_activation_create(activation_t **activation, void *c, datatype_t datatype);

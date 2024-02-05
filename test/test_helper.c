@@ -8,24 +8,21 @@
 #include <function.h>
 #include <test_helper.h>
 
-static inline float32_t get_epsilon_float(float32_t a, float32_t b)
+static inline float32_t get_epsilon_float(float32_t a, float32_t b, float32_t abs_epsilon_f)
 {
-    static float32_t epsilon = 128 * FLT_EPSILON;
-    static float32_t abs_epsilon = 1e-5;
-    return MAX(abs_epsilon, epsilon * MIN((ABS(a) + ABS(b)), FLT_MAX));
+    static float32_t epsilon_f = 128 * FLT_EPSILON;
+    return MAX(abs_epsilon_f, epsilon_f * MIN((ABS(a) + ABS(b)), FLT_MAX));
 }
 
-static inline float64_t get_epsilon_double(float64_t a, float64_t b)
+static inline float64_t get_epsilon_double(float64_t a, float64_t b, float64_t abs_epsilon)
 {
     static float64_t epsilon = 1e2 * FLT_EPSILON;
-    static float64_t abs_epsilon = 1e-5;
     return MAX(abs_epsilon, epsilon * MIN((ABS(a) + ABS(b)), FLT_MAX));
 }
-
 
 void ck_assert_element_eq(const void *returned_data, int64_t returned_index,
                           const void *expected_data, int64_t expected_index,
-                          datatype_t datatype)
+                          datatype_t datatype, void *epsilon)
 {
     ck_assert_ptr_nonnull(returned_data);
     ck_assert_ptr_nonnull(expected_data);
@@ -33,10 +30,6 @@ void ck_assert_element_eq(const void *returned_data, int64_t returned_index,
     switch (datatype)
     {
     case FLOAT32:
-        // printf("returned %f\n", ((float32_t *) returned_data)[returned_index]);
-        // printf("expected %f\n", ((float32_t *) expected_data)[expected_index]);
-        // printf("epsilon %f\n", get_epsilon_float(((float32_t *) returned_data)[returned_index],
-        //                                          ((float32_t *) expected_data)[expected_index]));
         if (isnanf(((float32_t *) expected_data)[expected_index]))
         {
             ck_assert_float_nan(((float32_t *) returned_data)[returned_index]);
@@ -45,15 +38,13 @@ void ck_assert_element_eq(const void *returned_data, int64_t returned_index,
         {
             ck_assert_float_eq_tol(((float32_t *) returned_data)[returned_index],
                                    ((float32_t *) expected_data)[expected_index],
-                                   get_epsilon_float(((float32_t *) returned_data)[returned_index],
-                                                     ((float32_t *) expected_data)[expected_index]));
+                                   (!epsilon) ? get_epsilon_float(((float32_t *) returned_data)[returned_index],
+                                                                  ((float32_t *) expected_data)[expected_index], 1e-5) : 
+                                                get_epsilon_float(((float32_t *) returned_data)[returned_index],
+                                                                  ((float32_t *) expected_data)[expected_index], *(float32_t *) epsilon));
         }
         break;
     case FLOAT64:
-        // printf("returned %lf\n", ((float64_t *) returned_data)[returned_index]);
-        // printf("expected %lf\n", ((float64_t *) expected_data)[expected_index]);
-        // printf("epsilon %lf\n", get_epsilon_float(((float64_t *) returned_data)[returned_index],
-        //                                           ((float64_t *) expected_data)[expected_index]));
         if (isnanf(((float64_t *) expected_data)[expected_index]))
         {
             ck_assert_double_nan(((float64_t *) returned_data)[returned_index]);
@@ -62,8 +53,10 @@ void ck_assert_element_eq(const void *returned_data, int64_t returned_index,
         {
             ck_assert_double_eq_tol(((float64_t *) returned_data)[returned_index],
                                     ((float64_t *) expected_data)[expected_index],
-                                    get_epsilon_double(((float64_t *) returned_data)[returned_index],
-                                                       ((float64_t *) expected_data)[expected_index]));
+                                    (!epsilon) ? get_epsilon_double(((float64_t *) returned_data)[returned_index],
+                                                                    ((float64_t *) expected_data)[expected_index], 1e-5) : 
+                                                 get_epsilon_double(((float64_t *) returned_data)[returned_index],
+                                                                    ((float64_t *) expected_data)[expected_index], *(float64_t *) epsilon));
         }
         break;
     default:
@@ -71,7 +64,7 @@ void ck_assert_element_eq(const void *returned_data, int64_t returned_index,
     }
 }
 
-void ck_assert_storage_eq(const storage_t *returned_storage, const storage_t *expected_storage)
+void ck_assert_storage_eq(const storage_t *returned_storage, const storage_t *expected_storage, void *epsilon)
 {
     ck_assert_ptr_nonnull(returned_storage);
     ck_assert_ptr_nonnull(expected_storage);
@@ -81,17 +74,17 @@ void ck_assert_storage_eq(const storage_t *returned_storage, const storage_t *ex
     ck_assert_int_eq(expected_storage->runtime, returned_storage->runtime);
     for (int64_t i = 0; i < expected_storage->n; ++i)
     {
-        ck_assert_element_eq(returned_storage->data, i, expected_storage->data, i, expected_storage->datatype);
+        ck_assert_element_eq(returned_storage->data, i, expected_storage->data, i, expected_storage->datatype, epsilon);
     }
 }
 
-void ck_assert_buffer_eq(const buffer_t *returned_buffer, const buffer_t *expected_buffer)
+void ck_assert_buffer_eq(const buffer_t *returned_buffer, const buffer_t *expected_buffer, void *epsilon)
 {
     ck_assert_ptr_nonnull(returned_buffer);
     ck_assert_ptr_nonnull(expected_buffer);
 
     ck_assert_view_eq(returned_buffer->view, expected_buffer->view);
-    ck_assert_storage_eq(returned_buffer->storage, expected_buffer->storage);
+    ck_assert_storage_eq(returned_buffer->storage, expected_buffer->storage, epsilon);
 }
 
 void ck_assert_function_eq(const tensor_t *returned_tensor, 
@@ -174,39 +167,29 @@ void ck_assert_tensor_eq(const tensor_t *returned_tensor, const tensor_t *expect
     }
     else
     {
-        ck_assert_buffer_eq(returned_tensor->buffer, expected_tensor->buffer);
+        ck_assert_buffer_eq(returned_tensor->buffer, expected_tensor->buffer, NULL);
     }
-
-    // if (!expected_tensor->context)
-    // {
-    //     ck_assert_ptr_null(returned_tensor->context);
-    // }
-    // else
-    // {
-    //     ck_assert_function_eq(returned_tensor, returned_tensor->context,
-    //                           expected_tensor, expected_tensor->context);
-    // }
 
     ck_assert(returned_tensor->requires_gradient == expected_tensor->requires_gradient);
 }
 
 void ck_assert_data_equiv(const void *returned_data, const int64_t *returned_strides, int64_t returned_offset,
                           const void *expected_data, const int64_t *expected_strides, int64_t expected_offset,
-                          const int64_t *shape, int64_t rank, datatype_t datatype)
+                          const int64_t *shape, int64_t rank, datatype_t datatype, void *epsilon)
 {
     switch (rank)
     {
     case 0:
         ck_assert_element_eq(returned_data, returned_offset, 
                              expected_data, expected_offset, 
-                             datatype);
+                             datatype, epsilon);
         break;
     case 1:
         for (int64_t i = 0; i < shape[0]; ++i)
         {
             ck_assert_element_eq(returned_data, returned_offset + i * returned_strides[0], 
                                  expected_data, expected_offset + i * expected_strides[0],
-                                 datatype);
+                                 datatype, epsilon);
         }
         break;
     case 2:
@@ -216,7 +199,7 @@ void ck_assert_data_equiv(const void *returned_data, const int64_t *returned_str
             {
                 ck_assert_element_eq(returned_data, returned_offset + i * returned_strides[0] + j * returned_strides[1], 
                                      expected_data, expected_offset + i * expected_strides[0] + j * expected_strides[1],
-                                     datatype);
+                                     datatype, epsilon);
             }
         }
         break;
@@ -229,7 +212,7 @@ void ck_assert_data_equiv(const void *returned_data, const int64_t *returned_str
                 {
                     ck_assert_element_eq(returned_data, returned_offset + i * returned_strides[0] + j * returned_strides[1] + k * returned_strides[2], 
                                          expected_data, expected_offset + i * expected_strides[0] + j * expected_strides[1] + k * expected_strides[2],
-                                         datatype);
+                                         datatype, epsilon);
                 }
             }
         }
@@ -245,7 +228,7 @@ void ck_assert_data_equiv(const void *returned_data, const int64_t *returned_str
                     {
                         ck_assert_element_eq(returned_data, returned_offset + i * returned_strides[0] + j * returned_strides[1] + k * returned_strides[2] + l * returned_strides[3], 
                                              expected_data, expected_offset + i * expected_strides[0] + j * expected_strides[1] + k * expected_strides[2] + l * expected_strides[3],
-                                             datatype);
+                                             datatype, epsilon);
                     }
                 }
             }
@@ -264,7 +247,7 @@ void ck_assert_data_equiv(const void *returned_data, const int64_t *returned_str
                         {
                             ck_assert_element_eq(returned_data, returned_offset + i * returned_strides[0] + j * returned_strides[1] + k * returned_strides[2] + l * returned_strides[3] + m * returned_strides[4], 
                                                  expected_data, expected_offset + i * expected_strides[0] + j * expected_strides[1] + k * expected_strides[2] + l * expected_strides[3] + m * expected_strides[4],
-                                                 datatype);
+                                                 datatype, epsilon);
                         }
                     }
                 }
@@ -276,7 +259,7 @@ void ck_assert_data_equiv(const void *returned_data, const int64_t *returned_str
     }
 }
 
-void ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tensor_t *expected_tensor)
+static void _ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tensor_t *expected_tensor, void *epsilon)
 {
     PRINTLN_DEBUG_LOCATION("test");
     PRINTLN_DEBUG_TENSOR("returned", returned_tensor);
@@ -300,8 +283,23 @@ void ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tensor_t *exp
 
     ck_assert_data_equiv(returned_tensor->buffer->storage->data, returned_tensor->buffer->view->strides, returned_tensor->buffer->view->offset,
                          expected_tensor->buffer->storage->data, expected_tensor->buffer->view->strides, expected_tensor->buffer->view->offset,
-                         expected_tensor->buffer->view->shape, expected_tensor->buffer->view->rank, expected_tensor->buffer->storage->datatype);
+                         expected_tensor->buffer->view->shape, expected_tensor->buffer->view->rank, expected_tensor->buffer->storage->datatype, epsilon);
 
+}
+
+void ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tensor_t *expected_tensor)
+{
+    _ck_assert_tensor_equiv(returned_tensor, expected_tensor, NULL);
+}
+
+void ck_assert_tensor_equiv_flt(const tensor_t *returned_tensor, const tensor_t *expected_tensor, float32_t abs_epsilon)
+{
+    _ck_assert_tensor_equiv(returned_tensor, expected_tensor, &abs_epsilon);
+}
+
+void ck_assert_tensor_equiv_dbl(const tensor_t *returned_tensor, const tensor_t *expected_tensor, float64_t abs_epsilon)
+{
+    _ck_assert_tensor_equiv(returned_tensor, expected_tensor, &abs_epsilon);
 }
 
 void ck_assert_view_eq(const view_t *returned_view, const view_t *expected_view)
