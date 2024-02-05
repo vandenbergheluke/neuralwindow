@@ -27,6 +27,7 @@ typedef enum tensor_unary_type_t
     TENSOR_TANH,
     TENSOR_ABSOLUTE,
     TENSOR_LEAKY_RECTIFIED_LINEAR,
+    TENSOR_GELU,
 } tensor_unary_type_t;
 
 #define CASES_0_0 7
@@ -426,6 +427,9 @@ void test_unary(tensor_unary_type_t tensor_unary_type)
                         ck_abort_msg("unknown data type.");
                     }
                     break;
+                case TENSOR_GELU:
+                    expected_tensor = torch::gelu(torch_tensors[i][j][k]);
+                    break;
                 default:
                     ck_abort_msg("unknown unary type.");
                 }
@@ -484,18 +488,35 @@ void test_unary(tensor_unary_type_t tensor_unary_type)
                         ck_abort_msg("unknown data type.");
                     }
                     break;
+                case TENSOR_GELU:
+                    error = tensor_gelu(tensors[i][j][k], &returned_tensors[i][j][k]);
+                    break;
                 default:
                     ck_abort_msg("unknown unary type.");
                 }
                 ck_assert_ptr_null(error);
 
-                if (tensor_unary_type == TENSOR_CONTIGUOUS)
+                switch (tensor_unary_type)
                 {
+                case TENSOR_GELU:
+                    switch (datatype)
+                    {
+                    case FLOAT32:
+                        ck_assert_tensor_equiv_flt(returned_tensors[i][j][k], expected_tensors[i][j][k], 1e-3);
+                        break;
+                    case FLOAT64:
+                        ck_assert_tensor_equiv_dbl(returned_tensors[i][j][k], expected_tensors[i][j][k], 1e-3);
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                case TENSOR_CONTIGUOUS:
                     ck_assert_tensor_eq(returned_tensors[i][j][k], expected_tensors[i][j][k]);
-                }
-                else
-                {
+                    break;
+                default:
                     ck_assert_tensor_equiv(returned_tensors[i][j][k], expected_tensors[i][j][k]);
+                    break;
                 }
 
                 expected_gradients[i][j][k] = torch_to_tensor(torch_tensors[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
@@ -507,7 +528,25 @@ void test_unary(tensor_unary_type_t tensor_unary_type)
                 error = tensor_backward(cost, NULL);
                 ck_assert_ptr_null(error);
 
-                ck_assert_tensor_equiv(tensors[i][j][k]->gradient, expected_gradients[i][j][k]);
+                switch (tensor_unary_type)
+                {
+                case TENSOR_GELU:
+                    switch (datatype)
+                    {
+                    case FLOAT32:
+                        ck_assert_tensor_equiv_flt(tensors[i][j][k]->gradient, expected_gradients[i][j][k], 1e-3);
+                        break;
+                    case FLOAT64:
+                        ck_assert_tensor_equiv_dbl(tensors[i][j][k]->gradient, expected_gradients[i][j][k], 1e-3);
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                default:
+                    ck_assert_tensor_equiv(tensors[i][j][k]->gradient, expected_gradients[i][j][k]);
+                    break;
+                }
             }
         }
     }
@@ -591,6 +630,12 @@ START_TEST(test_tanh)
 }
 END_TEST
 
+START_TEST(test_gelu)
+{
+    test_unary(TENSOR_GELU);
+}
+END_TEST
+
 Suite *make_unary_suite(void)
 {
     Suite *s;
@@ -613,6 +658,7 @@ Suite *make_unary_suite(void)
     tcase_add_test(tc_unary, test_absolute);
     tcase_add_test(tc_unary, test_leaky_rectified_linear);
     tcase_add_test(tc_unary, test_tanh);
+    tcase_add_test(tc_unary, test_gelu);
 
     suite_add_tcase(s, tc_unary);
 

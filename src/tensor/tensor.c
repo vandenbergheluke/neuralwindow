@@ -569,11 +569,6 @@ nw_error_t *tensor_gelu(const tensor_t *x, tensor_t **y)
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(y, "y");
 
-    PRINTLN_DEBUG_LOCATION("output");
-    PRINTLN_DEBUG_TENSOR("x", x);
-    PRINTLN_DEBUG_TENSOR("y", *y);
-    PRINT_DEBUG_NEWLINE;
-
     nw_error_t *error = NULL;
     tensor_t *constant_05 = NULL;
     tensor_t *constant_1 = NULL;
@@ -588,39 +583,100 @@ nw_error_t *tensor_gelu(const tensor_t *x, tensor_t **y)
     tensor_t *tanh_output = NULL;
     tensor_t *one_plus_tanh = NULL;
     tensor_t *x_05 = NULL;
+    void *scalar_05 = NULL;
+    void *scalar_3 = NULL;
+    void *scalar_1 = NULL;
+    void *scalar_079 = NULL;
+    void *scalar_0044 = NULL;
     datatype_t datatype = x->buffer->storage->datatype;
     runtime_t runtime = x->buffer->storage->runtime;
+    size_t size = datatype_size(datatype);
+
+    scalar_05 = malloc(size);
+    if (!scalar_05)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    scalar_3 = malloc(size);
+    if (!scalar_3)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    scalar_1 = malloc(size);
+    if (!scalar_1)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    scalar_079 = malloc(size);
+    if (!scalar_079)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    scalar_0044 = malloc(size);
+    if (!scalar_0044)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
 
     switch(datatype)
     {
     case FLOAT32:
-        float32_t scalar_05_f32 = (float32_t) 0.5;
-        float32_t scalar_3_f32 = (float32_t) 3;
-        float32_t scalar_1_f32 = (float32_t) 1;
-        float32_t scalar_079_f32 = (float32_t) sqrt(2.0 / M_PI);
-        float32_t scalar_0044_f32 = (float32_t) 0.044715;
-        error = tensor_constant(&scalar_05_f32, datatype, runtime, false, false, &constant_05);
-        error = tensor_constant(&scalar_3_f32, datatype, runtime, false, false, &constant_3);
-        error = tensor_constant(&scalar_1_f32, datatype, runtime, false, false, &constant_1);
-        error = tensor_constant(&scalar_079_f32, datatype, runtime, false, false, &constant_079);
-        error = tensor_constant(&scalar_0044_f32, datatype, runtime, false, false, &constant_0044);
+        *(float32_t *) scalar_05 = (float32_t) 0.5;
+        *(float32_t *) scalar_3 = (float32_t) 3;
+        *(float32_t *) scalar_1 = (float32_t) 1;
+        *(float32_t *) scalar_079 = (float32_t) sqrtf(2.0 / M_PI);
+        *(float32_t *) scalar_0044 = (float32_t) 0.044715;
         break;
     case FLOAT64:
-        float64_t scalar_05_f64 = (float64_t) 0.5;
-        float64_t scalar_3_f64 = (float64_t) 3;
-        float64_t scalar_1_f64 = (float64_t) 1;
-        float64_t scalar_079_f64 = (float64_t) sqrt(2.0 / M_PI);
-        float64_t scalar_0044_f64 = (float64_t) 0.044715;
-        error = tensor_constant(&scalar_05_f64, datatype, runtime, false, false, &constant_05);
-        error = tensor_constant(&scalar_3_f64, datatype, runtime, false, false, &constant_3);
-        error = tensor_constant(&scalar_1_f64, datatype, runtime, false, false, &constant_1);
-        error = tensor_constant(&scalar_079_f64, datatype, runtime, false, false, &constant_079);
-        error = tensor_constant(&scalar_0044_f64, datatype, runtime, false, false, &constant_0044);
+        *(float64_t *) scalar_05 = (float64_t) 0.5;
+        *(float64_t *) scalar_3 = (float64_t) 3;
+        *(float64_t *) scalar_1 = (float64_t) 1;
+        *(float64_t *) scalar_079 = (float64_t) sqrt(2.0 / M_PI);
+        *(float64_t *) scalar_0044 = (float64_t) 0.044715;
         break;
     default:
         error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int)datatype), NULL);
         break;
     }
+
+    error = tensor_constant(scalar_05, datatype, runtime, false, false, &constant_05);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_constant(scalar_3, datatype, runtime, false, false, &constant_3);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_constant(scalar_1, datatype, runtime, false, false, &constant_1);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+    
+    error = tensor_constant(scalar_079, datatype, runtime, false, false, &constant_079);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_constant(scalar_0044, datatype, runtime, false, false, &constant_0044);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -683,28 +739,40 @@ nw_error_t *tensor_gelu(const tensor_t *x, tensor_t **y)
         goto cleanup;
     }
 
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
 cleanup:
-    if (!tensor_shapes_equal(constant_05, x))
+
+    free(scalar_05);
+    free(scalar_3);
+    free(scalar_1);
+    free(scalar_079);
+    free(scalar_0044);
+
+    if (!tensor_shapes_equal(constant_05, x) || !x->requires_gradient || no_gradient)
     {
         tensor_destroy(constant_05);
     }
 
-    if (!tensor_shapes_equal(constant_3, x))
+    if (!tensor_shapes_equal(constant_3, x) || !x->requires_gradient || no_gradient)
     {
         tensor_destroy(constant_3);
     }
 
-    if (!tensor_shapes_equal(constant_1, x))
+    if (!tensor_shapes_equal(constant_1, x) || !x->requires_gradient || no_gradient)
     {
         tensor_destroy(constant_1);
     }
 
-    if (!tensor_shapes_equal(constant_079, x))
+    if (!tensor_shapes_equal(constant_079, x) || !x->requires_gradient || no_gradient)
     {
         tensor_destroy(constant_079);
     }
 
-    if (!tensor_shapes_equal(constant_0044, x))
+    if (!tensor_shapes_equal(constant_0044, x) || !x->requires_gradient || no_gradient)
     {
         tensor_destroy(constant_0044);
     }
