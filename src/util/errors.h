@@ -14,7 +14,7 @@
 #define ABS(x) ((x)<0 ? -(x) : (x))
 
 #ifdef DEBUG
-#define MAX_DATA 10
+#define MAX_DATA 1000
 #define PRINT_DEBUG_NEWLINE do {\
     fprintf(stderr, "\n");\
 } while(0)
@@ -300,6 +300,8 @@
         }\
         fprintf(stderr, ", requires_gradient: ");\
         PRINT_DEBUG_BOOLEAN((tensor)->requires_gradient);\
+        fprintf(stderr, ", persist: ");\
+        PRINT_DEBUG_BOOLEAN((tensor)->persist);\
         fprintf(stderr, ")");\
     }\
 } while(0)
@@ -676,6 +678,11 @@ typedef enum nw_error_type_t
     ERROR_TANH,
     ERROR_GELU,
     ERROR_ABSOLUTE,
+    ERROR_FAN,
+    ERROR_ZERO_GRADIENT,
+    ERROR_LOWER_TRIANGULAR,
+    ERROR_ATTENTION,
+    ERROR_WHERE,
 } nw_error_type_t;
 
 typedef struct nw_error_t

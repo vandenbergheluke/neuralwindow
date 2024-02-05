@@ -44,6 +44,15 @@ typedef struct batch_normalization_2d_t
     bool_t inference;
 } batch_normalization_2d_t;
 
+typedef struct layer_normalization_t
+{
+    void *epsilon;
+    int64_t *normalized_shape;
+    int64_t length;
+    tensor_t *weights;
+    tensor_t *bias;
+} layer_normalization_t;
+
 typedef struct reshape_t
 {
     int64_t *shape;
@@ -56,6 +65,7 @@ typedef union transform_t
     convolution_2d_t *convolution_2d;
     dropout_t *dropout;
     batch_normalization_2d_t *batch_normalization_2d;
+    layer_normalization_t *layer_normalization;
     reshape_t *reshape;
     activation_t *activation;
     block_t *block;
@@ -68,6 +78,7 @@ typedef enum transform_type_t
     CONVOLUTION_TRANSPOSE_2D,
     DROPOUT,
     BATCH_NORMALIZATION_2D,
+    LAYER_NORMALIZATION,
     RESHAPE,
     ACTIVATION,
     BLOCK
@@ -118,6 +129,10 @@ nw_error_t *batch_normalization_2d_create(batch_normalization_2d_t **batch_norma
                                           bool_t affine, datatype_t datatype, runtime_t runtime);
 void batch_normalization_2d_destroy(batch_normalization_2d_t *batch_normalization_2d);
 
+nw_error_t *layer_normalization_create(layer_normalization_t **layer_normalization, const int64_t *normalized_shape, int64_t length,
+                                        void *epsilon, bool_t elementwise_affine, datatype_t datatype, runtime_t runtime);
+void layer_normalization_destroy(layer_normalization_t *layer_normalization);
+
 nw_error_t *reshape_create(reshape_t **reshape, int64_t *shape, int64_t length);
 void reshape_destroy(reshape_t *reshape);
 
@@ -134,6 +149,8 @@ nw_error_t *dropout_layer_create(layer_t **layer, void *probability, datatype_t 
 nw_error_t *batch_normalization_2d_layer_create(layer_t **layer, int64_t number_of_features,
                                                 void *momentum, void *epsilon, bool_t track_running_stats,
                                                 bool_t affine, datatype_t datatype, runtime_t runtime);
+nw_error_t *layer_normalization_layer_create(layer_t **layer, const int64_t *normalized_shape, int64_t length,
+                                        void *epsilon, bool_t elementwise_affine, datatype_t datatype, runtime_t runtime);
 nw_error_t *reshape_layer_create(layer_t **layer, int64_t *shape, int64_t length);
 
 nw_error_t *rectified_linear_activation_layer_create(layer_t **layer);
@@ -151,6 +168,7 @@ nw_error_t *convolution_2d_forward(convolution_2d_t *convolution_2d, tensor_t *x
 nw_error_t *convolution_transpose_2d_forward(convolution_2d_t *convolution_2d, tensor_t *x, tensor_t **y);
 nw_error_t *dropout_forward(dropout_t *dropout, tensor_t *x, tensor_t **y);
 nw_error_t *batch_normalization_2d_forward(batch_normalization_2d_t *batch_normalization_2d, tensor_t *x, tensor_t **y);
+nw_error_t *layer_normalization_forward(layer_normalization_t *layer_normalization, tensor_t *x, tensor_t **y);
 nw_error_t *reshape_forward(reshape_t *reshape, tensor_t *x, tensor_t **y);
 
 // Inference set

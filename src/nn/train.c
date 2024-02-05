@@ -80,6 +80,12 @@ nw_error_t *fit(int64_t epochs,
     {
         for (int64_t j = 0; j < train_iterations; ++j)
         {
+            error = zero_gradient_model(model);
+            if (error)
+            {
+                return ERROR(ERROR_ZERO_GRADIENT, string_create("failed to zero gradient."), error);
+            }
+
             error = (*dataloader)(indicies[j] * batch->batch_size, batch, arguments);
             if (error)
             {
@@ -122,7 +128,7 @@ nw_error_t *fit(int64_t epochs,
                 return ERROR(ERROR_BACKWARD, string_create("failed back propogation."), error);
             }
 
-            error = optimizer_step(optimizer, model);
+            error = update_model(optimizer, model);
             if (error)
             {
                 return ERROR(ERROR_STEP, string_create("failed to update weights."), error);

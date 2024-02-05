@@ -3,6 +3,7 @@
 #include <layer.h>
 #include <init.h>
 #include <math.h>
+#include <string.h>
 
 nw_error_t *parameter_init_create(parameter_init_t **parameter_init, init_t *init, init_type_t init_type)
 {
@@ -97,7 +98,7 @@ void init_destroy(init_t *init, init_type_t init_type)
     }
 }
 
-nw_error_t *uniform_init_create(uniform_init_t **uniform_init, void *lower_bound, void *upper_bound)
+nw_error_t *uniform_init_create(uniform_init_t **uniform_init, void *lower_bound, void *upper_bound, datatype_t datatype)
 {
     CHECK_NULL_ARGUMENT(uniform_init, "uniform_init");
     CHECK_NULL_ARGUMENT(lower_bound, "lower_bound");
@@ -109,21 +110,47 @@ nw_error_t *uniform_init_create(uniform_init_t **uniform_init, void *lower_bound
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(uniform_init_t)), NULL);
     }
 
-    (*uniform_init)->lower_bound = lower_bound;
-    (*uniform_init)->upper_bound = upper_bound;
+    size_t size = datatype_size(datatype);
+    nw_error_t *error = NULL;
+    (*uniform_init)->lower_bound = NULL;
+    (*uniform_init)->upper_bound = NULL;
 
-    return NULL;
+    (*uniform_init)->upper_bound = (void *) malloc(size);
+    if (!(*uniform_init)->upper_bound)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+    memcpy((*uniform_init)->upper_bound, upper_bound, size);
+
+    (*uniform_init)->lower_bound = (void *) malloc(size);
+    if (!(*uniform_init)->lower_bound)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+    memcpy((*uniform_init)->lower_bound, lower_bound, size);
+
+    return error;
+
+cleanup:
+
+    uniform_init_destroy(*uniform_init);
+
+    return error;
 }
 
 void uniform_init_destroy(uniform_init_t *uniform_init)
 {
     if (uniform_init)
     {
+        free(uniform_init->lower_bound);
+        free(uniform_init->upper_bound);
         free(uniform_init);
     }
 }
 
-nw_error_t *normal_init_create(normal_init_t **normal_init, void *mean, void *standard_deviation)
+nw_error_t *normal_init_create(normal_init_t **normal_init, void *mean, void *standard_deviation, datatype_t datatype)
 {
     CHECK_NULL_ARGUMENT(normal_init, "normal_init");
     CHECK_NULL_ARGUMENT(mean, "mean");
@@ -135,24 +162,49 @@ nw_error_t *normal_init_create(normal_init_t **normal_init, void *mean, void *st
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(normal_init_t)), NULL);
     }
 
-    (*normal_init)->mean = mean;
-    (*normal_init)->standard_deviation = standard_deviation;
+    size_t size = datatype_size(datatype);
+    nw_error_t *error = NULL;
+    (*normal_init)->mean = NULL;
+    (*normal_init)->standard_deviation = NULL;
 
-    return NULL;
+    (*normal_init)->standard_deviation = (void *) malloc(size);
+    if (!(*normal_init)->standard_deviation)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+    memcpy((*normal_init)->standard_deviation, standard_deviation, size);
+
+    (*normal_init)->mean = (void *) malloc(size);
+    if (!(*normal_init)->mean)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+    memcpy((*normal_init)->mean, mean, size);
+
+    return error;
+
+cleanup:
+
+    normal_init_destroy(*normal_init);
+
+    return error;
 }
 
 void normal_init_destroy(normal_init_t *normal_init)
 {
     if (normal_init)
     {
+        free(normal_init->mean);
+        free(normal_init->standard_deviation);
         free(normal_init);
     }
 }
 
-nw_error_t *kaiming_init_create(kaiming_init_t **kaiming_init, void *fan, void *gain)
+nw_error_t *kaiming_init_create(kaiming_init_t **kaiming_init, void *gain, bool_t mode, datatype_t datatype)
 {
     CHECK_NULL_ARGUMENT(kaiming_init, "kaiming_init");
-    CHECK_NULL_ARGUMENT(fan, "fan");
     CHECK_NULL_ARGUMENT(gain, "gain");
 
     *kaiming_init = (kaiming_init_t *) malloc(sizeof(kaiming_init_t));
@@ -161,25 +213,40 @@ nw_error_t *kaiming_init_create(kaiming_init_t **kaiming_init, void *fan, void *
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(kaiming_init_t)), NULL);
     }
 
-    (*kaiming_init)->fan = fan;
-    (*kaiming_init)->gain = gain;
+    size_t size = datatype_size(datatype);
+    nw_error_t *error = NULL;
+    (*kaiming_init)->mode = mode;
+    (*kaiming_init)->gain = NULL;
 
-    return NULL;
+    (*kaiming_init)->gain = (void *) malloc(size);
+    if (!(*kaiming_init)->gain)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+    memcpy((*kaiming_init)->gain, gain, size);
+
+    return error;
+
+cleanup:
+
+    kaiming_init_destroy(*kaiming_init);
+
+    return error;
 }
 
 void kaiming_init_destroy(kaiming_init_t *kaiming_init)
 {
     if (kaiming_init)
     {
+        free(kaiming_init->gain);
         free(kaiming_init);
     }
 }
 
-nw_error_t *glorot_init_create(glorot_init_t **glorot_init, void *fan_in, void *fan_out, void *gain)
+nw_error_t *glorot_init_create(glorot_init_t **glorot_init, void *gain, datatype_t datatype)
 {
     CHECK_NULL_ARGUMENT(glorot_init, "glorot_init");
-    CHECK_NULL_ARGUMENT(fan_in, "fan_in");
-    CHECK_NULL_ARGUMENT(fan_out, "fan_out");
     CHECK_NULL_ARGUMENT(gain, "gain");
 
     *glorot_init = (glorot_init_t *) malloc(sizeof(glorot_init_t));
@@ -188,17 +255,32 @@ nw_error_t *glorot_init_create(glorot_init_t **glorot_init, void *fan_in, void *
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(glorot_init_t)), NULL);
     }
 
-    (*glorot_init)->fan_in = fan_in;
-    (*glorot_init)->fan_out = fan_out;
-    (*glorot_init)->gain = gain;
+    size_t size = datatype_size(datatype);
+    nw_error_t *error = NULL;
+    (*glorot_init)->gain = NULL;
 
-    return NULL;
+    (*glorot_init)->gain = (void *) malloc(size);
+    if (!(*glorot_init)->gain)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+    memcpy((*glorot_init)->gain, gain, size);
+
+    return error;
+
+cleanup:
+
+    glorot_init_destroy(*glorot_init);
+
+    return error;
 }
 
 void glorot_init_destroy(glorot_init_t *glorot_init)
 {
     if (glorot_init)
     {
+        free(glorot_init->gain);
         free(glorot_init);
     }
 }
@@ -251,7 +333,7 @@ nw_error_t *ones_parameter_init(parameter_init_t **parameter_init)
     return error;
 }
 
-nw_error_t *uniform_parameter_init(parameter_init_t **parameter_init, void *lower_bound, void *upper_bound)
+nw_error_t *uniform_parameter_init(parameter_init_t **parameter_init, void *lower_bound, void *upper_bound, datatype_t datatype)
 {
     CHECK_NULL_ARGUMENT(parameter_init, "parameter_init");
 
@@ -260,7 +342,7 @@ nw_error_t *uniform_parameter_init(parameter_init_t **parameter_init, void *lowe
     init_t *init = NULL;
     init_type_t init_type = UNIFORM;
 
-    error = uniform_init_create(&uniform_init, lower_bound, upper_bound);
+    error = uniform_init_create(&uniform_init, lower_bound, upper_bound, datatype);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create uniform initializer."), error);
@@ -283,7 +365,7 @@ nw_error_t *uniform_parameter_init(parameter_init_t **parameter_init, void *lowe
     return error;
 }
 
-nw_error_t *normal_parameter_init(parameter_init_t **parameter_init, void *mean, void *standard_deviation)
+nw_error_t *normal_parameter_init(parameter_init_t **parameter_init, void *mean, void *standard_deviation, datatype_t datatype)
 {
     CHECK_NULL_ARGUMENT(parameter_init, "parameter_init");
 
@@ -292,7 +374,7 @@ nw_error_t *normal_parameter_init(parameter_init_t **parameter_init, void *mean,
     init_t *init = NULL;
     init_type_t init_type = NORMAL;
 
-    error = normal_init_create(&normal_init, mean, standard_deviation);
+    error = normal_init_create(&normal_init, mean, standard_deviation, datatype);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create normal initializer."), error);
@@ -315,7 +397,7 @@ nw_error_t *normal_parameter_init(parameter_init_t **parameter_init, void *mean,
     return error;
 }
 
-nw_error_t *kaiming_uniform_parameter_init(parameter_init_t **parameter_init, void *fan, void *gain)
+nw_error_t *kaiming_uniform_parameter_init(parameter_init_t **parameter_init, void *gain, bool_t mode, datatype_t datatype)
 {
     CHECK_NULL_ARGUMENT(parameter_init, "parameter_init");
 
@@ -324,7 +406,7 @@ nw_error_t *kaiming_uniform_parameter_init(parameter_init_t **parameter_init, vo
     init_t *init = NULL;
     init_type_t init_type = KAIMING_UNIFORM;
 
-    error = kaiming_init_create(&kaiming_init, fan, gain);
+    error = kaiming_init_create(&kaiming_init, gain, mode, datatype);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create kaiming initializer."), error);
@@ -347,7 +429,7 @@ nw_error_t *kaiming_uniform_parameter_init(parameter_init_t **parameter_init, vo
     return error;
 }
 
-nw_error_t *kaiming_normal_parameter_init(parameter_init_t **parameter_init, void *fan, void *gain)
+nw_error_t *kaiming_normal_parameter_init(parameter_init_t **parameter_init, void *gain, bool_t mode, datatype_t datatype)
 {
     CHECK_NULL_ARGUMENT(parameter_init, "parameter_init");
 
@@ -356,7 +438,7 @@ nw_error_t *kaiming_normal_parameter_init(parameter_init_t **parameter_init, voi
     init_t *init = NULL;
     init_type_t init_type = KAIMING_NORMAL;
 
-    error = kaiming_init_create(&kaiming_init, fan, gain);
+    error = kaiming_init_create(&kaiming_init, gain, mode, datatype);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create kaiming initializer."), error);
@@ -379,7 +461,7 @@ nw_error_t *kaiming_normal_parameter_init(parameter_init_t **parameter_init, voi
     return error;
 }
 
-nw_error_t *glorot_uniform_parameter_init(parameter_init_t **parameter_init, void *fan_in, void *fan_out, void *gain)
+nw_error_t *glorot_uniform_parameter_init(parameter_init_t **parameter_init, void *gain, datatype_t datatype)
 {
     CHECK_NULL_ARGUMENT(parameter_init, "parameter_init");
 
@@ -388,7 +470,7 @@ nw_error_t *glorot_uniform_parameter_init(parameter_init_t **parameter_init, voi
     init_t *init = NULL;
     init_type_t init_type = GLOROT_UNIFORM;
 
-    error = glorot_init_create(&glorot_init, fan_in, fan_out, gain);
+    error = glorot_init_create(&glorot_init, gain, datatype);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create glorot initializer."), error);
@@ -411,7 +493,7 @@ nw_error_t *glorot_uniform_parameter_init(parameter_init_t **parameter_init, voi
     return error;
 }
 
-nw_error_t *glorot_normal_parameter_init(parameter_init_t **parameter_init, void *fan_in, void *fan_out, void *gain)
+nw_error_t *glorot_normal_parameter_init(parameter_init_t **parameter_init, void *gain, datatype_t datatype)
 {
     CHECK_NULL_ARGUMENT(parameter_init, "parameter_init");
 
@@ -420,7 +502,7 @@ nw_error_t *glorot_normal_parameter_init(parameter_init_t **parameter_init, void
     init_t *init = NULL;
     init_type_t init_type = GLOROT_NORMAL;
 
-    error = glorot_init_create(&glorot_init, fan_in, fan_out, gain);
+    error = glorot_init_create(&glorot_init, gain, datatype);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create glorot initializer."), error);
@@ -494,9 +576,9 @@ nw_error_t *initialize(tensor_t **parameters,
     case KAIMING_UNIFORM:
         if (init->kaiming_init)
         {
-            void *fan = init->kaiming_init->fan;
+            bool_t mode = init->kaiming_init->mode;
             void *gain = init->kaiming_init->gain;
-            error = tensor_create_kaiming_uniform(parameters, shape, rank, runtime, datatype, requires_gradient, persist, gain, fan);
+            error = tensor_create_kaiming_uniform(parameters, shape, rank, runtime, datatype, requires_gradient, persist, gain, mode);
         }
         else
         {
@@ -506,9 +588,9 @@ nw_error_t *initialize(tensor_t **parameters,
     case KAIMING_NORMAL:
         if (init->kaiming_init)
         {
-            void *fan = init->kaiming_init->fan;
+            bool_t mode = init->kaiming_init->mode;
             void *gain = init->kaiming_init->gain;
-            error = tensor_create_kaiming_normal(parameters, shape, rank, runtime, datatype, requires_gradient, persist, gain, fan);
+            error = tensor_create_kaiming_normal(parameters, shape, rank, runtime, datatype, requires_gradient, persist, gain, mode);
         }
         else
         {
@@ -518,10 +600,8 @@ nw_error_t *initialize(tensor_t **parameters,
     case GLOROT_UNIFORM:
         if (init->glorot_init)
         {
-            void *fan_in = init->glorot_init->fan_in;
-            void *fan_out = init->glorot_init->fan_out;
             void *gain = init->glorot_init->gain;
-            error = tensor_create_glorot_uniform(parameters, shape, rank, runtime, datatype, requires_gradient, persist, gain, fan_in, fan_out);
+            error = tensor_create_glorot_uniform(parameters, shape, rank, runtime, datatype, requires_gradient, persist, gain);
         }
         else
         {
@@ -531,10 +611,8 @@ nw_error_t *initialize(tensor_t **parameters,
     case GLOROT_NORMAL:
         if (init->normal_init)
         {
-            void *fan_in = init->glorot_init->fan_in;
-            void *fan_out = init->glorot_init->fan_out;
             void *gain = init->glorot_init->gain;
-            error = tensor_create_glorot_normal(parameters, shape, rank, runtime, datatype, requires_gradient, persist, gain, fan_in, fan_out);
+            error = tensor_create_glorot_normal(parameters, shape, rank, runtime, datatype, requires_gradient, persist, gain);
         }
         else
         {
@@ -554,7 +632,7 @@ nw_error_t *initialize(tensor_t **parameters,
     return error;
 }
 
-nw_error_t *calculate_gain(activation_function_type_t activation_function_type, datatype_t datatype, void *gain)
+nw_error_t *calculate_gain(activation_function_type_t activation_function_type, datatype_t datatype, void *gain, void *c)
 {
     CHECK_NULL_ARGUMENT(gain, "gain");
 
@@ -578,10 +656,36 @@ nw_error_t *calculate_gain(activation_function_type_t activation_function_type, 
         switch (datatype)
         {
         case FLOAT32:
-            *(float32_t *) gain = sqrtf(2.0);
+            *(float32_t *) gain = sqrtf((float32_t) 2.0);
             break;
         case FLOAT64:
-            *(float64_t *) gain = sqrt(2.0);
+            *(float64_t *) gain = sqrt((float64_t) 2.0);
+            break;
+        default:
+            return ERROR(ERROR_DATATYPE, string_create("unsupported datatype %d.", (int) datatype), NULL);
+        }
+        break;
+    case ACTIVATION_LEAKY_RECTIFIED_LINEAR:
+        switch (datatype)
+        {
+        case FLOAT32:
+            *(float32_t *) gain = sqrtf((float32_t) 2.0 / ((float32_t) 1.0 + powf(*(float32_t *) c, (float32_t) 2.0)));
+            break;
+        case FLOAT64:
+            *(float64_t *) gain = sqrt((float64_t) 2.0 / ((float64_t) 1.0 + pow(*(float64_t *) c, (float64_t) 2.0)));
+            break;
+        default:
+            return ERROR(ERROR_DATATYPE, string_create("unsupported datatype %d.", (int) datatype), NULL);
+        }
+        break;
+    case ACTIVATION_TANH:
+        switch (datatype)
+        {
+        case FLOAT32:
+            *(float32_t *) gain = (float32_t) 5.0 / (float32_t) 3.0;
+            break;
+        case FLOAT64:
+            *(float64_t *) gain = (float64_t) 5.0 / (float64_t) 3.0;
             break;
         default:
             return ERROR(ERROR_DATATYPE, string_create("unsupported datatype %d.", (int) datatype), NULL);

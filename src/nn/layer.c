@@ -133,6 +133,9 @@ nw_error_t *transform_create(transform_t **transform, transform_type_t transform
     case BATCH_NORMALIZATION_2D:
         (*transform)->batch_normalization_2d = (batch_normalization_2d_t *) type_transform;
         break;
+    case LAYER_NORMALIZATION:
+        (*transform)->layer_normalization = (layer_normalization_t *) type_transform;
+        break;
     case RESHAPE:
         (*transform)->reshape = (reshape_t *) type_transform;
         break;
@@ -169,6 +172,9 @@ void transform_destroy(transform_t *transform, transform_type_t transform_type)
         case BATCH_NORMALIZATION_2D:
             batch_normalization_2d_destroy(transform->batch_normalization_2d);
             break;
+        case LAYER_NORMALIZATION:
+            layer_normalization_destroy(transform->layer_normalization);
+            break;
         case RESHAPE:
             reshape_destroy(transform->reshape);
             break;
@@ -200,6 +206,8 @@ string_t transform_type_string(transform_type_t transform_type)
         return "DROPOUT";
     case BATCH_NORMALIZATION_2D:
         return "BATCH_NORMALIZATION_2D";
+    case LAYER_NORMALIZATION:
+        return "LAYER_NORMALIZATION";
     case RESHAPE:
         return "RESHAPE";
     case ACTIVATION:
@@ -362,14 +370,14 @@ nw_error_t *batch_normalization_2d_create(batch_normalization_2d_t **batch_norma
         }
     }
 
-    error = tensor_create_ones(&(*batch_normalization_2d)->running_variance, (int64_t[]){number_of_features}, 1, runtime, datatype, true, true);
+    error = tensor_create_ones(&(*batch_normalization_2d)->running_variance, (int64_t[]){number_of_features}, 1, runtime, datatype, false, true);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
         goto cleanup;
     }
 
-    error = tensor_create_zeroes(&(*batch_normalization_2d)->running_mean, (int64_t[]){number_of_features}, 1, runtime, datatype, true, true);
+    error = tensor_create_zeroes(&(*batch_normalization_2d)->running_mean, (int64_t[]){number_of_features}, 1, runtime, datatype, false, true);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -396,6 +404,83 @@ void batch_normalization_2d_destroy(batch_normalization_2d_t *batch_normalizatio
         free(batch_normalization_2d->epsilon);
         free(batch_normalization_2d->momentum);
         free(batch_normalization_2d);
+    }
+}
+
+nw_error_t *layer_normalization_create(layer_normalization_t **layer_normalization, const int64_t *normalized_shape, int64_t length,
+                                        void *epsilon, bool_t elementwise_affine, datatype_t datatype, runtime_t runtime)
+{
+    CHECK_NULL_ARGUMENT(layer_normalization, "layer_normalization");
+    CHECK_NULL_ARGUMENT(epsilon, "epsilon");
+    CHECK_NULL_ARGUMENT(normalized_shape, "normalized_shape");
+
+    *layer_normalization = (layer_normalization_t *) malloc(sizeof(layer_normalization_t));
+    if (!*layer_normalization)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(layer_normalization_t)), NULL);
+    }
+
+    nw_error_t *error = NULL;
+
+    (*layer_normalization)->epsilon = NULL;
+    (*layer_normalization)->bias = NULL;
+    (*layer_normalization)->weights = NULL;
+    (*layer_normalization)->length = length;
+    (*layer_normalization)->normalized_shape = NULL;
+    
+    size_t size = datatype_size(datatype);
+    (*layer_normalization)->epsilon = (void *) malloc(size);
+    if (!(*layer_normalization)->epsilon)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+    memcpy((*layer_normalization)->epsilon, epsilon, size);
+
+    size = length * sizeof(int64_t);
+    (*layer_normalization)->normalized_shape = (int64_t *) malloc(size);
+    if (!(*layer_normalization)->normalized_shape)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+    memcpy((*layer_normalization)->normalized_shape, normalized_shape, size);
+
+    if (elementwise_affine)
+    {
+        error = tensor_create_ones(&(*layer_normalization)->weights, normalized_shape, length, runtime, datatype, true, true);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            goto cleanup;
+        }
+
+        error = tensor_create_zeroes(&(*layer_normalization)->bias, normalized_shape, length, runtime, datatype, true, true);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            goto cleanup;
+        }
+    }
+
+    return error;
+
+cleanup:
+
+    layer_normalization_destroy(*layer_normalization);
+
+    return error;
+}
+
+void layer_normalization_destroy(layer_normalization_t *layer_normalization)
+{
+    if (layer_normalization)
+    {
+        tensor_destroy(layer_normalization->weights);
+        tensor_destroy(layer_normalization->bias);
+        free(layer_normalization->epsilon);
+        free(layer_normalization->normalized_shape);
+        free(layer_normalization);
     }
 }
 
@@ -570,7 +655,7 @@ nw_error_t *convolution_transpose_2d_layer_create(layer_t **layer, int64_t kerne
 {
     nw_error_t *error = NULL;
 
-    error = convolution_2d_layer_create(layer, kernel_size, padding, stride, in_channels, out_channels, runtime, datatype, kernel_init, bias_init);
+    error = convolution_2d_layer_create(layer, kernel_size, padding, stride, out_channels, in_channels, runtime, datatype, kernel_init, bias_init);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create convolution_2d layer."), error);
@@ -729,6 +814,41 @@ nw_error_t *batch_normalization_2d_layer_create(layer_t **layer, int64_t number_
     if (error)
     {
         batch_normalization_2d_destroy(batch_normalization_2d);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *layer_normalization_layer_create(layer_t **layer, const int64_t *normalized_shape, int64_t length,
+                                        void *epsilon, bool_t elementwise_affine, datatype_t datatype, runtime_t runtime)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+    CHECK_NULL_ARGUMENT(normalized_shape, "normalized_shape");
+    CHECK_NULL_ARGUMENT(epsilon, "epsilon");
+
+    nw_error_t *error = NULL;
+    layer_normalization_t *layer_normalization = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = LAYER_NORMALIZATION;
+
+    error = layer_normalization_create(&layer_normalization, normalized_shape, length, epsilon, elementwise_affine, datatype, runtime);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create batch normalization layer."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) layer_normalization);
+    if (error)
+    {
+        layer_normalization_destroy(layer_normalization);
         return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
     }
 
@@ -1165,121 +1285,16 @@ nw_error_t *dropout_forward(dropout_t *dropout, tensor_t *x, tensor_t **y)
     CHECK_NULL_ARGUMENT(y, "y");
 
     nw_error_t *error = NULL;
-    tensor_t *probability = NULL;
-    tensor_t *scale = NULL;
-    tensor_t *mask= NULL;
-    tensor_t *rand_tensor = NULL;
-    tensor_t *x_i = NULL;
-    void *min = NULL;
-    void *max = NULL;
-    void *scalar = NULL;
-    datatype_t datatype = x->buffer->storage->datatype;
-    runtime_t runtime = x->buffer->storage->runtime;
 
-    if (dropout->inference)
-    {
-        *y = x;
-        return NULL;
-    }
-
-    min = (void *) malloc(datatype_size(datatype));
-    if (!min) 
-    {
-        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
-        goto cleanup;
-    }
-
-    max = (void *) malloc(datatype_size(datatype));
-    if (!max) 
-    {
-        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
-        goto cleanup;
-    }
-
-    scalar = (void *) malloc(datatype_size(datatype));
-    if (!scalar) 
-    {
-        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
-        goto cleanup;
-    }
-
-    switch (datatype)
-    {
-    case FLOAT32:
-        *(float32_t *) min = (float32_t) 0.0;
-        *(float32_t *) max = (float32_t) 1.0;
-        *(float32_t *) scalar = (float32_t) 1.0 / ((float32_t) 1.0 - *(float32_t *) dropout->probability);
-        break;
-    case FLOAT64:
-        *(float64_t *) min = (float64_t) 0.0;
-        *(float64_t *) max = (float64_t) 1.0;
-        *(float64_t *) scalar = (float64_t) 1.0 / ((float64_t) 1.0 - *(float64_t *) dropout->probability);
-        break;
-    default:
-        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype."), NULL);
-        goto cleanup;
-    }
-
-    error = tensor_constant(dropout->probability, datatype, runtime, false, false, &probability);
+    error = tensor_dropout(x, y, dropout->probability, dropout->inference);
     if (error)
     {
-        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-    }
-
-    error = tensor_constant(scalar, datatype, runtime, false, false, &scale);
-    if (error)
-    {
-        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-        goto cleanup;
-    }
-
-    error = tensor_create_uniform(&rand_tensor, x->buffer->view->shape, x->buffer->view->rank, runtime, datatype, false, false, min, max);
-    if (error)
-    {
-        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-        goto cleanup;
-    }
-
-    error = tensor_compare_greater(rand_tensor, probability, &mask);
-    if (error)
-    {
-        error = ERROR(ERROR_COMPARE_GREATER, string_create("failed to compare greater tensors."), error);
-        goto cleanup;
-    }
-
-    error = tensor_multiplication(x, mask, &x_i);
-    if (error)
-    {
-        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
-        goto cleanup;
-    }
-
-    error = tensor_multiplication(x_i, scale, y);
-    if (error)
-    {
-        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
-        goto cleanup;
+        return ERROR(ERROR_DROPOUT, string_create("failed to apply dropout."), error);
     }
 
     PRINTLN_DEBUG_LOCATION("output");
     PRINTLN_DEBUG_TENSOR("y", *y);
     PRINT_DEBUG_NEWLINE;
-
-cleanup:
-
-    free(scalar);
-    free(min);
-    free(max);
-    
-    tensor_destroy(probability);
-    tensor_destroy(rand_tensor);
-    tensor_destroy(scale);
-
-    if (!x->requires_gradient || no_gradient)
-    {
-        tensor_destroy(mask);
-        tensor_destroy(x_i);
-    }
 
     return NULL;
 }
@@ -1307,6 +1322,25 @@ nw_error_t *batch_normalization_2d_forward(batch_normalization_2d_t *batch_norma
     if (error)
     {
         return ERROR(ERROR_BATCH_NORMALIZATION, string_create("failed to apply batch normalization 2d."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *layer_normalization_forward(layer_normalization_t *layer_normalization, tensor_t *x, tensor_t **y)
+{
+    CHECK_NULL_ARGUMENT(layer_normalization, "layer_normalization");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_layer_normalization(x, layer_normalization->weights, layer_normalization->bias, y, layer_normalization->normalized_shape,
+                                       layer_normalization->length, layer_normalization->epsilon);
+
+    if (error)
+    {
+        return ERROR(ERROR_BATCH_NORMALIZATION, string_create("failed to apply layer normalization."), error);
     }
 
     return error;

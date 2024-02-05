@@ -21,15 +21,13 @@ typedef struct normal_init_t
 
 typedef struct kaiming_init_t
 {
-    void *fan;
+    bool_t mode;
     void *gain;
 } kaiming_init_t;
 
 typedef struct glorot_init_t
 {
     void *gain;
-    void *fan_in;
-    void *fan_out;
 } glorot_init_t;
 
 typedef enum initializaton_type_t
@@ -62,29 +60,23 @@ nw_error_t *parameter_init_create(parameter_init_t **parameter_init, init_t *ini
 void parameter_init_destroy(parameter_init_t *parameter_init);
 nw_error_t *init_create(init_t **init, init_type_t init_type, void *type_init);
 void init_destroy(init_t *init, init_type_t init_type);
-nw_error_t *uniform_init_create(uniform_init_t **uniform_init, void *lower_bound, void *upper_bound);
+nw_error_t *uniform_init_create(uniform_init_t **uniform_init, void *lower_bound, void *upper_bound, datatype_t datatype);
 void uniform_init_destroy(uniform_init_t *uniform_init);
-nw_error_t *normal_init_create(normal_init_t **normal_init, void *mean, void *standard_deviation);
+nw_error_t *normal_init_create(normal_init_t **normal_init, void *mean, void *standard_deviation, datatype_t datatype);
 void normal_init_destroy(normal_init_t *normal_init);
-nw_error_t *kaiming_init_create(kaiming_init_t **kaiming_init, void *fan, void *gain);
+nw_error_t *kaiming_init_create(kaiming_init_t **kaiming_init, void *gain, bool_t mode, datatype_t datatype);
 void kaiming_init_destroy(kaiming_init_t *kaiming_init);
-nw_error_t *glorot_init_create(glorot_init_t **glorot_init, void *fan_in, void *fan_out, void *gain);
+nw_error_t *glorot_init_create(glorot_init_t **glorot_init, void *gain, datatype_t datatype);
 void glorot_init_destroy(glorot_init_t *glorot_init);
 nw_error_t *zeroes_parameter_init(parameter_init_t **parameter_init);
 nw_error_t *ones_parameter_init(parameter_init_t **parameter_init);
-nw_error_t *uniform_parameter_init(parameter_init_t **parameter_init, void *lower_bound, void *upper_bound);
-nw_error_t *normal_parameter_init(parameter_init_t **parameter_init, void *mean, void *standard_deviation);
-nw_error_t *kaiming_uniform_parameter_init(parameter_init_t **parameter_init, void *fan, void *gain);
-nw_error_t *kaiming_normal_parameter_init(parameter_init_t **parameter_init, void *fan, void *gain);
-nw_error_t *glorot_uniform_parameter_init(parameter_init_t **parameter_init, void *fan_in, void *fan_out, void *gain);
-nw_error_t *glorot_normal_parameter_init(parameter_init_t **parameter_init, void *fan_in, void *fan_out, void *gain);
-nw_error_t *initialize(tensor_t **parameters,
-                       parameter_init_t *parameter_init,
-                       const int64_t *shape,
-                       int64_t rank,
-                       runtime_t runtime,
-                       datatype_t datatype,
-                       bool_t requires_gradient);
-nw_error_t *calculate_gain(activation_function_type_t activation_function_type, datatype_t datatype, void *gain);
+nw_error_t *uniform_parameter_init(parameter_init_t **parameter_init, void *lower_bound, void *upper_bound, datatype_t datatype);
+nw_error_t *normal_parameter_init(parameter_init_t **parameter_init, void *mean, void *standard_deviation, datatype_t datatype);
+nw_error_t *kaiming_uniform_parameter_init(parameter_init_t **parameter_init,void *gain, bool_t mode, datatype_t datatype);
+nw_error_t *kaiming_normal_parameter_init(parameter_init_t **parameter_init, void *gain, bool_t mode, datatype_t datatype);
+nw_error_t *glorot_uniform_parameter_init(parameter_init_t **parameter_init, void *gain, datatype_t datatype);
+nw_error_t *glorot_normal_parameter_init(parameter_init_t **parameter_init, void *gain, datatype_t datatype);
+nw_error_t *initialize(tensor_t **parameters, parameter_init_t *parameter_init, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient);
+nw_error_t *calculate_gain(activation_function_type_t activation_function_type, datatype_t datatype, void *gain, void *c);
 
 #endif

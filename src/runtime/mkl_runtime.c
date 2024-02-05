@@ -13,7 +13,7 @@ nw_error_t *mkl_memory_allocate(void **pp, size_t size)
 {
     CHECK_NULL_ARGUMENT(pp, "pp");
 
-    *pp = mkl_malloc(size, ALIGNMENT);
+    *pp = malloc(size);
     if (!*pp)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
@@ -24,7 +24,7 @@ nw_error_t *mkl_memory_allocate(void **pp, size_t size)
 
 void mkl_memory_free(void *p)
 {
-    mkl_free(p);
+    free(p);
 }
 
 void mkl_exponential(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset)

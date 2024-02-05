@@ -44,10 +44,10 @@ nw_error_t *tensor_create_zeroes(tensor_t **x, const int64_t *shape, int64_t ran
 nw_error_t *tensor_create_ones(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist);
 nw_error_t *tensor_create_uniform(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *lower_bound, void *upper_bound);
 nw_error_t *tensor_create_normal(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *mean, void *standard_deviation);
-nw_error_t *tensor_create_kaiming_uniform(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan);
-nw_error_t *tensor_create_kaiming_normal(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan);
-nw_error_t *tensor_create_glorot_uniform(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan_in, void *fan_out);
-nw_error_t *tensor_create_glorot_normal(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, void *fan_in, void *fan_out);
+nw_error_t *tensor_create_kaiming_uniform(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, bool_t mode);
+nw_error_t *tensor_create_kaiming_normal(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain, bool_t mode);
+nw_error_t *tensor_create_glorot_uniform(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain);
+nw_error_t *tensor_create_glorot_normal(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain);
 nw_error_t *tensor_item(const tensor_t *x, void *value);
 
 // Structure Operations
@@ -83,6 +83,11 @@ nw_error_t *tensor_convolution_transpose_2d(const tensor_t *w, const tensor_t *x
 nw_error_t *tensor_linear(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z);
 nw_error_t *tensor_batch_normalization_2d(const tensor_t *x, const tensor_t *weights, const tensor_t *bias, tensor_t *running_mean, 
                                           tensor_t *running_variance, tensor_t **y, bool_t inference, void *momentum, void *epsilon);
+nw_error_t *tensor_layer_normalization(const tensor_t *x, const tensor_t *weights, const tensor_t *bias, tensor_t **y, int64_t *normalized_shape, int64_t length, void *epsilon);
+nw_error_t *tensor_causal_multihead_self_attention(tensor_t *x, const tensor_t *input_weights, const tensor_t *input_bias, const tensor_t *output_weights, const tensor_t *output_bias,
+                                                   int64_t number_of_heads, void *dropout_probability, bool_t inference, tensor_t **y);
+nw_error_t *tensor_scaled_dot_product_attention(const tensor_t *query, const tensor_t *key, const tensor_t *value, tensor_t **y, void *dropout_probability, bool_t inference);
+nw_error_t *tensor_where(const tensor_t *w, const tensor_t *x, const tensor_t *y, tensor_t **z);
 
 // Reduction Operations
 nw_error_t *tensor_summation(const tensor_t *x, tensor_t **y, const int64_t *axis, int64_t length, bool_t keep_dimension);
@@ -105,11 +110,13 @@ nw_error_t *tensor_reciprocal(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_negation(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_rectified_linear(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_leaky_rectified_linear(const tensor_t *x, void *c, tensor_t **y);
+nw_error_t *tensor_dropout(const tensor_t *x, tensor_t **y, void *probability, bool_t inference);
 nw_error_t *tensor_sigmoid(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_tanh(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_gelu(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_absolute(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y);
+nw_error_t *tensor_lower_triangular(const tensor_t *x, tensor_t **y);
 
 // Back Propogation
 nw_error_t *tensor_backward(tensor_t *x, tensor_t *gradient);
