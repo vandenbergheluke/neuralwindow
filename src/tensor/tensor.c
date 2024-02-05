@@ -185,6 +185,8 @@ nw_error_t *tensor_concatenation(const tensor_t *x, const tensor_t *y, tensor_t 
         return ERROR(ERROR_RANK, string_create("tensors not the same rank."), NULL);
     }
 
+    axis = dimension_to_index(axis, x->buffer->view->rank);
+
     for (int64_t i = 0; i < x->buffer->view->rank; ++i)
     {
         if (i != axis && x->buffer->view->shape[i] != y->buffer->view->shape[i])
@@ -192,8 +194,6 @@ nw_error_t *tensor_concatenation(const tensor_t *x, const tensor_t *y, tensor_t 
             return ERROR(ERROR_SHAPE, string_create("tensors do not have same shape along non-axis dimensions."), NULL);
         }
     }
-
-    axis = dimension_to_index(axis, x->buffer->view->rank);
 
     if (axis < 0 || axis >= x->buffer->view->rank)
     {

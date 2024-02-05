@@ -1,5 +1,11 @@
 #include <plots.h>
 #include <tensor.h>
+#include <buffer.h>
+#include <view.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <png.h>
 #include <mgl2/base_cf.h>
 #include <mgl2/canvas_cf.h>
 #include <mgl2/mgl_cf.h>

@@ -213,6 +213,10 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_ATTENTION";
     case ERROR_WHERE:
         return "ERROR_WHERE";
+    case ERROR_SAMPLE:
+        return "ERROR_SAMPLE";
+    case ERROR_CONCATENATION:
+        return "ERROR_CONCATENATION";
     default:
         return "ERROR";
     }

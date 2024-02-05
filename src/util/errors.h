@@ -681,6 +681,8 @@ typedef enum nw_error_type_t
     ERROR_LOWER_TRIANGULAR,
     ERROR_ATTENTION,
     ERROR_WHERE,
+    ERROR_SAMPLE,
+    ERROR_CONCATENATION,
 } nw_error_type_t;
 
 typedef struct nw_error_t

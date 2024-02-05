@@ -3,13 +3,8 @@
 
 #include <datatype.h>
 #include <errors.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <png.h>
-#include <tensor.h>
-#include <buffer.h>
-#include <view.h>
+
+typedef struct tensor_t tensor_t;
 
 typedef struct pixel_t
 {
