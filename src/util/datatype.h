@@ -26,6 +26,10 @@ typedef enum datatype_t
     FLOAT64
 } datatype_t;
 
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
+
 // >=C++14
 // Defines that force the compiler to choose the correct overloaded function
 // when passing it as an argument.

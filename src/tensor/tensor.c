@@ -560,6 +560,238 @@ cleanup:
     return error;
 }
 
+nw_error_t *tensor_gelu(const tensor_t *x, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *constant_05 = NULL;
+    tensor_t *constant_1 = NULL;
+    tensor_t *constant_3 = NULL;
+    tensor_t *constant_079 = NULL;
+    tensor_t *constant_0044 = NULL;
+    tensor_t *x_cubed = NULL;
+    tensor_t *x_cubed_0044 = NULL;
+    tensor_t *x_plus_x_cubed_0044 = NULL;
+    tensor_t *x_079 = NULL;
+    tensor_t *tanh_input = NULL;
+    tensor_t *tanh_output = NULL;
+    tensor_t *one_plus_tanh = NULL;
+    tensor_t *x_05 = NULL;
+    void *scalar_05 = NULL;
+    void *scalar_3 = NULL;
+    void *scalar_1 = NULL;
+    void *scalar_079 = NULL;
+    void *scalar_0044 = NULL;
+    datatype_t datatype = x->buffer->storage->datatype;
+    runtime_t runtime = x->buffer->storage->runtime;
+    size_t size = datatype_size(datatype);
+
+    scalar_05 = malloc(size);
+    if (!scalar_05)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    scalar_3 = malloc(size);
+    if (!scalar_3)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    scalar_1 = malloc(size);
+    if (!scalar_1)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    scalar_079 = malloc(size);
+    if (!scalar_079)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    scalar_0044 = malloc(size);
+    if (!scalar_0044)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    switch(datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) scalar_05 = (float32_t) 0.5;
+        *(float32_t *) scalar_3 = (float32_t) 3;
+        *(float32_t *) scalar_1 = (float32_t) 1;
+        *(float32_t *) scalar_079 = (float32_t) sqrtf(2.0 / M_PI);
+        *(float32_t *) scalar_0044 = (float32_t) 0.044715;
+        break;
+    case FLOAT64:
+        *(float64_t *) scalar_05 = (float64_t) 0.5;
+        *(float64_t *) scalar_3 = (float64_t) 3;
+        *(float64_t *) scalar_1 = (float64_t) 1;
+        *(float64_t *) scalar_079 = (float64_t) sqrt(2.0 / M_PI);
+        *(float64_t *) scalar_0044 = (float64_t) 0.044715;
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int)datatype), NULL);
+        break;
+    }
+
+    error = tensor_constant(scalar_05, datatype, runtime, false, false, &constant_05);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_constant(scalar_3, datatype, runtime, false, false, &constant_3);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_constant(scalar_1, datatype, runtime, false, false, &constant_1);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+    
+    error = tensor_constant(scalar_079, datatype, runtime, false, false, &constant_079);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_constant(scalar_0044, datatype, runtime, false, false, &constant_0044);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_power(x, constant_3, &x_cubed);
+    if (error)
+    {
+        error = ERROR(ERROR_POWER, string_create("failed to perform power operation."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(constant_0044, x_cubed, &x_cubed_0044);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_addition(x, x_cubed_0044, &x_plus_x_cubed_0044);
+    if (error)
+    {
+        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(constant_079, x_plus_x_cubed_0044, &tanh_input);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_tanh(tanh_input, &tanh_output);
+    if (error)
+    {
+        error = ERROR(ERROR_TANH, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_addition(constant_1, tanh_output, &one_plus_tanh);
+    if (error)
+    {
+        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(constant_05, x, &x_05);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_multiplication(x_05, one_plus_tanh, y);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    free(scalar_05);
+    free(scalar_3);
+    free(scalar_1);
+    free(scalar_079);
+    free(scalar_0044);
+
+    if (!tensor_shapes_equal(constant_05, x) || !x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(constant_05);
+    }
+
+    if (!tensor_shapes_equal(constant_3, x) || !x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(constant_3);
+    }
+
+    if (!tensor_shapes_equal(constant_1, x) || !x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(constant_1);
+    }
+
+    if (!tensor_shapes_equal(constant_079, x) || !x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(constant_079);
+    }
+
+    if (!tensor_shapes_equal(constant_0044, x) || !x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(constant_0044);
+    }
+
+    if (!x->requires_gradient || no_gradient)
+    {
+        tensor_destroy(x_cubed);
+        tensor_destroy(x_cubed_0044);
+        tensor_destroy(x_plus_x_cubed_0044);
+        tensor_destroy(x_079);
+        tensor_destroy(tanh_input);
+        tensor_destroy(tanh_output);
+        tensor_destroy(one_plus_tanh);
+        tensor_destroy(x_05);
+    }
+
+    return error;
+}
+
 nw_error_t *tensor_expand(const tensor_t *x, const int64_t *shape, int64_t length, tensor_t **y)
 {
     PRINTLN_DEBUG_LOCATION("input");
