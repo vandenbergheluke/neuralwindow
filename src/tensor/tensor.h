@@ -49,6 +49,7 @@ nw_error_t *tensor_create_kaiming_normal(tensor_t **x, const int64_t *shape, int
 nw_error_t *tensor_create_glorot_uniform(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain);
 nw_error_t *tensor_create_glorot_normal(tensor_t **x, const int64_t *shape, int64_t rank, runtime_t runtime, datatype_t datatype, bool_t requires_gradient, bool_t persist, void *gain);
 nw_error_t *tensor_item(const tensor_t *x, void *value);
+nw_error_t *tensor_multinomial_sample(tensor_t *probabilities, void *sample);
 
 // Structure Operations
 nw_error_t *tensor_broadcast(const tensor_t *x_original, const tensor_t *y_original, tensor_t **x_broadcasted, tensor_t **y_broadcasted);
@@ -113,6 +114,7 @@ nw_error_t *tensor_leaky_rectified_linear(const tensor_t *x, void *c, tensor_t *
 nw_error_t *tensor_dropout(const tensor_t *x, tensor_t **y, void *probability, bool_t inference);
 nw_error_t *tensor_sigmoid(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_tanh(const tensor_t *x, tensor_t **y);
+nw_error_t *tensor_gelu(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_absolute(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_as_tensor(const tensor_t *x, tensor_t **y);
 nw_error_t *tensor_lower_triangular(const tensor_t *x, tensor_t **y);
