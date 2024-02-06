@@ -11,6 +11,7 @@
 #include <view.h>
 #include <string.h>
 #include <math.h>
+#include <random.h>
 #include <id_pool.h>
 
 bool_t no_gradient = false;
@@ -4374,6 +4375,38 @@ nw_error_t *tensor_create_normal(tensor_t **x, const int64_t *shape, int64_t ran
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_multinomial_sample(tensor_t *probabilities, void *sample)
+{ 
+    CHECK_NULL_ARGUMENT(probabilities, "probabilities");
+    CHECK_NULL_ARGUMENT(probabilities->buffer, "probabilities->buffer");
+    CHECK_NULL_ARGUMENT(probabilities->buffer->storage, "probabilities->buffer->storage");
+    CHECK_NULL_ARGUMENT(probabilities->buffer->storage->data, "probabilities->buffer->storage->data");
+    CHECK_NULL_ARGUMENT(sample, "sample");
+    
+    nw_error_t *error = NULL;
+    int64_t n;
+
+    error = tensor_number_of_elements(probabilities, &n);
+    if (error)
+    {
+        return ERROR(ERROR_N, string_create("failed to get size of tensor."), error);
+    }
+
+    switch (probabilities->buffer->storage->datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) sample = multinomialf((float32_t *) probabilities->buffer->storage->data, n);
+        break;
+    case FLOAT64:
+        *(float64_t *) sample = multinomial((float64_t *) probabilities->buffer->storage->data, n);
+        break;
+    default:
+        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) probabilities->buffer->storage->datatype), NULL);
     }
 
     return error;
