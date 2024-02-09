@@ -21,26 +21,104 @@ nw_error_t *categorical_cross_entropy(const tensor_t *y_true, const tensor_t *y_
     CHECK_NULL_ARGUMENT(y_prediction->buffer->view, "y_prediction->buffer->view");
     CHECK_NULL_ARGUMENT(cost, "cost");
 
-    if (!tensor_shapes_equal(y_prediction, y_true))    
+    if (y_true->buffer->view->rank != y_prediction->buffer->view->rank)
     {
-        return ERROR(ERROR_SHAPE, string_create("tensor shapes not equal."), NULL);
+        return ERROR(ERROR_RANK, string_create("rank conflict."), NULL);
     }
 
     nw_error_t *error = NULL;
     int64_t rank = y_true->buffer->view->rank;
+    runtime_t runtime = y_true->buffer->storage->runtime;
+    datatype_t datatype = y_true->buffer->storage->datatype;
+    int64_t batch_size = y_true->buffer->view->shape[0];
+    int64_t label_size = y_prediction->buffer->view->shape[rank - 1];
+    void *start = NULL;
+    void *stop = NULL;
+    void *step = NULL;
+    tensor_t *counter = NULL;
+    tensor_t *counter_reshaped = NULL;
+    tensor_t *y = NULL;
+    tensor_t *y_i = NULL;
     tensor_t *cost_i = NULL;
     tensor_t *cost_j = NULL;
     tensor_t *cost_k = NULL;
     tensor_t *cost_l = NULL;
+    size_t size = datatype_size(datatype);
 
-    error = tensor_logarithm(y_prediction, &cost_i);
+    start = (void *) malloc(size);
+    if (!start)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    stop = (void *) malloc(size);
+    if (!stop)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    step = (void *) malloc(size);
+    if (!step)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        *((float32_t *) start) = (float32_t) 0.0;
+        *((float32_t *) stop) = (float32_t) label_size;
+        *((float32_t *) step) = (float32_t) 1.0;
+        break;
+    case FLOAT64:
+        *((float64_t *) start) = (float64_t) 0.0;
+        *((float64_t *) stop) = (float64_t) label_size;
+        *((float64_t *) step) = (float64_t) 1.0;
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_arange(&counter, start, stop, step, runtime, datatype, false, false);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_reshape(counter, &counter_reshaped, (int64_t[]){1, label_size}, 2);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_reshape(y_true, &y_i, (int64_t[]){batch_size, 1}, 2);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_compare_equal(counter_reshaped, y_i, &y);
+    if (error)
+    {
+        error = ERROR(ERROR_COMPARE_EQUAL, string_create("failed to compare equal tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_logsoftmax(y_prediction, &cost_i, -1);
     if (error)
     {
         error = ERROR(ERROR_LOGARITHM, string_create("failed to log tensor."), error);
         goto cleanup;
     }
 
-    error = tensor_multiplication(cost_i, y_true, &cost_j);
+    error = tensor_multiplication(cost_i, y, &cost_j);
     if (error)
     {
         error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
@@ -74,79 +152,20 @@ nw_error_t *categorical_cross_entropy(const tensor_t *y_true, const tensor_t *y_
 
 cleanup:
 
+    free(start);
+    free(stop);
+    free(step);
+    tensor_destroy(counter);
+    tensor_destroy(counter_reshaped);
+    if (y_true != y_i)
+    {
+        tensor_destroy(y_i);
+    }
+
     if (!y_prediction->requires_gradient || no_gradient)
     {
+        tensor_destroy(y);
         tensor_destroy(cost_i);
-        tensor_destroy(cost_j);
-        tensor_destroy(cost_k);
-        tensor_destroy(cost_l);
-    }
-
-    return error;
-}
-
-nw_error_t *negative_log_likelihood(const tensor_t *y_true, const tensor_t *y_prediction, tensor_t **cost)
-{
-    PRINTLN_DEBUG_LOCATION("input");
-    PRINTLN_DEBUG_TENSOR("y_true", y_true);
-    PRINTLN_DEBUG_TENSOR("y_prediction", y_prediction);
-    PRINT_DEBUG_NEWLINE;
-
-    CHECK_NULL_ARGUMENT(y_true, "y_true");
-    CHECK_NULL_ARGUMENT(y_true->buffer, "y_true->buffer");
-    CHECK_NULL_ARGUMENT(y_true->buffer->view, "y_true->buffer->view");
-    CHECK_NULL_ARGUMENT(y_prediction, "y_prediction");
-    CHECK_NULL_ARGUMENT(y_prediction->buffer, "y_prediction->buffer");
-    CHECK_NULL_ARGUMENT(y_prediction->buffer->view, "y_prediction->buffer->view");
-    CHECK_NULL_ARGUMENT(cost, "cost");
-
-    if (!tensor_shapes_equal(y_prediction, y_true))    
-    {
-        return ERROR(ERROR_SHAPE, string_create("tensor shapes not equal."), NULL);
-    }
-
-    nw_error_t *error = NULL;
-    int64_t rank = y_true->buffer->view->rank;
-    tensor_t *cost_j = NULL;
-    tensor_t *cost_k = NULL;
-    tensor_t *cost_l = NULL;
-
-    error = tensor_multiplication(y_prediction, y_true, &cost_j);
-    if (error)
-    {
-        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
-        goto cleanup;
-    }
-
-    error = tensor_summation(cost_j, &cost_k, (int64_t[]) {rank - 1}, 1, false);
-    if (error)
-    {
-        error = ERROR(ERROR_SUMMATION, string_create("failed to sum tensor."), error);
-        goto cleanup;
-    }
-
-    error = tensor_negation(cost_k, &cost_l);
-    if (error)
-    {
-        error = ERROR(ERROR_NEGATION, string_create("failed to negate tensor."), error);
-        goto cleanup;
-    }
-
-    error = tensor_mean(cost_l, cost, NULL, 0, false);
-    if (error)
-    {
-        error = ERROR(ERROR_MEAN, string_create("failed to get mean of tensor."), error);
-        goto cleanup;
-    }
-
-    PRINTLN_DEBUG_LOCATION("output");
-    PRINTLN_DEBUG_TENSOR("cost", *cost);
-    PRINT_DEBUG_NEWLINE;
-
-cleanup:
-
-    if (!y_prediction->requires_gradient || no_gradient)
-    {
         tensor_destroy(cost_j);
         tensor_destroy(cost_k);
         tensor_destroy(cost_l);

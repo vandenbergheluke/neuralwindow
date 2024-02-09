@@ -1,4 +1,5 @@
 #include <simpsons_data.h>
+#include <tensor.h>
 
 nw_error_t *simpsons_setup(void *arguments) 
 {
@@ -62,14 +63,13 @@ nw_error_t *simpsons_dataloader(int64_t index, batch_t *batch, void *arguments)
     simpsons_dataset_t *simpsons_dataset = (simpsons_dataset_t *) arguments;
     int64_t batch_size = batch->batch_size;
     int64_t block_size = simpsons_dataset->block_size;
-    int64_t vocabulary_size = simpsons_dataset->vocabulary_size;
     void *data = NULL;
     void *labels = NULL;
     datatype_t datatype = batch->datatype;
     runtime_t runtime = batch->runtime;
     int previous_character, next_character;
     bool_t copy = runtime == CU_RUNTIME;
-    size_t size = datatype_size(datatype) * batch_size * block_size * vocabulary_size;
+    size_t size = datatype_size(datatype) * batch_size * block_size;
 
     data = (void *) malloc(size);
     if (!data)
@@ -103,32 +103,29 @@ nw_error_t *simpsons_dataloader(int64_t index, batch_t *batch, void *arguments)
             return ERROR(ERROR_FILE, string_create("reached end of file."), NULL);
         }
 
-        for (int64_t j = 0; j < vocabulary_size; ++j)
+        switch (datatype)
         {
-            switch (datatype)
-            {
-            case FLOAT32:
-                ((float32_t *) data)[i * vocabulary_size + j] = (simpsons_dataset->character_to_integer[previous_character] == (int) j) ? (float32_t) 1.0 : (float32_t) 0.0;
-                ((float32_t *) labels)[i * vocabulary_size + j] = (simpsons_dataset->character_to_integer[next_character] == (int) j) ? (float32_t) 1.0 : (float32_t) 0.0;
-                break;
-            case FLOAT64:
-                ((float64_t *) data)[i * vocabulary_size + j] = (simpsons_dataset->character_to_integer[previous_character] == (int) j) ? (float64_t) 1.0 : (float64_t) 0.0;
-                ((float64_t *) labels)[i * vocabulary_size + j] = (simpsons_dataset->character_to_integer[next_character] == (int) j) ? (float64_t) 1.0 : (float64_t) 0.0;
-                break;
-            default:
-                return ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
-            }
+        case FLOAT32:
+            ((float32_t *) data)[i] = (float32_t) simpsons_dataset->character_to_integer[previous_character];
+            ((float32_t *) labels)[i] = (float32_t) simpsons_dataset->character_to_integer[next_character];
+            break;
+        case FLOAT64:
+            ((float64_t *) data)[i] = (float64_t) simpsons_dataset->character_to_integer[previous_character];
+            ((float64_t *) labels)[i] = (float64_t) simpsons_dataset->character_to_integer[next_character];
+            break;
+        default:
+            return ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
         }
         previous_character = next_character;
     }
 
-    error = tensor_from_data(&batch->x, data, runtime, datatype, 3, (int64_t[]) {batch_size, block_size, vocabulary_size}, copy, false, true);
+    error = tensor_from_data(&batch->x, data, runtime, datatype, 2, (int64_t[]) {batch_size, block_size}, copy, false, true);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
     }
 
-    error = tensor_from_data(&batch->y, labels, runtime, datatype, 2, (int64_t[]) {batch_size * block_size, vocabulary_size}, copy, false, true);
+    error = tensor_from_data(&batch->y, labels, runtime, datatype, 2, (int64_t[]) {batch_size * block_size, 1}, copy, false, true);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);

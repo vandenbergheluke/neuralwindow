@@ -343,12 +343,13 @@ int adam_iterations[ADAM_CASES] = {
     5,
 };
 
-#define MODELS 2
+#define MODELS 3
 
 typedef enum model_type_t
 {
     CONVOLUTIONAL_NEURAL_NETWORK,
     SINGLE_LAYER_FEED_FORWARD,
+    TRANSFORMER,
 } model_type_t;
 
 struct SingleLayerFeedForwardImpl : torch::nn::Module
@@ -423,6 +424,46 @@ struct ConvolutionalNeuralNetworkImpl : torch::nn::Module
 };
 TORCH_MODULE(ConvolutionalNeuralNetwork);
 
+struct TransformerImpl : torch::nn::Module
+{
+    TransformerImpl(int64_t vocabulary_size, int64_t embedding_size, int64_t number_of_heads, int64_t block_size, float32_t epsilon) :
+        linear1(register_module("linear1", torch::nn::Linear(torch::nn::LinearOptions(embedding_size, 4 * embedding_size)))), // embed X 4*embed
+        linear2(register_module("linear2", torch::nn::Linear(torch::nn::LinearOptions(4 * embedding_size, embedding_size)))), // 4 * embed x embed
+        linear3(register_module("linear3", torch::nn::Linear(torch::nn::LinearOptions(embedding_size, vocabulary_size)))), // embed X vocabulary_size
+        layer_norm1(register_module("layer_norm1", torch::nn::LayerNorm(torch::nn::LayerNormOptions({embedding_size}).elementwise_affine(true).eps(epsilon)))), // {embed}
+        layer_norm2(register_module("layer_norm2", torch::nn::LayerNorm(torch::nn::LayerNormOptions({embedding_size}).elementwise_affine(true).eps(epsilon)))),
+        layer_norm3(register_module("layer_norm3", torch::nn::LayerNorm(torch::nn::LayerNormOptions({embedding_size}).elementwise_affine(true).eps(epsilon)))),
+        dropout1(register_module("dropout1", torch::nn::Dropout(torch::nn::DropoutOptions(0.0)))),
+        dropout2(register_module("dropout2", torch::nn::Dropout(torch::nn::DropoutOptions(0.0)))),
+        token_embedding(register_module("token_embedding", torch::nn::Embedding(torch::nn::EmbeddingOptions(vocabulary_size, embedding_size)))), // vocab X embed
+        position_embedding(register_module("position_embedding", torch::nn::Embedding(torch::nn::EmbeddingOptions(block_size, embedding_size)))), // block_size X embed
+        multihead_attention(register_module("multihead_attention", torch::nn::MultiheadAttention(torch::nn::MultiheadAttentionOptions(embedding_size, number_of_heads)
+                                                                                                .dropout(0.0).add_bias_kv(false).add_zero_attn(false).bias(false)))),
+        relu(register_module("relu", torch::nn::ReLU()))
+    {
+    }
+
+    torch::Tensor forward(torch::Tensor x) 
+    {
+        torch::Tensor mask = torch::zeros({x.size(1), x.size(1)}).where(torch::ones({x.size(1), x.size(1)}, torch::TensorOptions().dtype(torch::kBool)).triu(1) == 0, -std::numeric_limits<float>::infinity());
+        torch::Tensor positions = torch::arange(x.size(1), torch::TensorOptions().dtype(torch::kLong));
+        x = dropout1(token_embedding(x.to(torch::kLong)) + position_embedding(positions));
+        torch::Tensor y = layer_norm1(x).transpose(0, 1);
+        x = x + std::get<0>(multihead_attention->forward(y, y, y, {}, false, mask, false)).transpose(0, 1);
+        x = x + dropout2(linear2(relu(linear1(layer_norm2(x)))));
+        x = linear3(layer_norm3(x));
+        return x.reshape({-1, x.size(-1)});
+    }
+
+    torch::nn::Linear linear1, linear2, linear3;
+    torch::nn::LayerNorm layer_norm1, layer_norm2, layer_norm3;
+    torch::nn::Dropout dropout1, dropout2;
+    torch::nn::Embedding token_embedding, position_embedding;
+    torch::nn::MultiheadAttention multihead_attention;
+    torch::nn::ReLU relu;
+};
+TORCH_MODULE(Transformer);
+
 nw_error_t *error = NULL;
 std::vector<optimizer_t *> optimizers[RUNTIMES][DATATYPES][MODELS];
 std::vector<torch::optim::SGD> torch_optimizers_sgd[RUNTIMES][DATATYPES][MODELS];
@@ -431,6 +472,7 @@ std::vector<torch::optim::Adam> torch_optimizers_adam[RUNTIMES][DATATYPES][MODEL
 std::vector<model_t *> models[RUNTIMES][DATATYPES][MODELS];
 std::vector<SingleLayerFeedForward> torch_models_single_layer_feed_forward[RUNTIMES][DATATYPES];
 std::vector<ConvolutionalNeuralNetwork> torch_models_convolutional_neural_network[RUNTIMES][DATATYPES];
+std::vector<Transformer> torch_models_transformer[RUNTIMES][DATATYPES];
 std::vector<tensor_t *> inputs[RUNTIMES][DATATYPES][MODELS];
 std::vector<tensor_t *> outputs[RUNTIMES][DATATYPES][MODELS];
 std::vector<torch::Tensor> torch_inputs[RUNTIMES][DATATYPES][MODELS];
@@ -678,6 +720,155 @@ void setup_convolutional_neural_network(runtime_t runtime, datatype_t datatype)
         free(c);
 }
 
+void setup_transformer(runtime_t runtime, datatype_t datatype)
+{
+    // Paramters
+    int64_t batch_size = 2;
+    int64_t vocabulary_size = 5;
+    int64_t embedding_size = 4;
+    int64_t number_of_heads = 2;
+    int64_t block_size = 3;
+    void *epsilon = NULL;
+    void *dropout_probability = NULL;
+
+    epsilon = (void *) malloc(datatype_size(datatype));
+    ck_assert_ptr_nonnull(epsilon);
+    dropout_probability = (void *) malloc(datatype_size(datatype));
+    ck_assert_ptr_nonnull(dropout_probability);
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) epsilon = (float32_t) 1e-5;
+        *(float32_t *) dropout_probability = (float32_t) 0.0;
+        break;
+    case FLOAT64:
+        *(float64_t *) epsilon = (float64_t) 1e-5;
+        *(float64_t *) dropout_probability = (float64_t) 0.0;
+        break;
+    default:
+        ck_abort_msg("unknown datatype");
+    }
+
+    // Torch Model
+    torch::Tensor torch_input;
+    torch::Tensor torch_output;
+    switch (datatype)
+    {
+    case FLOAT32:
+        torch_input = torch::randint(0, vocabulary_size, {batch_size, block_size}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false));
+        torch_output = torch::randint(0, vocabulary_size, {batch_size * block_size, 1}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false));
+        torch::set_default_dtype(caffe2::TypeMeta::fromScalarType(torch::kFloat32));
+        break;
+    case FLOAT64:
+        torch_input = torch::randint(0, vocabulary_size, {batch_size, block_size}, torch::TensorOptions().dtype(torch::kFloat64).requires_grad(false));
+        torch_output = torch::randint(0, vocabulary_size, {batch_size * block_size, 1}, torch::TensorOptions().dtype(torch::kFloat64).requires_grad(false));
+        torch::set_default_dtype(caffe2::TypeMeta::fromScalarType(torch::kFloat64));
+        break;
+    default:
+        ck_abort_msg("unknown data type.");
+    }
+    Transformer transformer = Transformer(vocabulary_size, embedding_size, number_of_heads, block_size, 1e-5);
+    torch_models_transformer[runtime][datatype].push_back(transformer);
+    torch_inputs[runtime][datatype][TRANSFORMER].push_back(torch_input);
+    torch_outputs[runtime][datatype][TRANSFORMER].push_back(torch_output);
+
+    // NW Model
+    model_t *model = NULL;
+    tensor_t *input = torch_to_tensor(torch_input, runtime, datatype);
+    tensor_t *output = torch_to_tensor(torch_output, runtime, datatype);
+
+    int64_t normal_shape[] = {embedding_size};
+    // int64_t output_shape[] = {batch_size * block_size, vocabulary_size};
+    int64_t output_shape[] = {-1, vocabulary_size};
+    layer_t *layer_norm_1 = NULL, *layer_norm_2 = NULL, *layer_norm_3;
+    layer_t *causal_multihead_self_attention = NULL;
+    layer_t *linear_1 = NULL, *linear_2 = NULL, *linear_3 = NULL;
+    layer_t *relu = NULL;
+    layer_t *dropout_1 = NULL, *dropout_2 = NULL;
+    block_t *residual_block_1 = NULL;
+    block_t *residual_block_2 = NULL;
+    layer_t *residual_block_layer_1 = NULL;
+    layer_t *residual_block_layer_2 = NULL;
+    block_t *transformer_block = NULL;
+    layer_t *transformer_embedding = NULL;
+    layer_t *decoder = NULL;
+    block_t *block = NULL;
+    layer_t *reshape = NULL;
+
+    error = reshape_layer_create(&reshape, output_shape, 2);
+    ck_assert_ptr_null(error);
+
+    error = layer_normalization_layer_create(&layer_norm_1, normal_shape, 1, epsilon, true, datatype, runtime);
+    ck_assert_ptr_null(error);
+
+    error = layer_normalization_layer_create(&layer_norm_2, normal_shape, 1, epsilon, true, datatype, runtime);
+    ck_assert_ptr_null(error);
+
+    error = layer_normalization_layer_create(&layer_norm_3, normal_shape, 1, epsilon, true, datatype, runtime);
+    ck_assert_ptr_null(error);
+
+    error = causal_multihead_self_attention_layer_create_from_parameters(&causal_multihead_self_attention, number_of_heads, embedding_size, dropout_probability, datatype,
+                                                                         torch_to_tensor(transformer->multihead_attention->in_proj_weight.t(), runtime, datatype),
+                                                                         NULL,
+                                                                         torch_to_tensor(transformer->multihead_attention->out_proj->weight.t(), runtime, datatype),
+                                                                         NULL);
+    ck_assert_ptr_null(error);
+
+    error = linear_layer_create_from_parameters(&linear_1, torch_to_tensor(transformer->linear1->weight.t(), runtime, datatype), torch_to_tensor(transformer->linear1->bias, runtime, datatype));
+    ck_assert_ptr_null(error);
+
+    error = linear_layer_create_from_parameters(&linear_2, torch_to_tensor(transformer->linear2->weight.t(), runtime, datatype), torch_to_tensor(transformer->linear2->bias, runtime, datatype));
+    ck_assert_ptr_null(error);
+
+    error = linear_layer_create_from_parameters(&linear_3, torch_to_tensor(transformer->linear3->weight.t(), runtime, datatype), torch_to_tensor(transformer->linear3->bias, runtime, datatype));
+    ck_assert_ptr_null(error);
+
+    error = dropout_layer_create(&dropout_1, dropout_probability, datatype);
+    ck_assert_ptr_null(error);
+
+    error = dropout_layer_create(&dropout_2, dropout_probability, datatype);
+    ck_assert_ptr_null(error);
+
+    error = rectified_linear_activation_layer_create(&relu);
+    ck_assert_ptr_null(error);
+
+    error = block_create(&residual_block_1, 2, layer_norm_1, causal_multihead_self_attention);
+    ck_assert_ptr_null(error);
+
+    error = block_create(&residual_block_2, 5, layer_norm_2, linear_1, relu, linear_2, dropout_2);
+    ck_assert_ptr_null(error);
+
+    error = residual_block_layer_create(&residual_block_layer_1, residual_block_1);
+    ck_assert_ptr_null(error);
+
+    error = residual_block_layer_create(&residual_block_layer_2, residual_block_2);
+    ck_assert_ptr_null(error);
+
+    error = block_create(&transformer_block, 2, residual_block_layer_1, residual_block_layer_2);
+    ck_assert_ptr_null(error);
+
+    error = block_layer_create(&decoder, transformer_block);
+    ck_assert_ptr_null(error);
+
+    error = transformer_embedding_layer_create_from_parameters(&transformer_embedding, torch_to_tensor(transformer->token_embedding->weight, runtime, datatype), 
+                                                               torch_to_tensor(transformer->position_embedding->weight, runtime, datatype));
+    ck_assert_ptr_null(error);
+
+    error = block_create(&block, 6, transformer_embedding, dropout_1, decoder, layer_norm_3, linear_3, reshape);
+    ck_assert_ptr_null(error);
+
+    error = model_create(&model, block);
+    ck_assert_ptr_null(error);
+
+    models[runtime][datatype][TRANSFORMER].push_back(model);
+    inputs[runtime][datatype][TRANSFORMER].push_back(input);
+    outputs[runtime][datatype][TRANSFORMER].push_back(output);
+
+    free(epsilon);
+    free(dropout_probability);
+}
+
 void setup_model(runtime_t runtime, datatype_t datatype, model_type_t model_type)
 {
     switch (model_type)
@@ -687,6 +878,9 @@ void setup_model(runtime_t runtime, datatype_t datatype, model_type_t model_type
         break;
     case CONVOLUTIONAL_NEURAL_NETWORK:
         setup_convolutional_neural_network(runtime, datatype);
+        break;
+    case TRANSFORMER:
+        setup_transformer(runtime, datatype);
         break;
     default:
         ck_abort_msg("unknown model");
@@ -721,6 +915,9 @@ void setup_optimizer(algorithm_type_t algorithm_type)
                 case CONVOLUTIONAL_NEURAL_NETWORK:
                     torch_models_convolutional_neural_network[i][j].clear();
                     break;
+                case TRANSFORMER:
+                    torch_models_transformer[i][j].clear();
+                    break;
                 default:
                     ck_abort_msg("unknwown model type.");
                 }
@@ -750,6 +947,9 @@ void setup_optimizer(algorithm_type_t algorithm_type)
                         break;
                     case CONVOLUTIONAL_NEURAL_NETWORK:
                         parameters = torch_models_convolutional_neural_network[i][j][l]->parameters();
+                        break;
+                    case TRANSFORMER:
+                        parameters = torch_models_transformer[i][j][l]->parameters();
                         break;
                     default:
                         ck_abort_msg("unknown model.");
@@ -903,9 +1103,7 @@ void ck_compare_convolution_2d(torch::nn::Conv2d torch_conv2d, convolution_2d_t 
     tensor_destroy(torch_bias);
 }
 
-void ck_compare_batch_normalization_2d(torch::nn::BatchNorm2d torch_batch_normalization_2d, 
-                                       batch_normalization_2d_t *batch_normalization_2d, 
-                                       runtime_t runtime, datatype_t datatype)
+void ck_compare_batch_normalization_2d(torch::nn::BatchNorm2d torch_batch_normalization_2d, batch_normalization_2d_t *batch_normalization_2d, runtime_t runtime, datatype_t datatype)
 {
     tensor_t *torch_weights = (batch_normalization_2d->weights) ? torch_to_tensor(torch_batch_normalization_2d->weight, runtime, datatype) : NULL;
     tensor_t *torch_bias = (batch_normalization_2d->bias) ? torch_to_tensor(torch_batch_normalization_2d->bias, runtime, datatype) : NULL;
@@ -927,6 +1125,54 @@ void ck_compare_batch_normalization_2d(torch::nn::BatchNorm2d torch_batch_normal
     tensor_destroy(torch_bias);
     tensor_destroy(torch_running_mean);
     tensor_destroy(torch_running_variance);
+}
+
+void ck_compare_layer_normalization(torch::nn::LayerNorm torch_layer_normalization, layer_normalization_t *layer_normalization, runtime_t runtime, datatype_t datatype)
+{
+    tensor_t *torch_weights = (layer_normalization->weights) ? torch_to_tensor(torch_layer_normalization->weight, runtime, datatype) : NULL;
+    tensor_t *torch_bias = (layer_normalization->bias) ? torch_to_tensor(torch_layer_normalization->bias, runtime, datatype) : NULL;
+    if (layer_normalization->weights)
+    {
+        ck_assert_tensor_equiv(layer_normalization->weights, torch_weights);
+    }
+    if (layer_normalization->bias)
+    {
+        ck_assert_tensor_equiv(layer_normalization->bias, torch_bias);
+    }
+    tensor_destroy(torch_weights);
+    tensor_destroy(torch_bias);
+}
+
+void ck_compare_embedding(torch::nn::Embedding torch_embedding, embedding_t *embedding, runtime_t runtime, datatype_t datatype)
+{
+    tensor_t *torch_weights = torch_to_tensor(torch_embedding->weight, runtime, datatype);
+    ck_assert_tensor_equiv(embedding->weights, torch_weights);
+    tensor_destroy(torch_weights);
+}
+
+void ck_compare_multihead_attention(torch::nn::MultiheadAttention torch_multihead_attention, causal_multihead_self_attention_t *multihead_attention, runtime_t runtime, datatype_t datatype)
+{
+    tensor_t *torch_input_weights = torch_to_tensor(torch_multihead_attention->in_proj_weight.t(), runtime, datatype);
+    tensor_t *torch_input_bias = (multihead_attention->input_bias) ? torch_to_tensor(torch_multihead_attention->in_proj_bias, runtime, datatype) : NULL;
+    tensor_t *torch_output_weights = torch_to_tensor(torch_multihead_attention->out_proj->weight.t(), runtime, datatype);
+    tensor_t *torch_output_bias = (multihead_attention->output_bias) ? torch_to_tensor(torch_multihead_attention->out_proj->bias, runtime, datatype) : NULL;
+
+    ck_assert_tensor_equiv(multihead_attention->input_weights, torch_input_weights);
+    if (multihead_attention->input_bias)
+    {
+        ck_assert_tensor_equiv(multihead_attention->input_bias, torch_input_bias);
+    }
+
+    ck_assert_tensor_equiv(multihead_attention->output_weights, torch_output_weights);
+    if (multihead_attention->output_bias)
+    {
+        ck_assert_tensor_equiv(multihead_attention->output_bias, torch_output_bias);
+    }
+
+    tensor_destroy(torch_input_weights);
+    tensor_destroy(torch_input_bias);
+    tensor_destroy(torch_output_weights);
+    tensor_destroy(torch_output_bias);
 }
 
 void ck_compare_models(runtime_t runtime, datatype_t datatype, model_type_t model_type, int test_case)
@@ -968,6 +1214,27 @@ void ck_compare_models(runtime_t runtime, datatype_t datatype, model_type_t mode
         ck_compare_batch_normalization_2d(torch_models_convolutional_neural_network[runtime][datatype][test_case]->batch_norm5,
                                           models[runtime][datatype][model_type][test_case]->block->layers[17]->transform->batch_normalization_2d, runtime, datatype);
         break;
+    case TRANSFORMER:
+        ck_compare_embedding(torch_models_transformer[runtime][datatype][test_case]->token_embedding,
+                             models[runtime][datatype][model_type][test_case]->block->layers[0]->transform->transformer_embedding->token_embedding, runtime, datatype);
+        ck_compare_embedding(torch_models_transformer[runtime][datatype][test_case]->position_embedding,
+                             models[runtime][datatype][model_type][test_case]->block->layers[0]->transform->transformer_embedding->position_embedding, runtime, datatype);
+        ck_compare_linear(torch_models_transformer[runtime][datatype][test_case]->linear1,
+                          models[runtime][datatype][model_type][test_case]->block->layers[2]->transform->block->layers[1]->transform->block->layers[1]->transform->linear, runtime, datatype);
+        ck_compare_linear(torch_models_transformer[runtime][datatype][test_case]->linear2,
+                          models[runtime][datatype][model_type][test_case]->block->layers[2]->transform->block->layers[1]->transform->block->layers[3]->transform->linear, runtime, datatype);
+        ck_compare_linear(torch_models_transformer[runtime][datatype][test_case]->linear3,
+                          models[runtime][datatype][model_type][test_case]->block->layers[4]->transform->linear, runtime, datatype);
+        ck_compare_multihead_attention(torch_models_transformer[runtime][datatype][test_case]->multihead_attention,
+                                       models[runtime][datatype][model_type][test_case]->block->layers[2]->transform->block->layers[0]->transform->block->layers[1]->transform->causal_multihead_self_attention, 
+                                       runtime, datatype);
+        ck_compare_layer_normalization(torch_models_transformer[runtime][datatype][test_case]->layer_norm1,
+                                       models[runtime][datatype][model_type][test_case]->block->layers[2]->transform->block->layers[0]->transform->block->layers[0]->transform->layer_normalization, runtime, datatype);
+        ck_compare_layer_normalization(torch_models_transformer[runtime][datatype][test_case]->layer_norm2,
+                                       models[runtime][datatype][model_type][test_case]->block->layers[2]->transform->block->layers[1]->transform->block->layers[0]->transform->layer_normalization, runtime, datatype);
+        ck_compare_layer_normalization(torch_models_transformer[runtime][datatype][test_case]->layer_norm3,
+                                       models[runtime][datatype][model_type][test_case]->block->layers[3]->transform->layer_normalization, runtime, datatype);
+        break;
     default:
         ck_abort_msg("unknown model.");
     }
@@ -989,6 +1256,7 @@ void test_optimizer(algorithm_type_t algorithm_type)
                     for (int m = 0; m < iterations(algorithm_type, l); ++m)
                     {
                         torch::Tensor torch_output;
+                        torch::Tensor torch_cost;
                         tensor_t *output = NULL;
                         tensor_t *cost = NULL;
 
@@ -1011,6 +1279,16 @@ void test_optimizer(algorithm_type_t algorithm_type)
                             torch_output = torch_models_convolutional_neural_network[i][j][l]->forward(torch_inputs[i][j][k][l]);
                             torch::nn::functional::binary_cross_entropy(torch_output, torch_outputs[i][j][k][l]).backward();
                             error = binary_cross_entropy(outputs[i][j][k][l], output, &cost);
+                            ck_assert_ptr_null(error);
+                            break;
+                        case TRANSFORMER:
+                            torch_models_transformer[i][j][l]->zero_grad();
+                            torch_output = torch_models_transformer[i][j][l]->forward(torch_inputs[i][j][k][l]);
+                            // ck_assert_tensor_equiv(output, torch_to_tensor(torch_output, (runtime_t) i, (datatype_t) j));
+                            torch_cost = torch::nn::functional::cross_entropy(torch_output, torch_outputs[i][j][k][l].view(-1).to(torch::kLong));
+                            torch_cost.backward();
+                            error = categorical_cross_entropy(outputs[i][j][k][l], output, &cost);
+                            // ck_assert_tensor_equiv(cost, torch_to_tensor(torch_cost, (runtime_t) i, (datatype_t) j));
                             ck_assert_ptr_null(error);
                             break;
                         default:

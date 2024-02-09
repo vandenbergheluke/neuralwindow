@@ -1,4 +1,4 @@
-set(EXAMPLES deep_convolutional_gan deep_feed_forward_nn)
+set(EXAMPLES deep_convolutional_gan deep_feed_forward_nn transformer)
 
 find_package(MathGL2 QUIET)
 if(MathGL2_FOUND)
@@ -6,7 +6,7 @@ if(MathGL2_FOUND)
 
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --nvlink-options=--disable-warnings")
     foreach(EXAMPLE ${EXAMPLES})
-        add_executable(${EXAMPLE} "${EXAMPLE}.c" "plots.c" "mnist_data.c")
+        add_executable(${EXAMPLE} "${EXAMPLE}.c" "plots.c" "mnist_data.c" "simpsons_data.c")
         # set_target_properties(${EXAMPLE} PROPERTIES PUBLIC_HEADER "${HEADERS} ${CUDA_HEADERS}")
         target_include_directories(${EXAMPLE} PUBLIC "." ${MATHGL2_INCLUDE_DIRS})
         target_link_libraries(${EXAMPLE} ${PROJECT_NAME} m ${MathGL2_LIBRARIES} png)

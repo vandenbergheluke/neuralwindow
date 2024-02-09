@@ -4,15 +4,16 @@
 #include <cost.h>
 #include <metric.h>
 #include <layer.h>
+#include <tensor.h>
+#include <buffer.h>
 #include <view.h>
+#include <init.h>
+#include <errors.h>
+#include <measure.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-void *plt_accuracies = NULL;
-void *plt_costs = NULL;
-float32_t *plt_count = NULL;
 
 nw_error_t *transformer_metrics(dataset_type_t dataset_type, const tensor_t *y_true, const tensor_t *y_pred, const tensor_t *cost,
                                 int64_t epoch, int64_t epochs, int64_t iteration, int64_t iterations)
@@ -33,7 +34,7 @@ nw_error_t *transformer_metrics(dataset_type_t dataset_type, const tensor_t *y_t
     runtime_t runtime = cost->buffer->storage->runtime;
     datatype_t datatype = cost->buffer->storage->datatype;
 
-    error = tensor_exponential(y_pred, &probabilities);
+    error = tensor_softmax(y_pred, &probabilities, -1);
     if (error)
     {
         error = ERROR(ERROR_EXPONENTIAL, string_create("failed to exponentiate tensor."), error);
@@ -129,64 +130,6 @@ nw_error_t *transformer_metrics(dataset_type_t dataset_type, const tensor_t *y_t
             goto cleanup;
         }
 
-        error = tensor_item(mean_accuracy, plt_accuracies + datatype_size(datatype) * (epoch - 1));
-        if (error)
-        {
-            error = ERROR(ERROR_ITEM, string_create("failed to get tensor item."), NULL);
-            goto cleanup;
-        }
-
-        error = tensor_item(mean_cost, plt_costs + datatype_size(datatype) * (epoch - 1));
-        if (error)
-        {
-            error = ERROR(ERROR_ITEM, string_create("failed to get tensor item."), NULL);
-            goto cleanup;
-        }
-
-        plt_count[epoch - 1] = epoch;
-
-        if (epoch == epochs) {
-            switch (dataset_type)
-            {
-            case TRAIN:
-                error = bounded_plot("Transformer Training Accuracy", "img/transformer_accuracy_train.png", "Epoch", plt_count, epochs, "Accuracy", plt_accuracies, epochs, 0.0, 1.0, datatype);
-                if (error)
-                {
-                    error = ERROR(ERROR_METRICS, string_create("failed to plot accuracy."), error);
-                    goto cleanup;
-                }
-
-                error = plot("Transformer Training Cost", "img/transformer_cost_train.png", "Epoch", plt_count, epochs, "Cost", plt_costs, epochs, datatype);
-                if (error)
-                {
-                    error = ERROR(ERROR_METRICS, string_create("failed to plot cost."), error);
-                    goto cleanup;
-                }
-                break;
-            case VALID:
-                error = bounded_plot("Transformer Validation Accuracy", "img/transformer_accuracy_valid.png", "Epoch", plt_count, epochs, "Accuracy", plt_accuracies, epochs,
-                          0.0, 1.0, datatype);
-                if (error)
-                {
-                    error = ERROR(ERROR_METRICS, string_create("failed to plot accuracy."), error);
-                    goto cleanup;
-                }
-
-                error = plot("Transformer Validation Cost", "img/transformer_cost_valid.png", "Epoch", plt_count, epochs, "Cost", plt_costs, epochs, datatype);
-                if (error)
-                {
-                    error = ERROR(ERROR_METRICS, string_create("failed to plot cost."), error);
-                    goto cleanup;
-                }
-                break;
-            case TEST:
-                break;
-            default:
-                error = ERROR(ERROR_DATASET_TYPE, string_create("unknown dataset type %d.", dataset_type), NULL);
-                goto cleanup;
-            }
-        }
-
         LOG("Dataset %s - %lu/%lu Epochs", dataset_type_string(dataset_type), epoch, epochs);
         LOG_SCALAR_TENSOR(" - Cost", mean_cost);
         LOG_SCALAR_TENSOR("- Accuracy", mean_accuracy);
@@ -219,19 +162,15 @@ nw_error_t *generate(runtime_t runtime, datatype_t datatype, model_t *model, str
     tensor_t *x = NULL;
     tensor_t *y = NULL;
     tensor_t *probabilities = NULL;
+    tensor_t *last_position_probabilities = NULL;
     tensor_t *sample = NULL;
-    tensor_t *indicies = NULL;
-    tensor_t *one_hot = NULL;
-    tensor_t *one_hot_expand = NULL;
+    tensor_t *sample_expand = NULL;
     tensor_t *x_new = NULL;
     tensor_t *x_sliced = NULL;
     nw_error_t *error = NULL;
     bool_t copy = runtime == CU_RUNTIME;
-    size_t size = datatype_size(datatype) * prompt_length * vocabulary_size;
+    size_t size = datatype_size(datatype) * prompt_length;
     void *token = NULL;
-    void *start = NULL;
-    void *stop = NULL;
-    void *step = NULL;
 
     data = (void *) malloc(size);
     if (!data)
@@ -248,66 +187,24 @@ nw_error_t *generate(runtime_t runtime, datatype_t datatype, model_t *model, str
         goto cleanup;
     }
 
-    start = (void *) malloc(size);
-    if (!start)
-    {
-        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
-        goto cleanup;
-    }
-
-    stop = (void *) malloc(size);
-    if (!stop)
-    {
-        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
-        goto cleanup;
-    }
-
-    step = (void *) malloc(size);
-    if (!step)
-    {
-        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
-        goto cleanup;
-    }
-
-    switch (datatype)
-    {
-    case FLOAT32:
-        *((float32_t *) start) = (float32_t) 0.0;
-        *((float32_t *) stop) = (float32_t) vocabulary_size;
-        *((float32_t *) step) = (float32_t) 1.0;
-        break;
-    case FLOAT64:
-        *((float64_t *) start) = (float64_t) 0.0;
-        *((float64_t *) stop) = (float64_t) vocabulary_size;
-        *((float64_t *) step) = (float64_t) 1.0;
-        break;
-    default:
-        error = ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
-        goto cleanup;
-    }
-
-
     for (int64_t i = 0; i < prompt_length; ++i)
     {
-        int64_t character_index = character_to_integer[prompt[i]];
-        for (int64_t j = 0; j < vocabulary_size; ++j)
+        int64_t character_index = character_to_integer[(int) prompt[i]];
+        switch (datatype)
         {
-            switch (datatype)
-            {
-            case FLOAT32:
-                ((float32_t *) data)[i * vocabulary_size + j] = (character_index == j) ? (float32_t) 1.0 : (float32_t) 0.0;
-                break;
-            case FLOAT64:
-                ((float64_t *) data)[i * vocabulary_size + j] = (character_index == j) ? (float64_t) 1.0 : (float64_t) 0.0;
-                break;
-            default:
-                error = ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
-                goto cleanup;
-            }
+        case FLOAT32:
+            ((float32_t *) data)[i] = (float32_t) character_index;
+            break;
+        case FLOAT64:
+            ((float64_t *) data)[i] = (float64_t) character_index;
+            break;
+        default:
+            error = ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
+            goto cleanup;
         }
     }
 
-    error = tensor_from_data(&x, data, runtime, datatype, 3, (int64_t[]) {1, prompt_length, vocabulary_size}, copy, false, true);
+    error = tensor_from_data(&x, data, runtime, datatype, 2, (int64_t[]) {1, prompt_length}, copy, false, true);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -319,9 +216,11 @@ nw_error_t *generate(runtime_t runtime, datatype_t datatype, model_t *model, str
         free(data);
     }
 
-    fprintf(stdout, prompt);
+    fprintf(stdout, "%s", prompt);
     for (int64_t i = 0; i < max_tokens; ++i)
     {
+        int64_t sequence_length = x->buffer->view->shape[1];
+
         error = model_forward(model, x, &y);
         if (error)
         {
@@ -329,64 +228,57 @@ nw_error_t *generate(runtime_t runtime, datatype_t datatype, model_t *model, str
             goto cleanup;
         }
 
-        error = tensor_exponential(y, &probabilities);
+        error = tensor_softmax(y, &probabilities, -1);
         if (error)
         {
-            error = ERROR(ERROR_EXPONENTIAL, string_create("failed to exponentiate tensor."), error);
+            error = ERROR(ERROR_SOFTMAX, string_create("failed to softmax tensor."), error);
             goto cleanup;
         }
 
-        error = tensor_multinomial(probabilities, &sample, 1);
+        error = tensor_slice(probabilities, &last_position_probabilities, (int64_t[]) {sequence_length - 1, sequence_length, 0, vocabulary_size}, 4);
+        if (error)
+        {
+            error = ERROR(ERROR_SLICE, string_create("failed to slice tensor."), error);
+            goto cleanup;
+        }
+
+        error = tensor_multinomial_sample(last_position_probabilities, token);
         if (error)
         {
             error = ERROR(ERROR_SAMPLE, string_create("failed to sample tensor."), error);
             goto cleanup;
         }
 
-        error = tensor_item(sample, token);
-        if (error)
-        {
-            error = ERROR(ERROR_ITEM, string_create("failed to extract item from tensor."), error);
-            goto cleanup;
-        }
-
         switch (datatype)
         {
         case FLOAT32:
-            fprintf(stdout, integer_to_character[(int64_t) (*(float32_t *) token)]);
+            fprintf(stdout, "%c", integer_to_character[(int64_t) (*(float32_t *) token)]);
             break;
         case FLOAT64:
-            fprintf(stdout, integer_to_character[(int64_t) (*(float64_t *) token)]);
+            fprintf(stdout, "%c", integer_to_character[(int64_t) (*(float64_t *) token)]);
             break;
         default:
             error = ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
             goto cleanup;
         }
 
-        error = tensor_arange(&indicies, start, stop, step, runtime, datatype, false, false);
+        error = tensor_constant(token, datatype, runtime, false, false, &sample);
         if (error)
         {
             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
             goto cleanup;
         }
 
-        error = tensor_compare_equal(indicies, sample, &one_hot);
-        if (error)
-        {
-            error = ERROR(ERROR_COMPARE_EQUAL, string_create("failed to compare equal tensors."), error);
-            goto cleanup;
-        }
-
-        error = tensor_expand(one_hot, (int64_t[]){1, 1, vocabulary_size}, 3, &one_hot_expand);
+        error = tensor_expand(sample, (int64_t[]){1, 1}, 2, &sample_expand);
         if (error)
         {
             error = ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
             goto cleanup;
         }
 
-        if (x->buffer->view->shape[1] == block_size)
+        if (sequence_length == block_size)
         {
-            error = tensor_slice(x, &x_sliced, (int64_t[]){0, 1, 1, block_size, 0, vocabulary_size}, 6);
+            error = tensor_slice(x, &x_sliced, (int64_t[]){0, 1, 1, block_size}, 4);
             if (error)
             {
                 error = ERROR(ERROR_SLICE, string_create("failed to slice tensor."), error);
@@ -398,7 +290,7 @@ nw_error_t *generate(runtime_t runtime, datatype_t datatype, model_t *model, str
             x_sliced = x;
         }
 
-        error = tensor_concatenation(x_sliced, one_hot_expand, &x_new, 1);
+        error = tensor_concatenation(x_sliced, sample_expand, &x_new, 1);
         if (error)
         {
             error = ERROR(ERROR_CONCATENATION, string_create("failed to concatenate tensors."), error);
@@ -411,19 +303,17 @@ nw_error_t *generate(runtime_t runtime, datatype_t datatype, model_t *model, str
         }
         tensor_destroy(x);
         tensor_destroy(y);
+        tensor_destroy(last_position_probabilities);
         tensor_destroy(probabilities);
         tensor_destroy(sample);
-        tensor_destroy(indicies);
-        tensor_destroy(one_hot);
-        tensor_destroy(one_hot_expand);
+        tensor_destroy(sample_expand);
 
         x = x_new;
         y = NULL;
         probabilities = NULL;
+        last_position_probabilities = NULL;
         sample = NULL;
-        indicies = NULL;
-        one_hot = NULL;
-        one_hot_expand = NULL;
+        sample_expand = NULL;
         x_new = NULL;
         x_sliced = NULL;
     }
@@ -441,14 +331,10 @@ cleanup:
     tensor_destroy(x);
     tensor_destroy(y);
     tensor_destroy(probabilities);
+    // tensor_destroy(last_position_probabilities);
     tensor_destroy(sample);
-    tensor_destroy(indicies);
-    tensor_destroy(one_hot);
-    tensor_destroy(one_hot_expand);
+    tensor_destroy(sample_expand);
     free(token);
-    free(start);
-    free(stop);
-    free(step);
 
     model_inference(model, false);
     with_no_gradient(false);
@@ -456,22 +342,331 @@ cleanup:
     return error;
 }
 
+nw_error_t *transformer_block_create(layer_t **layer, int64_t embedding_size, int64_t number_of_heads, void *dropout_probability,
+                                     void *epsilon, parameter_init_t *weight_init, parameter_init_t *bias_init, datatype_t datatype, runtime_t runtime)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+    CHECK_NULL_ARGUMENT(dropout_probability, "dropout_probability");
+    CHECK_NULL_ARGUMENT(epsilon, "epsilon");
+    CHECK_NULL_ARGUMENT(weight_init, "weight_init");
+
+    nw_error_t *error = NULL;
+    layer_t *layer_norm_1 = NULL, *layer_norm_2 = NULL;
+    layer_t *causal_multihead_self_attention = NULL;
+    layer_t *linear_1 = NULL, *linear_2 = NULL;
+    layer_t *gelu = NULL;
+    layer_t *dropout = NULL;
+    block_t *residual_block_1 = NULL;
+    block_t *residual_block_2 = NULL;
+    layer_t *residual_block_layer_1 = NULL;
+    layer_t *residual_block_layer_2 = NULL;
+    block_t *transformer_block = NULL;
+
+    error = layer_normalization_layer_create(&layer_norm_1, (int64_t[]){embedding_size}, 1, epsilon, true, datatype, runtime);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create layer normalization layer."), error);
+        goto cleanup;
+    }
+
+    error = layer_normalization_layer_create(&layer_norm_2, (int64_t[]){embedding_size}, 1, epsilon, true, datatype, runtime);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create layer normalization layer."), error);
+        goto cleanup;
+    }
+
+    error = causal_multihead_self_attention_layer_create(&causal_multihead_self_attention, number_of_heads, embedding_size, dropout_probability, 
+                                                         datatype, runtime, weight_init, NULL, weight_init, NULL);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create causal multihead attention layer."), error);
+        goto cleanup;
+    }
+
+    error = linear_layer_create(&linear_1, embedding_size, 4 * embedding_size, runtime, datatype, weight_init, bias_init);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
+        goto cleanup;
+    }
+
+    error = linear_layer_create(&linear_2, 4 * embedding_size, embedding_size, runtime, datatype, weight_init, bias_init);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
+        goto cleanup;
+    }
+
+    error = dropout_layer_create(&dropout, dropout_probability, datatype);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create dropout layer."), error);
+        goto cleanup;
+    }
+
+    error = gelu_activation_layer_create(&gelu);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create gelu activation."), error);
+        goto cleanup;
+    }
+
+    error = block_create(&residual_block_1, 2, layer_norm_1, causal_multihead_self_attention);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create residual block."), error);
+        goto cleanup;
+    }
+
+    error = block_create(&residual_block_2, 5, layer_norm_2, linear_1, gelu, linear_2, dropout);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create residual block."), error);
+        goto cleanup;
+    }
+
+    error = residual_block_layer_create(&residual_block_layer_1, residual_block_1);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create residual block layer."), error);
+        goto cleanup;
+    }
+
+    error = residual_block_layer_create(&residual_block_layer_2, residual_block_2);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create residual block layer."), error);
+        goto cleanup;
+    }
+
+    error = block_create(&transformer_block, 2, residual_block_layer_1, residual_block_layer_2);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create transformer block."), error);
+        goto cleanup;
+    }
+
+    error = block_layer_create(layer, transformer_block);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create transformer block layer."), error);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    if (!residual_block_1)
+    {
+        layer_destroy(layer_norm_1);
+        layer_destroy(causal_multihead_self_attention);
+    }
+
+    if (!residual_block_2)
+    {
+        layer_destroy(layer_norm_2);
+        layer_destroy(linear_1);
+        layer_destroy(gelu);
+        layer_destroy(linear_2);
+        layer_destroy(dropout);
+    }
+
+    if (!residual_block_layer_1)
+    {
+        block_destroy(residual_block_1);
+    }
+
+    if (!residual_block_layer_2)
+    {
+        block_destroy(residual_block_2);
+    }
+
+    if (!transformer_block)
+    {
+        layer_destroy(residual_block_layer_1);
+        layer_destroy(residual_block_layer_2);
+    }
+
+    if (!*layer)
+    {
+        block_destroy(transformer_block);
+    }
+
+    return error;
+}
+
+nw_error_t *transformer_model_create(model_t **model, runtime_t runtime, datatype_t datatype, int64_t number_of_layers, int64_t vocabulary_size, 
+                                     int64_t block_size, int64_t embedding_size, int64_t number_of_heads, void *dropout_probability, void *mean, void *standard_deviation, void *epsilon)
+{
+    CHECK_NULL_ARGUMENT(model, "model");
+
+    nw_error_t *error = NULL;
+    parameter_init_t *weight_init = NULL;
+    parameter_init_t *bias_init = NULL;
+    layer_t *transformer_embedding = NULL;
+    layer_t *dropout = NULL;
+    layer_t *layer_normalization = NULL;
+    layer_t *linear = NULL;
+    layer_t *transformer_blocks[number_of_layers];
+    block_t *decoder_block = NULL;
+    layer_t *decoder = NULL;
+    layer_t *reshape = NULL;
+    block_t *block = NULL;
+
+    for (int64_t i = 0; i < number_of_layers; ++i)
+    {
+        transformer_blocks[i] = NULL;
+    }
+    
+    error = normal_parameter_init(&weight_init, mean, standard_deviation, datatype);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create parameter initailizer."), error);
+        goto cleanup;
+    }
+
+    error = zeroes_parameter_init(&bias_init);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create parameter initailizer."), error);
+        goto cleanup;
+    }
+
+    error = transformer_embedding_layer_create(&transformer_embedding, vocabulary_size, embedding_size, block_size, datatype, runtime, weight_init, weight_init);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create transformer embedding layer."), error);
+        goto cleanup;
+    }
+
+    error = dropout_layer_create(&dropout, dropout_probability, datatype);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create dropout layer."), error);
+        goto cleanup;
+    }
+
+    error = layer_normalization_layer_create(&layer_normalization, (int64_t[]){embedding_size}, 1, epsilon, true, datatype, runtime);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create layer normalization layer."), error);
+        goto cleanup;
+    }
+
+    error = linear_layer_create(&linear, embedding_size, vocabulary_size, runtime, datatype, weight_init, NULL);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
+        goto cleanup;
+    }
+
+    for (int64_t i = 0; i < number_of_layers; ++i)
+    {
+        error = transformer_block_create(&transformer_blocks[i], embedding_size, number_of_heads, dropout_probability, epsilon, weight_init, bias_init, datatype, runtime);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create transformer block."), error);
+            goto cleanup;
+        }
+    } 
+
+    error = block_create_from_array(&decoder_block, number_of_layers, transformer_blocks);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create decoder block."), error);
+        goto cleanup;
+    }
+
+    error = block_layer_create(&decoder, decoder_block);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create decoder layer."), error);
+        goto cleanup;
+    }
+
+    error = reshape_layer_create(&reshape, (int64_t[]){-1, vocabulary_size}, 2);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create reshape layer."), error);
+        goto cleanup;
+    }
+
+    error = block_create(&block, 6, transformer_embedding, dropout, decoder, layer_normalization, linear, reshape);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create block."), error);
+        goto cleanup;
+    }
+
+    error = model_create(model, block);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create model."), error);
+        goto cleanup;
+    }
+
+cleanup:
+
+    parameter_init_destroy(weight_init);
+    parameter_init_destroy(bias_init);
+    if (!error)
+    {
+        return error;
+    }
+
+    if (!block)
+    {
+        layer_destroy(transformer_embedding);
+        layer_destroy(dropout);
+        layer_destroy(layer_normalization);
+        layer_destroy(linear);
+        if (!decoder_block)
+        {
+            for (int64_t i = 0; i < number_of_layers; ++i)
+            {
+                layer_destroy(transformer_blocks[i]);
+            }
+        } 
+        else if (!decoder)
+        {
+            block_destroy(decoder_block);
+        }
+    }
+    block_destroy(block);
+
+    return error;
+}
+
+void transformer_model_destroy(model_t *model)
+{
+    model_destroy(model);
+}
+
 int main(void)
 {
     simpsons_dataset_t simpsons_dataset = (simpsons_dataset_t) {
         .data_path = "../data/simpsons.txt",
         .data_file = NULL,
-        .block_size = 1024,
+        .block_size = 256,
     };
 
-    nw_error_t *error = NULL;
+    nw_error_t *error = simpsons_setup(&simpsons_dataset);
+    if (error)
+    {
+        error = ERROR(ERROR_SETUP, string_create("failed to setup."), error);
+        goto cleanup;
+    }
+
     int64_t epochs = 10;
     model_t *model = NULL;
-    runtime_t runtime = OPENBLAS_RUNTIME;
+    runtime_t runtime = MKL_RUNTIME;
     datatype_t datatype = FLOAT32;
-    int64_t number_of_samples = 7116231 / (simpsons_dataset.block_size + 1);
+    int64_t number_of_samples = simpsons_dataset.number_of_characters / (simpsons_dataset.block_size + 1);
+    // int64_t number_of_samples = 128;
     batch_t *batch = NULL;
-    int64_t batch_size = 12;
+    int64_t batch_size = 32;
     bool_t shuffle = true;
     float32_t train_split = 0.8;
     float32_t valid_split = 0.1;
@@ -480,11 +675,14 @@ int main(void)
     float32_t learning_rate = 0.0001;
     float32_t beta1 = 0.9;
     float32_t beta2 = 0.99;
-    float32_t epsilon = 1e-8;
+    float32_t epsilon = 1e-5;
     float32_t weight_decay = 0.0;
-
-    mkdir("img", S_IRWXU);
-    mkdir("txt", S_IRWXU);
+    float32_t probability = 0.0;
+    int64_t number_of_layers = 6;
+    int64_t number_of_heads = 6;
+    int64_t embedding_size = 384;
+    float32_t mean = 0.0;
+    float32_t standard_deviation = 0.02;
 
     error = runtime_create_context(runtime);
     if (error)
@@ -500,7 +698,8 @@ int main(void)
         goto cleanup;
     }
 
-    error = transformer_model_create(&model, runtime, datatype, batch_size);
+    error = transformer_model_create(&model, runtime, datatype, number_of_layers, simpsons_dataset.vocabulary_size, simpsons_dataset.block_size, 
+                                     embedding_size, number_of_heads, (void *) &probability, (void *) &mean, (void *) &standard_deviation, (void *) &epsilon);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create model."), error);
@@ -515,18 +714,29 @@ int main(void)
     }
 
     error = fit(epochs, number_of_samples, batch, shuffle, train_split, valid_split, test_split, model, optimizer,
-                &simpsons_dataset, &simpsons_setup, &simpsons_teardown, &simpsons_dataloader, &negative_log_likelihood, &transformer_metrics);
+                &simpsons_dataset, &simpsons_dataloader, &categorical_cross_entropy, &transformer_metrics);
     if (error)
     {
         error = ERROR(ERROR_TRAIN, string_create("failed to fit model."), error);
         goto cleanup;
     }
 
-cleanup:
+    error = generate(runtime, datatype, model, "\n", 1, 200, simpsons_dataset.vocabulary_size, simpsons_dataset.block_size, 
+                     simpsons_dataset.character_to_integer, simpsons_dataset.integer_to_character);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed generate text."), error);
+        goto cleanup;
+    }
 
-    free(plt_accuracies);
-    free(plt_costs);
-    free(plt_count);
+    error = simpsons_teardown(&simpsons_dataset);
+    if (error)
+    {
+        error = ERROR(ERROR_TEARDOWN, string_create("failed to teardown."), error);
+        goto cleanup;
+    }
+
+cleanup:
 
     runtime_destroy_context(runtime);
     optimizer_destroy(optimizer);

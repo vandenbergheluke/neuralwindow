@@ -68,8 +68,6 @@ nw_error_t *fit(int64_t epochs,
                 model_t *model,
                 optimizer_t *optimizer,
                 void * arguments,
-                nw_error_t *(*setup)(void *),
-                nw_error_t *(*teardown)(void *),
                 nw_error_t *(*dataloader)(int64_t, batch_t *, void *),
                 nw_error_t *(*criterion)(const tensor_t *, const tensor_t *, tensor_t **),
                 nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *, const tensor_t *, int64_t, int64_t, int64_t, int64_t));

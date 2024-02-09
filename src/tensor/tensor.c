@@ -86,6 +86,7 @@ void tensor_destroy(tensor_t *tensor)
     {
         PRINTLN_DEBUG_LOCATION("input");
         PRINTLN_DEBUG_TENSOR("tensor", tensor);
+        PRINT_DEBUG_NEWLINE;
         id_pool_put(id_pool, tensor->id);
         if (id_pool->size == id)
         {
@@ -2932,7 +2933,29 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const int64_t *shape
 
     nw_error_t *error = NULL;
     tensor_t *x_contiguous = NULL;
-    if (view_has_shape(x->buffer->view, shape, length))
+    int64_t actual_shape[length];
+    int64_t n;
+
+    error = tensor_number_of_elements(x, &n);
+    if (error)
+    {
+        error = ERROR(ERROR_N, string_create("failed to get number of tensor elements."), error);
+        goto cleanup;
+    }
+
+    for (int64_t i = 0; i < length; ++i)
+    {
+        if (shape[i] == -1)
+        {
+            actual_shape[i] = n / -array_product(shape, length);
+        }
+        else
+        {
+            actual_shape[i] = shape[i];
+        }
+    }
+
+    if (view_has_shape(x->buffer->view, actual_shape, length))
     {
         *y = (tensor_t *) x;
     }
@@ -2945,7 +2968,7 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const int64_t *shape
             goto cleanup;
         }
 
-        error = apply_operation_structure(RESHAPE_OPERATION, x_contiguous, shape, length, y);
+        error = apply_operation_structure(RESHAPE_OPERATION, x_contiguous, actual_shape, length, y);
         if (error)
         {
             error = ERROR(ERROR_FORWARD, string_create("failed to reshape tensor."), error);
@@ -3488,8 +3511,14 @@ cleanup:
 
     tensor_destroy(x_i);
     tensor_destroy(x_j);
-    tensor_destroy(x_k);
-    tensor_destroy(x_l);
+    if (x_k != x_m)
+    {
+        tensor_destroy(x_k);
+    }
+    if (x_l != x_n)
+    {
+        tensor_destroy(x_l);
+    }
     tensor_destroy(x_m);
     tensor_destroy(x_n);
 
@@ -3591,9 +3620,7 @@ nw_error_t *tensor_causal_multihead_self_attention(tensor_t *x, const tensor_t *
 
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(input_weights, "input_weights");
-    CHECK_NULL_ARGUMENT(input_bias, "input_bias");
     CHECK_NULL_ARGUMENT(output_weights, "output_weights");
-    CHECK_NULL_ARGUMENT(output_bias, "output_bias");
 
     nw_error_t *error = NULL;
     tensor_t *input_projection = NULL;
@@ -3983,6 +4010,83 @@ cleanup:
     return error;
 }
 
+nw_error_t *tensor_embedding(const tensor_t *x, const tensor_t *weights, const tensor_t *vocabulary_counter, tensor_t **z)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINTLN_DEBUG_TENSOR("weights", weights);
+    PRINTLN_DEBUG_TENSOR("vocabulary_counter", vocabulary_counter);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(weights, "weights");
+    CHECK_NULL_ARGUMENT(vocabulary_counter, "vocabulary_counter");
+    CHECK_NULL_ARGUMENT(z, "z");
+
+    if (x->buffer->view->rank != 2 || weights->buffer->view->rank != 2 || vocabulary_counter->buffer->view->rank != 1)
+    {
+        return ERROR(ERROR_RANK, string_create("rank conflict."), NULL);
+    }
+
+    nw_error_t *error = NULL;
+    tensor_t *vocabulary_counter_reshaped = NULL;
+    tensor_t *x_reshaped = NULL;
+    tensor_t *one_hot = NULL;
+    int64_t batch_size = x->buffer->view->shape[0];
+    int64_t block_size = x->buffer->view->shape[1];
+    int64_t vocabulary_size = vocabulary_counter->buffer->view->shape[0];
+
+    error = tensor_reshape(vocabulary_counter, &vocabulary_counter_reshaped, (int64_t[]){1, 1, vocabulary_size}, 3);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_reshape(x, &x_reshaped, (int64_t[]){batch_size, block_size, 1}, 3);
+    if (error)
+    {
+        error = ERROR(ERROR_RESHAPE, string_create("failed to reshape tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_compare_equal(x_reshaped, vocabulary_counter_reshaped, &one_hot);
+    if (error)
+    {
+        error = ERROR(ERROR_COMPARE_EQUAL, string_create("failed to compare equal tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_matrix_multiplication(one_hot, weights, z);
+    if (error)
+    {
+        error = ERROR(ERROR_MATRIX_MULTIPLICATION, string_create("failed to matrix multiply tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("z", *z);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    if (vocabulary_counter != vocabulary_counter_reshaped)
+    {
+        tensor_destroy(vocabulary_counter_reshaped);
+    }
+
+    if ((!x->requires_gradient || no_gradient) && x != x_reshaped)
+    {
+        tensor_destroy(x_reshaped);
+    }
+
+    if (!weights->requires_gradient || no_gradient)
+    {
+        tensor_destroy(one_hot);
+    }
+
+    return error;
+}
 
 nw_error_t *tensor_dropout(const tensor_t *x, tensor_t **y, void *probability, bool_t inference)
 {
@@ -4382,6 +4486,10 @@ nw_error_t *tensor_create_normal(tensor_t **x, const int64_t *shape, int64_t ran
 
 nw_error_t *tensor_multinomial_sample(tensor_t *probabilities, void *sample)
 { 
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("probabilities", probabilities);
+    PRINT_DEBUG_NEWLINE;
+
     CHECK_NULL_ARGUMENT(probabilities, "probabilities");
     CHECK_NULL_ARGUMENT(probabilities->buffer, "probabilities->buffer");
     CHECK_NULL_ARGUMENT(probabilities->buffer->storage, "probabilities->buffer->storage");
@@ -4389,24 +4497,45 @@ nw_error_t *tensor_multinomial_sample(tensor_t *probabilities, void *sample)
     CHECK_NULL_ARGUMENT(sample, "sample");
     
     nw_error_t *error = NULL;
+    tensor_t *probabilities_contiguous = NULL;
     int64_t n;
+
+    with_no_gradient(true);
 
     error = tensor_number_of_elements(probabilities, &n);
     if (error)
     {
-        return ERROR(ERROR_N, string_create("failed to get size of tensor."), error);
+        error = ERROR(ERROR_N, string_create("failed to get size of tensor."), error);
+        goto cleanup;
     }
 
-    switch (probabilities->buffer->storage->datatype)
+    error = tensor_contiguous(probabilities, &probabilities_contiguous);
+    if (error)
+    {
+        error = ERROR(ERROR_CONTIGUOUS, string_create("failed to make tensor contiguous."), error);
+        goto cleanup;
+    }
+
+    switch (probabilities_contiguous->buffer->storage->datatype)
     {
     case FLOAT32:
-        *(float32_t *) sample = multinomialf((float32_t *) probabilities->buffer->storage->data, n);
+        *(float32_t *) sample = multinomialf((float32_t *) probabilities_contiguous->buffer->storage->data, n);
         break;
     case FLOAT64:
-        *(float64_t *) sample = multinomial((float64_t *) probabilities->buffer->storage->data, n);
+        *(float64_t *) sample = multinomial((float64_t *) probabilities_contiguous->buffer->storage->data, n);
         break;
     default:
-        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) probabilities->buffer->storage->datatype), NULL);
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) probabilities->buffer->storage->datatype), NULL);
+        goto cleanup;
+    }
+
+cleanup:
+
+    with_no_gradient(false);
+
+    if (probabilities != probabilities_contiguous)
+    {
+        tensor_destroy(probabilities_contiguous);
     }
 
     return error;

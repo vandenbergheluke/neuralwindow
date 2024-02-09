@@ -221,6 +221,8 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_SAMPLE";
     case ERROR_CONCATENATION:
         return "ERROR_CONCATENATION";
+    case ERROR_EMBEDDING:
+        return "ERROR_EMBEDDING";
     default:
         return "ERROR";
     }

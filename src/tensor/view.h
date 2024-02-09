@@ -27,6 +27,7 @@ typedef struct view_t
     int64_t offset; /** The offset in the underlying storage in terms of number of storage elements. (not bytes) */
 } view_t;
 
+int64_t array_product(const int64_t *array, int64_t length);
 nw_error_t *view_copy(const view_t *source_view, view_t **destination_view);
 nw_error_t *view_create(view_t **view, int64_t offset, int64_t rank, const int64_t *shape, const int64_t *strides);
 void view_destroy(view_t *view);

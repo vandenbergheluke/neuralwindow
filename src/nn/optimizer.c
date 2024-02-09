@@ -653,11 +653,21 @@ nw_error_t *update_block(optimizer_t *optimizer, block_t *block)
         case LAYER_NORMALIZATION:
             error = update_layer_normalization(optimizer, transform->layer_normalization);
             break;
+        case EMBEDDING:
+            error = update_embedding(optimizer, transform->embedding);
+            break;
+        case TRANSFORMER_EMBEDDING:
+            error = update_transformer_embedding(optimizer, transform->transformer_embedding);
+            break;
+        case CAUSAL_MULTIHEAD_SELF_ATTENTION:
+            error = update_causal_multihead_self_attention(optimizer, transform->causal_multihead_self_attention);
+            break;
         case DROPOUT:
         case RESHAPE:
         case ACTIVATION:
             continue;
         case BLOCK:
+        case RESIDUAL_BLOCK:
             error = update_block(optimizer, transform->block);
             if (error)
             {
@@ -751,6 +761,78 @@ nw_error_t *update_layer_normalization(optimizer_t *optimizer, layer_normalizati
     }
 
     error = update_parameters(optimizer, layer_normalization->bias);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *update_embedding(optimizer_t *optimizer, embedding_t *embedding)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(embedding, "embedding");
+
+    nw_error_t *error = NULL;
+
+    error = update_parameters(optimizer, embedding->weights);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *update_transformer_embedding(optimizer_t *optimizer, transformer_embedding_t *transformer_embedding)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(transformer_embedding, "transformer_embedding");
+
+    nw_error_t *error = NULL;
+
+    error = update_embedding(optimizer, transformer_embedding->position_embedding);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update embedding."), error);
+    }
+
+    error = update_embedding(optimizer, transformer_embedding->token_embedding);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update embedding."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *update_causal_multihead_self_attention(optimizer_t *optimizer, causal_multihead_self_attention_t *causal_multihead_self_attention)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(causal_multihead_self_attention, "causal_multihead_self_attention");
+
+    nw_error_t *error = NULL;
+
+    error = update_parameters(optimizer, causal_multihead_self_attention->input_weights);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    error = update_parameters(optimizer, causal_multihead_self_attention->input_bias);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    error = update_parameters(optimizer, causal_multihead_self_attention->output_weights);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    error = update_parameters(optimizer, causal_multihead_self_attention->output_bias);
     if (error)
     {
         return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
@@ -1833,11 +1915,21 @@ nw_error_t *zero_gradient_block(block_t *block)
         case LAYER_NORMALIZATION:
             error = zero_gradient_layer_normalization(transform->layer_normalization);
             break;
+        case EMBEDDING:
+            error = zero_gradient_embedding(transform->embedding);
+            break;
+        case TRANSFORMER_EMBEDDING:
+            error = zero_gradient_transformer_embedding(transform->transformer_embedding);
+            break;
+        case CAUSAL_MULTIHEAD_SELF_ATTENTION:
+            error = zero_gradient_causal_multihead_self_attention(transform->causal_multihead_self_attention);
+            break;
         case DROPOUT:
         case RESHAPE:
         case ACTIVATION:
             continue;
         case BLOCK:
+        case RESIDUAL_BLOCK:
             error = zero_gradient_block(transform->block);
             if (error)
             {
@@ -1887,6 +1979,37 @@ nw_error_t *zero_gradient_layer_normalization(layer_normalization_t *layer_norma
 
     zero_gradient_parameters(layer_normalization->weights);
     zero_gradient_parameters(layer_normalization->bias);
+
+    return NULL;
+}
+
+nw_error_t *zero_gradient_embedding(embedding_t *embedding)
+{
+    CHECK_NULL_ARGUMENT(embedding, "embedding");
+
+    zero_gradient_parameters(embedding->weights);
+
+    return NULL;
+}
+
+nw_error_t *zero_gradient_transformer_embedding(transformer_embedding_t *transformer_embedding)
+{
+    CHECK_NULL_ARGUMENT(transformer_embedding, "transformer_embedding");
+
+    zero_gradient_embedding(transformer_embedding->position_embedding);
+    zero_gradient_embedding(transformer_embedding->token_embedding);
+
+    return NULL;
+}
+
+nw_error_t *zero_gradient_causal_multihead_self_attention(causal_multihead_self_attention_t *causal_multihead_self_attention)
+{
+    CHECK_NULL_ARGUMENT(causal_multihead_self_attention, "causal_multihead_self_attention");
+
+    zero_gradient_parameters(causal_multihead_self_attention->input_weights);
+    zero_gradient_parameters(causal_multihead_self_attention->input_bias);
+    zero_gradient_parameters(causal_multihead_self_attention->output_weights);
+    zero_gradient_parameters(causal_multihead_self_attention->output_bias);
 
     return NULL;
 }

@@ -46,7 +46,7 @@ nw_error_t *mnist_metrics(dataset_type_t dataset_type,
     runtime_t runtime = cost->buffer->storage->runtime;
     datatype_t datatype = cost->buffer->storage->datatype;
 
-    error = tensor_exponential(y_pred, &probabilities);
+    error = tensor_softmax(y_pred, &probabilities, -1);
     if (error)
     {
         error = ERROR(ERROR_EXPONENTIAL, string_create("failed to exponentiate tensor."), error);
@@ -244,7 +244,6 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
     layer_t *input_layer = NULL;
     layer_t *input_activation = NULL;
     layer_t *output_layer = NULL;
-    layer_t *output_activation = NULL;
     block_t *block = NULL;
     parameter_init_t *weight_init = NULL;
     parameter_init_t *bias_init = NULL;
@@ -316,13 +315,6 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         goto cleanup;
     }
 
-    error = logsoftmax_activation_layer_create(&output_activation, (int64_t) 1);
-    if (error)
-    {
-        error = ERROR(ERROR_CREATE, string_create("failed to create softmax activation."), error);
-        goto cleanup;
-    }
-
     error = linear_layer_create(&output_layer, 128, 10, runtime, datatype, weight_init, bias_init);
     if (error)
     {
@@ -330,7 +322,7 @@ nw_error_t *mnist_model_create(model_t **model, runtime_t runtime, datatype_t da
         goto cleanup;
     }
 
-    error = block_create(&block, 5, reshape_layer, input_layer, input_activation, output_layer, output_activation);
+    error = block_create(&block, 4, reshape_layer, input_layer, input_activation, output_layer);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create block."), error);
@@ -361,7 +353,6 @@ cleanup:
         layer_destroy(input_layer);
         layer_destroy(input_activation);
         layer_destroy(output_layer);
-        layer_destroy(output_activation);
     }
     block_destroy(block);
 
@@ -383,7 +374,13 @@ int main(void)
         .normalize = false,
     };
 
-    nw_error_t *error = NULL;
+    nw_error_t *error = mnist_setup(&mnist_dataset);
+    if (error)
+    {
+        error = ERROR(ERROR_SETUP, string_create("failed to setup."), error);
+        goto cleanup;
+    }
+
     int64_t epochs = 300;
     model_t *model = NULL;
     runtime_t runtime = OPENBLAS_RUNTIME;
@@ -437,10 +434,17 @@ int main(void)
     }
 
     error = fit(epochs, number_of_samples, batch, shuffle, train_split, valid_split, test_split, model, optimizer,
-                &mnist_dataset, &mnist_setup, &mnist_teardown, &mnist_dataloader, &negative_log_likelihood, &mnist_metrics);
+                &mnist_dataset, &mnist_dataloader, &categorical_cross_entropy, &mnist_metrics);
     if (error)
     {
         error = ERROR(ERROR_TRAIN, string_create("failed to fit model."), error);
+        goto cleanup;
+    }
+
+    error = mnist_teardown(&mnist_dataset);
+    if (error)
+    {
+        error = ERROR(ERROR_TEARDOWN, string_create("failed to teardown."), error);
         goto cleanup;
     }
 
