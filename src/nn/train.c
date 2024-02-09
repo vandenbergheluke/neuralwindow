@@ -45,7 +45,9 @@ nw_error_t *fit(int64_t epochs,
                 void * arguments,
                 nw_error_t *(*dataloader)(int64_t, batch_t *, void *),
                 nw_error_t *(*criterion)(const tensor_t *, const tensor_t *, tensor_t **),
-                nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *, const tensor_t *, int64_t, int64_t, int64_t, int64_t))
+                nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *, const tensor_t *, int64_t, int64_t, int64_t, int64_t),
+                nw_error_t *(*generate)(model_t *, void *, runtime_t, datatype_t),
+                void *clip_gradient_norm)
 {
     nw_error_t *error = NULL;
 
@@ -74,6 +76,9 @@ nw_error_t *fit(int64_t epochs,
         LOG_NEWLINE;
         for (int64_t j = 0; j < train_iterations; ++j)
         {
+            // char str[80];
+            // sprintf(str, "%ld.txt", j);
+            // FILE *fp = freopen(str, "w+", stderr);
             LOG("%ld/%ld Batches", j, train_iterations);
             LOG_NEWLINE;
             error = zero_gradient_model(model);
@@ -118,8 +123,17 @@ nw_error_t *fit(int64_t epochs,
             if (error)
             {
                 return ERROR(ERROR_METRICS, string_create("failed to compute metrics."), error);
-            }
+            } 
             with_no_gradient(false);
+
+            if (clip_gradient_norm)
+            {
+                error = clip_gradient_norm_model(model, clip_gradient_norm);
+                if (error)
+                {
+                    return ERROR(ERROR_CLIP_GRADIENT, string_create("failed clip gradient."), error);
+                }
+            }
 
             error = tensor_backward(cost, NULL);
             if (error)
@@ -139,10 +153,19 @@ nw_error_t *fit(int64_t epochs,
             batch->y = NULL;
             y_pred = NULL;
             cost = NULL;
+            // fclose(fp);
+        }
+
+        if (generate)
+        {
+            error = (*generate)(model, arguments, batch->runtime, batch->datatype);
+            if (error)
+            {
+                return ERROR(ERROR_GENERATE, string_create("failed to generate."), error);
+            }
         }
 
         with_no_gradient(true);
-
         int64_t start = train_iterations;
         int64_t end = valid_iterations + train_iterations;
         model_inference(model, true);

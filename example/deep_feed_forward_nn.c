@@ -434,7 +434,7 @@ int main(void)
     }
 
     error = fit(epochs, number_of_samples, batch, shuffle, train_split, valid_split, test_split, model, optimizer,
-                &mnist_dataset, &mnist_dataloader, &categorical_cross_entropy, &mnist_metrics);
+                &mnist_dataset, &mnist_dataloader, &categorical_cross_entropy, &mnist_metrics, NULL, NULL);
     if (error)
     {
         error = ERROR(ERROR_TRAIN, string_create("failed to fit model."), error);

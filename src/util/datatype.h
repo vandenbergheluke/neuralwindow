@@ -48,5 +48,6 @@ size_t datatype_size(datatype_t datatype);
 string_t string_create(string_t format, ...);
 void string_destroy(string_t string);
 bool_t is_zero(void *value, datatype_t datatype);
+bool_t compare_greater_than_equal(void *lvalue, void *rvalue, datatype_t datatype);
 
 #endif

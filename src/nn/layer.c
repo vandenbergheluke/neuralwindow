@@ -462,7 +462,7 @@ void batch_normalization_2d_destroy(batch_normalization_2d_t *batch_normalizatio
 }
 
 nw_error_t *layer_normalization_create(layer_normalization_t **layer_normalization, const int64_t *normalized_shape, int64_t length,
-                                        void *epsilon, bool_t elementwise_affine, datatype_t datatype, runtime_t runtime)
+                                        void *epsilon, bool_t weights, bool_t bias, datatype_t datatype, runtime_t runtime)
 {
     CHECK_NULL_ARGUMENT(layer_normalization, "layer_normalization");
     CHECK_NULL_ARGUMENT(epsilon, "epsilon");
@@ -500,7 +500,7 @@ nw_error_t *layer_normalization_create(layer_normalization_t **layer_normalizati
     }
     memcpy((*layer_normalization)->normalized_shape, normalized_shape, size);
 
-    if (elementwise_affine)
+    if (weights)
     {
         error = tensor_create_ones(&(*layer_normalization)->weights, normalized_shape, length, runtime, datatype, true, true);
         if (error)
@@ -508,7 +508,10 @@ nw_error_t *layer_normalization_create(layer_normalization_t **layer_normalizati
             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
             goto cleanup;
         }
+    }
 
+    if (bias)
+    {
         error = tensor_create_zeroes(&(*layer_normalization)->bias, normalized_shape, length, runtime, datatype, true, true);
         if (error)
         {
@@ -979,7 +982,7 @@ nw_error_t *batch_normalization_2d_layer_create(layer_t **layer, int64_t number_
 }
 
 nw_error_t *layer_normalization_layer_create(layer_t **layer, const int64_t *normalized_shape, int64_t length,
-                                             void *epsilon, bool_t elementwise_affine, datatype_t datatype, runtime_t runtime)
+                                             void *epsilon, bool_t weights, bool_t bias, datatype_t datatype, runtime_t runtime)
 {
     CHECK_NULL_ARGUMENT(layer, "layer");
     CHECK_NULL_ARGUMENT(normalized_shape, "normalized_shape");
@@ -990,7 +993,7 @@ nw_error_t *layer_normalization_layer_create(layer_t **layer, const int64_t *nor
     transform_t *transform = NULL;
     transform_type_t transform_type = LAYER_NORMALIZATION;
 
-    error = layer_normalization_create(&layer_normalization, normalized_shape, length, epsilon, elementwise_affine, datatype, runtime);
+    error = layer_normalization_create(&layer_normalization, normalized_shape, length, epsilon, weights, bias, datatype, runtime);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create batch normalization layer."), error);

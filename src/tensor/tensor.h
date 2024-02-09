@@ -100,6 +100,7 @@ nw_error_t *tensor_logsoftmax(const tensor_t *x, tensor_t **y, int64_t axis);
 nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, int64_t axis, bool_t keep_dimension);
 nw_error_t *tensor_variance(const tensor_t *x, tensor_t **y, const int64_t *axis, int64_t length, bool_t keep_dimension, bool_t unbiased);
 nw_error_t *tensor_standard_deviation(const tensor_t *x, tensor_t **y, const int64_t *axis, int64_t length, bool_t keep_dimension, bool_t unbiased);
+nw_error_t *tensor_magnitude(const tensor_t *x, tensor_t **y);
 
 // Unary Operations
 nw_error_t *tensor_contiguous(const tensor_t *x, tensor_t **y);

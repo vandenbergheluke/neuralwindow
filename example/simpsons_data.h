@@ -10,6 +10,9 @@ typedef struct simpsons_dataset_t
     string_t data_path;
     FILE *data_file;
     int64_t vocabulary_size;
+    string_t prompt;
+    int64_t prompt_length;
+    int64_t max_tokens;
     char integer_to_character[CHAR_MAX];
     int64_t character_to_integer[CHAR_MAX];
     int64_t number_of_characters;

@@ -799,13 +799,13 @@ void setup_transformer(runtime_t runtime, datatype_t datatype)
     error = reshape_layer_create(&reshape, output_shape, 2);
     ck_assert_ptr_null(error);
 
-    error = layer_normalization_layer_create(&layer_norm_1, normal_shape, 1, epsilon, true, datatype, runtime);
+    error = layer_normalization_layer_create(&layer_norm_1, normal_shape, 1, epsilon, true, true, datatype, runtime);
     ck_assert_ptr_null(error);
 
-    error = layer_normalization_layer_create(&layer_norm_2, normal_shape, 1, epsilon, true, datatype, runtime);
+    error = layer_normalization_layer_create(&layer_norm_2, normal_shape, 1, epsilon, true, true, datatype, runtime);
     ck_assert_ptr_null(error);
 
-    error = layer_normalization_layer_create(&layer_norm_3, normal_shape, 1, epsilon, true, datatype, runtime);
+    error = layer_normalization_layer_create(&layer_norm_3, normal_shape, 1, epsilon, true, true, datatype, runtime);
     ck_assert_ptr_null(error);
 
     error = causal_multihead_self_attention_layer_create_from_parameters(&causal_multihead_self_attention, number_of_heads, embedding_size, dropout_probability, datatype,

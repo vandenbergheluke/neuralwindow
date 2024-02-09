@@ -1792,8 +1792,6 @@ nw_error_t *tensor_layer_normalization(const tensor_t *x, const tensor_t *weight
     PRINT_DEBUG_NEWLINE;
 
     CHECK_NULL_ARGUMENT(x, "x");
-    CHECK_NULL_ARGUMENT(weights, "weights");
-    CHECK_NULL_ARGUMENT(bias, "bias");
     CHECK_NULL_ARGUMENT(y, "y");
     CHECK_NULL_ARGUMENT(normalized_shape, "normalized_shape");
     CHECK_NULL_ARGUMENT(epsilon, "epsilon");
@@ -2726,6 +2724,50 @@ cleanup:
         {
             tensor_destroy(x_i);
         }
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_magnitude(const tensor_t *x, tensor_t **y)
+{
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *x_i = NULL;
+    tensor_t *x_j = NULL;
+
+    error = tensor_multiplication(x, x, &x_i);
+    if (error)
+    {
+        error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+        goto cleanup;
+    }
+
+    error = tensor_summation(x_i, &x_j, NULL, 0, false);
+    if (error)
+    {
+        error = ERROR(ERROR_SUMMATION, string_create("failed to sum tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_square_root(x_j, y);
+    if (error)
+    {
+        error = ERROR(ERROR_SQUARE_ROOT, string_create("failed to square root tensor."), error);
+        goto cleanup;
+    }
+
+cleanup:
+
+    if (!x->requires_gradient || no_gradient)
+    {
+        if (x_j != x_i)
+        {
+            tensor_destroy(x_i);
+        }
+        tensor_destroy(x_j);
     }
 
     return error;

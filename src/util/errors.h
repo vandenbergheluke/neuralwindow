@@ -14,7 +14,7 @@
 #define ABS(x) ((x)<0 ? -(x) : (x))
 
 #ifdef DEBUG
-#define MAX_DATA 10
+#define MAX_DATA 1000
 #define PRINT_DEBUG_NEWLINE do {\
     fprintf(stderr, "\n");\
 } while(0)
@@ -686,6 +686,9 @@ typedef enum nw_error_type_t
     ERROR_SAMPLE,
     ERROR_CONCATENATION,
     ERROR_EMBEDDING,
+    ERROR_CLIP_GRADIENT,
+    ERROR_MAGNITUDE,
+    ERROR_GENERATE,
 } nw_error_type_t;
 
 typedef struct nw_error_t

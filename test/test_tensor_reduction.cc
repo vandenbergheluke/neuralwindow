@@ -21,6 +21,7 @@ typedef enum tensor_reduction_type_t
     TENSOR_LOGSOFTMAX,
     TENSOR_ARGUMENT_MAXIMUM,
     TENSOR_VARIANCE,
+    TENSOR_MAGNITUDE,
 } tensor_reduction_type_t;
 
 #define CASES_0_0 2
@@ -434,6 +435,9 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type, bool_t test_g
                         else
                             expected_tensor = torch::var(torch_tensors[i][j][k][l], torch::nullopt, true, (bool_t) l);
                         break;
+                    case TENSOR_MAGNITUDE:
+                        expected_tensor = torch::norm(torch_tensors[i][j][k][l]);
+                        break;
                     default:
                         ck_abort_msg("unknown reduction type.");
                     }
@@ -491,6 +495,9 @@ void test_reduction(tensor_reduction_type_t tensor_reduction_type, bool_t test_g
                             error_destroy(error);
                             continue;
                         }
+                        break;
+                    case TENSOR_MAGNITUDE:
+                        error = tensor_magnitude(tensors[i][j][k][l], &returned_tensors[i][j][k][l]);
                         break;
                     default:
                         ck_abort_msg("unknown reduction type.");
@@ -564,6 +571,12 @@ START_TEST(test_variance)
 }
 END_TEST
 
+START_TEST(test_magnitude)
+{
+    test_reduction(TENSOR_MAGNITUDE, true);
+}
+END_TEST
+
 Suite *make_reduction_suite(void)
 {
     Suite *s;
@@ -580,6 +593,7 @@ Suite *make_reduction_suite(void)
     tcase_add_test(tc_reduction, test_logsoftmax);
     tcase_add_test(tc_reduction, test_argument_maximum);
     tcase_add_test(tc_reduction, test_variance);
+    tcase_add_test(tc_reduction, test_magnitude);
 
     suite_add_tcase(s, tc_reduction);
 

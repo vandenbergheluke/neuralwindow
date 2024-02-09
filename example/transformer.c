@@ -149,15 +149,14 @@ cleanup:
     return error;
 }
 
-nw_error_t *generate(runtime_t runtime, datatype_t datatype, model_t *model, string_t prompt, int64_t prompt_length, 
-                     int64_t max_tokens, int64_t vocabulary_size, int64_t block_size, int64_t character_to_integer[], char integer_to_character[])
+nw_error_t *generate(model_t *model, void *arguments, runtime_t runtime, datatype_t datatype)
 {
     CHECK_NULL_ARGUMENT(model, "model");
-    CHECK_NULL_ARGUMENT(character_to_integer, "character_to_integer");
-    CHECK_NULL_ARGUMENT(integer_to_character, "integer_to_character");
+    CHECK_NULL_ARGUMENT(arguments, "arguments");
 
     with_no_gradient(true);
     model_inference(model, true);
+    simpsons_dataset_t *simpsons_dataset = (simpsons_dataset_t *) arguments;
     void *data = NULL;
     tensor_t *x = NULL;
     tensor_t *y = NULL;
@@ -169,7 +168,7 @@ nw_error_t *generate(runtime_t runtime, datatype_t datatype, model_t *model, str
     tensor_t *x_sliced = NULL;
     nw_error_t *error = NULL;
     bool_t copy = runtime == CU_RUNTIME;
-    size_t size = datatype_size(datatype) * prompt_length;
+    size_t size = datatype_size(datatype) * simpsons_dataset->prompt_length;
     void *token = NULL;
 
     data = (void *) malloc(size);
@@ -187,9 +186,9 @@ nw_error_t *generate(runtime_t runtime, datatype_t datatype, model_t *model, str
         goto cleanup;
     }
 
-    for (int64_t i = 0; i < prompt_length; ++i)
+    for (int64_t i = 0; i < simpsons_dataset->prompt_length; ++i)
     {
-        int64_t character_index = character_to_integer[(int) prompt[i]];
+        int64_t character_index = simpsons_dataset->character_to_integer[(int) simpsons_dataset->prompt[i]];
         switch (datatype)
         {
         case FLOAT32:
@@ -204,7 +203,7 @@ nw_error_t *generate(runtime_t runtime, datatype_t datatype, model_t *model, str
         }
     }
 
-    error = tensor_from_data(&x, data, runtime, datatype, 2, (int64_t[]) {1, prompt_length}, copy, false, true);
+    error = tensor_from_data(&x, data, runtime, datatype, 2, (int64_t[]) {1, simpsons_dataset->prompt_length}, copy, false, true);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
@@ -216,8 +215,8 @@ nw_error_t *generate(runtime_t runtime, datatype_t datatype, model_t *model, str
         free(data);
     }
 
-    fprintf(stdout, "%s", prompt);
-    for (int64_t i = 0; i < max_tokens; ++i)
+    fprintf(stdout, "Prompt: %s\nOutput: ", simpsons_dataset->prompt);
+    for (int64_t i = 0; i < simpsons_dataset->max_tokens; ++i)
     {
         int64_t sequence_length = x->buffer->view->shape[1];
 
@@ -235,7 +234,7 @@ nw_error_t *generate(runtime_t runtime, datatype_t datatype, model_t *model, str
             goto cleanup;
         }
 
-        error = tensor_slice(probabilities, &last_position_probabilities, (int64_t[]) {sequence_length - 1, sequence_length, 0, vocabulary_size}, 4);
+        error = tensor_slice(probabilities, &last_position_probabilities, (int64_t[]) {sequence_length - 1, sequence_length, 0, simpsons_dataset->vocabulary_size}, 4);
         if (error)
         {
             error = ERROR(ERROR_SLICE, string_create("failed to slice tensor."), error);
@@ -252,10 +251,10 @@ nw_error_t *generate(runtime_t runtime, datatype_t datatype, model_t *model, str
         switch (datatype)
         {
         case FLOAT32:
-            fprintf(stdout, "%c", integer_to_character[(int64_t) (*(float32_t *) token)]);
+            fprintf(stdout, "%c", simpsons_dataset->integer_to_character[(int64_t) (*(float32_t *) token)]);
             break;
         case FLOAT64:
-            fprintf(stdout, "%c", integer_to_character[(int64_t) (*(float64_t *) token)]);
+            fprintf(stdout, "%c", simpsons_dataset->integer_to_character[(int64_t) (*(float64_t *) token)]);
             break;
         default:
             error = ERROR(ERROR_DATATYPE, string_create("unsupported datatype."), NULL);
@@ -276,9 +275,9 @@ nw_error_t *generate(runtime_t runtime, datatype_t datatype, model_t *model, str
             goto cleanup;
         }
 
-        if (sequence_length == block_size)
+        if (sequence_length == simpsons_dataset->block_size)
         {
-            error = tensor_slice(x, &x_sliced, (int64_t[]){0, 1, 1, block_size}, 4);
+            error = tensor_slice(x, &x_sliced, (int64_t[]){0, 1, 1, simpsons_dataset->block_size}, 4);
             if (error)
             {
                 error = ERROR(ERROR_SLICE, string_create("failed to slice tensor."), error);
@@ -362,14 +361,14 @@ nw_error_t *transformer_block_create(layer_t **layer, int64_t embedding_size, in
     layer_t *residual_block_layer_2 = NULL;
     block_t *transformer_block = NULL;
 
-    error = layer_normalization_layer_create(&layer_norm_1, (int64_t[]){embedding_size}, 1, epsilon, true, datatype, runtime);
+    error = layer_normalization_layer_create(&layer_norm_1, (int64_t[]){embedding_size}, 1, epsilon, true, false, datatype, runtime);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create layer normalization layer."), error);
         goto cleanup;
     }
 
-    error = layer_normalization_layer_create(&layer_norm_2, (int64_t[]){embedding_size}, 1, epsilon, true, datatype, runtime);
+    error = layer_normalization_layer_create(&layer_norm_2, (int64_t[]){embedding_size}, 1, epsilon, true, false, datatype, runtime);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create layer normalization layer."), error);
@@ -384,14 +383,14 @@ nw_error_t *transformer_block_create(layer_t **layer, int64_t embedding_size, in
         goto cleanup;
     }
 
-    error = linear_layer_create(&linear_1, embedding_size, 4 * embedding_size, runtime, datatype, weight_init, bias_init);
+    error = linear_layer_create(&linear_1, embedding_size, 4 * embedding_size, runtime, datatype, weight_init, NULL);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
         goto cleanup;
     }
 
-    error = linear_layer_create(&linear_2, 4 * embedding_size, embedding_size, runtime, datatype, weight_init, bias_init);
+    error = linear_layer_create(&linear_2, 4 * embedding_size, embedding_size, runtime, datatype, weight_init, NULL);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
@@ -548,7 +547,7 @@ nw_error_t *transformer_model_create(model_t **model, runtime_t runtime, datatyp
         goto cleanup;
     }
 
-    error = layer_normalization_layer_create(&layer_normalization, (int64_t[]){embedding_size}, 1, epsilon, true, datatype, runtime);
+    error = layer_normalization_layer_create(&layer_normalization, (int64_t[]){embedding_size}, 1, epsilon, true, false, datatype, runtime);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create layer normalization layer."), error);
@@ -650,6 +649,9 @@ int main(void)
         .data_path = "../data/simpsons.txt",
         .data_file = NULL,
         .block_size = 256,
+        .prompt = "\n",
+        .prompt_length = 1,
+        .max_tokens = 1000,
     };
 
     nw_error_t *error = simpsons_setup(&simpsons_dataset);
@@ -659,12 +661,11 @@ int main(void)
         goto cleanup;
     }
 
-    int64_t epochs = 10;
+    int64_t epochs = 2;
     model_t *model = NULL;
     runtime_t runtime = MKL_RUNTIME;
     datatype_t datatype = FLOAT32;
     int64_t number_of_samples = simpsons_dataset.number_of_characters / (simpsons_dataset.block_size + 1);
-    // int64_t number_of_samples = 128;
     batch_t *batch = NULL;
     int64_t batch_size = 32;
     bool_t shuffle = true;
@@ -672,15 +673,16 @@ int main(void)
     float32_t valid_split = 0.1;
     float32_t test_split = 0.1;
     optimizer_t *optimizer = NULL;
-    float32_t learning_rate = 0.0001;
+    float32_t learning_rate = 0.001;
     float32_t beta1 = 0.9;
     float32_t beta2 = 0.99;
     float32_t epsilon = 1e-5;
     float32_t weight_decay = 0.0;
-    float32_t probability = 0.0;
-    int64_t number_of_layers = 6;
+    float32_t probability = 0.2;
+    int64_t number_of_layers = 2;
     int64_t number_of_heads = 6;
     int64_t embedding_size = 384;
+    float32_t gradient_threshold = 1.0;
     float32_t mean = 0.0;
     float32_t standard_deviation = 0.02;
 
@@ -713,19 +715,11 @@ int main(void)
         goto cleanup;
     }
 
-    error = fit(epochs, number_of_samples, batch, shuffle, train_split, valid_split, test_split, model, optimizer,
-                &simpsons_dataset, &simpsons_dataloader, &categorical_cross_entropy, &transformer_metrics);
+    error = fit(epochs, number_of_samples, batch, shuffle, train_split, valid_split, test_split, model, optimizer, &simpsons_dataset,
+                &simpsons_dataloader, &categorical_cross_entropy, &transformer_metrics, &generate, &gradient_threshold);
     if (error)
     {
         error = ERROR(ERROR_TRAIN, string_create("failed to fit model."), error);
-        goto cleanup;
-    }
-
-    error = generate(runtime, datatype, model, "\n", 1, 200, simpsons_dataset.vocabulary_size, simpsons_dataset.block_size, 
-                     simpsons_dataset.character_to_integer, simpsons_dataset.integer_to_character);
-    if (error)
-    {
-        error = ERROR(ERROR_CREATE, string_create("failed generate text."), error);
         goto cleanup;
     }
 

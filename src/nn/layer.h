@@ -164,7 +164,7 @@ nw_error_t *batch_normalization_2d_create(batch_normalization_2d_t **batch_norma
 void batch_normalization_2d_destroy(batch_normalization_2d_t *batch_normalization_2d);
 
 nw_error_t *layer_normalization_create(layer_normalization_t **layer_normalization, const int64_t *normalized_shape, int64_t length,
-                                        void *epsilon, bool_t elementwise_affine, datatype_t datatype, runtime_t runtime);
+                                        void *epsilon, bool_t weights, bool_t bias, datatype_t datatype, runtime_t runtime);
 void layer_normalization_destroy(layer_normalization_t *layer_normalization);
 
 nw_error_t *reshape_create(reshape_t **reshape, int64_t *shape, int64_t length);
@@ -194,7 +194,7 @@ nw_error_t *batch_normalization_2d_layer_create(layer_t **layer, int64_t number_
                                                 void *momentum, void *epsilon, bool_t track_running_stats,
                                                 bool_t affine, datatype_t datatype, runtime_t runtime);
 nw_error_t *layer_normalization_layer_create(layer_t **layer, const int64_t *normalized_shape, int64_t length,
-                                        void *epsilon, bool_t elementwise_affine, datatype_t datatype, runtime_t runtime);
+                                        void *epsilon, bool_t weights, bool_t bias, datatype_t datatype, runtime_t runtime);
 nw_error_t *reshape_layer_create(layer_t **layer, int64_t *shape, int64_t length);
 nw_error_t *embedding_layer_create(layer_t **layer, int64_t vocabulary_size, int64_t embedding_size, datatype_t datatype, runtime_t runtime, parameter_init_t *embedding_init);
 nw_error_t *embedding_layer_create_from_parameters(layer_t **layer, tensor_t *weights);
