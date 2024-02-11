@@ -10,6 +10,7 @@
 #include <init.h>
 #include <errors.h>
 #include <measure.h>
+#include <random.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -376,21 +377,21 @@ nw_error_t *transformer_block_create(layer_t **layer, int64_t embedding_size, in
     }
 
     error = causal_multihead_self_attention_layer_create(&causal_multihead_self_attention, number_of_heads, embedding_size, dropout_probability, 
-                                                         datatype, runtime, weight_init, NULL, weight_init, NULL);
+                                                         datatype, runtime, weight_init, bias_init, weight_init, bias_init);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create causal multihead attention layer."), error);
         goto cleanup;
     }
 
-    error = linear_layer_create(&linear_1, embedding_size, 4 * embedding_size, runtime, datatype, weight_init, NULL);
+    error = linear_layer_create(&linear_1, embedding_size, 4 * embedding_size, runtime, datatype, weight_init, bias_init);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
         goto cleanup;
     }
 
-    error = linear_layer_create(&linear_2, 4 * embedding_size, embedding_size, runtime, datatype, weight_init, NULL);
+    error = linear_layer_create(&linear_2, 4 * embedding_size, embedding_size, runtime, datatype, weight_init, bias_init);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
@@ -526,12 +527,12 @@ nw_error_t *transformer_model_create(model_t **model, runtime_t runtime, datatyp
         goto cleanup;
     }
 
-    error = zeroes_parameter_init(&bias_init);
-    if (error)
-    {
-        error = ERROR(ERROR_CREATE, string_create("failed to create parameter initailizer."), error);
-        goto cleanup;
-    }
+    // error = zeroes_parameter_init(&bias_init);
+    // if (error)
+    // {
+    //     error = ERROR(ERROR_CREATE, string_create("failed to create parameter initailizer."), error);
+    //     goto cleanup;
+    // }
 
     error = transformer_embedding_layer_create(&transformer_embedding, vocabulary_size, embedding_size, block_size, datatype, runtime, weight_init, weight_init);
     if (error)
@@ -554,7 +555,7 @@ nw_error_t *transformer_model_create(model_t **model, runtime_t runtime, datatyp
         goto cleanup;
     }
 
-    error = linear_layer_create(&linear, embedding_size, vocabulary_size, runtime, datatype, weight_init, NULL);
+    error = linear_layer_create(&linear, embedding_size, vocabulary_size, runtime, datatype, weight_init, bias_init);
     if (error)
     {
         error = ERROR(ERROR_CREATE, string_create("failed to create linear layer."), error);
@@ -645,6 +646,7 @@ void transformer_model_destroy(model_t *model)
 
 int main(void)
 {
+    set_seed(1234);
     simpsons_dataset_t simpsons_dataset = (simpsons_dataset_t) {
         .data_path = "../data/simpsons.txt",
         .data_file = NULL,
@@ -661,7 +663,7 @@ int main(void)
         goto cleanup;
     }
 
-    int64_t epochs = 2;
+    int64_t epochs = 10;
     model_t *model = NULL;
     runtime_t runtime = MKL_RUNTIME;
     datatype_t datatype = FLOAT32;
@@ -679,7 +681,7 @@ int main(void)
     float32_t epsilon = 1e-5;
     float32_t weight_decay = 0.0;
     float32_t probability = 0.2;
-    int64_t number_of_layers = 2;
+    int64_t number_of_layers = 6;
     int64_t number_of_heads = 6;
     int64_t embedding_size = 384;
     float32_t gradient_threshold = 1.0;

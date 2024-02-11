@@ -72,15 +72,13 @@ nw_error_t *fit(int64_t epochs,
 
     for (int64_t i = 0; i < epochs; ++i)
     {
-        LOG("%ld/%ld Epochs", i, epochs);
+        LOG("%ld/%ld Epochs", i + 1, epochs);
         LOG_NEWLINE;
         for (int64_t j = 0; j < train_iterations; ++j)
         {
             // char str[80];
             // sprintf(str, "%ld.txt", j);
             // FILE *fp = freopen(str, "w+", stderr);
-            LOG("%ld/%ld Batches", j, train_iterations);
-            LOG_NEWLINE;
             error = zero_gradient_model(model);
             if (error)
             {
@@ -110,8 +108,12 @@ nw_error_t *fit(int64_t epochs,
                 return ERROR(ERROR_CRITERION, string_create("failed model forward pass."), error);
             }
 
-            LOG_SCALAR_TENSOR("Cost", cost);
-            LOG_NEWLINE;
+            if (!((j + 1) % 10))
+            {
+                LOG("%ld/%ld Batches - ", j + 1, train_iterations);
+                LOG_SCALAR_TENSOR("Cost", cost);
+                LOG_NEWLINE;
+            }
 
             if (!i && !j)
             {

@@ -41,7 +41,7 @@ std::vector<int64_t> input_shape[CASES] = {
 };
 
 std::vector<int64_t> output_shape[CASES] = {
-    {5, 10},
+    {5, 1},
 };
 
 std::vector<int64_t> weight_shapes[CASES][LAYERS] = {
@@ -84,7 +84,7 @@ void setup(void)
                                                     torch::TensorOptions()
                                                     .dtype(torch::kFloat32)
                                                     .requires_grad(false));
-                    torch_output[i][j][k] = torch::randint(0, 2, output_shape[k],
+                    torch_output[i][j][k] = torch::randint(0, 10, output_shape[k],
                                                            torch::TensorOptions()
                                                           .dtype(torch::kFloat32)
                                                          .requires_grad(false));
@@ -94,7 +94,7 @@ void setup(void)
                                                     torch::TensorOptions()
                                                     .dtype(torch::kFloat64)
                                                     .requires_grad(false));
-                    torch_output[i][j][k] = torch::randint(0, 2, output_shape[k],
+                    torch_output[i][j][k] = torch::randint(0, 10, output_shape[k],
                                                            torch::TensorOptions()
                                                           .dtype(torch::kFloat64)
                                                          .requires_grad(false));
@@ -196,11 +196,7 @@ START_TEST(test_feed_forward_neural_network)
                 {
                     expected_tensor = torch::matmul(expected_tensor, torch_weights[i][j][k][l]);
                     expected_tensor = torch::add(expected_tensor, torch_bias[i][j][k][l]);
-                    if (l == LAYERS - 1)
-                    {
-                        expected_tensor = torch::log_softmax(expected_tensor, -1);
-                    }
-                    else
+                    if (l != LAYERS - 1)
                     {
                         expected_tensor = torch::relu(expected_tensor);
                     }
@@ -219,7 +215,7 @@ START_TEST(test_feed_forward_neural_network)
 
                     if (l == LAYERS - 1)
                     {
-                        error = tensor_logsoftmax(returned_tensors_j[i][j][k][l], &returned_tensors[i][j][k][l], returned_tensors_j[i][j][k][l]->buffer->view->rank - 1);
+                        returned_tensors[i][j][k][l] = returned_tensors_j[i][j][k][l];
                     }
                     else
                     {
@@ -233,8 +229,8 @@ START_TEST(test_feed_forward_neural_network)
                 }
                 
                 // Backward Propogation
-                torch::neg(torch::mean(torch::sum(torch::mul(expected_tensor, torch_output[i][j][k]), -1))).backward();
-                error = negative_log_likelihood(output[i][j][k], returned_tensors[i][j][k][LAYERS - 1], &cost[i][j][k]);
+                torch::cross_entropy_loss(expected_tensor, torch_output[i][j][k].to(torch::kLong).view(-1)).backward();
+                error = categorical_cross_entropy(output[i][j][k], returned_tensors[i][j][k][LAYERS - 1], &cost[i][j][k]);
                 ck_assert_ptr_null(error);
                 end_graph();
                 error = tensor_backward(cost[i][j][k], NULL);
