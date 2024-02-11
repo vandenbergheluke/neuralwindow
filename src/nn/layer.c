@@ -65,6 +65,33 @@ nw_error_t *block_create(block_t **block, int64_t depth, ...)
     return NULL;
 }
 
+nw_error_t *block_create_from_array(block_t **block, int64_t depth, layer_t **layers)
+{
+    CHECK_NULL_ARGUMENT(block, "block");
+    CHECK_NULL_ARGUMENT(layers, "layers");
+
+    *block = (block_t *) malloc(sizeof(block_t));
+    if (!*block)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(block_t)), NULL);
+    }
+
+    (*block)->depth = depth;
+    (*block)->layers = (layer_t **) malloc(depth * sizeof(layer_t *));
+    if (!(*block)->layers)
+    {
+        free(*block);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(depth * sizeof(layer_t *))), NULL);
+    }
+
+    for (int64_t i = 0; i < depth; ++i)
+    {
+        (*block)->layers[i] = (layer_t *) layers[i];
+    }
+
+    return NULL;
+}
+
 void block_destroy(block_t *block)
 {
     if (block)
@@ -139,10 +166,20 @@ nw_error_t *transform_create(transform_t **transform, transform_type_t transform
     case RESHAPE:
         (*transform)->reshape = (reshape_t *) type_transform;
         break;
+    case EMBEDDING:
+        (*transform)->embedding = (embedding_t *) type_transform;
+        break;
+    case TRANSFORMER_EMBEDDING:
+        (*transform)->transformer_embedding = (transformer_embedding_t *) type_transform;
+        break;
+    case CAUSAL_MULTIHEAD_SELF_ATTENTION:
+        (*transform)->causal_multihead_self_attention = (causal_multihead_self_attention_t *) type_transform;
+        break;
     case ACTIVATION:
         (*transform)->activation = (activation_t *) type_transform;
         break;
     case BLOCK:
+    case RESIDUAL_BLOCK:
         (*transform)->block = (block_t *) type_transform;
         break;
     default:
@@ -178,11 +215,20 @@ void transform_destroy(transform_t *transform, transform_type_t transform_type)
         case RESHAPE:
             reshape_destroy(transform->reshape);
             break;
+        case EMBEDDING:
+            embedding_destroy(transform->embedding);
+            break;
+        case TRANSFORMER_EMBEDDING:
+            transformer_embedding_destroy(transform->transformer_embedding);
+            break;
+        case CAUSAL_MULTIHEAD_SELF_ATTENTION:
+            causal_multihead_self_attention_destroy(transform->causal_multihead_self_attention);
             break;
         case ACTIVATION:
             activation_destroy(transform->activation);
             break;
         case BLOCK:
+        case RESIDUAL_BLOCK:
             block_destroy(transform->block);
             break;
         default:
@@ -210,10 +256,18 @@ string_t transform_type_string(transform_type_t transform_type)
         return "LAYER_NORMALIZATION";
     case RESHAPE:
         return "RESHAPE";
+   case EMBEDDING:
+        return "EMBEDDING";
+   case TRANSFORMER_EMBEDDING:
+        return "TRANSFORMER_EMBEDDING";
+   case CAUSAL_MULTIHEAD_SELF_ATTENTION:
+        return "CAUSAL_MULTIHEAD_SELF_ATTENTION";
     case ACTIVATION:
         return "ACTIVATION";
     case BLOCK:
         return "BLOCK";
+    case RESIDUAL_BLOCK:
+        return "RESIDUAL_BLOCK";
     default:
         return "TRANSFORM_TYPE";
     }
@@ -408,7 +462,7 @@ void batch_normalization_2d_destroy(batch_normalization_2d_t *batch_normalizatio
 }
 
 nw_error_t *layer_normalization_create(layer_normalization_t **layer_normalization, const int64_t *normalized_shape, int64_t length,
-                                        void *epsilon, bool_t elementwise_affine, datatype_t datatype, runtime_t runtime)
+                                        void *epsilon, bool_t weights, bool_t bias, datatype_t datatype, runtime_t runtime)
 {
     CHECK_NULL_ARGUMENT(layer_normalization, "layer_normalization");
     CHECK_NULL_ARGUMENT(epsilon, "epsilon");
@@ -446,7 +500,7 @@ nw_error_t *layer_normalization_create(layer_normalization_t **layer_normalizati
     }
     memcpy((*layer_normalization)->normalized_shape, normalized_shape, size);
 
-    if (elementwise_affine)
+    if (weights)
     {
         error = tensor_create_ones(&(*layer_normalization)->weights, normalized_shape, length, runtime, datatype, true, true);
         if (error)
@@ -454,7 +508,10 @@ nw_error_t *layer_normalization_create(layer_normalization_t **layer_normalizati
             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
             goto cleanup;
         }
+    }
 
+    if (bias)
+    {
         error = tensor_create_zeroes(&(*layer_normalization)->bias, normalized_shape, length, runtime, datatype, true, true);
         if (error)
         {
@@ -519,6 +576,103 @@ void reshape_destroy(reshape_t *reshape)
     {
         free(reshape->shape);
         free(reshape);
+    }
+}
+
+nw_error_t *embedding_create(embedding_t **embedding, int64_t vocabulary_size, int64_t embedding_size, tensor_t *vocabulary_counter, tensor_t *weights)
+{
+    CHECK_NULL_ARGUMENT(embedding, "embedding");
+    CHECK_NULL_ARGUMENT(vocabulary_counter, "vocabulary_counter");
+    CHECK_NULL_ARGUMENT(weights, "weights");
+
+    *embedding = (embedding_t *) malloc(sizeof(embedding_t));
+    if (!*embedding)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(embedding_t)), NULL);
+    }
+
+    (*embedding)->vocabulary_size = vocabulary_size;
+    (*embedding)->embedding_size = embedding_size;
+    (*embedding)->vocabulary_counter = vocabulary_counter;
+    (*embedding)->weights = weights;
+
+    return NULL;
+}
+
+void embedding_destroy(embedding_t *embedding)
+{
+    tensor_destroy(embedding->vocabulary_counter);
+    tensor_destroy(embedding->weights);
+    free(embedding);
+}
+
+nw_error_t *transformer_embedding_create(transformer_embedding_t **transformer_embedding, embedding_t *token_embedding, embedding_t *position_embedding)
+{
+    CHECK_NULL_ARGUMENT(transformer_embedding, "transformer_embedding");
+    CHECK_NULL_ARGUMENT(token_embedding, "token_embedding");
+    CHECK_NULL_ARGUMENT(position_embedding, "position_embedding");
+
+    *transformer_embedding = (transformer_embedding_t *) malloc(sizeof(transformer_embedding_t));
+    if (!*transformer_embedding)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(transformer_embedding_t)), NULL);
+    }
+
+    (*transformer_embedding)->token_embedding = token_embedding;
+    (*transformer_embedding)->position_embedding = position_embedding;
+
+    return NULL;
+}
+
+void transformer_embedding_destroy(transformer_embedding_t *transformer_embedding)
+{
+    embedding_destroy(transformer_embedding->token_embedding);
+    embedding_destroy(transformer_embedding->position_embedding);
+    free(transformer_embedding);
+}
+
+nw_error_t *causal_multihead_self_attention_create(causal_multihead_self_attention_t **causal_multihead_self_attention, tensor_t *input_weights, tensor_t *input_bias, tensor_t *output_weights,
+                                                   tensor_t *output_bias, int64_t number_of_heads, int64_t embedding_size, void *dropout_probability, datatype_t datatype)
+{
+    CHECK_NULL_ARGUMENT(causal_multihead_self_attention, "causal_multihead_self_attention");
+    CHECK_NULL_ARGUMENT(input_weights, "input_weights");
+    CHECK_NULL_ARGUMENT(output_weights, "output_weights");
+
+    *causal_multihead_self_attention = (causal_multihead_self_attention_t *) malloc(sizeof(causal_multihead_self_attention_t));
+    if (!*causal_multihead_self_attention)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(causal_multihead_self_attention_t)), NULL);
+    }
+
+    (*causal_multihead_self_attention)->dropout_probability = (void *) malloc(datatype_size(datatype));
+    if (!(*causal_multihead_self_attention)->dropout_probability)
+    {
+        free(*causal_multihead_self_attention);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
+    }
+
+    memcpy((*causal_multihead_self_attention)->dropout_probability, dropout_probability, datatype_size(datatype));
+    (*causal_multihead_self_attention)->inference = false;
+    (*causal_multihead_self_attention)->number_of_heads = number_of_heads;
+    (*causal_multihead_self_attention)->embedding_size = embedding_size;
+    (*causal_multihead_self_attention)->input_weights = input_weights;
+    (*causal_multihead_self_attention)->input_bias = input_bias;
+    (*causal_multihead_self_attention)->output_weights = output_weights;
+    (*causal_multihead_self_attention)->output_bias = output_bias;
+
+    return NULL;
+}
+
+void causal_multihead_self_attention_destroy(causal_multihead_self_attention_t *causal_multihead_self_attention)
+{
+    if (causal_multihead_self_attention)
+    {
+        tensor_destroy(causal_multihead_self_attention->input_weights);
+        tensor_destroy(causal_multihead_self_attention->input_bias);
+        tensor_destroy(causal_multihead_self_attention->output_weights);
+        tensor_destroy(causal_multihead_self_attention->output_bias);
+        free(causal_multihead_self_attention->dropout_probability);
+        free(causal_multihead_self_attention);
     }
 }
 
@@ -828,7 +982,7 @@ nw_error_t *batch_normalization_2d_layer_create(layer_t **layer, int64_t number_
 }
 
 nw_error_t *layer_normalization_layer_create(layer_t **layer, const int64_t *normalized_shape, int64_t length,
-                                        void *epsilon, bool_t elementwise_affine, datatype_t datatype, runtime_t runtime)
+                                             void *epsilon, bool_t weights, bool_t bias, datatype_t datatype, runtime_t runtime)
 {
     CHECK_NULL_ARGUMENT(layer, "layer");
     CHECK_NULL_ARGUMENT(normalized_shape, "normalized_shape");
@@ -839,7 +993,7 @@ nw_error_t *layer_normalization_layer_create(layer_t **layer, const int64_t *nor
     transform_t *transform = NULL;
     transform_type_t transform_type = LAYER_NORMALIZATION;
 
-    error = layer_normalization_create(&layer_normalization, normalized_shape, length, epsilon, elementwise_affine, datatype, runtime);
+    error = layer_normalization_create(&layer_normalization, normalized_shape, length, epsilon, weights, bias, datatype, runtime);
     if (error)
     {
         return ERROR(ERROR_CREATE, string_create("failed to create batch normalization layer."), error);
@@ -881,6 +1035,469 @@ nw_error_t *reshape_layer_create(layer_t **layer, int64_t *shape, int64_t length
     if (error)
     {
         reshape_destroy(reshape);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+static nw_error_t *vocabulary_count_create(tensor_t **vocabulary_count, int64_t vocabulary_size, datatype_t datatype, runtime_t runtime)
+{
+    nw_error_t *error = NULL;
+    void *start = NULL;
+    void *stop = NULL;
+    void *step = NULL;
+    size_t size = datatype_size(datatype);
+
+    start = (void *) malloc(size);
+    if (!start)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+    }
+
+    stop = (void *) malloc(size);
+    if (!stop)
+    {
+        free(start);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+    }
+
+    step = (void *) malloc(size);
+    if (!step)
+    {
+        free(start);
+        free(stop);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+    }
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) start = (float32_t) 0.0;
+        *(float32_t *) stop = (float32_t) vocabulary_size;
+        *(float32_t *) step = (float32_t) 1.0;
+        break;
+    case FLOAT64:
+        *(float64_t *) start = (float64_t) 0.0;
+        *(float64_t *) stop = (float64_t) vocabulary_size;
+        *(float64_t *) step = (float64_t) 1.0;
+        break;
+    default:
+        free(start);
+        free(stop);
+        free(step);
+        return ERROR(ERROR_DATATYPE, string_create("unknown datatype."), NULL);
+    }
+
+    error = tensor_arange(vocabulary_count, start, stop, step, runtime, datatype, false, true);
+    if (error)
+    {
+        free(start);
+        free(stop);
+        free(step);
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    free(start);
+    free(stop);
+    free(step);
+
+    return error;
+}
+
+static nw_error_t *embedding_initialize(embedding_t **embedding, int64_t vocabulary_size, int64_t embedding_size, datatype_t datatype, runtime_t runtime, parameter_init_t *embedding_init)
+{
+    CHECK_NULL_ARGUMENT(embedding, "embedding");
+    CHECK_NULL_ARGUMENT(embedding_init, "embedding_init");
+
+    nw_error_t *error = NULL;
+    tensor_t *weights = NULL;
+    int64_t *embedding_shape = (int64_t[]) {vocabulary_size, embedding_size};
+    int64_t embedding_rank = 2;
+    tensor_t *vocabulary_count = NULL;
+
+    error = vocabulary_count_create(&vocabulary_count, vocabulary_size, datatype, runtime);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    error = initialize(&weights, embedding_init, embedding_shape, embedding_rank, runtime, datatype, true);
+    if (error)
+    {
+        tensor_destroy(vocabulary_count);
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize embedding."), error);
+    }
+
+    error = embedding_create(embedding, vocabulary_size, embedding_size, vocabulary_count, weights);
+    if (error)
+    {
+        tensor_destroy(vocabulary_count);
+        tensor_destroy(weights);
+        return ERROR(ERROR_CREATE, string_create("failed to create linear."), error);
+    }
+    
+    return error;
+}
+
+nw_error_t *embedding_layer_create(layer_t **layer, int64_t vocabulary_size, int64_t embedding_size, datatype_t datatype, runtime_t runtime, parameter_init_t *embedding_init)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    embedding_t *embedding = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = EMBEDDING;
+
+    error = embedding_initialize(&embedding, vocabulary_size, embedding_size, datatype, runtime, embedding_init);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create embedding."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) embedding);
+    if (error)
+    {
+        embedding_destroy(embedding);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+static nw_error_t *embedding_create_from_parameters(embedding_t **embedding, tensor_t *weights)
+{
+    CHECK_NULL_ARGUMENT(embedding, "embedding");
+    CHECK_NULL_ARGUMENT(weights, "weights");
+
+    nw_error_t *error = NULL;
+    tensor_t *vocabulary_count = NULL;
+    int64_t vocabulary_size = weights->buffer->view->shape[0];
+    int64_t embedding_size = weights->buffer->view->shape[1];
+    datatype_t datatype = weights->buffer->storage->datatype;
+    runtime_t runtime = weights->buffer->storage->runtime;
+
+    error = vocabulary_count_create(&vocabulary_count, vocabulary_size, datatype, runtime);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+    }
+
+    error = embedding_create(embedding, vocabulary_size, embedding_size, vocabulary_count, weights);
+    if (error)
+    {
+        tensor_destroy(vocabulary_count);
+        return ERROR(ERROR_CREATE, string_create("failed to create linear."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *embedding_layer_create_from_parameters(layer_t **layer, tensor_t *weights)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+    CHECK_NULL_ARGUMENT(weights, "weights");
+
+    nw_error_t *error = NULL;
+    embedding_t *embedding = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = EMBEDDING;
+
+    error = embedding_create_from_parameters(&embedding,  weights);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create linear."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) embedding);
+    if (error)
+    {
+        embedding_destroy(embedding);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *transformer_embedding_layer_create(layer_t **layer, int64_t vocabulary_size, int64_t embedding_size, int64_t block_size, datatype_t datatype, runtime_t runtime,
+                                               parameter_init_t *token_embedding_init, parameter_init_t *position_embedding_init)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+    CHECK_NULL_ARGUMENT(token_embedding_init, "token_embedding_init");
+    CHECK_NULL_ARGUMENT(position_embedding_init, "position_embedding_init");
+
+    nw_error_t *error = NULL;
+    embedding_t *token_embedding = NULL;
+    embedding_t *position_embedding = NULL;
+    transform_t *transform = NULL;
+    transformer_embedding_t *transformer_embedding = NULL;
+    transform_type_t transform_type = TRANSFORMER_EMBEDDING;
+
+    error = embedding_initialize(&token_embedding, vocabulary_size, embedding_size, datatype, runtime, token_embedding_init);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create embedding."), error);
+    }
+
+    error = embedding_initialize(&position_embedding, block_size, embedding_size, datatype, runtime, position_embedding_init);
+    if (error)
+    {
+        embedding_destroy(token_embedding);
+        return ERROR(ERROR_CREATE, string_create("failed to create embedding."), error);
+    }
+
+    error = transformer_embedding_create(&transformer_embedding, token_embedding, position_embedding);
+    if (error)
+    {
+        embedding_destroy(token_embedding);
+        embedding_destroy(position_embedding);
+        return ERROR(ERROR_CREATE, string_create("failed to create transformer embedding."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) transformer_embedding);
+    if (error)
+    {
+        transformer_embedding_destroy(transformer_embedding);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *transformer_embedding_layer_create_from_parameters(layer_t **layer, tensor_t *token_weights, tensor_t *position_weights)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+    CHECK_NULL_ARGUMENT(token_weights, "token_weights");
+    CHECK_NULL_ARGUMENT(position_weights, "position_weights");
+
+    nw_error_t *error = NULL;
+    embedding_t *token_embedding = NULL;
+    embedding_t *position_embedding = NULL;
+    transform_t *transform = NULL;
+    transformer_embedding_t *transformer_embedding = NULL;
+    transform_type_t transform_type = TRANSFORMER_EMBEDDING;
+
+    error = embedding_create_from_parameters(&token_embedding, token_weights);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create embedding."), error);
+    }
+
+    error = embedding_create_from_parameters(&position_embedding, position_weights);
+    if (error)
+    {
+        embedding_destroy(token_embedding);
+        return ERROR(ERROR_CREATE, string_create("failed to create embedding."), error);
+    }
+
+    error = transformer_embedding_create(&transformer_embedding, token_embedding, position_embedding);
+    if (error)
+    {
+        embedding_destroy(token_embedding);
+        embedding_destroy(position_embedding);
+        return ERROR(ERROR_CREATE, string_create("failed to create transformer embedding."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) transformer_embedding);
+    if (error)
+    {
+        transformer_embedding_destroy(transformer_embedding);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *causal_multihead_self_attention_layer_create(layer_t **layer, int64_t number_of_heads, int64_t embedding_size, void *dropout_probability, datatype_t datatype, runtime_t runtime,
+                                                         parameter_init_t *input_weight_init, parameter_init_t *input_bias_init, parameter_init_t *output_weight_init, parameter_init_t *output_bias_init)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+    CHECK_NULL_ARGUMENT(dropout_probability, "dropout_probability");
+    CHECK_NULL_ARGUMENT(input_weight_init, "input_weight_init");
+    CHECK_NULL_ARGUMENT(output_weight_init, "output_weight_init");
+
+    nw_error_t *error = NULL;
+    tensor_t *input_weights = NULL;
+    tensor_t *input_bias = NULL;
+    tensor_t *output_weights = NULL;
+    tensor_t *output_bias = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = CAUSAL_MULTIHEAD_SELF_ATTENTION;
+    causal_multihead_self_attention_t *causal_multihead_self_attention = NULL;
+
+    int64_t *input_weight_shape = (int64_t[]) {embedding_size, 3 * embedding_size};
+    int64_t *input_bias_shape = (int64_t[]) {3 * embedding_size};
+    int64_t *output_weight_shape = (int64_t[]) {embedding_size, embedding_size};
+    int64_t *output_bias_shape = (int64_t[]) {embedding_size};
+    int64_t weight_rank = 2;
+    int64_t bias_rank = 1;
+
+    error = initialize(&input_weights, input_weight_init, input_weight_shape, weight_rank, runtime, datatype, true);
+    if (error)
+    {
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize weights."), error);
+    }
+
+    if (input_bias_init) 
+    {
+        error = initialize(&input_bias, input_bias_init, input_bias_shape, bias_rank, runtime, datatype, true);
+        if (error)
+        {
+            tensor_destroy(input_weights);
+            return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize bias."), error);
+        }
+    }
+
+    error = initialize(&output_weights, output_weight_init, output_weight_shape, weight_rank, runtime, datatype, true);
+    if (error)
+    {
+        tensor_destroy(input_weights);
+        tensor_destroy(input_bias);
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize weights."), error);
+    }
+
+    if (output_bias_init) 
+    {
+        error = initialize(&output_bias, output_bias_init, output_bias_shape, bias_rank, runtime, datatype, true);
+        if (error)
+        {
+            tensor_destroy(input_weights);
+            tensor_destroy(input_bias);
+            tensor_destroy(output_weights);
+            return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize bias."), error);
+        }
+    }
+
+    error = causal_multihead_self_attention_create(&causal_multihead_self_attention, input_weights, input_bias, output_weights, 
+                                                   output_bias, number_of_heads, embedding_size, dropout_probability, datatype);
+    if (error)
+    {
+        tensor_destroy(input_weights);
+        tensor_destroy(input_bias);
+        tensor_destroy(output_weights);
+        tensor_destroy(output_bias);
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize bias."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) causal_multihead_self_attention);
+    if (error)
+    {
+        causal_multihead_self_attention_destroy(causal_multihead_self_attention);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *causal_multihead_self_attention_layer_create_from_parameters(layer_t **layer, int64_t number_of_heads, int64_t embedding_size, void *dropout_probability, datatype_t datatype,
+                                                                         tensor_t *input_weights, tensor_t *input_bias, tensor_t *output_weights, tensor_t *output_bias)
+{
+    nw_error_t *error = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = CAUSAL_MULTIHEAD_SELF_ATTENTION;
+    causal_multihead_self_attention_t *causal_multihead_self_attention = NULL;
+
+    error = causal_multihead_self_attention_create(&causal_multihead_self_attention, input_weights, input_bias, output_weights, 
+                                                   output_bias, number_of_heads, embedding_size, dropout_probability, datatype);
+    if (error)
+    {
+        return ERROR(ERROR_INITIALIZATION, string_create("failed to initialize bias."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) causal_multihead_self_attention);
+    if (error)
+    {
+        causal_multihead_self_attention_destroy(causal_multihead_self_attention);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *residual_block_layer_create(layer_t **layer, block_t *block)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = RESIDUAL_BLOCK;
+
+    error = transform_create(&transform, transform_type, (void *) block);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *block_layer_create(layer_t **layer, block_t *block)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = BLOCK;
+
+    error = transform_create(&transform, transform_type, (void *) block);
+    if (error)
+    {
         return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
     }
 
@@ -1195,8 +1812,23 @@ nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
         case RESHAPE:
             error = reshape_forward(transform->reshape, x, &feature_map);
             break;
+        case LAYER_NORMALIZATION:
+            error = layer_normalization_forward(transform->layer_normalization, x, &feature_map);
+            break;
+        case EMBEDDING:
+            error = embedding_forward(transform->embedding, x, &feature_map);
+            break;
+        case TRANSFORMER_EMBEDDING:
+            error = transformer_embedding_forward(transform->transformer_embedding, x, &feature_map);
+            break;
+        case CAUSAL_MULTIHEAD_SELF_ATTENTION:
+            error = causal_multihead_self_attention_forward(transform->causal_multihead_self_attention, x, &feature_map);
+            break;
         case ACTIVATION:
             error = activation_forward(transform->activation, x, &feature_map);
+            break;
+        case RESIDUAL_BLOCK:
+            error = residual_block_forward(transform->block, x, &feature_map);
             break;
         case BLOCK:
             error = block_forward(transform->block, x, &feature_map);
@@ -1403,6 +2035,212 @@ nw_error_t *reshape_forward(reshape_t *reshape, tensor_t *x, tensor_t **y)
     return error;
 }
 
+nw_error_t *embedding_forward(embedding_t *embedding, tensor_t *x, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(embedding, "embedding");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_embedding(x, embedding->weights, embedding->vocabulary_counter, y);
+    if (error)
+    {
+        return ERROR(ERROR_EMBEDDING, string_create("failed to embed tensor."), error);
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+    return error;
+}
+
+nw_error_t *transformer_embedding_forward(transformer_embedding_t *transformer_embedding, tensor_t *x, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(transformer_embedding, "transformer_embedding");
+    CHECK_NULL_ARGUMENT(x, "x");
+
+    nw_error_t *error = NULL;
+    tensor_t *token_embedding = NULL;
+    tensor_t *position_embedding = NULL;
+    tensor_t *positions = NULL;
+    tensor_t *positions_expand = NULL;
+    datatype_t datatype = x->buffer->storage->datatype;
+    runtime_t runtime = x->buffer->storage->runtime;
+    int64_t block_size = x->buffer->view->shape[1];
+    void *start = NULL;
+    void *stop = NULL;
+    void *step = NULL;
+    size_t size = datatype_size(datatype);
+
+    start = (void *) malloc(size);
+    if (!start)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes", size), NULL);
+        goto cleanup;
+    }
+
+    stop = (void *) malloc(size);
+    if (!stop)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes", size), NULL);
+        goto cleanup;
+    }
+
+    step = (void *) malloc(size);
+    if (!step)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes", size), NULL);
+        goto cleanup;
+    }
+
+    switch (datatype)
+    {
+    case FLOAT32:
+        *(float32_t *) start = (float32_t) 0.0;
+        *(float32_t *) stop = (float32_t) block_size;
+        *(float32_t *) step = 1.0;
+        break;
+    case FLOAT64:
+        *(float64_t *) start = (float64_t) 0.0;
+        *(float64_t *) stop = (float64_t) block_size;
+        *(float64_t *) step = 1.0;
+        break;
+    default:
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype."), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_arange(&positions, start, stop, step, runtime, datatype, false, false);
+    if (error)
+    {
+        error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_expand(positions, (int64_t[]){1, block_size}, 2, &positions_expand);
+    if (error)
+    {
+        error = ERROR(ERROR_EXPAND, string_create("failed to expand tensor."), error);
+        goto cleanup;
+    }
+
+    error = embedding_forward(transformer_embedding->token_embedding, x, &token_embedding);
+    if (error)
+    {
+        error = ERROR(ERROR_EMBEDDING, string_create("failed to embed tensor."), error);
+        goto cleanup;
+    }
+
+    error = embedding_forward(transformer_embedding->position_embedding, positions_expand, &position_embedding);
+    if (error)
+    {
+        error = ERROR(ERROR_EMBEDDING, string_create("failed to embed tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_addition(token_embedding, position_embedding, y);
+    if (error)
+    {
+        error = ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+        goto cleanup;
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+cleanup:
+
+    free(start);
+    free(stop);
+    free(step);
+    tensor_destroy(positions);
+    tensor_destroy(positions_expand);
+
+    if (!(x->requires_gradient || transformer_embedding->token_embedding->weights->requires_gradient || transformer_embedding->position_embedding->weights->requires_gradient) || no_gradient)
+    {
+        tensor_destroy(token_embedding);
+        tensor_destroy(position_embedding);
+    }
+
+    return error;
+}
+
+nw_error_t *causal_multihead_self_attention_forward(causal_multihead_self_attention_t *causal_multihead_self_attention, tensor_t *x, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(causal_multihead_self_attention, "causal_multihead_self_attention");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_causal_multihead_self_attention(x, causal_multihead_self_attention->input_weights, causal_multihead_self_attention->input_bias,
+                                                   causal_multihead_self_attention->output_weights, causal_multihead_self_attention->output_bias,
+                                                   causal_multihead_self_attention->number_of_heads, causal_multihead_self_attention->dropout_probability,
+                                                   causal_multihead_self_attention->inference, y);
+    if (error)
+    {
+        return ERROR(ERROR_ATTENTION, string_create("failed to apply causal multihead self attention."), error);
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+    return error;
+}
+
+nw_error_t *residual_block_forward(block_t *block, tensor_t *x, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(block, "block");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+    tensor_t *z = NULL;
+
+    error = block_forward(block, x, &z);
+    if (error)
+    {
+        return ERROR(ERROR_FORWARD, string_create("failed to apply forward operation."), error);
+    }
+
+    error = tensor_addition(x, z, y);
+    if (error)
+    {
+        return ERROR(ERROR_ADDITION, string_create("failed to add tensors."), error);
+    }
+
+    if (!(x->requires_gradient || z->requires_gradient) || no_gradient)
+    {
+        tensor_destroy(z);
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+    return error;
+}
+
 nw_error_t *model_inference(model_t *model, bool_t inference)
 {
     CHECK_NULL_ARGUMENT(model, "model");
@@ -1431,6 +2269,9 @@ nw_error_t *block_inference(block_t *block, bool_t inference)
             break;
         case BATCH_NORMALIZATION_2D:
             block->layers[i]->transform->batch_normalization_2d->inference = inference;
+            break;
+        case CAUSAL_MULTIHEAD_SELF_ATTENTION:
+            block->layers[i]->transform->causal_multihead_self_attention->inference = inference;
             break;
         case BLOCK:
             error = block_inference(block->layers[i]->transform->block, inference);

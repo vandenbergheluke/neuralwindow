@@ -217,6 +217,18 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_ATTENTION";
     case ERROR_WHERE:
         return "ERROR_WHERE";
+    case ERROR_SAMPLE:
+        return "ERROR_SAMPLE";
+    case ERROR_CONCATENATION:
+        return "ERROR_CONCATENATION";
+    case ERROR_EMBEDDING:
+        return "ERROR_EMBEDDING";
+    case ERROR_CLIP_GRADIENT:
+        return "ERROR_CLIP_GRADIENT";
+    case ERROR_MAGNITUDE:
+        return "ERROR_MAGNITUDE";
+    case ERROR_GENERATE:
+        return "ERROR_GENERATE";
     default:
         return "ERROR";
     }

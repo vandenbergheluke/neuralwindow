@@ -653,11 +653,21 @@ nw_error_t *update_block(optimizer_t *optimizer, block_t *block)
         case LAYER_NORMALIZATION:
             error = update_layer_normalization(optimizer, transform->layer_normalization);
             break;
+        case EMBEDDING:
+            error = update_embedding(optimizer, transform->embedding);
+            break;
+        case TRANSFORMER_EMBEDDING:
+            error = update_transformer_embedding(optimizer, transform->transformer_embedding);
+            break;
+        case CAUSAL_MULTIHEAD_SELF_ATTENTION:
+            error = update_causal_multihead_self_attention(optimizer, transform->causal_multihead_self_attention);
+            break;
         case DROPOUT:
         case RESHAPE:
         case ACTIVATION:
             continue;
         case BLOCK:
+        case RESIDUAL_BLOCK:
             error = update_block(optimizer, transform->block);
             if (error)
             {
@@ -751,6 +761,78 @@ nw_error_t *update_layer_normalization(optimizer_t *optimizer, layer_normalizati
     }
 
     error = update_parameters(optimizer, layer_normalization->bias);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *update_embedding(optimizer_t *optimizer, embedding_t *embedding)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(embedding, "embedding");
+
+    nw_error_t *error = NULL;
+
+    error = update_parameters(optimizer, embedding->weights);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *update_transformer_embedding(optimizer_t *optimizer, transformer_embedding_t *transformer_embedding)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(transformer_embedding, "transformer_embedding");
+
+    nw_error_t *error = NULL;
+
+    error = update_embedding(optimizer, transformer_embedding->position_embedding);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update embedding."), error);
+    }
+
+    error = update_embedding(optimizer, transformer_embedding->token_embedding);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update embedding."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *update_causal_multihead_self_attention(optimizer_t *optimizer, causal_multihead_self_attention_t *causal_multihead_self_attention)
+{
+    CHECK_NULL_ARGUMENT(optimizer, "optimizer");
+    CHECK_NULL_ARGUMENT(causal_multihead_self_attention, "causal_multihead_self_attention");
+
+    nw_error_t *error = NULL;
+
+    error = update_parameters(optimizer, causal_multihead_self_attention->input_weights);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    error = update_parameters(optimizer, causal_multihead_self_attention->input_bias);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    error = update_parameters(optimizer, causal_multihead_self_attention->output_weights);
+    if (error)
+    {
+        return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
+    }
+
+    error = update_parameters(optimizer, causal_multihead_self_attention->output_bias);
     if (error)
     {
         return ERROR(ERROR_UPDATE, string_create("failed to update parameters."), error);
@@ -1753,6 +1835,7 @@ nw_error_t *adam(adam_t *optimizer, tensor_t *parameters)
     goto cleanup;
 
 cleanup:
+
     tensor_destroy(learning_rate);
     tensor_destroy(weight_decay);
     tensor_destroy(weight_decay_product);
@@ -1779,8 +1862,319 @@ cleanup:
     tensor_destroy(temp_gradient_addition);
     tensor_destroy(gradient);
     string_destroy(key);
+
+    return error; 
+}
+
+nw_error_t *clip_gradient_norm_model(model_t *model, void *threshold)
+{
+    CHECK_NULL_ARGUMENT(model, "model");
+    CHECK_NULL_ARGUMENT(threshold, "threshold");
+
+    nw_error_t *error = clip_gradient_norm_block(model->block, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
     return error;
-    
+}
+
+nw_error_t *clip_gradient_norm_block(block_t *block, void *threshold)
+{
+    CHECK_NULL_ARGUMENT(block, "block");
+    CHECK_NULL_ARGUMENT(block->layers, "block->layers");
+    CHECK_NULL_ARGUMENT(threshold, "threshold");
+
+    nw_error_t *error = NULL;
+
+    for (int64_t i = 0; i < block->depth; ++i)
+    {
+        layer_t *layer = block->layers[i];
+        if (!layer)
+        {
+            return ERROR(ERROR_NULL, string_create("failed to clip gradient null layer."), NULL);
+        }
+
+        transform_type_t transform_type = layer->transform_type;
+        transform_t *transform = layer->transform;
+        if (!transform)
+        {
+            return ERROR(ERROR_NULL, string_create("transform is null."), NULL);
+        }
+
+        switch (transform_type)
+        {
+        case LINEAR:
+            error = clip_gradient_norm_linear(transform->linear, threshold);
+            break;
+        case CONVOLUTION_2D:
+        case CONVOLUTION_TRANSPOSE_2D:
+            error = clip_gradient_norm_convolution_2d(transform->convolution_2d, threshold);
+            break;
+        case BATCH_NORMALIZATION_2D:
+            error = clip_gradient_norm_batch_normalization_2d(transform->batch_normalization_2d, threshold);
+            break;
+        case LAYER_NORMALIZATION:
+            error = clip_gradient_norm_layer_normalization(transform->layer_normalization, threshold);
+            break;
+        case EMBEDDING:
+            error = clip_gradient_norm_embedding(transform->embedding, threshold);
+            break;
+        case TRANSFORMER_EMBEDDING:
+            error = clip_gradient_norm_transformer_embedding(transform->transformer_embedding, threshold);
+            break;
+        case CAUSAL_MULTIHEAD_SELF_ATTENTION:
+            error = clip_gradient_norm_causal_multihead_self_attention(transform->causal_multihead_self_attention, threshold);
+            break;
+        case DROPOUT:
+        case RESHAPE:
+        case ACTIVATION:
+            continue;
+        case BLOCK:
+        case RESIDUAL_BLOCK:
+            error = clip_gradient_norm_block(transform->block, threshold);
+            if (error)
+            {
+                return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient parameters."), error);
+            }
+            continue;
+        default:
+            return ERROR(ERROR_LAYER_TYPE, string_create("unknown layer type %d.", (int) transform_type), error);
+        }
+    }
+    return error;
+}
+
+nw_error_t *clip_gradient_norm_linear(linear_t *linear, void *threshold)
+{
+    CHECK_NULL_ARGUMENT(linear, "linear");
+    CHECK_NULL_ARGUMENT(threshold, "threshold");
+
+    nw_error_t *error = NULL;
+
+    error = clip_gradient_norm_parameters(linear->weights, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    error = clip_gradient_norm_parameters(linear->bias, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    return NULL;
+}
+
+nw_error_t *clip_gradient_norm_convolution_2d(convolution_2d_t *convolution_2d, void *threshold)
+{
+    CHECK_NULL_ARGUMENT(convolution_2d, "convolution_2d");
+    CHECK_NULL_ARGUMENT(threshold, "threshold");
+
+    nw_error_t *error = NULL;
+
+    error = clip_gradient_norm_parameters(convolution_2d->kernel, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    error = clip_gradient_norm_parameters(convolution_2d->bias, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    return NULL;
+}
+
+nw_error_t *clip_gradient_norm_batch_normalization_2d(batch_normalization_2d_t *batch_normalization_2d, void *threshold)
+{
+    CHECK_NULL_ARGUMENT(batch_normalization_2d, "batch_normalization_2d");
+    CHECK_NULL_ARGUMENT(threshold, "threshold");
+
+    nw_error_t *error = NULL;
+
+    error = clip_gradient_norm_parameters(batch_normalization_2d->weights, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    error = clip_gradient_norm_parameters(batch_normalization_2d->bias, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    return NULL;
+}
+
+nw_error_t *clip_gradient_norm_layer_normalization(layer_normalization_t *layer_normalization, void *threshold)
+{
+    CHECK_NULL_ARGUMENT(layer_normalization, "layer_normalization");
+    CHECK_NULL_ARGUMENT(threshold, "threshold");
+
+    nw_error_t *error = NULL;
+
+    error = clip_gradient_norm_parameters(layer_normalization->weights, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    error = clip_gradient_norm_parameters(layer_normalization->bias, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    return NULL;
+}
+
+nw_error_t *clip_gradient_norm_embedding(embedding_t *embedding, void *threshold)
+{
+    CHECK_NULL_ARGUMENT(embedding, "embedding");
+    CHECK_NULL_ARGUMENT(threshold, "threshold");
+
+    nw_error_t *error = NULL;
+
+    error = clip_gradient_norm_parameters(embedding->weights, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    return NULL;
+}
+
+nw_error_t *clip_gradient_norm_transformer_embedding(transformer_embedding_t *transformer_embedding, void *threshold)
+{
+    CHECK_NULL_ARGUMENT(transformer_embedding, "transformer_embedding");
+    CHECK_NULL_ARGUMENT(threshold, "threshold");
+
+    nw_error_t *error = NULL;
+
+    error = clip_gradient_norm_embedding(transformer_embedding->position_embedding, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    error = clip_gradient_norm_embedding(transformer_embedding->token_embedding, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    return NULL;
+}
+
+nw_error_t *clip_gradient_norm_causal_multihead_self_attention(causal_multihead_self_attention_t *causal_multihead_self_attention, void *threshold)
+{
+    CHECK_NULL_ARGUMENT(causal_multihead_self_attention, "causal_multihead_self_attention");
+    CHECK_NULL_ARGUMENT(threshold, "threshold");
+
+    nw_error_t *error = NULL;
+
+    error = clip_gradient_norm_parameters(causal_multihead_self_attention->input_weights, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    error = clip_gradient_norm_parameters(causal_multihead_self_attention->input_bias, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    error = clip_gradient_norm_parameters(causal_multihead_self_attention->output_weights, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    error = clip_gradient_norm_parameters(causal_multihead_self_attention->output_bias, threshold);
+    if (error)
+    {
+        return ERROR(ERROR_CLIP_GRADIENT, string_create("failed to clip gradient."), error);
+    }
+
+    return NULL;
+}
+
+nw_error_t *clip_gradient_norm_parameters(tensor_t *parameters, void *threshold)
+{
+    CHECK_NULL_ARGUMENT(threshold, "threshold");
+    if (!parameters || !parameters->gradient)
+    {
+        return NULL;
+    }
+
+    nw_error_t *error = NULL;
+    void *gradient_norm = NULL;
+    tensor_t *threshold_constant = NULL;
+    tensor_t *magnitude = NULL;
+    tensor_t *scale = NULL;
+    datatype_t datatype = parameters->buffer->storage->datatype;
+    runtime_t runtime = parameters->buffer->storage->runtime;
+
+    gradient_norm = (void *) malloc(datatype_size(datatype));
+    if (!gradient_norm)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_magnitude(parameters->gradient, &magnitude);
+    if (error)
+    {
+        error = ERROR(ERROR_MAGNITUDE, string_create("failed to get magnitude of tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_item(magnitude, gradient_norm);
+    if (error)
+    {
+        error = ERROR(ERROR_ITEM, string_create("failed to get item."), error);
+        goto cleanup;
+    }
+
+    if (compare_greater_than_equal(gradient_norm, threshold, datatype))
+    {
+        error = tensor_constant(threshold, datatype, runtime, false, false, &threshold_constant);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            goto cleanup;
+        }
+
+        error = tensor_division(threshold_constant, magnitude, &scale);
+        if (error)
+        {
+            error = ERROR(ERROR_DIVISION, string_create("failed to divide tensors."), error);
+            goto cleanup;
+        }
+
+        error = tensor_multiplication(parameters->gradient, scale, &parameters->gradient);
+        if (error)
+        {
+            error = ERROR(ERROR_MULTIPLICATION, string_create("failed to multiply tensors."), error);
+            goto cleanup;
+        }
+    }
+
+cleanup:
+
+    free(gradient_norm);
+    tensor_destroy(threshold_constant);
+    tensor_destroy(magnitude);
+    tensor_destroy(scale);
+
+    return error;
 }
 
 nw_error_t *zero_gradient_model(model_t *model)
@@ -1833,11 +2227,21 @@ nw_error_t *zero_gradient_block(block_t *block)
         case LAYER_NORMALIZATION:
             error = zero_gradient_layer_normalization(transform->layer_normalization);
             break;
+        case EMBEDDING:
+            error = zero_gradient_embedding(transform->embedding);
+            break;
+        case TRANSFORMER_EMBEDDING:
+            error = zero_gradient_transformer_embedding(transform->transformer_embedding);
+            break;
+        case CAUSAL_MULTIHEAD_SELF_ATTENTION:
+            error = zero_gradient_causal_multihead_self_attention(transform->causal_multihead_self_attention);
+            break;
         case DROPOUT:
         case RESHAPE:
         case ACTIVATION:
             continue;
         case BLOCK:
+        case RESIDUAL_BLOCK:
             error = zero_gradient_block(transform->block);
             if (error)
             {
@@ -1887,6 +2291,37 @@ nw_error_t *zero_gradient_layer_normalization(layer_normalization_t *layer_norma
 
     zero_gradient_parameters(layer_normalization->weights);
     zero_gradient_parameters(layer_normalization->bias);
+
+    return NULL;
+}
+
+nw_error_t *zero_gradient_embedding(embedding_t *embedding)
+{
+    CHECK_NULL_ARGUMENT(embedding, "embedding");
+
+    zero_gradient_parameters(embedding->weights);
+
+    return NULL;
+}
+
+nw_error_t *zero_gradient_transformer_embedding(transformer_embedding_t *transformer_embedding)
+{
+    CHECK_NULL_ARGUMENT(transformer_embedding, "transformer_embedding");
+
+    zero_gradient_embedding(transformer_embedding->position_embedding);
+    zero_gradient_embedding(transformer_embedding->token_embedding);
+
+    return NULL;
+}
+
+nw_error_t *zero_gradient_causal_multihead_self_attention(causal_multihead_self_attention_t *causal_multihead_self_attention)
+{
+    CHECK_NULL_ARGUMENT(causal_multihead_self_attention, "causal_multihead_self_attention");
+
+    zero_gradient_parameters(causal_multihead_self_attention->input_weights);
+    zero_gradient_parameters(causal_multihead_self_attention->input_bias);
+    zero_gradient_parameters(causal_multihead_self_attention->output_weights);
+    zero_gradient_parameters(causal_multihead_self_attention->output_bias);
 
     return NULL;
 }

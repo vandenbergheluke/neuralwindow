@@ -78,3 +78,16 @@ bool_t is_zero(void *value, datatype_t datatype)
 
     return false;
 }
+
+bool_t compare_greater_than_equal(void *lvalue, void *rvalue, datatype_t datatype)
+{
+    switch (datatype)
+    {
+    case FLOAT32:
+        return *(float32_t *) lvalue >= *(float32_t *) rvalue;
+    case FLOAT64:
+        return *(float64_t *) lvalue >= *(float64_t *) rvalue;
+    }
+
+    return false;
+}

@@ -43,19 +43,13 @@ nw_error_t *fit(int64_t epochs,
                 model_t *model,
                 optimizer_t *optimizer,
                 void * arguments,
-                nw_error_t *(*setup)(void *),
-                nw_error_t *(*teardown)(void *),
                 nw_error_t *(*dataloader)(int64_t, batch_t *, void *),
                 nw_error_t *(*criterion)(const tensor_t *, const tensor_t *, tensor_t **),
-                nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *, const tensor_t *, int64_t, int64_t, int64_t, int64_t))
+                nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *, const tensor_t *, int64_t, int64_t, int64_t, int64_t),
+                nw_error_t *(*generate)(model_t *, void *, runtime_t, datatype_t),
+                void *clip_gradient_norm)
 {
     nw_error_t *error = NULL;
-
-    error = (*setup)(arguments);
-    if (error)
-    {
-        return ERROR(ERROR_SETUP, string_create("failed to setup."), error);
-    }
 
     int64_t iterations = number_of_samples / batch->batch_size;
     int64_t indicies[iterations];
@@ -78,8 +72,13 @@ nw_error_t *fit(int64_t epochs,
 
     for (int64_t i = 0; i < epochs; ++i)
     {
+        LOG("%ld/%ld Epochs", i + 1, epochs);
+        LOG_NEWLINE;
         for (int64_t j = 0; j < train_iterations; ++j)
         {
+            // char str[80];
+            // sprintf(str, "%ld.txt", j);
+            // FILE *fp = freopen(str, "w+", stderr);
             error = zero_gradient_model(model);
             if (error)
             {
@@ -109,6 +108,13 @@ nw_error_t *fit(int64_t epochs,
                 return ERROR(ERROR_CRITERION, string_create("failed model forward pass."), error);
             }
 
+            if (!((j + 1) % 10))
+            {
+                LOG("%ld/%ld Batches - ", j + 1, train_iterations);
+                LOG_SCALAR_TENSOR("Cost", cost);
+                LOG_NEWLINE;
+            }
+
             if (!i && !j)
             {
                 end_graph();
@@ -119,8 +125,17 @@ nw_error_t *fit(int64_t epochs,
             if (error)
             {
                 return ERROR(ERROR_METRICS, string_create("failed to compute metrics."), error);
-            }
+            } 
             with_no_gradient(false);
+
+            if (clip_gradient_norm)
+            {
+                error = clip_gradient_norm_model(model, clip_gradient_norm);
+                if (error)
+                {
+                    return ERROR(ERROR_CLIP_GRADIENT, string_create("failed clip gradient."), error);
+                }
+            }
 
             error = tensor_backward(cost, NULL);
             if (error)
@@ -140,10 +155,19 @@ nw_error_t *fit(int64_t epochs,
             batch->y = NULL;
             y_pred = NULL;
             cost = NULL;
+            // fclose(fp);
+        }
+
+        if (generate)
+        {
+            error = (*generate)(model, arguments, batch->runtime, batch->datatype);
+            if (error)
+            {
+                return ERROR(ERROR_GENERATE, string_create("failed to generate."), error);
+            }
         }
 
         with_no_gradient(true);
-
         int64_t start = train_iterations;
         int64_t end = valid_iterations + train_iterations;
         model_inference(model, true);
@@ -232,12 +256,6 @@ nw_error_t *fit(int64_t epochs,
 
     with_no_gradient(false);
 
-    error = (*teardown)(arguments);
-    if (error)
-    {
-        return ERROR(ERROR_TEARDOWN, string_create("failed to teardown."), error);
-    }
-     
     return error;
 }
 

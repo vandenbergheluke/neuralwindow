@@ -105,12 +105,27 @@ nw_error_t *update_linear(optimizer_t *optimizer, linear_t *linear);
 nw_error_t *update_convolution_2d(optimizer_t *optimizer, convolution_2d_t *convolution_2d);
 nw_error_t *update_batch_normalization_2d(optimizer_t *optimizer, batch_normalization_2d_t *batch_normalization_2d);
 nw_error_t *update_layer_normalization(optimizer_t *optimizer, layer_normalization_t *layer_normalization);
+nw_error_t *update_embedding(optimizer_t *optimizer, embedding_t *embedding);
+nw_error_t *update_transformer_embedding(optimizer_t *optimizer, transformer_embedding_t *transformer_embedding);
+nw_error_t *update_causal_multihead_self_attention(optimizer_t *optimizer, causal_multihead_self_attention_t *causal_multihead_self_attention);
 nw_error_t *update_parameters(optimizer_t *optimizer, tensor_t *parameters);
 
 // Update Specializations
 nw_error_t *stochastic_gradient_descent(stochastic_gradient_descent_t *optimizer, tensor_t *parameters);
 nw_error_t *rms_prop(rms_prop_t *optimizer, tensor_t *parameters);
 nw_error_t *adam(adam_t *optimizer, tensor_t *parameters);
+
+// Clip Gradient
+nw_error_t *clip_gradient_norm_model(model_t *model, void *threshold);
+nw_error_t *clip_gradient_norm_block(block_t *block, void *threshold);
+nw_error_t *clip_gradient_norm_linear(linear_t *linear, void *threshold);
+nw_error_t *clip_gradient_norm_convolution_2d(convolution_2d_t *convolution_2d, void *threshold);
+nw_error_t *clip_gradient_norm_batch_normalization_2d(batch_normalization_2d_t *batch_normalization_2d, void *threshold);
+nw_error_t *clip_gradient_norm_layer_normalization(layer_normalization_t *layer_normalization, void *threshold);
+nw_error_t *clip_gradient_norm_embedding(embedding_t *embedding, void *threshold);
+nw_error_t *clip_gradient_norm_transformer_embedding(transformer_embedding_t *transformer_embedding, void *threshold);
+nw_error_t *clip_gradient_norm_causal_multihead_self_attention(causal_multihead_self_attention_t *causal_multihead_self_attention, void *threshold);
+nw_error_t *clip_gradient_norm_parameters(tensor_t *parameters, void *threshold);
 
 // Zero Gradient
 nw_error_t *zero_gradient_model(model_t *model);
@@ -119,5 +134,8 @@ nw_error_t *zero_gradient_linear(linear_t *linear);
 nw_error_t *zero_gradient_convolution_2d(convolution_2d_t *convolution_2d);
 nw_error_t *zero_gradient_batch_normalization_2d(batch_normalization_2d_t *batch_normalization_2d);
 nw_error_t *zero_gradient_layer_normalization(layer_normalization_t *layer_normalization);
+nw_error_t *zero_gradient_embedding(embedding_t *embedding);
+nw_error_t *zero_gradient_transformer_embedding(transformer_embedding_t *transformer_embedding);
+nw_error_t *zero_gradient_causal_multihead_self_attention(causal_multihead_self_attention_t *causal_multihead_self_attention);
 void zero_gradient_parameters(tensor_t *parameters);
 #endif

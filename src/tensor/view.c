@@ -151,7 +151,7 @@ static bool_t arrays_equal(const int64_t *array_a, int64_t length_a, const int64
  * @param[in] length Number of elements in `array`.
  * @return The product of elements in the array.
  */
-static int64_t array_product(const int64_t *array, int64_t length)
+int64_t array_product(const int64_t *array, int64_t length)
 {
     int64_t product = 1;
 

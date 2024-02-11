@@ -546,8 +546,7 @@ void dcgan_model_destroy(model_t *generator, model_t *discriminator)
 
 nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch, bool_t shuffle, int64_t noise_dimension,
                       model_t *generator, model_t *discriminator, optimizer_t *generator_optimizer, 
-                      optimizer_t *discriminator_optimizer, void * arguments,
-                      nw_error_t *(*setup)(void *), nw_error_t *(*teardown)(void *), nw_error_t *(*dataloader)(int64_t, batch_t *, void *))
+                      optimizer_t *discriminator_optimizer, void * arguments, nw_error_t *(*dataloader)(int64_t, batch_t *, void *))
 {
     nw_error_t *error = NULL;
     int64_t iterations = number_of_samples / batch->batch_size;
@@ -595,12 +594,6 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
         break;
     default:
         return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) batch->datatype), NULL);
-    }
-
-    error = (*setup)(arguments);
-    if (error)
-    {
-        return ERROR(ERROR_SETUP, string_create("failed to setup."), error);
     }
 
     for (int64_t i = 0; i < iterations; ++i)
@@ -789,12 +782,6 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
     free(lower_bound);
     free(upper_bound);
 
-    error = (*teardown)(arguments);
-    if (error)
-    {
-        return ERROR(ERROR_TEARDOWN, string_create("failed to teardown."), error);
-    }
-     
     return error;
 }
 
@@ -809,7 +796,13 @@ int main(void)
         .normalize = true,
     };
 
-    nw_error_t *error = NULL;
+    nw_error_t *error = mnist_setup(&mnist_dataset);
+    if (error)
+    {
+        error = ERROR(ERROR_SETUP, string_create("failed to setup."), error);
+        goto cleanup;
+    }
+
     int64_t epochs = 100;
     model_t *generator = NULL, *discriminator = NULL;
     runtime_t runtime = MKL_RUNTIME;
@@ -861,11 +854,17 @@ int main(void)
         goto cleanup;
     }
 
-    error = dcgan_fit(epochs, number_of_samples, batch, shuffle, noise_dimension, generator, discriminator, generator_optimizer, discriminator_optimizer,
-                &mnist_dataset, &mnist_setup, &mnist_teardown, &mnist_dataloader);
+    error = dcgan_fit(epochs, number_of_samples, batch, shuffle, noise_dimension, generator, discriminator, generator_optimizer, discriminator_optimizer, &mnist_dataset, &mnist_dataloader);
     if (error)
     {
         error = ERROR(ERROR_TRAIN, string_create("failed to fit model."), error);
+        goto cleanup;
+    }
+
+    error = mnist_teardown(&mnist_dataset);
+    if (error)
+    {
+        error = ERROR(ERROR_TEARDOWN, string_create("failed to teardown."), error);
         goto cleanup;
     }
 
