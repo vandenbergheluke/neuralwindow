@@ -102,6 +102,11 @@ After CUDA installation you will need to reboot. Verify installation with
 nvcc --version
 ```
 
+Install OpenMP
+```bash
+sudo apt install libomp-dev
+```
+
 Install Doxygen (Optional)
 
 ```bash
