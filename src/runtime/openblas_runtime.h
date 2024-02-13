@@ -11,6 +11,7 @@
 
 nw_error_t *openblas_memory_allocate(void **pp, size_t size);
 void openblas_memory_free(void *p);
+nw_error_t *openblas_create_context(void);
 void openblas_exponential(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset);
 void openblas_logarithm(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset);
 void openblas_sine(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset);
