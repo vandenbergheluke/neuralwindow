@@ -607,7 +607,7 @@ static void openblas_maximum_float32(int n, const float32_t *x_data, int x_strid
     for (int i = 1; i < n; ++i)
     {
         float32_t candidate = x_data[i * x_stride];
-        // TODO: Check if this works
+        // TODO: CAS loop might be faster
         #pragma omp critical
         if (maximum < candidate)
         {
@@ -624,7 +624,7 @@ static void openblas_maximum_float64(int n, const float64_t *x_data, int x_strid
     for (int i = 1; i < n; ++i)
     {
         float64_t candidate = x_data[i * x_stride];
-        // TODO: Check if this works
+        // TODO: CAS loop might be faster
         #pragma omp critical
         if (maximum < candidate)
         {
