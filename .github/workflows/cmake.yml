@@ -48,12 +48,12 @@ jobs:
     - name: GPU Build
       working-directory: ${{github.workspace}}/build
       run: |
-        cmake ..
+        NO_OPENMP=1 cmake ..
         make
     - name: CPU Build
       working-directory: ${{github.workspace}}/build
       run: |
-        CPU_ONLY=1 cmake ..
+        NO_OPENMP=1 CPU_ONLY=1 cmake ..
         make
     - name: Test
       working-directory: ${{github.workspace}}/build
