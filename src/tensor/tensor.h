@@ -28,6 +28,8 @@ typedef struct tensor_t
 // Constructor
 nw_error_t *tensor_create(tensor_t **tensor, buffer_t *buffer, function_t *context, tensor_t *gradient, bool_t requires_gradient, bool_t persist);
 nw_error_t *tensor_create_null(tensor_t **tensor);
+nw_error_t *tensor_save(tensor_t *tensor, FILE *file);
+nw_error_t *tensor_load(tensor_t **tensor, FILE *file);
 
 // Destructor
 void tensor_destroy(tensor_t *tensor);

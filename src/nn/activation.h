@@ -62,4 +62,11 @@ nw_error_t *leaky_rectified_linear_activation_create(activation_t **activation, 
 
 nw_error_t *activation_forward(activation_t *activation, tensor_t *x, tensor_t **y);
 
+nw_error_t *activation_save(activation_t *activation, FILE *file);
+nw_error_t *softmax_save(softmax_t *softmax, FILE *file);
+nw_error_t *leaky_rectified_linear_save(leaky_rectified_linear_t *leaky_rectified_linear, FILE *file);
+nw_error_t *activation_load(activation_t **activation, FILE *file);
+nw_error_t *softmax_load(softmax_t **softmax, FILE *file);
+nw_error_t *leaky_rectified_linear_load(leaky_rectified_linear_t **leaky_rectified_linear, FILE *file);
+
 #endif

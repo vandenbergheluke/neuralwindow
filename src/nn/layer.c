@@ -390,6 +390,7 @@ nw_error_t *batch_normalization_2d_create(batch_normalization_2d_t **batch_norma
     (*batch_normalization_2d)->running_variance = NULL;
     (*batch_normalization_2d)->track_running_stats = track_running_stats;
     (*batch_normalization_2d)->inference = false;
+    (*batch_normalization_2d)->datatype = datatype;
 
     (*batch_normalization_2d)->momentum = (void *) malloc(datatype_size(datatype));
     if (!(*batch_normalization_2d)->momentum)
@@ -462,7 +463,7 @@ void batch_normalization_2d_destroy(batch_normalization_2d_t *batch_normalizatio
 }
 
 nw_error_t *layer_normalization_create(layer_normalization_t **layer_normalization, const int64_t *normalized_shape, int64_t length,
-                                        void *epsilon, bool_t weights, bool_t bias, datatype_t datatype, runtime_t runtime)
+                                        void *epsilon, bool_t bias_affine, bool_t weights_affine, datatype_t datatype, runtime_t runtime)
 {
     CHECK_NULL_ARGUMENT(layer_normalization, "layer_normalization");
     CHECK_NULL_ARGUMENT(epsilon, "epsilon");
@@ -481,6 +482,7 @@ nw_error_t *layer_normalization_create(layer_normalization_t **layer_normalizati
     (*layer_normalization)->weights = NULL;
     (*layer_normalization)->length = length;
     (*layer_normalization)->normalized_shape = NULL;
+    (*layer_normalization)->datatype = datatype;
     
     size_t size = datatype_size(datatype);
     (*layer_normalization)->epsilon = (void *) malloc(size);
@@ -500,7 +502,7 @@ nw_error_t *layer_normalization_create(layer_normalization_t **layer_normalizati
     }
     memcpy((*layer_normalization)->normalized_shape, normalized_shape, size);
 
-    if (weights)
+    if (weights_affine)
     {
         error = tensor_create_ones(&(*layer_normalization)->weights, normalized_shape, length, runtime, datatype, true, true);
         if (error)
@@ -510,7 +512,7 @@ nw_error_t *layer_normalization_create(layer_normalization_t **layer_normalizati
         }
     }
 
-    if (bias)
+    if (bias_affine)
     {
         error = tensor_create_zeroes(&(*layer_normalization)->bias, normalized_shape, length, runtime, datatype, true, true);
         if (error)
@@ -659,6 +661,7 @@ nw_error_t *causal_multihead_self_attention_create(causal_multihead_self_attenti
     (*causal_multihead_self_attention)->input_bias = input_bias;
     (*causal_multihead_self_attention)->output_weights = output_weights;
     (*causal_multihead_self_attention)->output_bias = output_bias;
+    (*causal_multihead_self_attention)->datatype = datatype;
 
     return NULL;
 }
@@ -2284,6 +2287,1151 @@ nw_error_t *block_inference(block_t *block, bool_t inference)
             break;
         }
     }
+
+    return error;
+}
+
+nw_error_t *model_save(model_t *model, string_t path)
+{
+    CHECK_NULL_ARGUMENT(model, "model");
+    CHECK_NULL_ARGUMENT(path, "path");
+
+    FILE *file = fopen(path, "wb");
+    if (!file)
+    {
+        return ERROR(ERROR_FILE, string_create("failed to open file."), NULL);
+    }
+
+    nw_error_t *error = block_save(model->block, file);
+    if (error)
+    {
+        fclose(file);
+        return ERROR(ERROR_SAVE, string_create("failed to save block."), error);
+    }    
+
+    fclose(file);
+
+    return error;
+}
+
+nw_error_t *block_save(block_t *block, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(block, "block");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    if (!fwrite(&block->depth, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    for (int64_t i = 0; i < block->depth; ++i)
+    {
+        error = layer_save(block->layers[i], file);
+        if (error)
+        {
+            return ERROR(ERROR_SAVE, string_create("failed to save layer."), error);
+        }
+    }
+
+    return error;
+}
+
+nw_error_t *layer_save(layer_t *layer, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    if (!fwrite(&layer->transform_type, sizeof(transform_type_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    switch (layer->transform_type)
+    {
+    case LINEAR:
+        error = linear_save(layer->transform->linear, file);
+        break;
+    case CONVOLUTION_2D:
+    case CONVOLUTION_TRANSPOSE_2D:
+        error = convolution_2d_save(layer->transform->convolution_2d, file);
+        break;
+    case DROPOUT:
+        error = dropout_save(layer->transform->dropout, file);
+        break;
+    case BATCH_NORMALIZATION_2D:
+        error = batch_normalization_2d_save(layer->transform->batch_normalization_2d, file);
+        break;
+    case RESHAPE:
+        error = reshape_save(layer->transform->reshape, file);
+        break;
+    case LAYER_NORMALIZATION:
+        error = layer_normalization_save(layer->transform->layer_normalization, file);
+        break;
+    case EMBEDDING:
+        error = embedding_save(layer->transform->embedding, file);
+        break;
+    case TRANSFORMER_EMBEDDING:
+        error = transformer_embedding_save(layer->transform->transformer_embedding, file);
+        break;
+    case CAUSAL_MULTIHEAD_SELF_ATTENTION:
+        error = causal_multihead_self_attention_save(layer->transform->causal_multihead_self_attention, file);
+        break;
+    case ACTIVATION:
+        error = activation_save(layer->transform->activation, file);
+        break;
+    case RESIDUAL_BLOCK:
+    case BLOCK:
+        error = block_save(layer->transform->block, file);
+        break;
+    default:
+        error = ERROR(ERROR_LAYER_TYPE, string_create("unknown transform type %d.", (int) layer->transform_type), NULL);
+        break;
+    }
+
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save transform."), error);
+    }
+    
+    return error;
+}
+
+nw_error_t *linear_save(linear_t *linear, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(linear, "linear");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_save(linear->weights, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    error = tensor_save(linear->bias, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *convolution_2d_save(convolution_2d_t *convolution_2d, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(convolution_2d, "convolution_2d");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_save(convolution_2d->kernel, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    error = tensor_save(convolution_2d->bias, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    if (!fwrite(&convolution_2d->padding, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(&convolution_2d->stride, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    return error;
+}
+
+nw_error_t *dropout_save(dropout_t *dropout, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(dropout, "dropout");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    if (!fwrite(&dropout->datatype, sizeof(datatype_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(dropout->probability, datatype_size(dropout->datatype), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(&dropout->inference, sizeof(bool_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    return error;
+}
+
+nw_error_t *batch_normalization_2d_save(batch_normalization_2d_t *batch_normalization_2d, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(batch_normalization_2d, "batch_normalization_2d");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    if (!fwrite(&batch_normalization_2d->datatype, sizeof(datatype_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(&batch_normalization_2d->track_running_stats, sizeof(bool_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(&batch_normalization_2d->inference, sizeof(bool_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(batch_normalization_2d->momentum, datatype_size(batch_normalization_2d->datatype), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(batch_normalization_2d->epsilon, datatype_size(batch_normalization_2d->datatype), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    error = tensor_save(batch_normalization_2d->weights, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    error = tensor_save(batch_normalization_2d->bias, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    error = tensor_save(batch_normalization_2d->running_mean, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    error = tensor_save(batch_normalization_2d->running_variance, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+    
+    return error;
+}
+
+nw_error_t *layer_normalization_save(layer_normalization_t *layer_normalization, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(layer_normalization, "layer_normalization");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    if (!fwrite(&layer_normalization->datatype, sizeof(datatype_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(layer_normalization->epsilon, datatype_size(layer_normalization->datatype), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(&layer_normalization->length, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(layer_normalization->normalized_shape, sizeof(int64_t), layer_normalization->length, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    error = tensor_save(layer_normalization->weights, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    error = tensor_save(layer_normalization->bias, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *reshape_save(reshape_t *reshape, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(reshape, "reshape");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    if (!fwrite(&reshape->length, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(reshape->shape, sizeof(int64_t), reshape->length, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    return error;
+}
+
+nw_error_t *embedding_save(embedding_t *embedding, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(embedding, "embedding");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    if (!fwrite(&embedding->vocabulary_size, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(&embedding->embedding_size, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    error = tensor_save(embedding->vocabulary_counter, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    error = tensor_save(embedding->weights, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *transformer_embedding_save(transformer_embedding_t *transformer_embedding, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(transformer_embedding, "transformer_embedding");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    error = embedding_save(transformer_embedding->token_embedding, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save embedding."), error);
+    }
+
+    error = embedding_save(transformer_embedding->position_embedding, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save embedding."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *causal_multihead_self_attention_save(causal_multihead_self_attention_t *causal_multihead_self_attention, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(causal_multihead_self_attention, "causal_multihead_self_attention");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    if (!fwrite(&causal_multihead_self_attention->datatype, sizeof(datatype_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(causal_multihead_self_attention->dropout_probability, datatype_size(causal_multihead_self_attention->datatype), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(&causal_multihead_self_attention->embedding_size, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(&causal_multihead_self_attention->number_of_heads, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(&causal_multihead_self_attention->inference, sizeof(bool_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    error = tensor_save(causal_multihead_self_attention->input_weights, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    error = tensor_save(causal_multihead_self_attention->input_bias, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    error = tensor_save(causal_multihead_self_attention->output_weights, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    error = tensor_save(causal_multihead_self_attention->output_bias, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save tensor."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *model_load(model_t **model, string_t path)
+{
+    CHECK_NULL_ARGUMENT(model, "model");
+    CHECK_NULL_ARGUMENT(path, "path");
+
+    FILE *file = fopen(path, "rb");
+    if (!file)
+    {
+        return ERROR(ERROR_FILE, string_create("failed to open file."), NULL);
+    }
+    
+    *model = (model_t *) malloc(sizeof(model_t));
+    if (!*model)
+    {
+        fclose(file);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(model_t)), NULL);
+    }
+    (*model)->block = NULL;
+
+
+    nw_error_t *error = block_load(&(*model)->block, file);
+    if (error)
+    {
+        fclose(file);
+        model_destroy(*model);
+        return ERROR(ERROR_LOAD, string_create("failed to load block."), error);
+    }    
+
+    fclose(file);
+
+    return error;
+}
+
+nw_error_t *block_load(block_t **block, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(block, "block");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *block = (block_t *) malloc(sizeof(block_t));
+    if (!*block)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(block_t)), NULL);
+        goto cleanup;
+    }
+    (*block)->layers = NULL;
+    (*block)->depth = 0;
+
+    if (!fread(&(*block)->depth, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read to file."), NULL);
+        goto cleanup;
+    }
+
+    (*block)->layers = (layer_t **) malloc((*block)->depth * sizeof(layer_t *));
+    if (!(*block)->layers)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", (*block)->depth * sizeof(layer_t *)), NULL);
+        goto cleanup;
+    }
+
+    for (int64_t i = 0; i < (*block)->depth; ++i)
+    {
+        error = layer_load(&(*block)->layers[i], file);
+        if (error)
+        {
+            error = ERROR(ERROR_LOAD, string_create("failed to load layer."), error);
+            goto cleanup;
+        }
+    }
+
+    return error;
+
+cleanup:
+
+    block_destroy(*block);
+
+    return error;
+}
+
+nw_error_t *layer_load(layer_t **layer, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *layer = (layer_t *) malloc(sizeof(layer_t));
+    if (!*layer)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(layer_t)), NULL);
+        goto cleanup;
+    }
+    (*layer)->transform = NULL;
+
+    if (!fread(&(*layer)->transform_type, sizeof(transform_type_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    (*layer)->transform = (transform_t *) malloc(sizeof(transform_t));
+    if (!(*layer)->transform)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(transform_t)), NULL);
+        goto cleanup;
+    }
+
+    switch ((*layer)->transform_type)
+    {
+    case LINEAR:
+        error = linear_load(&(*layer)->transform->linear, file);
+        break;
+    case CONVOLUTION_2D:
+    case CONVOLUTION_TRANSPOSE_2D:
+        error = convolution_2d_load(&(*layer)->transform->convolution_2d, file);
+        break;
+    case DROPOUT:
+        error = dropout_load(&(*layer)->transform->dropout, file);
+        break;
+    case BATCH_NORMALIZATION_2D:
+        error = batch_normalization_2d_load(&(*layer)->transform->batch_normalization_2d, file);
+        break;
+    case RESHAPE:
+        error = reshape_load(&(*layer)->transform->reshape, file);
+        break;
+    case LAYER_NORMALIZATION:
+        error = layer_normalization_load(&(*layer)->transform->layer_normalization, file);
+        break;
+    case EMBEDDING:
+        error = embedding_load(&(*layer)->transform->embedding, file);
+        break;
+    case TRANSFORMER_EMBEDDING:
+        error = transformer_embedding_load(&(*layer)->transform->transformer_embedding, file);
+        break;
+    case CAUSAL_MULTIHEAD_SELF_ATTENTION:
+        error = causal_multihead_self_attention_load(&(*layer)->transform->causal_multihead_self_attention, file);
+        break;
+    case ACTIVATION:
+        error = activation_load(&(*layer)->transform->activation, file);
+        break;
+    case RESIDUAL_BLOCK:
+    case BLOCK:
+        error = block_load(&(*layer)->transform->block, file);
+        break;
+    default:
+        error = ERROR(ERROR_LAYER_TYPE, string_create("unknown transform type %d.", (int) (*layer)->transform_type), NULL);
+        break;
+    }
+
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed load transform."), error);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    layer_destroy(*layer);
+
+    return error;
+}
+
+nw_error_t *linear_load(linear_t **linear, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(linear, "linear");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+    
+    *linear = (linear_t *) malloc(sizeof(linear_t));
+    if (!*linear)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(linear_t)), NULL);
+        goto cleanup;
+    }
+
+    (*linear)->weights = NULL;
+    (*linear)->bias = NULL;
+    
+    error = tensor_load(&(*linear)->weights, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_load(&(*linear)->bias, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    linear_destroy(*linear);
+
+    return error;
+}
+
+nw_error_t *convolution_2d_load(convolution_2d_t **convolution_2d, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(convolution_2d, "convolution_2d");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *convolution_2d = (convolution_2d_t *) malloc(sizeof(convolution_2d_t));
+    if (!*convolution_2d)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(convolution_2d_t)), NULL);
+        goto cleanup;
+    }
+
+    (*convolution_2d)->kernel = NULL;
+    (*convolution_2d)->bias = NULL;
+
+    error = tensor_load(&(*convolution_2d)->kernel, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_load(&(*convolution_2d)->bias, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    if (!fread(&(*convolution_2d)->padding, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*convolution_2d)->stride, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    convolution_2d_destroy(*convolution_2d);
+
+    return error;
+}
+
+nw_error_t *dropout_load(dropout_t **dropout, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(dropout, "dropout");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *dropout = (dropout_t *) malloc(sizeof(dropout_t));
+    if (!*dropout)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(dropout_t)), NULL);
+        goto cleanup;
+    }
+    (*dropout)->probability = NULL;
+
+    if (!fread(&(*dropout)->datatype, sizeof(datatype_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    (*dropout)->probability = (void *) malloc(datatype_size((*dropout)->datatype));
+    if (!(*dropout)->probability)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size((*dropout)->datatype)), NULL);
+        goto cleanup;
+    }
+
+    if (!fread((*dropout)->probability, datatype_size((*dropout)->datatype), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*dropout)->inference, sizeof(bool_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    dropout_destroy(*dropout);
+
+    return error;
+}
+
+nw_error_t *batch_normalization_2d_load(batch_normalization_2d_t **batch_normalization_2d, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(batch_normalization_2d, "batch_normalization_2d");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    *batch_normalization_2d = (batch_normalization_2d_t *) malloc(sizeof(batch_normalization_2d_t));
+    if (!*batch_normalization_2d)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(batch_normalization_2d_t)), NULL);
+    }
+
+    nw_error_t *error = NULL;
+
+    (*batch_normalization_2d)->momentum = NULL;
+    (*batch_normalization_2d)->epsilon = NULL;
+    (*batch_normalization_2d)->bias = NULL;
+    (*batch_normalization_2d)->weights = NULL;
+    (*batch_normalization_2d)->running_mean = NULL;
+    (*batch_normalization_2d)->running_variance = NULL;
+
+    if (!fread(&(*batch_normalization_2d)->datatype, sizeof(datatype_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*batch_normalization_2d)->track_running_stats, sizeof(bool_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*batch_normalization_2d)->inference, sizeof(bool_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    size_t size = datatype_size((*batch_normalization_2d)->datatype);
+
+    (*batch_normalization_2d)->momentum = (void *) malloc(size);
+    if (!(*batch_normalization_2d)->momentum)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    (*batch_normalization_2d)->epsilon = (void *) malloc(size);
+    if (!(*batch_normalization_2d)->epsilon)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    if (!fread((*batch_normalization_2d)->momentum, size, 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread((*batch_normalization_2d)->epsilon, size, 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_load(&(*batch_normalization_2d)->weights, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_load(&(*batch_normalization_2d)->bias, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_load(&(*batch_normalization_2d)->running_mean, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_load(&(*batch_normalization_2d)->running_variance, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+    
+    return error;
+
+cleanup:
+
+    batch_normalization_2d_destroy(*batch_normalization_2d);
+
+    return error;
+}
+
+nw_error_t *layer_normalization_load(layer_normalization_t **layer_normalization, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(layer_normalization, "layer_normalization");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *layer_normalization = (layer_normalization_t *) malloc(sizeof(layer_normalization_t));
+    if (!*layer_normalization)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(layer_normalization_t)), NULL);
+        goto cleanup;
+    }
+
+    (*layer_normalization)->epsilon = NULL;
+    (*layer_normalization)->bias = NULL;
+    (*layer_normalization)->weights = NULL;
+    (*layer_normalization)->normalized_shape = NULL;
+
+    if (!fread(&(*layer_normalization)->datatype, sizeof(datatype_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    size_t size = datatype_size((*layer_normalization)->datatype);
+    
+    (*layer_normalization)->epsilon = (void *) malloc(size);
+    if (!(*layer_normalization)->epsilon)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    if (!fread((*layer_normalization)->epsilon, size, 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*layer_normalization)->length, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    size = (*layer_normalization)->length * sizeof(int64_t);
+
+    (*layer_normalization)->normalized_shape = (int64_t *) malloc(size);
+    if (!(*layer_normalization)->normalized_shape)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    if (!fread((*layer_normalization)->normalized_shape, sizeof(int64_t), (*layer_normalization)->length, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_load(&(*layer_normalization)->weights, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_load(&(*layer_normalization)->bias, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    layer_normalization_destroy(*layer_normalization);
+
+    return error;
+}
+
+nw_error_t *reshape_load(reshape_t **reshape, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(reshape, "reshape");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *reshape = (reshape_t *) malloc(sizeof(reshape_t));
+    if (!*reshape)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(reshape_t)), NULL);
+        goto cleanup;
+    }
+
+    (*reshape)->shape = NULL;
+
+    if (!fread(&(*reshape)->length, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    (*reshape)->shape = (int64_t *) malloc((*reshape)->length * sizeof(int64_t));
+    if (!(*reshape)->shape)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", (*reshape)->length * sizeof(int64_t)), NULL);
+        goto cleanup;
+    }
+
+    if (!fread((*reshape)->shape, sizeof(int64_t), (*reshape)->length, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    reshape_destroy(*reshape);
+
+    return error;
+}
+
+nw_error_t *embedding_load(embedding_t **embedding, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(embedding, "embedding");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *embedding = (embedding_t *) malloc(sizeof(embedding_t));
+    if (!*embedding)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(embedding_t)), NULL);
+        goto cleanup;
+    }
+
+    (*embedding)->vocabulary_counter = NULL;
+    (*embedding)->weights = NULL;
+
+    if (!fread(&(*embedding)->vocabulary_size, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*embedding)->embedding_size, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_load(&(*embedding)->vocabulary_counter, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_load(&(*embedding)->weights, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    embedding_destroy(*embedding);
+
+    return error;
+}
+
+nw_error_t *transformer_embedding_load(transformer_embedding_t **transformer_embedding, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(transformer_embedding, "transformer_embedding");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *transformer_embedding = (transformer_embedding_t *) malloc(sizeof(transformer_embedding_t));
+    if (!*transformer_embedding)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(transformer_embedding_t)), NULL);
+    }
+
+    (*transformer_embedding)->token_embedding = NULL;
+    (*transformer_embedding)->position_embedding = NULL;
+
+    error = embedding_load(&(*transformer_embedding)->token_embedding, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load embedding."), error);
+        goto cleanup;
+    }
+
+    error = embedding_load(&(*transformer_embedding)->position_embedding, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load embedding."), error);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    transformer_embedding_destroy(*transformer_embedding);
+
+    return error;
+}
+
+nw_error_t *causal_multihead_self_attention_load(causal_multihead_self_attention_t **causal_multihead_self_attention, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(causal_multihead_self_attention, "causal_multihead_self_attention");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *causal_multihead_self_attention = (causal_multihead_self_attention_t *) malloc(sizeof(causal_multihead_self_attention_t));
+    if (!*causal_multihead_self_attention)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(causal_multihead_self_attention_t)), NULL);
+        goto cleanup;
+    }
+
+    (*causal_multihead_self_attention)->input_weights = NULL;
+    (*causal_multihead_self_attention)->input_bias = NULL;
+    (*causal_multihead_self_attention)->output_weights = NULL;
+    (*causal_multihead_self_attention)->output_bias = NULL;
+    (*causal_multihead_self_attention)->dropout_probability = NULL;
+
+    if (!fread(&(*causal_multihead_self_attention)->datatype, sizeof(datatype_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    (*causal_multihead_self_attention)->dropout_probability = (void *) malloc(datatype_size((*causal_multihead_self_attention)->datatype));
+    if (!(*causal_multihead_self_attention)->dropout_probability)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size((*causal_multihead_self_attention)->datatype)), NULL);
+        goto cleanup;
+    }
+
+    if (!fread((*causal_multihead_self_attention)->dropout_probability, datatype_size((*causal_multihead_self_attention)->datatype), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*causal_multihead_self_attention)->embedding_size, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*causal_multihead_self_attention)->number_of_heads, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*causal_multihead_self_attention)->inference, sizeof(bool_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    error = tensor_load(&(*causal_multihead_self_attention)->input_weights, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_load(&(*causal_multihead_self_attention)->input_bias, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_load(&(*causal_multihead_self_attention)->output_weights, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    error = tensor_load(&(*causal_multihead_self_attention)->output_bias, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load tensor."), error);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    causal_multihead_self_attention_destroy(*causal_multihead_self_attention);
 
     return error;
 }

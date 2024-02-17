@@ -24,6 +24,7 @@ set(TEST_CXX
     test_tensor_binary
     test_autograd
     test_optimizer
+    test_model_exporter
 )
 
 set(TEST_CXX_PERF

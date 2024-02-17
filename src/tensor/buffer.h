@@ -30,6 +30,8 @@ nw_error_t *buffer_create(buffer_t **buffer, view_t *view, storage_t *storage, b
 void buffer_destroy(buffer_t *buffer);
 nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t datatype, int64_t n, void *data, bool_t copy);
 void storage_destroy(storage_t *storage);
+nw_error_t *buffer_save(buffer_t *buffer, FILE *file);
+nw_error_t *buffer_load(buffer_t **buffer, FILE *file);
 nw_error_t *buffer_unary(unary_operation_type_t unary_operation_type, buffer_t *x_buffer, buffer_t **y_buffer);
 nw_error_t *buffer_binary(binary_operation_type_t operation_type, buffer_t *x_buffer, buffer_t *y_buffer, buffer_t **z_buffer);
 nw_error_t *buffer_ternary(ternary_operation_type_t operation_type, buffer_t *w_buffer, buffer_t *x_buffer, buffer_t *y_buffer, buffer_t **z_buffer);

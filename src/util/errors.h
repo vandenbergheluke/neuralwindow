@@ -689,6 +689,9 @@ typedef enum nw_error_type_t
     ERROR_CLIP_GRADIENT,
     ERROR_MAGNITUDE,
     ERROR_GENERATE,
+    ERROR_SAVE,
+    ERROR_WRITE,
+    ERROR_READ,
 } nw_error_type_t;
 
 typedef struct nw_error_t

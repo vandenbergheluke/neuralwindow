@@ -229,6 +229,12 @@ string_t error_type_string(nw_error_type_t error_type)
         return "ERROR_MAGNITUDE";
     case ERROR_GENERATE:
         return "ERROR_GENERATE";
+    case ERROR_SAVE:
+        return "ERROR_SAVE";
+    case ERROR_WRITE:
+        return "ERROR_SAVE";
+    case ERROR_READ: 
+        return "ERROR_READ";
     default:
         return "ERROR";
     }

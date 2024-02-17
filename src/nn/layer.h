@@ -42,6 +42,7 @@ typedef struct batch_normalization_2d_t
     tensor_t *running_mean;
     tensor_t *running_variance;
     bool_t inference;
+    datatype_t datatype;
 } batch_normalization_2d_t;
 
 typedef struct layer_normalization_t
@@ -51,6 +52,7 @@ typedef struct layer_normalization_t
     int64_t length;
     tensor_t *weights;
     tensor_t *bias;
+    datatype_t datatype;
 } layer_normalization_t;
 
 typedef struct reshape_t
@@ -83,6 +85,7 @@ typedef struct causal_multihead_self_attention_t
     int64_t embedding_size;
     void *dropout_probability;
     bool_t inference;
+    datatype_t datatype;
 } causal_multihead_self_attention_t;
 
 typedef union transform_t
@@ -234,5 +237,31 @@ nw_error_t *causal_multihead_self_attention_forward(causal_multihead_self_attent
 // Inference set
 nw_error_t *model_inference(model_t *model, bool_t inference);
 nw_error_t *block_inference(block_t *block, bool_t inference);
+
+// Save Model
+nw_error_t *model_save(model_t *model, string_t path);
+nw_error_t *block_save(block_t *block, FILE *file);
+nw_error_t *layer_save(layer_t *layer, FILE *file);
+nw_error_t *linear_save(linear_t *linear, FILE *file);
+nw_error_t *convolution_2d_save(convolution_2d_t *convolution_2d, FILE *file);
+nw_error_t *dropout_save(dropout_t *dropout, FILE *file);
+nw_error_t *batch_normalization_2d_save(batch_normalization_2d_t *batch_normalization_2d, FILE *file);
+nw_error_t *layer_normalization_save(layer_normalization_t *layer_normalization, FILE *file);
+nw_error_t *reshape_save(reshape_t *reshape, FILE *file);
+nw_error_t *embedding_save(embedding_t *embedding, FILE *file);
+nw_error_t *transformer_embedding_save(transformer_embedding_t *transformer_embedding, FILE *file);
+nw_error_t *causal_multihead_self_attention_save(causal_multihead_self_attention_t *causal_multihead_self_attention, FILE *file);
+nw_error_t *model_load(model_t **model, string_t path);
+nw_error_t *block_load(block_t **block, FILE *file);
+nw_error_t *layer_load(layer_t **layer, FILE *file);
+nw_error_t *linear_load(linear_t **linear, FILE *file);
+nw_error_t *convolution_2d_load(convolution_2d_t **convolution_2d, FILE *file);
+nw_error_t *dropout_load(dropout_t **dropout, FILE *file);
+nw_error_t *batch_normalization_2d_load(batch_normalization_2d_t **batch_normalization_2d, FILE *file);
+nw_error_t *layer_normalization_load(layer_normalization_t **layer_normalization, FILE *file);
+nw_error_t *reshape_load(reshape_t **reshape, FILE *file);
+nw_error_t *embedding_load(embedding_t **embedding, FILE *file);
+nw_error_t *transformer_embedding_load(transformer_embedding_t **transformer_embedding, FILE *file);
+nw_error_t *causal_multihead_self_attention_load(causal_multihead_self_attention_t **causal_multihead_self_attention, FILE *file);
 
 #endif
