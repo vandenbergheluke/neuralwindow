@@ -61,8 +61,8 @@ nw_error_t *tensor_reshape(const tensor_t *x, tensor_t **y, const int64_t *shape
 nw_error_t *tensor_permute(const tensor_t *x, tensor_t **y, int64_t *axis, int64_t length);
 nw_error_t *tensor_slice(const tensor_t *x, tensor_t **y, int64_t *arguments, int64_t length);
 nw_error_t *tensor_padding(const tensor_t *x, tensor_t **y, int64_t *arguments, int64_t length);
-nw_error_t *tensor_image_to_column(const tensor_t *x, tensor_t **y, int64_t kernel_size, int64_t stride, int64_t padding, int64_t channels, int64_t height, int64_t width);
-nw_error_t *tensor_column_to_image(const tensor_t *x, tensor_t **y, int64_t kernel_size, int64_t stride, int64_t padding, int64_t channels, int64_t height, int64_t width);
+nw_error_t *tensor_image_to_column(const tensor_t *x, tensor_t **y, int64_t kernel_size, int64_t stride, int64_t padding, int64_t channels, int64_t height, int64_t width, int64_t padding_value);
+nw_error_t *tensor_column_to_image(const tensor_t *x, tensor_t **y, int64_t kernel_size, int64_t stride, int64_t padding, int64_t channels, int64_t height, int64_t width, int64_t padding_value);
 nw_error_t *tensor_is_contiguous(const tensor_t *x, bool_t *is_contiguous);
 nw_error_t *tensor_number_of_elements(const tensor_t *x, int64_t *n);
 nw_error_t *tensor_transpose(const tensor_t *x, tensor_t **y, int64_t axis1, int64_t axis2);
@@ -103,6 +103,8 @@ nw_error_t *tensor_argument_maximum(const tensor_t *x, tensor_t **y, int64_t axi
 nw_error_t *tensor_variance(const tensor_t *x, tensor_t **y, const int64_t *axis, int64_t length, bool_t keep_dimension, bool_t unbiased);
 nw_error_t *tensor_standard_deviation(const tensor_t *x, tensor_t **y, const int64_t *axis, int64_t length, bool_t keep_dimension, bool_t unbiased);
 nw_error_t *tensor_magnitude(const tensor_t *x, tensor_t **y);
+nw_error_t *tensor_max_pool_2d(const tensor_t *x, tensor_t **y, int64_t kernel_size, int64_t stride, int64_t padding);
+nw_error_t *tensor_average_pool_2d(const tensor_t *x, tensor_t **y, int64_t kernel_size, int64_t stride, int64_t padding);
 
 // Unary Operations
 nw_error_t *tensor_contiguous(const tensor_t *x, tensor_t **y);

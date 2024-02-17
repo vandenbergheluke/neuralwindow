@@ -1577,6 +1577,7 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
         int64_t channels = arguments[3];
         int64_t height = arguments[4];
         int64_t width = arguments[5];
+        int64_t padding_value = arguments[6];
         int64_t output_height = (height + 2 * padding - kernel_size) / stride + 1;
         int64_t output_width = (width + 2 * padding - kernel_size) / stride + 1;
         runtime_t runtime = x->storage->runtime;
@@ -1586,13 +1587,35 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
         int64_t *shape = (im2col) ? 
                           (int64_t[]){batch_size, channels * kernel_size * kernel_size, output_height * output_width} :
                           (int64_t[]){batch_size, channels, height, width};
+        void *value = malloc(datatype_size(datatype));
+        if (!value)
+        {
+            return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size(datatype)), NULL);
+        }
+
+        switch (datatype)
+        {
+        case FLOAT32:
+            *(float32_t *) value = (float32_t) padding_value;
+            break;
+        case FLOAT64:
+            *(float64_t *) value = (float64_t) padding_value;
+            break;
+        default:
+            break;
+        }
+
         error = buffer_creation(ZEROES_OPERATION, result, shape, rank, NULL, 0, runtime, datatype, NULL, 0, NULL);
         if (error)
         {
+            free(value);
             return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
         }
         runtime_image_to_column(datatype, x->storage->data, batch_size, channels, height, width, kernel_size, 
-                                output_height, output_width, stride, padding, (*result)->storage->data, !im2col);
+                                output_height, output_width, stride, padding, (*result)->storage->data, !im2col, value);
+
+
+        free(value);
         return error;
     }
 
