@@ -2272,7 +2272,7 @@ static nw_error_t *image_to_column_operation_backward(tensor_t *x, int64_t *argu
     CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
-    if (length != 6)
+    if (length != 7)
     {
         return ERROR(ERROR_ARGUMENTS, string_create("invalid number of arguments."), NULL);
     }
@@ -2282,7 +2282,7 @@ static nw_error_t *image_to_column_operation_backward(tensor_t *x, int64_t *argu
 
     if (x->requires_gradient)
     {
-       error = tensor_column_to_image(gradient, &x_gradient, arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5]);
+       error = tensor_column_to_image(gradient, &x_gradient, arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5], arguments[6]);
        if (error)
        {
            error = ERROR(ERROR_COLUMN_TO_IMAGE, string_create("failed to apply column to image."), error);
@@ -2331,7 +2331,7 @@ static nw_error_t *column_to_image_operation_backward(tensor_t *x, int64_t *argu
     CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
     CHECK_NULL_ARGUMENT(gradient, "gradient");
     CHECK_NULL_ARGUMENT(arguments, "arguments");
-    if (length != 6)
+    if (length != 7)
     {
         return ERROR(ERROR_ARGUMENTS, string_create("invalid number of arguments."), NULL);
     }
@@ -2341,7 +2341,7 @@ static nw_error_t *column_to_image_operation_backward(tensor_t *x, int64_t *argu
 
     if (x->requires_gradient)
     {
-       error = tensor_image_to_column(gradient, &x_gradient, arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5]);
+       error = tensor_image_to_column(gradient, &x_gradient, arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5], arguments[6]);
        if (error)
        {
            error = ERROR(ERROR_IMAGE_TO_COLUMN, string_create("failed to apply image to column."), error);

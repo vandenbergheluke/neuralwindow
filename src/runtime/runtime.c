@@ -452,7 +452,7 @@ void runtime_reduction(reduction_operation_type_t reduction_operation_type, runt
 void runtime_image_to_column(datatype_t datatype, void *x_data, 
                              int64_t batch_size, int64_t channels, int64_t height, int64_t width, 
                              int64_t kernel_size, int64_t output_height, int64_t output_width,
-                             int64_t stride, int64_t padding, void *y_data, bool_t inverse)
+                             int64_t stride, int64_t padding, void *y_data, bool_t inverse, void *padding_value)
 {
     for (int64_t b = 0; b < batch_size; ++b)
     {
@@ -494,10 +494,10 @@ void runtime_image_to_column(datatype_t datatype, void *x_data,
                         switch (datatype)
                         {
                         case FLOAT32:
-                            ((float32_t *) y_data)[column_index] = (outside_boundary) ? (float32_t) 0.0 : ((float32_t *) x_data)[image_index];
+                            ((float32_t *) y_data)[column_index] = (outside_boundary) ? *(float32_t *) padding_value : ((float32_t *) x_data)[image_index];
                             break;
                         case FLOAT64:
-                            ((float64_t *) y_data)[column_index] = (outside_boundary) ? (float64_t) 0.0 : ((float64_t *) x_data)[image_index];
+                            ((float64_t *) y_data)[column_index] = (outside_boundary) ? *(float64_t *) padding_value : ((float64_t *) x_data)[image_index];
                             break;
                         default:
                             break;

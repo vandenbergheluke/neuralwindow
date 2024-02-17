@@ -154,6 +154,10 @@ nw_error_t *transform_create(transform_t **transform, transform_type_t transform
     case CONVOLUTION_TRANSPOSE_2D:
         (*transform)->convolution_2d = (convolution_2d_t *) type_transform;
         break;
+    case MAX_POOLING_2D:
+    case AVERAGE_POOLING_2D:
+        (*transform)->pooling_2d = (pooling_2d_t *) type_transform;
+        break;
     case DROPOUT:
         (*transform)->dropout = (dropout_t *) type_transform;
         break;
@@ -203,6 +207,10 @@ void transform_destroy(transform_t *transform, transform_type_t transform_type)
         case CONVOLUTION_TRANSPOSE_2D:
             convolution_2d_destroy(transform->convolution_2d);
             break;
+        case MAX_POOLING_2D:
+        case AVERAGE_POOLING_2D:
+            pooling_2d_destroy(transform->pooling_2d);
+            break;
         case DROPOUT:
             dropout_destroy(transform->dropout);
             break;
@@ -248,6 +256,10 @@ string_t transform_type_string(transform_type_t transform_type)
         return "CONVOLUTION_2D";
     case CONVOLUTION_TRANSPOSE_2D:
         return "CONVOLUTION_TRANSPOSE_2D";
+    case MAX_POOLING_2D:
+        return "MAX_POOLING_2D";
+    case AVERAGE_POOLING_2D:
+        return "AVERAGE_POOLING_2D";
     case DROPOUT:
         return "DROPOUT";
     case BATCH_NORMALIZATION_2D:
@@ -326,6 +338,31 @@ void convolution_2d_destroy(convolution_2d_t *convolution_2d)
         tensor_destroy(convolution_2d->kernel);
         tensor_destroy(convolution_2d->bias);
         free(convolution_2d);
+    }
+}
+
+nw_error_t *pooling_2d_create(pooling_2d_t **pooling_2d, int64_t padding, int64_t stride, int64_t kernel)
+{
+    CHECK_NULL_ARGUMENT(pooling_2d, "pooling_2d");
+
+    *pooling_2d = (pooling_2d_t *) malloc(sizeof(pooling_2d_t));
+    if (!*pooling_2d)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(pooling_2d_t)), NULL);
+    }
+
+    (*pooling_2d)->padding = padding;
+    (*pooling_2d)->stride = stride;
+    (*pooling_2d)->kernel = kernel;
+
+    return NULL;
+}
+
+void pooling_2d_destroy(pooling_2d_t *pooling_2d)
+{
+    if (pooling_2d)
+    {
+        free(pooling_2d);
     }
 }
 
@@ -903,6 +940,70 @@ nw_error_t *convolution_2d_layer_create(layer_t **layer, int64_t kernel_size, in
     if (error)
     {
         convolution_2d_destroy(convolution_2d);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *max_pooling_2d_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    pooling_2d_t *pooling_2d = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = MAX_POOLING_2D;
+
+    error = pooling_2d_create(&pooling_2d, padding, stride, kernel_size);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create pooling_2d layer."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) pooling_2d);
+    if (error)
+    {
+        pooling_2d_destroy(pooling_2d);
+        return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
+    }
+
+    error = layer_create(layer, transform, transform_type);
+    if (error)
+    {
+        transform_destroy(transform, transform_type);
+        return ERROR(ERROR_CREATE, string_create("failed to create layer."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *average_pooling_2d_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride)
+{
+    CHECK_NULL_ARGUMENT(layer, "layer");
+
+    nw_error_t *error = NULL;
+    pooling_2d_t *pooling_2d = NULL;
+    transform_t *transform = NULL;
+    transform_type_t transform_type = AVERAGE_POOLING_2D;
+
+    error = pooling_2d_create(&pooling_2d, padding, stride, kernel_size);
+    if (error)
+    {
+        return ERROR(ERROR_CREATE, string_create("failed to create pooling_2d layer."), error);
+    }
+
+    error = transform_create(&transform, transform_type, (void *) pooling_2d);
+    if (error)
+    {
+        pooling_2d_destroy(pooling_2d);
         return ERROR(ERROR_CREATE, string_create("failed to create transform."), error);
     }
 
@@ -1806,6 +1907,12 @@ nw_error_t *block_forward(block_t *block, tensor_t *x, tensor_t **y)
         case CONVOLUTION_TRANSPOSE_2D:
             error = convolution_transpose_2d_forward(transform->convolution_2d, x, &feature_map);
             break;
+        case MAX_POOLING_2D:
+            error = max_pooling_2d_forward(transform->pooling_2d, x, &feature_map);
+            break;
+        case AVERAGE_POOLING_2D:
+            error = average_pooling_2d_forward(transform->pooling_2d, x, &feature_map);
+            break;
         case DROPOUT:
             error = dropout_forward(transform->dropout, x, &feature_map);
             break;
@@ -1938,6 +2045,57 @@ nw_error_t *convolution_transpose_2d_forward(convolution_2d_t *convolution_2d, t
     PRINT_DEBUG_NEWLINE;
 
     return error;
+}
+
+nw_error_t *max_pooling_2d_forward(pooling_2d_t *pooling_2d, tensor_t *x, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(pooling_2d, "pooling_2d");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_max_pool_2d(x, y, pooling_2d->kernel, pooling_2d->stride, pooling_2d->padding);
+    if (error)
+    {
+        return ERROR(ERROR_POOLING, string_create("failed to apply pooling."), error);
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+    return error;
+}
+
+nw_error_t *average_pooling_2d_forward(pooling_2d_t *pooling_2d, tensor_t *x, tensor_t **y)
+{
+    PRINTLN_DEBUG_LOCATION("input");
+    PRINTLN_DEBUG_TENSOR("x", x);
+    PRINT_DEBUG_NEWLINE;
+
+    CHECK_NULL_ARGUMENT(pooling_2d, "pooling_2d");
+    CHECK_NULL_ARGUMENT(x, "x");
+    CHECK_NULL_ARGUMENT(y, "y");
+
+    nw_error_t *error = NULL;
+
+    error = tensor_average_pool_2d(x, y, pooling_2d->kernel, pooling_2d->stride, pooling_2d->padding);
+    if (error)
+    {
+        return ERROR(ERROR_POOLING, string_create("failed to apply pooling."), error);
+    }
+
+    PRINTLN_DEBUG_LOCATION("output");
+    PRINTLN_DEBUG_TENSOR("y", *y);
+    PRINT_DEBUG_NEWLINE;
+
+    return error;
+
 }
 
 nw_error_t *dropout_forward(dropout_t *dropout, tensor_t *x, tensor_t **y)
@@ -2359,6 +2517,10 @@ nw_error_t *layer_save(layer_t *layer, FILE *file)
     case CONVOLUTION_TRANSPOSE_2D:
         error = convolution_2d_save(layer->transform->convolution_2d, file);
         break;
+    case MAX_POOLING_2D:
+    case AVERAGE_POOLING_2D:
+        error = pooling_2d_save(layer->transform->pooling_2d, file);
+        break;
     case DROPOUT:
         error = dropout_save(layer->transform->dropout, file);
         break;
@@ -2447,6 +2609,31 @@ nw_error_t *convolution_2d_save(convolution_2d_t *convolution_2d, FILE *file)
     }
 
     if (!fwrite(&convolution_2d->stride, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    return error;
+}
+
+nw_error_t *pooling_2d_save(pooling_2d_t *pooling_2d, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(pooling_2d, "pooling_2d");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    if (!fwrite(&pooling_2d->kernel, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(&pooling_2d->padding, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(&pooling_2d->stride, sizeof(int64_t), 1, file))
     {
         return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
     }
@@ -2831,6 +3018,10 @@ nw_error_t *layer_load(layer_t **layer, FILE *file)
     case CONVOLUTION_TRANSPOSE_2D:
         error = convolution_2d_load(&(*layer)->transform->convolution_2d, file);
         break;
+    case MAX_POOLING_2D:
+    case AVERAGE_POOLING_2D:
+        error = pooling_2d_load(&(*layer)->transform->pooling_2d, file);
+        break;
     case DROPOUT:
         error = dropout_load(&(*layer)->transform->dropout, file);
         break;
@@ -2967,6 +3158,47 @@ nw_error_t *convolution_2d_load(convolution_2d_t **convolution_2d, FILE *file)
 cleanup:
 
     convolution_2d_destroy(*convolution_2d);
+
+    return error;
+}
+
+nw_error_t *pooling_2d_load(pooling_2d_t **pooling_2d, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(pooling_2d, "pooling_2d");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *pooling_2d = (pooling_2d_t *) malloc(sizeof(pooling_2d_t));
+    if (!*pooling_2d)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(pooling_2d_t)), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*pooling_2d)->kernel, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*pooling_2d)->padding, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*pooling_2d)->stride, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    pooling_2d_destroy(*pooling_2d);
 
     return error;
 }

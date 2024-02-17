@@ -662,6 +662,8 @@ nw_error_t *update_block(optimizer_t *optimizer, block_t *block)
         case CAUSAL_MULTIHEAD_SELF_ATTENTION:
             error = update_causal_multihead_self_attention(optimizer, transform->causal_multihead_self_attention);
             break;
+        case MAX_POOLING_2D:
+        case AVERAGE_POOLING_2D:
         case DROPOUT:
         case RESHAPE:
         case ACTIVATION:
@@ -1927,6 +1929,8 @@ nw_error_t *clip_gradient_norm_block(block_t *block, void *threshold)
         case CAUSAL_MULTIHEAD_SELF_ATTENTION:
             error = clip_gradient_norm_causal_multihead_self_attention(transform->causal_multihead_self_attention, threshold);
             break;
+        case MAX_POOLING_2D:
+        case AVERAGE_POOLING_2D:
         case DROPOUT:
         case RESHAPE:
         case ACTIVATION:
@@ -2236,6 +2240,8 @@ nw_error_t *zero_gradient_block(block_t *block)
         case CAUSAL_MULTIHEAD_SELF_ATTENTION:
             error = zero_gradient_causal_multihead_self_attention(transform->causal_multihead_self_attention);
             break;
+        case MAX_POOLING_2D:
+        case AVERAGE_POOLING_2D:
         case DROPOUT:
         case RESHAPE:
         case ACTIVATION:

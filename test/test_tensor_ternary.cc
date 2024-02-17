@@ -13,6 +13,7 @@ extern "C"
 
 #define CONVOLUTION_2D_CASES 3
 #define CONVOLUTION_TRANSPOSE_2D_CASES 3
+#define POOL_2D_CASES 3
 #define BATCH_NORMALIZATION_2D_CASES 3
 #define LAYER_NORMALIZATION_CASES 3
 #define CAUSAL_MULTIHEAD_SELF_ATTENTION_CASES 3
@@ -74,6 +75,30 @@ int64_t convolution_transpose_2d_stride[CONVOLUTION_TRANSPOSE_2D_CASES] = {
 int64_t convolution_transpose_2d_padding[CONVOLUTION_TRANSPOSE_2D_CASES] = {
     1,
     2,
+    3,
+};
+
+std::vector<int64_t> pool_2d_shapes_x[POOL_2D_CASES] = {
+    {5, 3, 6, 7},
+    {10, 4, 7, 7},
+    {2, 5, 8, 8},
+};
+
+int64_t pool_2d_kernel[POOL_2D_CASES] = {
+    3,
+    2,
+    6,
+};
+
+int64_t pool_2d_stride[POOL_2D_CASES] = {
+    2,
+    2,
+    1,
+};
+
+int64_t pool_2d_padding[POOL_2D_CASES] = {
+    1,
+    1,
     3,
 };
 
@@ -221,6 +246,8 @@ typedef enum tensor_ternary_operation_type_t
 {
     TENSOR_CONVOLUTION_2D,
     TENSOR_CONVOLUTION_TRANSPOSE_2D,
+    TENSOR_MAX_POOL_2D,
+    TENSOR_AVERAGE_POOL_2D,
     TENSOR_BATCH_NORMALIZATION_2D,
     TENSOR_LAYER_NORMALIZATION,
     TENSOR_CAUSAL_MULTIHEAD_SELF_ATTENTION,
@@ -234,6 +261,9 @@ int cases(tensor_ternary_operation_type_t tensor_ternary_operation_type)
         return CONVOLUTION_2D_CASES;
     case TENSOR_CONVOLUTION_TRANSPOSE_2D:
         return CONVOLUTION_TRANSPOSE_2D_CASES;
+    case TENSOR_MAX_POOL_2D:
+    case TENSOR_AVERAGE_POOL_2D:
+        return POOL_2D_CASES;
     case TENSOR_BATCH_NORMALIZATION_2D:
         return BATCH_NORMALIZATION_2D_CASES;
     case TENSOR_LAYER_NORMALIZATION:
@@ -253,6 +283,9 @@ std::vector<int64_t> shapes_x(tensor_ternary_operation_type_t tensor_ternary_ope
         return convolution_2d_shapes_x[i];
     case TENSOR_CONVOLUTION_TRANSPOSE_2D:
         return convolution_transpose_2d_shapes_x[i];
+    case TENSOR_MAX_POOL_2D:
+    case TENSOR_AVERAGE_POOL_2D:
+        return pool_2d_shapes_x[i];
     case TENSOR_BATCH_NORMALIZATION_2D:
         return batch_normalization_2d_shapes_x[i];
     case TENSOR_LAYER_NORMALIZATION:
@@ -310,6 +343,9 @@ int64_t stride(tensor_ternary_operation_type_t tensor_ternary_operation_type, in
         return convolution_2d_stride[i];
     case TENSOR_CONVOLUTION_TRANSPOSE_2D:
         return convolution_transpose_2d_stride[i];
+    case TENSOR_MAX_POOL_2D:
+    case TENSOR_AVERAGE_POOL_2D:
+        return pool_2d_stride[i];
     default:
         return 0;
     }
@@ -323,6 +359,9 @@ int64_t padding(tensor_ternary_operation_type_t tensor_ternary_operation_type, i
         return convolution_2d_padding[i];
     case TENSOR_CONVOLUTION_TRANSPOSE_2D:
         return convolution_transpose_2d_padding[i];
+    case TENSOR_MAX_POOL_2D:
+    case TENSOR_AVERAGE_POOL_2D:
+        return pool_2d_padding[i];
     default:
         return 0;
     }
@@ -351,6 +390,8 @@ void setup(tensor_ternary_operation_type_t tensor_ternary_operation_type)
             {
             case TENSOR_CONVOLUTION_2D:
             case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+            case TENSOR_MAX_POOL_2D:
+            case TENSOR_AVERAGE_POOL_2D:
             case TENSOR_LAYER_NORMALIZATION:
                 break;
             case TENSOR_BATCH_NORMALIZATION_2D:
@@ -387,6 +428,8 @@ void setup(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                 {
                 case TENSOR_CONVOLUTION_2D:
                 case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+                case TENSOR_MAX_POOL_2D:
+                case TENSOR_AVERAGE_POOL_2D:
                 case TENSOR_LAYER_NORMALIZATION:
                     break;
                 case TENSOR_BATCH_NORMALIZATION_2D:
@@ -415,6 +458,8 @@ void setup(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                     {
                     case TENSOR_CONVOLUTION_2D:
                     case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+                    case TENSOR_MAX_POOL_2D:
+                    case TENSOR_AVERAGE_POOL_2D:
                     case TENSOR_LAYER_NORMALIZATION:
                         break;
                     case TENSOR_BATCH_NORMALIZATION_2D:
@@ -437,6 +482,8 @@ void setup(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                     {
                     case TENSOR_CONVOLUTION_2D:
                     case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+                    case TENSOR_MAX_POOL_2D:
+                    case TENSOR_AVERAGE_POOL_2D:
                     case TENSOR_LAYER_NORMALIZATION:
                         break;
                     case TENSOR_BATCH_NORMALIZATION_2D:
@@ -465,6 +512,8 @@ void setup(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                 {
                 case TENSOR_CONVOLUTION_2D:
                 case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+                case TENSOR_MAX_POOL_2D:
+                case TENSOR_AVERAGE_POOL_2D:
                 case TENSOR_LAYER_NORMALIZATION:
                     break;
                 case TENSOR_BATCH_NORMALIZATION_2D:
@@ -506,6 +555,8 @@ void teardown(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                 {
                 case TENSOR_CONVOLUTION_2D:
                 case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+                case TENSOR_MAX_POOL_2D:
+                case TENSOR_AVERAGE_POOL_2D:
                 case TENSOR_LAYER_NORMALIZATION:
                     break;
                 case TENSOR_BATCH_NORMALIZATION_2D:
@@ -557,6 +608,16 @@ void test_ternary(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                                                                             torch::nn::functional::ConvTranspose2dFuncOptions().padding(padding(tensor_ternary_operation_type, k))
                                                                                                                                 .stride(stride(tensor_ternary_operation_type, k))
                                                                                                                                 .bias(torch_tensors_bias[i][j][k]));
+                    break;
+                case TENSOR_MAX_POOL_2D:
+                    expected_tensor = torch::nn::functional::max_pool2d(torch_tensors_x[i][j][k], torch::nn::functional::MaxPool2dFuncOptions(pool_2d_kernel[k])
+                                                                                                                                .padding(padding(tensor_ternary_operation_type, k))
+                                                                                                                                .stride(stride(tensor_ternary_operation_type, k)));
+                    break;
+                case TENSOR_AVERAGE_POOL_2D:
+                    expected_tensor = torch::nn::functional::avg_pool2d(torch_tensors_x[i][j][k], torch::nn::functional::AvgPool2dFuncOptions(pool_2d_kernel[k])
+                                                                                                                                .padding(padding(tensor_ternary_operation_type, k))
+                                                                                                                                .stride(stride(tensor_ternary_operation_type, k)));
                     break;
                 case TENSOR_BATCH_NORMALIZATION_2D:
                     switch (datatype)
@@ -634,6 +695,12 @@ void test_ternary(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                                                          &returned_tensors[i][j][k], stride(tensor_ternary_operation_type, k), 
                                                          padding(tensor_ternary_operation_type, k));
                     break;
+                case TENSOR_MAX_POOL_2D:
+                    error = tensor_max_pool_2d(tensors_x[i][j][k], &returned_tensors[i][j][k], pool_2d_kernel[k], stride(tensor_ternary_operation_type, k), padding(tensor_ternary_operation_type, k));
+                    break;
+                case TENSOR_AVERAGE_POOL_2D:
+                    error = tensor_average_pool_2d(tensors_x[i][j][k], &returned_tensors[i][j][k], pool_2d_kernel[k], stride(tensor_ternary_operation_type, k), padding(tensor_ternary_operation_type, k));
+                    break;
                 case TENSOR_BATCH_NORMALIZATION_2D:
                     switch (datatype)
                     {
@@ -684,6 +751,8 @@ void test_ternary(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                 {
                 case TENSOR_CONVOLUTION_2D:
                 case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+                case TENSOR_MAX_POOL_2D:
+                case TENSOR_AVERAGE_POOL_2D:
                 case TENSOR_LAYER_NORMALIZATION:
                 case TENSOR_CAUSAL_MULTIHEAD_SELF_ATTENTION:
                     break;
@@ -703,9 +772,6 @@ void test_ternary(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                 }
 
                 expected_tensor.sum().backward();
-                expected_gradients_x[i][j][k] = torch_to_tensor(torch_tensors_x[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
-                expected_gradients_weights[i][j][k] = torch_to_tensor(torch_tensors_weights[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
-                expected_gradients_bias[i][j][k] = torch_to_tensor(torch_tensors_bias[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
 
                 tensor_t *cost = NULL;
                 error = tensor_summation(returned_tensors[i][j][k], &cost, NULL, 0, false);
@@ -713,22 +779,27 @@ void test_ternary(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                 error = tensor_backward(cost, NULL);
                 ck_assert_ptr_null(error);
 
-                ck_assert_tensor_equiv(tensors_x[i][j][k]->gradient, expected_gradients_x[i][j][k]);
-                ck_assert_tensor_equiv(tensors_weights[i][j][k]->gradient, expected_gradients_weights[i][j][k]);
-                ck_assert_tensor_equiv(tensors_bias[i][j][k]->gradient, expected_gradients_bias[i][j][k]);
-
                 switch (tensor_ternary_operation_type)
                 {
-                case TENSOR_CONVOLUTION_2D:
-                case TENSOR_CONVOLUTION_TRANSPOSE_2D:
-                case TENSOR_LAYER_NORMALIZATION:
-                case TENSOR_BATCH_NORMALIZATION_2D:
-                    break;
                 case TENSOR_CAUSAL_MULTIHEAD_SELF_ATTENTION:
                     expected_gradients_output_weights[i][j][k] = torch_to_tensor(torch_output_weights[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
                     expected_gradients_output_bias[i][j][k] = torch_to_tensor(torch_output_bias[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
                     ck_assert_tensor_equiv(output_weights[i][j][k]->gradient, expected_gradients_output_weights[i][j][k]);
                     ck_assert_tensor_equiv(output_bias[i][j][k]->gradient, expected_gradients_output_bias[i][j][k]);
+                    // fallthrough
+                case TENSOR_CONVOLUTION_2D:
+                case TENSOR_CONVOLUTION_TRANSPOSE_2D:
+                case TENSOR_LAYER_NORMALIZATION:
+                case TENSOR_BATCH_NORMALIZATION_2D:
+                    expected_gradients_weights[i][j][k] = torch_to_tensor(torch_tensors_weights[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
+                    expected_gradients_bias[i][j][k] = torch_to_tensor(torch_tensors_bias[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
+                    ck_assert_tensor_equiv(tensors_weights[i][j][k]->gradient, expected_gradients_weights[i][j][k]);
+                    ck_assert_tensor_equiv(tensors_bias[i][j][k]->gradient, expected_gradients_bias[i][j][k]);
+                    // fallthrough
+                case TENSOR_MAX_POOL_2D:
+                case TENSOR_AVERAGE_POOL_2D:
+                    expected_gradients_x[i][j][k] = torch_to_tensor(torch_tensors_x[i][j][k].grad(), (runtime_t) i, (datatype_t) j);
+                    ck_assert_tensor_equiv(tensors_x[i][j][k]->gradient, expected_gradients_x[i][j][k]);
                     break;
                 default:
                     ck_abort_msg("unsupported operation type.");
@@ -756,6 +827,26 @@ void setup_convolution_transpose_2d(void)
 void teardown_convolution_transpose_2d(void)
 {
     teardown(TENSOR_CONVOLUTION_TRANSPOSE_2D);
+}
+
+void setup_max_pool_2d(void)
+{
+    setup(TENSOR_MAX_POOL_2D);
+}
+
+void teardown_max_pool_2d(void)
+{
+    teardown(TENSOR_MAX_POOL_2D);
+}
+
+void setup_average_pool_2d(void)
+{
+    setup(TENSOR_AVERAGE_POOL_2D);
+}
+
+void teardown_average_pool_2d(void)
+{
+    teardown(TENSOR_AVERAGE_POOL_2D);
 }
 
 void setup_batch_normalization_2d(void)
@@ -800,6 +891,18 @@ START_TEST(test_tensor_convolution_transpose_2d)
 }
 END_TEST
 
+START_TEST(test_tensor_max_pool_2d)
+{
+    test_ternary(TENSOR_MAX_POOL_2D);
+}
+END_TEST
+
+START_TEST(test_tensor_average_pool_2d)
+{
+    test_ternary(TENSOR_AVERAGE_POOL_2D);
+}
+END_TEST
+
 START_TEST(test_tensor_batch_normalization_2d)
 {
     test_ternary(TENSOR_BATCH_NORMALIZATION_2D);
@@ -823,6 +926,8 @@ Suite *make_ternary_suite(void)
     Suite *s;
     TCase *tc_convolution_2d;
     TCase *tc_convolution_transpose_2d;
+    TCase *tc_max_pool_2d;
+    TCase *tc_average_pool_2d;
     TCase *tc_batch_normalization_2d;
     TCase *tc_layer_normalization;
     TCase *tc_causal_multihead_self_attention;
@@ -836,6 +941,14 @@ Suite *make_ternary_suite(void)
     tc_convolution_transpose_2d = tcase_create("Test Convolution Transpose Case");
     tcase_add_checked_fixture(tc_convolution_transpose_2d, setup_convolution_transpose_2d, teardown_convolution_transpose_2d);
     tcase_add_test(tc_convolution_transpose_2d, test_tensor_convolution_transpose_2d);
+
+    tc_max_pool_2d = tcase_create("Test Max Pool Case");
+    tcase_add_checked_fixture(tc_max_pool_2d, setup_max_pool_2d, teardown_max_pool_2d);
+    tcase_add_test(tc_max_pool_2d, test_tensor_max_pool_2d);
+
+    tc_average_pool_2d = tcase_create("Test Average Pool Case");
+    tcase_add_checked_fixture(tc_average_pool_2d, setup_average_pool_2d, teardown_average_pool_2d);
+    tcase_add_test(tc_average_pool_2d, test_tensor_average_pool_2d);
 
     tc_batch_normalization_2d = tcase_create("Test Batch Normalization 2D Case");
     tcase_add_checked_fixture(tc_batch_normalization_2d, setup_batch_normalization_2d, teardown_batch_normalization_2d);
@@ -851,6 +964,8 @@ Suite *make_ternary_suite(void)
 
     suite_add_tcase(s, tc_convolution_2d);
     suite_add_tcase(s, tc_convolution_transpose_2d);
+    suite_add_tcase(s, tc_max_pool_2d);
+    suite_add_tcase(s, tc_average_pool_2d);
     suite_add_tcase(s, tc_batch_normalization_2d);
     suite_add_tcase(s, tc_layer_normalization);
     suite_add_tcase(s, tc_causal_multihead_self_attention);

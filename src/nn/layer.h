@@ -25,6 +25,13 @@ typedef struct convolution_2d_t
     tensor_t *bias;
 } convolution_2d_t;
 
+typedef struct pooling_2d_t
+{
+    int64_t padding;
+    int64_t stride;
+    int64_t kernel;
+} pooling_2d_t;
+
 typedef struct dropout_t
 {
     void *probability;
@@ -92,6 +99,7 @@ typedef union transform_t
 {
     linear_t *linear;
     convolution_2d_t *convolution_2d;
+    pooling_2d_t *pooling_2d;
     dropout_t *dropout;
     batch_normalization_2d_t *batch_normalization_2d;
     layer_normalization_t *layer_normalization;
@@ -108,6 +116,8 @@ typedef enum transform_type_t
     LINEAR,
     CONVOLUTION_2D,
     CONVOLUTION_TRANSPOSE_2D,
+    MAX_POOLING_2D,
+    AVERAGE_POOLING_2D,
     DROPOUT,
     BATCH_NORMALIZATION_2D,
     LAYER_NORMALIZATION,
@@ -158,6 +168,9 @@ void linear_destroy(linear_t *linear);
 nw_error_t *convolution_2d_create(convolution_2d_t **convolution_2d, int64_t padding, int64_t stride, tensor_t *kernel, tensor_t *bias);
 void convolution_2d_destroy(convolution_2d_t *convolution_2d);
 
+nw_error_t *pooling_2d_create(pooling_2d_t **pooling_2d, int64_t padding, int64_t stride, int64_t kernel);
+void pooling_2d_destroy(pooling_2d_t *pooling_2d);
+
 nw_error_t *dropout_create(dropout_t **dropout, void *probability, datatype_t datatype);
 void dropout_destroy(dropout_t *dropout);
 
@@ -189,6 +202,8 @@ nw_error_t *linear_layer_create_from_parameters(layer_t **layer, tensor_t *weigh
 nw_error_t *convolution_2d_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride, int64_t in_channels, int64_t out_channels, 
                                         runtime_t runtime, datatype_t datatype, parameter_init_t *kernel_init, parameter_init_t *bias_init);
 nw_error_t *convolution_2d_layer_create_from_parameters(layer_t **layer, int64_t padding, int64_t stride, tensor_t *kernel, tensor_t *bias);
+nw_error_t *max_pooling_2d_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride);
+nw_error_t *average_pooling_2d_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride);
 nw_error_t *convolution_transpose_2d_layer_create(layer_t **layer, int64_t kernel_size, int64_t padding, int64_t stride, int64_t in_channels, int64_t out_channels,
                                                   runtime_t runtime, datatype_t datatype, parameter_init_t *kernel_init, parameter_init_t *bias_init);
 nw_error_t *convolution_transpose_2d_layer_create_from_parameters(layer_t **layer, int64_t padding, int64_t stride, tensor_t *kernel, tensor_t *bias);
@@ -226,6 +241,8 @@ nw_error_t *residual_block_forward(block_t *block, tensor_t *x, tensor_t **y);
 nw_error_t *linear_forward(linear_t *linear, tensor_t *x, tensor_t **y);
 nw_error_t *convolution_2d_forward(convolution_2d_t *convolution_2d, tensor_t *x, tensor_t **y);
 nw_error_t *convolution_transpose_2d_forward(convolution_2d_t *convolution_2d, tensor_t *x, tensor_t **y);
+nw_error_t *max_pooling_2d_forward(pooling_2d_t *pooling_2d, tensor_t *x, tensor_t **y);
+nw_error_t *average_pooling_2d_forward(pooling_2d_t *pooling_2d, tensor_t *x, tensor_t **y);
 nw_error_t *dropout_forward(dropout_t *dropout, tensor_t *x, tensor_t **y);
 nw_error_t *batch_normalization_2d_forward(batch_normalization_2d_t *batch_normalization_2d, tensor_t *x, tensor_t **y);
 nw_error_t *layer_normalization_forward(layer_normalization_t *layer_normalization, tensor_t *x, tensor_t **y);
@@ -244,6 +261,7 @@ nw_error_t *block_save(block_t *block, FILE *file);
 nw_error_t *layer_save(layer_t *layer, FILE *file);
 nw_error_t *linear_save(linear_t *linear, FILE *file);
 nw_error_t *convolution_2d_save(convolution_2d_t *convolution_2d, FILE *file);
+nw_error_t *pooling_2d_save(pooling_2d_t *pooling_2d, FILE *file);
 nw_error_t *dropout_save(dropout_t *dropout, FILE *file);
 nw_error_t *batch_normalization_2d_save(batch_normalization_2d_t *batch_normalization_2d, FILE *file);
 nw_error_t *layer_normalization_save(layer_normalization_t *layer_normalization, FILE *file);
@@ -256,6 +274,7 @@ nw_error_t *block_load(block_t **block, FILE *file);
 nw_error_t *layer_load(layer_t **layer, FILE *file);
 nw_error_t *linear_load(linear_t **linear, FILE *file);
 nw_error_t *convolution_2d_load(convolution_2d_t **convolution_2d, FILE *file);
+nw_error_t *pooling_2d_load(pooling_2d_t **pooling_2d, FILE *file);
 nw_error_t *dropout_load(dropout_t **dropout, FILE *file);
 nw_error_t *batch_normalization_2d_load(batch_normalization_2d_t **batch_normalization_2d, FILE *file);
 nw_error_t *layer_normalization_load(layer_normalization_t **layer_normalization, FILE *file);
