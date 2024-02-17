@@ -6,7 +6,218 @@
 #include <buffer.h>
 #include <tensor.h>
 #include <function.h>
+#include <layer.h>
 #include <test_helper.h>
+
+void ck_assert_model_eq(const model_t *returned, const model_t *expected)
+{
+    ck_assert_ptr_nonnull(returned);
+    ck_assert_ptr_nonnull(expected);
+
+    ck_assert_block_eq(returned->block, expected->block);
+}
+
+void ck_assert_block_eq(const block_t *returned, const block_t *expected)
+{
+    ck_assert_ptr_nonnull(returned);
+    ck_assert_ptr_nonnull(expected);
+    ck_assert_int_eq(returned->depth, expected->depth);
+    for (int64_t i = 0; i < expected->depth; ++i)
+    {
+        ck_assert_layer_eq(returned->layers[i], expected->layers[i]);
+    }
+}
+
+void ck_assert_layer_eq(const layer_t *returned, const layer_t *expected)
+{
+    ck_assert_int_eq(returned->transform_type, expected->transform_type);
+    ck_assert_ptr_nonnull(returned->transform);
+    ck_assert_ptr_nonnull(expected->transform);
+
+    switch (expected->transform_type)
+    {
+    case LINEAR:
+        ck_assert_linear_eq(returned->transform->linear, expected->transform->linear);
+        break;
+    case CONVOLUTION_2D:
+    case CONVOLUTION_TRANSPOSE_2D:
+        ck_assert_convolution_2d_eq(returned->transform->convolution_2d, expected->transform->convolution_2d);
+        break;
+    case DROPOUT:
+        ck_assert_dropout_eq(returned->transform->dropout, expected->transform->dropout);
+        break;
+    case BATCH_NORMALIZATION_2D:
+        ck_assert_batch_normalization_2d_eq(returned->transform->batch_normalization_2d, expected->transform->batch_normalization_2d);
+        break;
+    case RESHAPE:
+        ck_assert_reshape_eq(returned->transform->reshape, expected->transform->reshape);
+        break;
+    case LAYER_NORMALIZATION:
+        ck_assert_layer_normalization_eq(returned->transform->layer_normalization, expected->transform->layer_normalization);
+        break;
+    case EMBEDDING:
+        ck_assert_embedding_eq(returned->transform->embedding, expected->transform->embedding);
+        break;
+    case TRANSFORMER_EMBEDDING:
+        ck_assert_transformer_embedding_eq(returned->transform->transformer_embedding, expected->transform->transformer_embedding);
+        break;
+    case CAUSAL_MULTIHEAD_SELF_ATTENTION:
+        ck_assert_causal_multihead_self_attention_eq(returned->transform->causal_multihead_self_attention, expected->transform->causal_multihead_self_attention);
+        break;
+    case ACTIVATION:
+        ck_assert_activation_eq(returned->transform->activation, expected->transform->activation);
+        break;
+    case RESIDUAL_BLOCK:
+    case BLOCK:
+        ck_assert_block_eq(returned->transform->block, expected->transform->block);
+        break;
+    default:
+        ck_abort_msg("unknown transform type.");
+        break;
+    }
+}
+
+void ck_assert_linear_eq(const linear_t *returned, const linear_t *expected)
+{
+    ck_assert_ptr_nonnull(returned);
+    ck_assert_ptr_nonnull(expected);
+    ck_assert_tensor_equiv(returned->weights, expected->weights);
+    ck_assert_tensor_equiv(returned->bias, expected->bias);
+}
+
+void ck_assert_convolution_2d_eq(const convolution_2d_t *returned, const convolution_2d_t *expected)
+{
+    ck_assert_ptr_nonnull(returned);
+    ck_assert_ptr_nonnull(expected);
+    ck_assert_tensor_equiv(returned->kernel, expected->kernel);
+    ck_assert_tensor_equiv(returned->bias, expected->bias);
+    ck_assert_int_eq(returned->padding, expected->padding);
+    ck_assert_int_eq(returned->stride, expected->stride);
+}
+
+void ck_assert_dropout_eq(const dropout_t *returned, const dropout_t *expected)
+{
+    ck_assert_ptr_nonnull(returned);
+    ck_assert_ptr_nonnull(expected);
+    ck_assert_int_eq(returned->datatype, expected->datatype);
+    ck_assert_element_eq(returned->probability, 0, expected->probability, 0, expected->datatype, NULL);
+    ck_assert(returned->inference == expected->inference);
+}
+
+void ck_assert_batch_normalization_2d_eq(const batch_normalization_2d_t *returned, const batch_normalization_2d_t *expected)
+{
+    ck_assert_ptr_nonnull(returned);
+    ck_assert_ptr_nonnull(expected);
+    ck_assert_int_eq(returned->datatype, expected->datatype);
+    ck_assert_tensor_equiv(returned->weights, expected->weights);
+    ck_assert_tensor_equiv(returned->bias, expected->bias);
+    ck_assert_tensor_equiv(returned->running_mean, expected->running_mean);
+    ck_assert_tensor_equiv(returned->running_variance, expected->running_variance);
+    ck_assert(returned->inference == expected->inference);
+    ck_assert(returned->track_running_stats == expected->track_running_stats);
+    ck_assert_element_eq(returned->epsilon, 0, expected->epsilon, 0, expected->datatype, NULL);
+    ck_assert_element_eq(returned->momentum, 0, expected->momentum, 0, expected->datatype, NULL);
+}
+
+void ck_assert_reshape_eq(const reshape_t *returned, const reshape_t *expected)
+{
+    ck_assert_ptr_nonnull(returned);
+    ck_assert_ptr_nonnull(expected);
+
+    ck_assert_int_eq(returned->length, expected->length);
+    for (int64_t i = 0; i < expected->length; ++i)
+    {
+        ck_assert_int_eq(returned->shape[i], expected->shape[i]);
+    }
+}
+
+void ck_assert_layer_normalization_eq(const layer_normalization_t *returned, const layer_normalization_t *expected)
+{
+    ck_assert_ptr_nonnull(returned);
+    ck_assert_ptr_nonnull(expected);
+    ck_assert_int_eq(returned->datatype, expected->datatype);
+    ck_assert_element_eq(returned->epsilon, 0, expected->epsilon, 0, expected->datatype, NULL);
+    ck_assert_tensor_equiv(returned->weights, expected->weights);
+    ck_assert_tensor_equiv(returned->bias, expected->bias);
+    ck_assert_int_eq(returned->length, expected->length);
+    for (int64_t i = 0; i < expected->length; ++i)
+    {
+        ck_assert_int_eq(returned->normalized_shape[i], expected->normalized_shape[i]);
+    }
+}
+
+void ck_assert_embedding_eq(const embedding_t *returned, const embedding_t *expected)
+{
+    ck_assert_ptr_nonnull(returned);
+    ck_assert_ptr_nonnull(expected);
+    ck_assert_tensor_equiv(returned->weights, expected->weights);
+    ck_assert_tensor_equiv(returned->vocabulary_counter, expected->vocabulary_counter);
+    ck_assert_int_eq(returned->embedding_size, expected->embedding_size);
+    ck_assert_int_eq(returned->vocabulary_size, expected->vocabulary_size);
+}
+
+void ck_assert_transformer_embedding_eq(const transformer_embedding_t *returned, const transformer_embedding_t *expected)
+{
+    ck_assert_ptr_nonnull(returned);
+    ck_assert_ptr_nonnull(expected);
+    ck_assert_embedding_eq(returned->position_embedding, expected->position_embedding);
+    ck_assert_embedding_eq(returned->token_embedding, expected->token_embedding);
+}
+
+void ck_assert_causal_multihead_self_attention_eq(const causal_multihead_self_attention_t *returned, const causal_multihead_self_attention_t *expected)
+{
+    ck_assert_ptr_nonnull(returned);
+    ck_assert_ptr_nonnull(expected);
+    ck_assert_tensor_equiv(returned->input_weights, expected->input_weights);
+    ck_assert_tensor_equiv(returned->input_bias, expected->input_bias);
+    ck_assert_tensor_equiv(returned->output_weights, expected->output_weights);
+    ck_assert_tensor_equiv(returned->output_bias, expected->output_bias);
+    ck_assert_int_eq(returned->embedding_size, expected->embedding_size);
+    ck_assert_int_eq(returned->number_of_heads, expected->number_of_heads);
+    ck_assert(returned->inference == expected->inference);
+    ck_assert_int_eq(returned->datatype, expected->datatype);
+    ck_assert_element_eq(returned->dropout_probability, 0, expected->dropout_probability, 0, expected->datatype, NULL);
+}
+
+void ck_assert_activation_eq(const activation_t *returned, const activation_t *expected)
+{
+    ck_assert_ptr_nonnull(returned);
+    ck_assert_ptr_nonnull(expected);
+    ck_assert_int_eq(returned->activation_function_type, expected->activation_function_type);
+    switch (expected->activation_function_type)
+    {
+    case ACTIVATION_RECTIFIED_LINEAR:
+    case ACTIVATION_SIGMOID:
+    case ACTIVATION_TANH:
+    case ACTIVATION_GELU:
+        break;
+    case ACTIVATION_SOFTMAX:
+    case ACTIVATION_LOGSOFTMAX:
+        ck_assert_softmax_eq(returned->activation_function->softmax, expected->activation_function->softmax);
+        break;
+    case ACTIVATION_LEAKY_RECTIFIED_LINEAR:
+        ck_assert_leaky_rectified_linear_eq(returned->activation_function->leaky_rectified_linear, expected->activation_function->leaky_rectified_linear);
+        break;
+    default:
+        ck_abort_msg("unknown activaton function type");
+        break;
+    }
+}
+
+void ck_assert_softmax_eq(const softmax_t *returned, const softmax_t *expected)
+{
+    ck_assert_ptr_nonnull(returned);
+    ck_assert_ptr_nonnull(expected);
+    ck_assert_int_eq(returned->axis, expected->axis);
+}
+
+void ck_assert_leaky_rectified_linear_eq(const leaky_rectified_linear_t *returned, const leaky_rectified_linear_t *expected)
+{
+    ck_assert_ptr_nonnull(returned);
+    ck_assert_ptr_nonnull(expected);
+    ck_assert_int_eq(returned->datatype, expected->datatype);
+    ck_assert_element_eq(returned->c, 0, expected->c, 0, expected->datatype, NULL);
+}
 
 static inline float32_t get_epsilon_float(float32_t a, float32_t b, float32_t abs_epsilon_f)
 {
@@ -265,6 +476,12 @@ static void _ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tenso
     PRINTLN_DEBUG_TENSOR("returned", returned_tensor);
     PRINTLN_DEBUG_TENSOR("expected", expected_tensor);
     PRINT_DEBUG_NEWLINE;
+
+    if (!expected_tensor)
+    {
+        ck_assert_ptr_null(returned_tensor);
+        return;
+    }
 
     ck_assert_ptr_nonnull(expected_tensor->buffer);
     ck_assert_ptr_nonnull(expected_tensor->buffer->view);

@@ -310,6 +310,102 @@ void view_destroy(view_t *view)
     }
 }
 
+nw_error_t *view_save(view_t *view, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(view, "view");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    if (!fwrite(&view->rank, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(&view->offset, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(view->shape, sizeof(int64_t), view->rank, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(view->strides, sizeof(int64_t), view->rank, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    return NULL;
+}
+
+nw_error_t *view_load(view_t **view, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(view, "view");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    // View
+    *view = (view_t *) malloc(sizeof(view_t));
+    if (!*view)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate view of size %zu.", sizeof(view_t)), NULL);
+        goto cleanup;
+    } 
+
+    // Initialize
+    (*view)->shape = NULL;
+    (*view)->strides = NULL;
+
+    if (!fread(&(*view)->rank, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*view)->offset, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    size_t size = (*view)->rank * sizeof(int64_t);
+
+    (*view)->shape = (int64_t *) malloc(size);
+    if (!(*view)->shape)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    (*view)->strides = (int64_t *) malloc(size);
+    if (!(*view)->strides)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    if (!fread((*view)->shape, sizeof(int64_t), (*view)->rank, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread((*view)->strides, sizeof(int64_t), (*view)->rank, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    view_destroy(*view);
+    
+    return error;
+}
+
 nw_error_t *view_create_contiguous(view_t **view, const int64_t *shape, int64_t rank)
 {
     CHECK_NULL_ARGUMENT(view, "view");

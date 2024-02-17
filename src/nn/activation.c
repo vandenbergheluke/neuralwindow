@@ -415,3 +415,207 @@ nw_error_t *activation_forward(activation_t *activation, tensor_t *x, tensor_t *
 
     return error;
 }
+
+nw_error_t *activation_save(activation_t *activation, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(activation, "activation");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    if (!fwrite(&activation->activation_function_type, sizeof(activation_function_type_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    switch (activation->activation_function_type)
+    {
+    case ACTIVATION_RECTIFIED_LINEAR:
+    case ACTIVATION_SIGMOID:
+    case ACTIVATION_TANH:
+    case ACTIVATION_GELU:
+        break;
+    case ACTIVATION_SOFTMAX:
+    case ACTIVATION_LOGSOFTMAX:
+        error = softmax_save(activation->activation_function->softmax, file);
+        break;
+    case ACTIVATION_LEAKY_RECTIFIED_LINEAR:
+        error = leaky_rectified_linear_save(activation->activation_function->leaky_rectified_linear, file);
+        break;
+    default:
+        error = ERROR(ERROR_ACTIVATION_TYPE, string_create("unknown activation type %d.", (int) activation->activation_function_type), NULL);
+        break;
+    }
+
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save activation function."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *softmax_save(softmax_t *softmax, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(softmax, "softmax");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    if (!fwrite(&softmax->axis, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    return NULL;
+}
+
+nw_error_t *leaky_rectified_linear_save(leaky_rectified_linear_t *leaky_rectified_linear, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(leaky_rectified_linear, "leaky_rectified_linear");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    if (!fwrite(&leaky_rectified_linear->datatype, sizeof(datatype_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(leaky_rectified_linear->c, datatype_size(leaky_rectified_linear->datatype), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    return NULL;
+}
+
+nw_error_t *activation_load(activation_t **activation, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(activation, "activation");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *activation = (activation_t *) malloc(sizeof(activation_t));
+    if (!*activation)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(activation_t)), NULL);
+        goto cleanup;
+    }
+
+    (*activation)->activation_function = NULL;
+
+    if (!fread(&(*activation)->activation_function_type, sizeof(activation_function_type_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    (*activation)->activation_function = (activation_function_t *) malloc(sizeof(activation_function_t));
+    if (!(*activation)->activation_function)
+    {
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(activation_function_t)), NULL);
+    }
+
+    switch ((*activation)->activation_function_type)
+    {
+    case ACTIVATION_RECTIFIED_LINEAR:
+    case ACTIVATION_SIGMOID:
+    case ACTIVATION_TANH:
+    case ACTIVATION_GELU:
+        break;
+    case ACTIVATION_SOFTMAX:
+    case ACTIVATION_LOGSOFTMAX:
+        error = softmax_load(&(*activation)->activation_function->softmax, file);
+        break;
+    case ACTIVATION_LEAKY_RECTIFIED_LINEAR:
+        error = leaky_rectified_linear_load(&(*activation)->activation_function->leaky_rectified_linear, file);
+        break;
+    default:
+        error = ERROR(ERROR_ACTIVATION_TYPE, string_create("unknown activation type %d.", (int) (*activation)->activation_function_type), NULL);
+        break;
+    }
+
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load activation function."), error);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    activation_destroy(*activation);
+
+    return error;
+}
+
+nw_error_t *softmax_load(softmax_t **softmax, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(softmax, "softmax");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *softmax = (softmax_t *) malloc(sizeof(softmax_t));
+    if (!*softmax)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(softmax_t)), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*softmax)->axis, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    softmax_destroy(*softmax);
+
+    return error;
+}
+
+nw_error_t *leaky_rectified_linear_load(leaky_rectified_linear_t **leaky_rectified_linear, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(leaky_rectified_linear, "leaky_rectified_linear");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *leaky_rectified_linear = (leaky_rectified_linear_t *) malloc(sizeof(leaky_rectified_linear_t));
+    if (!*leaky_rectified_linear)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(leaky_rectified_linear_t)), NULL);
+        goto cleanup;
+    }
+    (*leaky_rectified_linear)->c = NULL;
+
+    if (!fread(&(*leaky_rectified_linear)->datatype, sizeof(datatype_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    (*leaky_rectified_linear)->c = (void *) malloc(datatype_size((*leaky_rectified_linear)->datatype));
+    if (!(*leaky_rectified_linear)->c)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", datatype_size((*leaky_rectified_linear)->datatype)), NULL);
+        goto cleanup;
+    }
+
+    if (!fread((*leaky_rectified_linear)->c, datatype_size((*leaky_rectified_linear)->datatype), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    leaky_rectified_linear_destroy(*leaky_rectified_linear);
+
+    return error;
+}

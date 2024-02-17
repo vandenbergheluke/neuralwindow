@@ -31,6 +31,8 @@ int64_t array_product(const int64_t *array, int64_t length);
 nw_error_t *view_copy(const view_t *source_view, view_t **destination_view);
 nw_error_t *view_create(view_t **view, int64_t offset, int64_t rank, const int64_t *shape, const int64_t *strides);
 void view_destroy(view_t *view);
+nw_error_t *view_save(view_t *view, FILE *file);
+nw_error_t *view_load(view_t **view, FILE *file);
 int64_t dimension_to_index(int64_t dimension, int64_t rank);
 nw_error_t *strides_from_shape(int64_t *strides, const int64_t *shape, int64_t rank);
 nw_error_t *view_permute(const view_t *original_view, view_t **permuted_view, const int64_t *axis, int64_t length);

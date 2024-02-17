@@ -117,6 +117,95 @@ nw_error_t *tensor_create_null(tensor_t **tensor)
     return error;
 }
 
+nw_error_t *tensor_save(tensor_t *tensor, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(file, "tensor");
+
+    nw_error_t *error = NULL;
+    bool_t tensor_not_null = tensor;
+
+    if (!fwrite(&tensor_not_null, sizeof(bool_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (tensor_not_null)
+    {
+        error = buffer_save(tensor->buffer, file);
+        if (error)
+        {
+            return ERROR(ERROR_SAVE, string_create("failed to save buffer."), error);
+        }
+
+        if (!fwrite(&tensor->requires_gradient, sizeof(bool_t), 1, file))
+        {
+            return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+        }
+        
+        if (!fwrite(&tensor->persist, sizeof(bool_t), 1, file))
+        {
+            return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+        }
+    }
+
+    return error;
+}
+
+nw_error_t *tensor_load(tensor_t **tensor, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(tensor, "tensor");
+    CHECK_NULL_ARGUMENT(file, "tensor");
+
+    nw_error_t *error = NULL;
+    bool_t tensor_not_null;
+
+    if (!fread(&tensor_not_null, sizeof(bool_t), 1, file))
+    {
+        return ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+    }
+
+    if (tensor_not_null)
+    {
+        error = tensor_create_null(tensor);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            goto cleanup;
+        }
+
+        error = buffer_load(&(*tensor)->buffer, file);
+        if (error)
+        {
+            error = ERROR(ERROR_LOAD, string_create("failed to load buffer."), error);
+            goto cleanup;
+        }
+        
+        if (!fread(&(*tensor)->requires_gradient, sizeof(bool_t), 1, file))
+        {
+            error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+            goto cleanup;
+        }
+        
+        if (!fread(&(*tensor)->persist, sizeof(bool_t), 1, file))
+        {
+            error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+            goto cleanup;
+        }
+    }
+    else
+    {
+        *tensor = NULL;
+    }
+
+    return error;
+
+cleanup:
+
+    tensor_destroy(*tensor);
+
+    return error;
+}
+
 void with_no_gradient(bool_t flag)
 {
     static uint64_t previous = 0;

@@ -10,7 +10,7 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
     *storage = (storage_t *) malloc(sizeof(storage_t));
     if (!*storage)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(buffer_t)), NULL);
+        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(storage_t)), NULL);
     }
 
     if (!n)
@@ -107,6 +107,157 @@ void buffer_destroy(buffer_t *buffer)
         view_destroy(buffer->view);
         free(buffer);
     }
+}
+
+nw_error_t *storage_save(storage_t *storage, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(storage, "storage");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    if (!fwrite(&storage->n, sizeof(int64_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(&storage->runtime, sizeof(runtime_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(&storage->datatype, sizeof(datatype_t), 1, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    if (!fwrite(storage->data, datatype_size(storage->datatype), storage->n, file))
+    {
+        return ERROR(ERROR_WRITE, string_create("failed to write to file."), NULL);
+    }
+
+    return NULL;
+}
+
+nw_error_t *storage_load(storage_t **storage, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(storage, "storage");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *storage = (storage_t *) malloc(sizeof(storage_t));
+    if (!*storage)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", sizeof(storage_t)), NULL);
+        goto cleanup;
+    }
+
+    (*storage)->reference_count = 0;
+    (*storage)->data = NULL;
+
+    if (!fread(&(*storage)->n, sizeof(int64_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*storage)->runtime, sizeof(runtime_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    if (!fread(&(*storage)->datatype, sizeof(datatype_t), 1, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    error = runtime_malloc(&(*storage)->data, (*storage)->n, (*storage)->datatype, (*storage)->runtime);
+    if (error)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION,
+                      string_create("failed to allocate buffer data for runtime %s and datatype %s.",
+                                    runtime_string((*storage)->runtime), datatype_string((*storage)->datatype)),
+                      error);
+        goto cleanup;
+    }
+
+    if (!fread((*storage)->data, datatype_size((*storage)->datatype), (*storage)->n, file))
+    {
+        error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    error_print(error);
+    storage_destroy(*storage);
+
+    return error;
+}
+
+nw_error_t *buffer_save(buffer_t *buffer, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    error = view_save(buffer->view, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save view."), error);
+    }
+
+    error = storage_save(buffer->storage, file);
+    if (error)
+    {
+        return ERROR(ERROR_SAVE, string_create("failed to save view."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *buffer_load(buffer_t **buffer, FILE *file)
+{
+    CHECK_NULL_ARGUMENT(buffer, "buffer");
+    CHECK_NULL_ARGUMENT(file, "file");
+
+    nw_error_t *error = NULL;
+
+    *buffer = (buffer_t *) malloc(sizeof(buffer_t));
+    if (!*buffer)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate buffer of size %zu bytes.", sizeof(buffer_t)), NULL);
+        goto cleanup;
+    }
+
+    (*buffer)->view = NULL;
+    (*buffer)->storage = NULL;
+
+    error = view_load(&(*buffer)->view, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load view."), error);
+        goto cleanup;
+    }
+
+    error = storage_load(&(*buffer)->storage, file);
+    if (error)
+    {
+        error = ERROR(ERROR_LOAD, string_create("failed to load storage."), error);
+        goto cleanup;
+    }
+
+    return error;
+
+cleanup:
+
+    buffer_destroy(*buffer);
+
+    return error;
 }
 
 nw_error_t *buffer_unary(unary_operation_type_t unary_operation_type, buffer_t *x_buffer, buffer_t **y_buffer)
