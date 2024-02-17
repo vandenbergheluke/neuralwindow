@@ -344,7 +344,6 @@ void convolution_2d_destroy(convolution_2d_t *convolution_2d)
 nw_error_t *pooling_2d_create(pooling_2d_t **pooling_2d, int64_t padding, int64_t stride, int64_t kernel)
 {
     CHECK_NULL_ARGUMENT(pooling_2d, "pooling_2d");
-    CHECK_NULL_ARGUMENT(kernel, "kernel");
 
     *pooling_2d = (pooling_2d_t *) malloc(sizeof(pooling_2d_t));
     if (!*pooling_2d)
