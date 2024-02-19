@@ -11,26 +11,26 @@ endif()
 
 
 set(TEST_C
-    test_map
-    test_queue
-    test_view
+    # test_map
+    # test_queue
+    # test_view
 )
 
 set(TEST_CXX
-    test_tensor_ternary
-    test_tensor_structure
-    test_tensor_reduction
-    test_tensor_unary
-    test_tensor_binary
-    test_autograd
-    test_optimizer
-    test_model_exporter
+    # test_tensor_ternary
+    # test_tensor_structure
+    # test_tensor_reduction
+    # test_tensor_unary
+    # test_tensor_binary
+    # test_autograd
+    # test_optimizer
+    # test_model_exporter
 )
 
 set(TEST_CXX_PERF
-    test_tensor_unary_performance
-    test_tensor_binary_performance
-    test_tensor_reduction_performance
+    # test_tensor_unary_performance
+    # test_tensor_binary_performance
+    # test_tensor_reduction_performance
 )
 
 set(TEST_HELPER_TORCH

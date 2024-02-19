@@ -11,10 +11,15 @@
 #include <errors.h>
 #include <measure.h>
 #include <random.h>
+#include <string.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+void *plt_accuracies = NULL;
+void *plt_costs = NULL;
+float32_t *plt_count = NULL;
 
 nw_error_t *transformer_metrics(dataset_type_t dataset_type, const tensor_t *y_true, const tensor_t *y_pred, const tensor_t *cost,
                                 int64_t epoch, int64_t epochs, int64_t iteration, int64_t iterations)
@@ -129,6 +134,79 @@ nw_error_t *transformer_metrics(dataset_type_t dataset_type, const tensor_t *y_t
         {
             error = ERROR(ERROR_DIVISION, string_create("failed to get mean of tensor."), error);
             goto cleanup;
+        }
+
+        error = tensor_item(mean_accuracy, plt_accuracies + datatype_size(datatype) * (epoch - 1));
+        if (error)
+        {
+            error = ERROR(ERROR_ITEM, string_create("failed to get tensor item."), NULL);
+            goto cleanup;
+        }
+
+        error = tensor_item(mean_cost, plt_costs + datatype_size(datatype) * (epoch - 1));
+        if (error)
+        {
+            error = ERROR(ERROR_ITEM, string_create("failed to get tensor item."), NULL);
+            goto cleanup;
+        }
+
+        plt_count[epoch - 1] = epoch;
+
+        if (epoch == epochs) {
+            switch (dataset_type)
+            {
+            case TRAIN:
+                error = bounded_plot("Transformer Training Accuracy",
+                          "img/transformer_accuracy_train.png",
+                          "Epoch", plt_count, epochs,
+                          "Accuracy", plt_accuracies, epochs,
+                          0.0, 1.0, datatype);
+                if (error)
+                {
+                    error = ERROR(ERROR_METRICS, string_create("failed to plot accuracy."), error);
+                    goto cleanup;
+                }
+
+                error = plot("Transformer Training Cost",
+                          "img/transformer_cost_train.png",
+                          "Epoch", plt_count, epochs,
+                          "Cost", plt_costs, epochs,
+                          datatype);
+                if (error)
+                {
+                    error = ERROR(ERROR_METRICS, string_create("failed to plot cost."), error);
+                    goto cleanup;
+                }
+                break;
+            case VALID:
+                error = bounded_plot("Transformer Validation Accuracy",
+                          "img/mnist_accuracy_valid.png",
+                          "Epoch", plt_count, epochs,
+                          "Accuracy", plt_accuracies, epochs,
+                          0.0, 1.0, datatype);
+                if (error)
+                {
+                    error = ERROR(ERROR_METRICS, string_create("failed to plot accuracy."), error);
+                    goto cleanup;
+                }
+
+                error = plot("Transformer Validation Cost",
+                          "img/transformer_cost_valid.png",
+                          "Epoch", plt_count, epochs,
+                          "Cost", plt_costs, epochs,
+                          datatype);
+                if (error)
+                {
+                    error = ERROR(ERROR_METRICS, string_create("failed to plot cost."), error);
+                    goto cleanup;
+                }
+                break;
+            case TEST:
+                break;
+            default:
+                error = ERROR(ERROR_DATASET_TYPE, string_create("unknown dataset type %d.", dataset_type), NULL);
+                goto cleanup;
+            }
         }
 
         LOG("Dataset %s - %lu/%lu Epochs", dataset_type_string(dataset_type), epoch, epochs);
@@ -317,6 +395,7 @@ nw_error_t *generate(model_t *model, void *arguments, runtime_t runtime, datatyp
         x_new = NULL;
         x_sliced = NULL;
     }
+    fprintf(stdout, "\n");
 
 cleanup:
 
@@ -527,13 +606,6 @@ nw_error_t *transformer_model_create(model_t **model, runtime_t runtime, datatyp
         goto cleanup;
     }
 
-    // error = zeroes_parameter_init(&bias_init);
-    // if (error)
-    // {
-    //     error = ERROR(ERROR_CREATE, string_create("failed to create parameter initailizer."), error);
-    //     goto cleanup;
-    // }
-
     error = transformer_embedding_layer_create(&transformer_embedding, vocabulary_size, embedding_size, block_size, datatype, runtime, weight_init, weight_init);
     if (error)
     {
@@ -644,14 +716,13 @@ void transformer_model_destroy(model_t *model)
     model_destroy(model);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
-    set_seed(1234);
     simpsons_dataset_t simpsons_dataset = (simpsons_dataset_t) {
         .data_path = "../data/simpsons.txt",
         .data_file = NULL,
         .block_size = 256,
-        .prompt = "\n",
+        .prompt = (argc == 3) ? argv[2] : "\n",
         .prompt_length = 1,
         .max_tokens = 1000,
     };
@@ -687,6 +758,10 @@ int main(void)
     float32_t gradient_threshold = 1.0;
     float32_t mean = 0.0;
     float32_t standard_deviation = 0.02;
+    char_t* demo_var = getenv("DEMO");
+
+    mkdir("img", S_IRWXU);
+    mkdir("models", S_IRWXU);
 
     error = runtime_create_context(runtime);
     if (error)
@@ -695,34 +770,73 @@ int main(void)
         goto cleanup;
     }
 
-    error = batch_create(&batch, batch_size, datatype, runtime);
-    if (error)
+    if (demo_var && strcmp(demo_var, "1") == 0)
     {
-        error = ERROR(ERROR_CREATE, string_create("failed to create batch."), error);
-        goto cleanup;
-    }
+        if (argc < 2)
+        {
+            error = ERROR(ERROR_ARGUMENTS, string_create("invalid number of arguments."), error);
+            goto cleanup;
+        }
 
-    error = transformer_model_create(&model, runtime, datatype, number_of_layers, simpsons_dataset.vocabulary_size, simpsons_dataset.block_size, 
-                                     embedding_size, number_of_heads, (void *) &probability, (void *) &mean, (void *) &standard_deviation, (void *) &epsilon);
-    if (error)
-    {
-        error = ERROR(ERROR_CREATE, string_create("failed to create model."), error);
-        goto cleanup;
+        error = model_load(&model, argv[1]);
+        if (error)
+        {
+            error = ERROR(ERROR_LOAD, string_create("failed to load model."), error);
+            goto cleanup;
+        }
+        
+        error = generate(model, &simpsons_dataset, runtime, datatype);
+        if (error)
+        {
+            error = ERROR(ERROR_GENERATE, string_create("failed to generate text."), error);
+            goto cleanup;
+        }
     }
-
-    error = optimizer_adam_create(&optimizer, datatype, (void *) &learning_rate, (void *) &beta1, (void *) &beta2, (void *) &weight_decay, (void *) &epsilon);
-    if (error)
+    else
     {
-        error = ERROR(ERROR_CREATE, string_create("failed to create optimizer."), error);
-        goto cleanup;
-    }
+        set_seed(1234);
 
-    error = fit(epochs, number_of_samples, batch, shuffle, train_split, valid_split, test_split, model, optimizer, &simpsons_dataset,
-                &simpsons_dataloader, &categorical_cross_entropy, &transformer_metrics, &generate, &gradient_threshold);
-    if (error)
-    {
-        error = ERROR(ERROR_TRAIN, string_create("failed to fit model."), error);
-        goto cleanup;
+        plt_accuracies = malloc(epochs * datatype_size(datatype));
+        plt_costs = malloc(epochs * datatype_size(datatype));
+        plt_count = malloc(epochs * sizeof(float32_t));
+
+        error = batch_create(&batch, batch_size, datatype, runtime);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create batch."), error);
+            goto cleanup;
+        }
+
+        error = transformer_model_create(&model, runtime, datatype, number_of_layers, simpsons_dataset.vocabulary_size, simpsons_dataset.block_size, 
+                                        embedding_size, number_of_heads, (void *) &probability, (void *) &mean, (void *) &standard_deviation, (void *) &epsilon);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create model."), error);
+            goto cleanup;
+        }
+
+        error = optimizer_adam_create(&optimizer, datatype, (void *) &learning_rate, (void *) &beta1, (void *) &beta2, (void *) &weight_decay, (void *) &epsilon);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create optimizer."), error);
+            goto cleanup;
+        }
+
+        error = fit(epochs, number_of_samples, batch, shuffle, train_split, valid_split, test_split, model, optimizer, &simpsons_dataset,
+                    &simpsons_dataloader, &categorical_cross_entropy, &transformer_metrics, &generate, &gradient_threshold, true);
+        if (error)
+        {
+            error = ERROR(ERROR_TRAIN, string_create("failed to fit model."), error);
+            goto cleanup;
+        }
+
+        error = model_save(model, "models/transformer.bin");
+        if (error)
+        {
+            error = ERROR(ERROR_SAVE, string_create("failed to save model."), error);
+            goto cleanup;
+        }
+
     }
 
     error = simpsons_teardown(&simpsons_dataset);
@@ -734,6 +848,9 @@ int main(void)
 
 cleanup:
 
+    free(plt_accuracies);
+    free(plt_costs);
+    free(plt_count);
     runtime_destroy_context(runtime);
     optimizer_destroy(optimizer);
     batch_destroy(batch);

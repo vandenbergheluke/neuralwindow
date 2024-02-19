@@ -47,7 +47,8 @@ nw_error_t *fit(int64_t epochs,
                 nw_error_t *(*criterion)(const tensor_t *, const tensor_t *, tensor_t **),
                 nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *, const tensor_t *, int64_t, int64_t, int64_t, int64_t),
                 nw_error_t *(*generate)(model_t *, void *, runtime_t, datatype_t),
-                void *clip_gradient_norm)
+                void *clip_gradient_norm, 
+                bool_t checkpoint)
 {
     nw_error_t *error = NULL;
 
@@ -76,9 +77,6 @@ nw_error_t *fit(int64_t epochs,
         LOG_NEWLINE;
         for (int64_t j = 0; j < train_iterations; ++j)
         {
-            // char str[80];
-            // sprintf(str, "%ld.txt", j);
-            // FILE *fp = freopen(str, "w+", stderr);
             error = zero_gradient_model(model);
             if (error)
             {
@@ -155,7 +153,6 @@ nw_error_t *fit(int64_t epochs,
             batch->y = NULL;
             y_pred = NULL;
             cost = NULL;
-            // fclose(fp);
         }
 
         if (generate)
@@ -165,6 +162,17 @@ nw_error_t *fit(int64_t epochs,
             {
                 return ERROR(ERROR_GENERATE, string_create("failed to generate."), error);
             }
+        }
+
+        if (checkpoint)
+        {
+            string_t file = string_create("models/model_%ld_checkpoint.bin", i + 1);
+            error = model_save(model, file);
+            if (error)
+            {
+                return ERROR(ERROR_SAVE, string_create("failed to save model."), error);
+            }
+            string_destroy(file);
         }
 
         with_no_gradient(true);

@@ -188,6 +188,8 @@ nw_error_t *storage_load(storage_t **storage, FILE *file)
         goto cleanup;
     }
 
+    (*storage)->reference_count = 1;
+
     return error;
 
 cleanup:
