@@ -5,9 +5,7 @@
 
 #include <openblas_runtime.h>
 #include <cblas.h>
-#if !defined (NO_OPENMP) || (NO_OPENMP == 0)
 #include <omp.h>
-#endif
 #include <math.h>
 
 #define EPSILON 1e-7
@@ -18,9 +16,7 @@
 
 nw_error_t *openblas_create_context(void)
 {
-#if !defined (NO_OPENMP) || (NO_OPENMP == 0)
     omp_set_num_threads(NW_NUM_THREADS);
-#endif
 
     return NULL;
 }
