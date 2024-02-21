@@ -180,7 +180,7 @@ nw_error_t *transformer_metrics(dataset_type_t dataset_type, const tensor_t *y_t
                 break;
             case VALID:
                 error = bounded_plot("Transformer Validation Accuracy",
-                          "img/mnist_accuracy_valid.png",
+                          "img/transformer_accuracy_valid.png",
                           "Epoch", plt_count, epochs,
                           "Accuracy", plt_accuracies, epochs,
                           0.0, 1.0, datatype);
