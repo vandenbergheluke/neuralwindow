@@ -7,170 +7,10 @@
 #include <function.h>
 #include <random.h>
 
-// nw_error_t *dcgan_metrics(dataset_type_t dataset_type, 
-//                           const tensor_t *x,
-//                           const tensor_t *cost,
-//                           int64_t epoch,
-//                           int64_t epochs,
-//                           int64_t iteration,
-//                           int64_t iterations)
-// {
-//     CHECK_NULL_ARGUMENT(y_pred, "y_pred");
-//     CHECK_NULL_ARGUMENT(y_true, "y_true");
-//     CHECK_NULL_ARGUMENT(cost, "cost");
-//     static void *cost_data = NULL;
-//     static int64_t time = 0; 
-//     tensor_t *total_cost = NULL;
-//     tensor_t *mean_cost = NULL;
-//     nw_error_t *error = NULL;
-//     runtime_t runtime = cost->buffer->storage->runtime;
-//     datatype_t datatype = cost->buffer->storage->datatype;
-
-//     if (!(iteration - 1))
-//     {
-//         size_t size = iterations * datatype_size(datatype);
-
-//         cost_data = (void *) malloc(size);
-//         if (!cost_data)
-//         {
-//             error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
-//             goto cleanup;
-//         }
-
-//         time = get_time_nanoseconds();
-//     }
-
-//     error = tensor_item(cost, cost_data + (iteration - 1) * datatype_size(datatype));
-//     if (error)
-//     {
-//         error = ERROR(ERROR_ITEM, string_create("failed to get tensor item."), NULL);
-//         goto cleanup;
-//     }
-
-//     if (iteration == iterations)
-//     {
-//         int64_t shape[] = {iterations};
-//         int64_t rank = 1;
-        
-//         error = tensor_from_data(&total_accuracy, accuracy_data, runtime, datatype, rank, shape, false, false, false);
-//         if (error)
-//         {
-//             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-//             goto cleanup;
-//         }
-
-//         error = tensor_from_data(&total_cost, cost_data, runtime, datatype, rank, shape, false, false, false);
-//         if (error)
-//         {
-//             error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
-//             goto cleanup;
-//         }
-
-//         error = tensor_mean(total_accuracy, &mean_accuracy, NULL, 0, false);
-//         if (error)
-//         {
-//             error = ERROR(ERROR_DIVISION, string_create("failed to get mean of tensor."), error);
-//             goto cleanup;
-//         }
-
-//         error = tensor_mean(total_cost, &mean_cost, NULL, 0, false);
-//         if (error)
-//         {
-//             error = ERROR(ERROR_DIVISION, string_create("failed to get mean of tensor."), error);
-//             goto cleanup;
-//         }
-
-//         error = tensor_item(mean_accuracy, plt_accuracies + datatype_size(datatype) * (epoch - 1));
-//         if (error)
-//         {
-//             error = ERROR(ERROR_ITEM, string_create("failed to get tensor item."), NULL);
-//             goto cleanup;
-//         }
-
-//         error = tensor_item(mean_cost, plt_costs + datatype_size(datatype) * (epoch - 1));
-//         if (error)
-//         {
-//             error = ERROR(ERROR_ITEM, string_create("failed to get tensor item."), NULL);
-//             goto cleanup;
-//         }
-
-//         plt_count[epoch - 1] = epoch;
-
-//         if (epoch == epochs) {
-//             switch (dataset_type)
-//             {
-//             case TRAIN:
-//                 error = bounded_plot("MNIST Training Accuracy",
-//                           "img/mnist_accuracy_train.png",
-//                           "Epoch", plt_count, epochs,
-//                           "Accuracy", plt_accuracies, epochs,
-//                           0.0, 1.0, datatype);
-//                 if (error)
-//                 {
-//                     error = ERROR(ERROR_METRICS, string_create("failed to plot accuracy."), error);
-//                     goto cleanup;
-//                 }
-
-//                 error = plot("MNIST Training Cost",
-//                           "img/mnist_cost_train.png",
-//                           "Epoch", plt_count, epochs,
-//                           "Cost", plt_costs, epochs,
-//                           datatype);
-//                 if (error)
-//                 {
-//                     error = ERROR(ERROR_METRICS, string_create("failed to plot cost."), error);
-//                     goto cleanup;
-//                 }
-//                 break;
-//             case VALID:
-//                 error = bounded_plot("MNIST Validation Accuracy",
-//                           "img/mnist_accuracy_valid.png",
-//                           "Epoch", plt_count, epochs,
-//                           "Accuracy", plt_accuracies, epochs,
-//                           0.0, 1.0, datatype);
-//                 if (error)
-//                 {
-//                     error = ERROR(ERROR_METRICS, string_create("failed to plot accuracy."), error);
-//                     goto cleanup;
-//                 }
-
-//                 error = plot("MNIST Validation Cost",
-//                           "img/mnist_cost_valid.png",
-//                           "Epoch", plt_count, epochs,
-//                           "Cost", plt_costs, epochs,
-//                           datatype);
-//                 if (error)
-//                 {
-//                     error = ERROR(ERROR_METRICS, string_create("failed to plot cost."), error);
-//                     goto cleanup;
-//                 }
-//                 break;
-//             case TEST:
-//                 break;
-//             default:
-//                 error = ERROR(ERROR_DATASET_TYPE, string_create("unknown dataset type %d.", dataset_type), NULL);
-//                 goto cleanup;
-//             }
-//         }
-
-//         LOG("Dataset %s - %lu/%lu Epochs", dataset_type_string(dataset_type), epoch, epochs);
-//         LOG_SCALAR_TENSOR(" - Cost", mean_cost);
-//         LOG_SCALAR_TENSOR("- Accuracy", mean_accuracy);
-//         LOG("- Time: %lfs", (float64_t) (get_time_nanoseconds() - time) * (float64_t) 1e-9);
-//         LOG_NEWLINE;
-//     }
-
-// cleanup:
-
-//     tensor_destroy(accuracy);
-//     tensor_destroy(probabilities);
-//     tensor_destroy(mean_accuracy);
-//     tensor_destroy(mean_cost);
-//     tensor_destroy(total_accuracy);
-//     tensor_destroy(total_cost);
-
-//     return error;
-// }
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 nw_error_t *dcgan_model_create(model_t **generator, model_t **discriminator, runtime_t runtime, datatype_t datatype, int64_t noise_dimension, int64_t batch_size)
 {
@@ -253,7 +93,6 @@ nw_error_t *dcgan_model_create(model_t **generator, model_t **discriminator, run
     default:
         error = ERROR(ERROR_DATATYPE, string_create("failed to calculate gain."), error);
         goto cleanup;
-        
     }
 
     error = calculate_gain(ACTIVATION_RECTIFIED_LINEAR, datatype, gain, NULL);
@@ -269,20 +108,6 @@ nw_error_t *dcgan_model_create(model_t **generator, model_t **discriminator, run
         error = ERROR(ERROR_GAIN, string_create("failed to calculate gain."), error);
         goto cleanup;
     }
-
-    // error = kaiming_normal_parameter_init(&generator_weight_init, gain, false, datatype);
-    // if (error)
-    // {
-    //     error = ERROR(ERROR_CREATE, string_create("failed to create parameter initializer."), error);
-    //     goto cleanup;
-    // }
-
-    // error = kaiming_normal_parameter_init(&discriminator_weight_init, gain, false, datatype);
-    // if (error)
-    // {
-    //     error = ERROR(ERROR_CREATE, string_create("failed to create parameter initializer."), error);
-    //     goto cleanup;
-    // }
 
     error = normal_parameter_init(&generator_weight_init, mean, std, datatype);
     if (error)
@@ -550,32 +375,106 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
 {
     nw_error_t *error = NULL;
     int64_t iterations = number_of_samples / batch->batch_size;
+    int64_t total_iterations = epochs * iterations;
+    int64_t iteration = 0;
     int64_t indicies[iterations];
     void *mean = NULL, *standard_deviation = NULL, *lower_bound = NULL, *upper_bound = NULL;
+    void *plt_discriminator_cost_real = NULL, *plt_discriminator_cost_fake = NULL, *plt_generator_cost = NULL;
+    void *plt_generator_costs = NULL;
+    void *plt_discriminator_costs = NULL;
+    void *plt_total_costs = NULL;
+    float32_t *plt_count = NULL;
+    tensor_t *real_images = NULL;
+    tensor_t *real_labels = NULL;
+    tensor_t *real_output = NULL;
+    tensor_t *discriminator_cost_real = NULL;
+    tensor_t *noise = NULL;
+    tensor_t *fake_images = NULL;
+    tensor_t *fake_labels = NULL;
+    tensor_t *fake_output = NULL;
+    tensor_t *fake_images_detached = NULL;
+    tensor_t *discriminator_cost_fake = NULL;
+    tensor_t *generator_loss = NULL;
+    string_t label = NULL;
     size_t size = datatype_size(batch->datatype);
+
+    plt_discriminator_cost_real = (void *) malloc(size);
+    if (!plt_discriminator_cost_real)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    plt_discriminator_cost_fake = (void *) malloc(size);
+    if (!plt_discriminator_cost_fake)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    plt_generator_cost = (void *) malloc(size);
+    if (!plt_generator_cost)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
 
     mean = (void *) malloc(size);
     if (!mean)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
     }
 
     standard_deviation = (void *) malloc(size);
     if (!standard_deviation)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
     }
 
     lower_bound = (void *) malloc(size);
     if (!lower_bound)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
     }
 
     upper_bound = (void *) malloc(size);
     if (!upper_bound)
     {
-        return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    size = epochs * iterations * datatype_size(batch->datatype);
+
+    plt_generator_costs = malloc(size);
+    if (!plt_generator_costs)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    plt_discriminator_costs = malloc(size);
+    if (!plt_discriminator_costs)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    plt_total_costs = malloc(size);
+    if (!plt_total_costs)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
+    }
+
+    plt_count = malloc(size);
+    if (!plt_count)
+    {
+        error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+        goto cleanup;
     }
 
     switch (batch->datatype)
@@ -593,7 +492,8 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
         *(float64_t *) upper_bound = (float64_t) 1.0;
         break;
     default:
-        return ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) batch->datatype), NULL);
+        error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) batch->datatype), NULL);
+        goto cleanup;
     }
 
     for (int64_t i = 0; i < iterations; ++i)
@@ -608,165 +508,213 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
 
     for (int64_t i = 0; i < epochs; ++i)
     {
-        LOG("%ld/%ld Epochs", i, epochs);
+        LOG("%ld/%ld Epochs", i + 1, epochs);
         LOG_NEWLINE;
         for (int64_t j = 0; j < iterations; ++j)
         {
-            LOG("%ld/%ld Batches", j, iterations);
+            LOG("%ld/%ld Batches", j + 1, iterations);
             LOG_NEWLINE;
             error = (*dataloader)(indicies[j] * batch->batch_size, batch, arguments);
             if (error)
             {
-                return ERROR(ERROR_LOAD, string_create("failed to load batch."), error);
+                error = ERROR(ERROR_LOAD, string_create("failed to load batch."), error);
+                goto cleanup;
             }
 
             // Train discriminator with real images.
             error = zero_gradient_model(discriminator);
             if (error)
             {
-                return ERROR(ERROR_ZERO_GRADIENT, string_create("failed zero gradient."), error);
+                error = ERROR(ERROR_ZERO_GRADIENT, string_create("failed zero gradient."), error);
+                goto cleanup;
             }
 
-            tensor_t *real_images = batch->x;
-            tensor_t *real_labels = NULL;
-            tensor_t *real_output = NULL;
-            tensor_t *discriminator_cost_real = NULL;
+            real_images = batch->x;
+            real_labels = NULL;
+            real_output = NULL;
+            discriminator_cost_real = NULL;
 
             error = tensor_create_uniform(&real_labels, (int64_t[]){batch->batch_size}, 1, batch->runtime, batch->datatype, false, false, lower_bound, upper_bound);
             if (error)
             {
-                return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+                error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+                goto cleanup;
             }
 
             error = model_forward(discriminator, real_images, &real_output);
             if (error)
             {
-                return ERROR(ERROR_FORWARD, string_create("failed to apply model."), error);
+                error = ERROR(ERROR_FORWARD, string_create("failed to apply model."), error);
+                goto cleanup;
             }
 
             error = binary_cross_entropy(real_labels, real_output, &discriminator_cost_real);
             if (error)
             {
-                return ERROR(ERROR_CRITERION, string_create("failed to compute cost."), error);
+                error = ERROR(ERROR_CRITERION, string_create("failed to compute cost."), error);
+                goto cleanup;
             }
 
             LOG_SCALAR_TENSOR("Discriminator Cost Real", discriminator_cost_real);
             LOG_NEWLINE;
 
+            error = tensor_item(discriminator_cost_real, plt_discriminator_cost_real);
+            if (error)
+            {
+                error = ERROR(ERROR_ITEM, string_create("failed to extract item."), error);
+                goto cleanup;
+            }
+
             error = tensor_backward(discriminator_cost_real, NULL);
             if (error)
             {
-                return ERROR(ERROR_BACKWARD, string_create("failed to apply backpropogation."), error);
+                error = ERROR(ERROR_BACKWARD, string_create("failed to apply backpropogation."), error);
+                goto cleanup;
             }
 
             // Train discriminator with real images.
-            tensor_t *noise = NULL;
-            tensor_t *fake_images = NULL;
-            tensor_t *fake_labels = NULL;
-            tensor_t *fake_output = NULL;
-            tensor_t *fake_images_detached = NULL;
-            tensor_t *discriminator_cost_fake = NULL;
+            noise = NULL;
+            fake_images = NULL;
+            fake_labels = NULL;
+            fake_output = NULL;
+            fake_images_detached = NULL;
+            discriminator_cost_fake = NULL;
 
             error = tensor_create_normal(&noise, (int64_t[]){batch->batch_size, noise_dimension, 1, 1}, 
                                          4, batch->runtime, batch->datatype, false, true, mean, standard_deviation);
             if (error)
             {
-                return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+                error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+                goto cleanup;
             }
 
             error = model_forward(generator, noise, &fake_images);
             if (error)
             {
-                return ERROR(ERROR_FORWARD, string_create("failed to apply model."), error);
+                error = ERROR(ERROR_FORWARD, string_create("failed to apply model."), error);
+                goto cleanup;
             }
 
-            error = save_tensor_grayscale_to_png_file(fake_images, "image.png");
-            if (error)
+            if (!((iteration + 1) % 100))
             {
-                return ERROR(ERROR_FILE, string_create("failed to write png file."), error);
+                label = string_create("img/iteration_%ld.png", iteration + 1);
+                error = save_tensor_grayscale_to_png_file(fake_images, label);
+                if (error)
+                {
+                    error = ERROR(ERROR_FILE, string_create("failed to write png file."), error);
+                    goto cleanup;
+                }
+                string_destroy(label);
+                label = NULL;
             }
 
             error = tensor_create_zeroes(&fake_labels, (int64_t[]){batch->batch_size}, 1, batch->runtime, batch->datatype, false, false);
             if (error)
             {
-                return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+                error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+                goto cleanup;
             }
 
             error = tensor_as_tensor(fake_images, &fake_images_detached);
             if (error)
             {
-                return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+                error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+                goto cleanup;
             }
 
             error = model_forward(discriminator, fake_images_detached, &fake_output);
             if (error)
             {
-                return ERROR(ERROR_FORWARD, string_create("failed to apply model."), error);
+                error = ERROR(ERROR_FORWARD, string_create("failed to apply model."), error);
+                goto cleanup;
             }
 
             error = binary_cross_entropy(fake_labels, fake_output, &discriminator_cost_fake);
             if (error)
             {
-                return ERROR(ERROR_CRITERION, string_create("failed to compute cost."), error);
+                error = ERROR(ERROR_CRITERION, string_create("failed to compute cost."), error);
+                goto cleanup;
             }
 
             LOG_SCALAR_TENSOR("Discriminator Cost Fake", discriminator_cost_fake);
             LOG_NEWLINE;
 
+            error = tensor_item(discriminator_cost_fake, plt_discriminator_cost_fake);
+            if (error)
+            {
+                error = ERROR(ERROR_ITEM, string_create("failed to extract item."), error);
+                goto cleanup;
+            }
+
             error = tensor_backward(discriminator_cost_fake, NULL);
             if (error)
             {
-                return ERROR(ERROR_BACKWARD, string_create("failed to apply backpropogation."), error);
+                error = ERROR(ERROR_BACKWARD, string_create("failed to apply backpropogation."), error);
+                goto cleanup;
             }
 
             error = update_model(discriminator_optimizer, discriminator);
             if (error)
             {
-                return ERROR(ERROR_STEP, string_create("failed to apply optimizer step."), error);
+                error = ERROR(ERROR_STEP, string_create("failed to apply optimizer step."), error);
+                goto cleanup;
             }
 
             // Train generator
             fake_output = NULL;
             fake_labels = NULL;
-            tensor_t *generator_loss = NULL;
+            generator_loss = NULL;
 
             error = zero_gradient_model(generator);
             if (error)
             {
-                return ERROR(ERROR_ZERO_GRADIENT, string_create("failed zero gradient."), error);
+                error = ERROR(ERROR_ZERO_GRADIENT, string_create("failed zero gradient."), error);
+                goto cleanup;
             }
 
             error = tensor_create_ones(&fake_labels, (int64_t[]){batch->batch_size}, 1, batch->runtime, batch->datatype, false, false);
             if (error)
             {
-                return ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+                error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+                goto cleanup;
             }
 
             error = model_forward(discriminator, fake_images, &fake_output);
             if (error)
             {
-                return ERROR(ERROR_FORWARD, string_create("failed to apply model."), error);
+                error = ERROR(ERROR_FORWARD, string_create("failed to apply model."), error);
+                goto cleanup;
             }
 
             error = binary_cross_entropy(fake_labels, fake_output, &generator_loss);
             if (error)
             {
-                return ERROR(ERROR_CRITERION, string_create("failed to compute cost."), error);
+                error = ERROR(ERROR_CRITERION, string_create("failed to compute cost."), error);
+                goto cleanup;
             }
 
             LOG_SCALAR_TENSOR("Generator Loss", generator_loss);
             LOG_NEWLINE;
+            
+            error = tensor_item(generator_loss, plt_generator_cost);
+            if (error)
+            {
+                error = ERROR(ERROR_ITEM, string_create("failed to extract item."), error);
+                goto cleanup;
+            }
 
             error = tensor_backward(generator_loss, NULL);
             if (error)
             {
-                return ERROR(ERROR_BACKWARD, string_create("failed to apply backpropogation."), error);
+                error = ERROR(ERROR_BACKWARD, string_create("failed to apply backpropogation."), error);
+                goto cleanup;
             }
 
             error = update_model(generator_optimizer, generator);
             if (error)
             {
-                return ERROR(ERROR_STEP, string_create("failed to apply optimizer step."), error);
+                error = ERROR(ERROR_STEP, string_create("failed to apply optimizer step."), error);
+                goto cleanup;
             }
 
             tensor_destroy(batch->x);
@@ -774,36 +722,71 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
             tensor_destroy(noise);
             batch->x = NULL;
             batch->y = NULL;
+
+            switch (batch->datatype)
+            {
+            case FLOAT32:
+                ((float32_t *) plt_discriminator_costs)[iteration] = *(float32_t *) plt_discriminator_cost_fake + *(float32_t *) plt_discriminator_cost_real;
+                ((float32_t *) plt_generator_costs)[iteration] = *(float32_t *) plt_generator_cost;
+                ((float32_t *) plt_total_costs)[iteration] = ((float32_t *) plt_discriminator_costs)[iteration] + ((float32_t *) plt_generator_costs)[iteration];
+                break;
+            case FLOAT64:
+                ((float64_t *) plt_discriminator_costs)[iteration] = *(float64_t *) plt_discriminator_cost_fake + *(float64_t *) plt_discriminator_cost_real;
+                ((float64_t *) plt_generator_costs)[iteration] = *(float64_t *) plt_generator_cost;
+                ((float64_t *) plt_total_costs)[iteration] = ((float64_t *) plt_discriminator_costs)[iteration] + ((float64_t *) plt_generator_costs)[iteration];
+                break;
+            default:
+                error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) batch->datatype), NULL);
+                goto cleanup;
+            }
+            plt_count[iteration] = iteration;
+            iteration++;
         }
     }
 
+    error = plot("Discriminator Cost", "img/discriminator_cost.png", "Iterations", plt_count, total_iterations, "Cost", plt_discriminator_costs, total_iterations, batch->datatype);
+    if (error)
+    {
+        error = ERROR(ERROR_METRICS, string_create("failed to plot cost."), error);
+        goto cleanup;
+    }
+
+    error = plot("Generator Cost", "img/generator_cost.png", "Iterations", plt_count, total_iterations, "Cost", plt_generator_costs, total_iterations, batch->datatype);
+    if (error)
+    {
+        error = ERROR(ERROR_METRICS, string_create("failed to plot cost."), error);
+        goto cleanup;
+    }
+
+    error = plot("Total Cost", "img/total_cost.png", "Iterations", plt_count, total_iterations, "Cost", plt_total_costs, total_iterations, batch->datatype);
+    if (error)
+    {
+        error = ERROR(ERROR_METRICS, string_create("failed to plot cost."), error);
+        goto cleanup;
+    }
+
+cleanup:
+
+    free(plt_discriminator_cost_fake);
+    free(plt_generator_cost);
+    free(plt_discriminator_cost_real);
+    free(plt_discriminator_costs);
+    free(plt_generator_costs);
+    free(plt_total_costs);
+    free(plt_count);
     free(mean);
     free(standard_deviation);
     free(lower_bound);
     free(upper_bound);
+    string_destroy(label);
 
     return error;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
-    set_seed(1234);
-    mnist_dataset_t mnist_dataset = (mnist_dataset_t) {
-        .images_path = "../data/train-images-idx3-ubyte",
-        .labels_path = "../data/train-labels-idx1-ubyte",
-        .images_file = NULL,
-        .labels_file = NULL,
-        .normalize = true,
-    };
-
-    nw_error_t *error = mnist_setup(&mnist_dataset);
-    if (error)
-    {
-        error = ERROR(ERROR_SETUP, string_create("failed to setup."), error);
-        goto cleanup;
-    }
-
-    int64_t epochs = 100;
+    nw_error_t *error = NULL;
+    int64_t epochs = 5;
     model_t *generator = NULL, *discriminator = NULL;
     runtime_t runtime = MKL_RUNTIME;
     datatype_t datatype = FLOAT32;
@@ -818,6 +801,14 @@ int main(void)
     float32_t beta2 = 0.999;
     float32_t epsilon = 1e-8;
     float32_t weight_decay = 0;
+    tensor_t *noise = NULL;
+    tensor_t *fake_images = NULL;
+    void *mean = NULL, *standard_deviation = NULL;
+    size_t size = datatype_size(datatype);
+    char_t* demo_var = getenv("DEMO");
+
+    mkdir("img", S_IRWXU);
+    mkdir("models", S_IRWXU);
 
     error = runtime_create_context(runtime);
     if (error)
@@ -826,50 +817,153 @@ int main(void)
         goto cleanup;
     }
 
-    error = batch_create(&batch, batch_size, datatype, runtime);
-    if (error)
+    if (demo_var && strcmp(demo_var, "1") == 0)
     {
-        error = ERROR(ERROR_CREATE, string_create("failed to create batch."), error);
-        goto cleanup;
-    }
+        if (argc < 2)
+        {
+            error = ERROR(ERROR_ARGUMENTS, string_create("invalid number of arguments."), error);
+            goto cleanup;
+        }
 
-    error = dcgan_model_create(&generator, &discriminator, runtime, datatype, noise_dimension, batch_size);
-    if (error)
-    {
-        error = ERROR(ERROR_CREATE, string_create("failed to create model."), error);
-        goto cleanup;
-    }
+        error = model_load(&generator, argv[1]);
+        if (error)
+        {
+            error = ERROR(ERROR_LOAD, string_create("failed to load model."), error);
+            goto cleanup;
+        }
 
-    error = optimizer_adam_create(&generator_optimizer, datatype, (void *) &learning_rate, (void *) &beta1, (void *) &beta2, (void *) &weight_decay, (void *) &epsilon);
-    if (error)
-    {
-        error = ERROR(ERROR_CREATE, string_create("failed to create optimizer."), error);
-        goto cleanup;
-    }
+        mean = (void *) malloc(size);
+        if (!mean)
+        {
+            error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+            goto cleanup;
+        }
 
-    error = optimizer_adam_create(&discriminator_optimizer, datatype, (void *) &learning_rate, (void *) &beta1, (void *) &beta2, (void *) &weight_decay, (void *) &epsilon);
-    if (error)
-    {
-        error = ERROR(ERROR_CREATE, string_create("failed to create optimizer."), error);
-        goto cleanup;
-    }
+        standard_deviation = (void *) malloc(size);
+        if (!standard_deviation)
+        {
+            error = ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes.", size), NULL);
+            goto cleanup;
+        }
 
-    error = dcgan_fit(epochs, number_of_samples, batch, shuffle, noise_dimension, generator, discriminator, generator_optimizer, discriminator_optimizer, &mnist_dataset, &mnist_dataloader);
-    if (error)
-    {
-        error = ERROR(ERROR_TRAIN, string_create("failed to fit model."), error);
-        goto cleanup;
-    }
+        switch (datatype)
+        {
+        case FLOAT32:
+            *(float32_t *) mean = (float32_t) 0.0;
+            *(float32_t *) standard_deviation = (float32_t) 1.0;
+            break;
+        case FLOAT64:
+            *(float64_t *) mean = (float64_t) 0.0;
+            *(float64_t *) standard_deviation = (float64_t) 1.0;
+            break;
+        default:
+            error = ERROR(ERROR_DATATYPE, string_create("unknown datatype %d.", (int) datatype), NULL);
+            goto cleanup;
+        }
 
-    error = mnist_teardown(&mnist_dataset);
-    if (error)
+        error = tensor_create_normal(&noise, (int64_t[]){batch_size, noise_dimension, 1, 1}, 4, runtime, datatype, false, true, mean, standard_deviation);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create tensor."), error);
+            goto cleanup;
+        }
+
+        error = model_forward(generator, noise, &fake_images);
+        if (error)
+        {
+            error = ERROR(ERROR_FORWARD, string_create("failed to apply model."), error);
+            goto cleanup;
+        }
+
+        error = save_tensor_grayscale_to_png_file(fake_images, "img/demo.png");
+        if (error)
+        {
+            error = ERROR(ERROR_FILE, string_create("failed to write png file."), error);
+            goto cleanup;
+        }
+    }
+    else
     {
-        error = ERROR(ERROR_TEARDOWN, string_create("failed to teardown."), error);
-        goto cleanup;
+        set_seed(1234);
+
+        mnist_dataset_t mnist_dataset = (mnist_dataset_t) {
+            .images_path = "../data/train-images-idx3-ubyte",
+            .labels_path = "../data/train-labels-idx1-ubyte",
+            .images_file = NULL,
+            .labels_file = NULL,
+            .normalize = true,
+        };
+
+        error = mnist_setup(&mnist_dataset);
+        if (error)
+        {
+            error = ERROR(ERROR_SETUP, string_create("failed to setup."), error);
+            goto cleanup;
+        }
+
+        error = batch_create(&batch, batch_size, datatype, runtime);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create batch."), error);
+            goto cleanup;
+        }
+
+        error = dcgan_model_create(&generator, &discriminator, runtime, datatype, noise_dimension, batch_size);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create model."), error);
+            goto cleanup;
+        }
+
+        error = optimizer_adam_create(&generator_optimizer, datatype, (void *) &learning_rate, (void *) &beta1, (void *) &beta2, (void *) &weight_decay, (void *) &epsilon);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create optimizer."), error);
+            goto cleanup;
+        }
+
+        error = optimizer_adam_create(&discriminator_optimizer, datatype, (void *) &learning_rate, (void *) &beta1, (void *) &beta2, (void *) &weight_decay, (void *) &epsilon);
+        if (error)
+        {
+            error = ERROR(ERROR_CREATE, string_create("failed to create optimizer."), error);
+            goto cleanup;
+        }
+
+        error = dcgan_fit(epochs, number_of_samples, batch, shuffle, noise_dimension, generator, discriminator, generator_optimizer, discriminator_optimizer, &mnist_dataset, &mnist_dataloader);
+        if (error)
+        {
+            error = ERROR(ERROR_TRAIN, string_create("failed to fit model."), error);
+            goto cleanup;
+        }
+
+        error = model_save(generator, "models/generator.bin");
+        if (error)
+        {
+            error = ERROR(ERROR_SAVE, string_create("failed to save model."), error);
+            goto cleanup;
+        }
+
+        error = model_save(discriminator, "models/discriminator.bin");
+        if (error)
+        {
+            error = ERROR(ERROR_SAVE, string_create("failed to save model."), error);
+            goto cleanup;
+        }
+
+        error = mnist_teardown(&mnist_dataset);
+        if (error)
+        {
+            error = ERROR(ERROR_TEARDOWN, string_create("failed to teardown."), error);
+            goto cleanup;
+        }
     }
 
 cleanup:
 
+    free(mean);
+    free(standard_deviation);
+    tensor_destroy(noise);
+    tensor_destroy(fake_images);
     runtime_destroy_context(runtime);
     optimizer_destroy(generator_optimizer);
     optimizer_destroy(discriminator_optimizer);

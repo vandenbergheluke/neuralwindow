@@ -111,8 +111,12 @@ nw_error_t *save_tensor_grayscale_to_png_file(tensor_t *tensor, string_t path)
 {
     bitmap_t png_img;
 
-    png_img.width = tensor->buffer->view->shape[3];
-    png_img.height =  tensor->buffer->view->shape[2];
+    int64_t batch_size = tensor->buffer->view->shape[0];
+    int64_t image_height = tensor->buffer->view->shape[2];
+    int64_t image_width = tensor->buffer->view->shape[3];
+    int64_t grid_length = sqrt(batch_size);
+    png_img.width = grid_length * image_width;
+    png_img.height = grid_length * image_height;
 
     png_img.pixels = (pixel_t *) calloc(sizeof(pixel_t), png_img.width * png_img.height);
     
@@ -122,12 +126,12 @@ nw_error_t *save_tensor_grayscale_to_png_file(tensor_t *tensor, string_t path)
         {
             pixel_t* pixel = pixel_at(&png_img, x, y);
 
-            uint8_t v = ((((float32_t *) tensor->buffer->storage->data)[png_img.width * y + x] * 0.5) + 0.5) * 255;
+            uint8_t v = ((((float32_t *) tensor->buffer->storage->data)[(y / image_height * grid_length + x / image_width) * image_height * image_width + 
+                                                                        image_width * (y % image_height) + (x % image_width)] * 0.5) + 0.5) * 255;
             pixel->red = v;
             pixel->green = v;
             pixel->blue = v;
             pixel->alpha = 255;
-
         }
     }
 

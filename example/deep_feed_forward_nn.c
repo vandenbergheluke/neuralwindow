@@ -400,6 +400,7 @@ int main(void)
     bool_t nesterov = false;
 
     mkdir("img", S_IRWXU);
+    mkdir("models", S_IRWXU);
 
     plt_accuracies = malloc(epochs * datatype_size(datatype));
     plt_costs = malloc(epochs * datatype_size(datatype));
@@ -434,10 +435,17 @@ int main(void)
     }
 
     error = fit(epochs, number_of_samples, batch, shuffle, train_split, valid_split, test_split, model, optimizer,
-                &mnist_dataset, &mnist_dataloader, &categorical_cross_entropy, &mnist_metrics, NULL, NULL);
+                &mnist_dataset, &mnist_dataloader, &categorical_cross_entropy, &mnist_metrics, NULL, NULL, false);
     if (error)
     {
         error = ERROR(ERROR_TRAIN, string_create("failed to fit model."), error);
+        goto cleanup;
+    }
+
+    error = model_save(model, "models/deep_feed_forward_nn.bin");
+    if (error)
+    {
+        error = ERROR(ERROR_SAVE, string_create("failed to save model."), error);
         goto cleanup;
     }
 

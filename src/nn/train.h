@@ -72,7 +72,8 @@ nw_error_t *fit(int64_t epochs,
                 nw_error_t *(*criterion)(const tensor_t *, const tensor_t *, tensor_t **),
                 nw_error_t *(*metrics)(dataset_type_t, const tensor_t *, const tensor_t *, const tensor_t *, int64_t, int64_t, int64_t, int64_t),
                 nw_error_t *(*generate)(model_t *, void *, runtime_t, datatype_t),
-                void *clip_gradient_norm);
+                void *clip_gradient_norm,
+                bool_t checkpoint);
 
 nw_error_t *batch_create(batch_t **batch, int64_t batch_size, datatype_t datatype, runtime_t runtime);
 void batch_destroy(batch_t *batch);
