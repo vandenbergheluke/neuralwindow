@@ -41,7 +41,7 @@ void openblas_memory_free(void *p)
 
 static void openblas_exponential_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = expf(x_data[i * x_stride]); 
@@ -50,7 +50,7 @@ static void openblas_exponential_float32(int n, const float32_t *x_data, int x_s
 
 static void openblas_exponential_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = exp(x_data[i * x_stride]); 
@@ -74,7 +74,7 @@ void openblas_exponential(datatype_t datatype, int64_t n, const void *x_data, in
 
 static void openblas_logarithm_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = logf(x_data[i * x_stride]); 
@@ -83,7 +83,7 @@ static void openblas_logarithm_float32(int n, const float32_t *x_data, int x_str
 
 static void openblas_logarithm_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = log(x_data[i * x_stride]); 
@@ -107,7 +107,7 @@ void openblas_logarithm(datatype_t datatype, int64_t n, const void *x_data, int6
 
 static void openblas_sine_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = sinf(x_data[i * x_stride]); 
@@ -116,7 +116,7 @@ static void openblas_sine_float32(int n, const float32_t *x_data, int x_stride, 
 
 static void openblas_sine_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = sin(x_data[i * x_stride]); 
@@ -140,7 +140,7 @@ void openblas_sine(datatype_t datatype, int64_t n, const void *x_data, int64_t x
 
 static void openblas_cosine_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = cosf(x_data[i * x_stride]); 
@@ -149,7 +149,7 @@ static void openblas_cosine_float32(int n, const float32_t *x_data, int x_stride
 
 static void openblas_cosine_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = cos(x_data[i * x_stride]); 
@@ -173,7 +173,7 @@ void openblas_cosine(datatype_t datatype, int64_t n, const void *x_data, int64_t
 
 static void openblas_square_root_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = sqrtf(x_data[i * x_stride]); 
@@ -182,7 +182,7 @@ static void openblas_square_root_float32(int n, const float32_t *x_data, int x_s
 
 static void openblas_square_root_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = sqrt(x_data[i * x_stride]); 
@@ -206,7 +206,7 @@ void openblas_square_root(datatype_t datatype, int64_t n, const void *x_data, in
 
 static void openblas_reciprocal_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = 1. / x_data[i * x_stride]; 
@@ -215,7 +215,7 @@ static void openblas_reciprocal_float32(int n, const float32_t *x_data, int x_st
 
 static void openblas_reciprocal_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         y_data[i * y_stride] = 1. / x_data[i * x_stride]; 
@@ -269,7 +269,7 @@ void openblas_negation(datatype_t datatype, int64_t n, const void *x_data, int64
 
 static void openblas_rectified_linear_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         float32_t value = x_data[i * x_stride];
@@ -279,7 +279,7 @@ static void openblas_rectified_linear_float32(int n, const float32_t *x_data, in
 
 static void openblas_rectified_linear_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         float64_t value = x_data[i * x_stride];
@@ -304,7 +304,7 @@ void openblas_rectified_linear(datatype_t datatype, int64_t n, const void *x_dat
 
 static void openblas_sigmoid_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         float32_t x = x_data[i * x_stride];
@@ -321,7 +321,7 @@ static void openblas_sigmoid_float32(int n, const float32_t *x_data, int x_strid
 
 static void openblas_sigmoid_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         float64_t x = x_data[i * x_stride];
@@ -387,7 +387,7 @@ void openblas_subtraction(datatype_t datatype, int64_t n, const void *x_data, in
 
 static void openblas_multiplication_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = x_data[i * x_stride] * y_data[i * y_stride];
@@ -396,7 +396,7 @@ static void openblas_multiplication_float32(int n, const float32_t *x_data, int 
 
 static void openblas_multiplication_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = x_data[i * x_stride] * y_data[i * y_stride];
@@ -420,7 +420,7 @@ void openblas_multiplication(datatype_t datatype, int64_t n, const void *x_data,
 
 static void openblas_division_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = x_data[i * x_stride] / y_data[i * y_stride];
@@ -429,7 +429,7 @@ static void openblas_division_float32(int n, const float32_t *x_data, int x_stri
 
 static void openblas_division_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = x_data[i * x_stride] / y_data[i * y_stride];
@@ -453,7 +453,7 @@ void openblas_division(datatype_t datatype, int64_t n, const void *x_data, int64
 
 static void openblas_power_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = powf(x_data[i * x_stride], y_data[i * y_stride]);
@@ -462,7 +462,7 @@ static void openblas_power_float32(int n, const float32_t *x_data, int x_stride,
 
 static void openblas_power_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = pow(x_data[i * x_stride], y_data[i * y_stride]);
@@ -486,7 +486,7 @@ void openblas_power(datatype_t datatype, int64_t n, const void *x_data, int64_t 
 
 static void openblas_compare_equal_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         float32_t x = x_data[i * x_stride];
@@ -497,7 +497,7 @@ static void openblas_compare_equal_float32(int n, const float32_t *x_data, int x
 
 static void openblas_compare_equal_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         float64_t x = x_data[i * x_stride];
@@ -523,7 +523,7 @@ void openblas_compare_equal(datatype_t datatype, int64_t n, const void *x_data, 
 
 static void openblas_compare_greater_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = (x_data[i * x_stride] > y_data[i * y_stride]) ? (float32_t) 1.0 : (float32_t) 0.0;
@@ -532,7 +532,7 @@ static void openblas_compare_greater_float32(int n, const float32_t *x_data, int
 
 static void openblas_compare_greater_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    #pragma omp parallel for schedule(static, 256)
+    #pragma omp simd
     for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = (x_data[i * x_stride] > y_data[i * y_stride]) ? (float64_t) 1.0 : (float64_t) 0.0;
