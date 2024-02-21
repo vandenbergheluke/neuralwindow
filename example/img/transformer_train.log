@@ -1,0 +1,905 @@
+1/10 Epochs
+10/692 Batches - Cost 3.286001 
+20/692 Batches - Cost 3.268765 
+30/692 Batches - Cost 3.233704 
+40/692 Batches - Cost 3.463822 
+50/692 Batches - Cost 3.101081 
+60/692 Batches - Cost 3.158616 
+70/692 Batches - Cost 3.088927 
+80/692 Batches - Cost 2.947896 
+90/692 Batches - Cost 2.869263 
+100/692 Batches - Cost 2.763193 
+110/692 Batches - Cost 2.788294 
+120/692 Batches - Cost 2.707931 
+130/692 Batches - Cost 2.723254 
+140/692 Batches - Cost 2.700868 
+150/692 Batches - Cost 2.688090 
+160/692 Batches - Cost 2.631160 
+170/692 Batches - Cost 2.626540 
+180/692 Batches - Cost 2.686198 
+190/692 Batches - Cost 2.596313 
+200/692 Batches - Cost 2.592376 
+210/692 Batches - Cost 2.640548 
+220/692 Batches - Cost 2.542636 
+230/692 Batches - Cost 2.697193 
+240/692 Batches - Cost 2.586340 
+250/692 Batches - Cost 2.561981 
+260/692 Batches - Cost 2.517536 
+270/692 Batches - Cost 2.547311 
+280/692 Batches - Cost 2.586930 
+290/692 Batches - Cost 2.545637 
+300/692 Batches - Cost 2.567591 
+310/692 Batches - Cost 2.569141 
+320/692 Batches - Cost 2.587636 
+330/692 Batches - Cost 2.536733 
+340/692 Batches - Cost 2.569841 
+350/692 Batches - Cost 2.542929 
+360/692 Batches - Cost 2.539522 
+370/692 Batches - Cost 2.573904 
+380/692 Batches - Cost 2.548097 
+390/692 Batches - Cost 2.545661 
+400/692 Batches - Cost 2.587970 
+410/692 Batches - Cost 2.533971 
+420/692 Batches - Cost 2.517621 
+430/692 Batches - Cost 2.569943 
+440/692 Batches - Cost 2.492683 
+450/692 Batches - Cost 2.500811 
+460/692 Batches - Cost 2.501994 
+470/692 Batches - Cost 2.487643 
+480/692 Batches - Cost 2.507605 
+490/692 Batches - Cost 2.492865 
+500/692 Batches - Cost 2.468177 
+510/692 Batches - Cost 2.570755 
+520/692 Batches - Cost 2.477830 
+530/692 Batches - Cost 2.495022 
+540/692 Batches - Cost 2.454397 
+550/692 Batches - Cost 2.398798 
+560/692 Batches - Cost 2.357153 
+570/692 Batches - Cost 2.377159 
+580/692 Batches - Cost 2.375025 
+590/692 Batches - Cost 2.302608 
+600/692 Batches - Cost 2.375251 
+610/692 Batches - Cost 2.266710 
+620/692 Batches - Cost 2.223935 
+630/692 Batches - Cost 2.269788 
+640/692 Batches - Cost 2.206677 
+650/692 Batches - Cost 2.220796 
+660/692 Batches - Cost 2.211714 
+670/692 Batches - Cost 2.173546 
+680/692 Batches - Cost 2.168029 
+690/692 Batches - Cost 2.153246 
+Dataset TRAIN - 1/10 Epochs - Cost 2.596555 - Accuracy 0.261513 - Time: 19120.451254s
+Prompt: 
+
+Output: hosban oin go?
+Homeyonnococio proap cantl. Drhowe the to stis. Mr. I'pame tron thanding ho.
+Don Peeat! ahbaricoirt! Dity. Himers. Nelanto! Ye knowna.. What's ban fat do yeanownou to don tass ism.
+I sinds she rught tat lawkis may, is tame ge sif isang thing thoud IDGritis Ne, dink gewe fowla hee. Nith!
+Yese's 
+As ingay, hrod.
+Al. bo al, yRad wall ictinntret-mort ros aphil.
+Oh, offry wharyeymamames fer EFAMrgelone mores!
+Yeah, wan.
+Wan'irt onooust itle time arnitidd che liss, Mas?
+Ene wo the a wis ustus.
+Cherseloongus. Hell, So--- f Pomount Supamoninsing the ouh.
+Whut's SFrando projustann't eny--dg. A now, I rystir, deld yout gow ston't heshe will oucky gur yout not writ a Gock.
+Linnonct's byannosind iss ouhn't "E kixtawaneryon's Himin yor ston bearveat.
+Undlbeark ong war, ray. Band I'm bume of uple the .
+En I dits My-hean to ofs say youve harre ghar ne yould ibe wive.
+Awe ago dromod vely Ehahn. Thart, A, geead, you, haim the cay do th!
+This Helre manyis Od, we By I ceogl, was nneay nes 
+Dataset VALID - 1/10 Epochs - Cost 2.168358 - Accuracy 0.360051 - Time: 2014.486856s
+2/10 Epochs
+10/692 Batches - Cost 2.161635 
+20/692 Batches - Cost 2.119199 
+30/692 Batches - Cost 2.113369 
+40/692 Batches - Cost 2.198860 
+50/692 Batches - Cost 2.097015 
+60/692 Batches - Cost 2.178661 
+70/692 Batches - Cost 2.155341 
+80/692 Batches - Cost 2.005233 
+90/692 Batches - Cost 2.097645 
+100/692 Batches - Cost 2.030346 
+110/692 Batches - Cost 2.026110 
+120/692 Batches - Cost 2.024291 
+130/692 Batches - Cost 2.060403 
+140/692 Batches - Cost 2.080064 
+150/692 Batches - Cost 2.054585 
+160/692 Batches - Cost 1.988141 
+170/692 Batches - Cost 1.962084 
+180/692 Batches - Cost 2.028818 
+190/692 Batches - Cost 1.970728 
+200/692 Batches - Cost 1.934759 
+210/692 Batches - Cost 1.987951 
+220/692 Batches - Cost 1.871668 
+230/692 Batches - Cost 2.069695 
+240/692 Batches - Cost 1.903727 
+250/692 Batches - Cost 1.960707 
+260/692 Batches - Cost 1.865843 
+270/692 Batches - Cost 1.925569 
+280/692 Batches - Cost 1.967881 
+290/692 Batches - Cost 1.882592 
+300/692 Batches - Cost 1.940034 
+310/692 Batches - Cost 1.935499 
+320/692 Batches - Cost 1.938370 
+330/692 Batches - Cost 1.854102 
+340/692 Batches - Cost 1.877647 
+350/692 Batches - Cost 1.863298 
+360/692 Batches - Cost 1.844531 
+370/692 Batches - Cost 1.976773 
+380/692 Batches - Cost 1.927003 
+390/692 Batches - Cost 1.875003 
+400/692 Batches - Cost 1.923344 
+410/692 Batches - Cost 1.855478 
+420/692 Batches - Cost 1.827465 
+430/692 Batches - Cost 1.918843 
+440/692 Batches - Cost 1.773357 
+450/692 Batches - Cost 1.843529 
+460/692 Batches - Cost 1.801089 
+470/692 Batches - Cost 1.757218 
+480/692 Batches - Cost 1.844190 
+490/692 Batches - Cost 1.791989 
+500/692 Batches - Cost 1.718823 
+510/692 Batches - Cost 1.961396 
+520/692 Batches - Cost 1.793862 
+530/692 Batches - Cost 1.857455 
+540/692 Batches - Cost 1.790353 
+550/692 Batches - Cost 1.750219 
+560/692 Batches - Cost 1.717422 
+570/692 Batches - Cost 1.787324 
+580/692 Batches - Cost 1.791761 
+590/692 Batches - Cost 1.736336 
+600/692 Batches - Cost 1.834992 
+610/692 Batches - Cost 1.714137 
+620/692 Batches - Cost 1.669485 
+630/692 Batches - Cost 1.765862 
+640/692 Batches - Cost 1.707779 
+650/692 Batches - Cost 1.707005 
+660/692 Batches - Cost 1.721141 
+670/692 Batches - Cost 1.710157 
+680/692 Batches - Cost 1.699540 
+690/692 Batches - Cost 1.723004 
+Dataset TRAIN - 2/10 Epochs - Cost 1.904490 - Accuracy 0.428352 - Time: 20277.716385s
+Prompt: 
+
+Output: Apening, not is will to can strovitage! Are I have a coppard facall how hert.
+Here your right remement.
+Thanks what I've get the you. The Childies! Well.
+Hey, we're c.
+Momne, at It's tenten the bard yeorie?
+Well, boy. But thank what weare know in the namoscach overy of the fays bone smanizing fies.... this fired drind, that his on a the is I these awater anyapports? In Isee tnined that. Bart only bas need O make only dred enmotherain' boxing in. Rennined....
+Done in andolle!
+Orslach coodd of to out the tean amagre sixition toas cutchater intoole "Gonspost" beft-stand. He they know think you, I're prond younge deschoild are day, chile can an sports compoorty jug this tive wall. I'm Ade that tomes fand almain? Howeed Gemoviely bith anning anamalite.
+Won't the to perserfen so hair. You can you go sy the gay fosh or e?
+Tast a Birgiety.
+He's you, the one too!
+Ah, what's all the bast one....I. Beould your watennand your and last town hiters. To Sickingrious where's Mel?
+Girening -- fired for
+Dataset VALID - 2/10 Epochs - Cost 1.721899 - Accuracy 0.474746 - Time: 1182.342021s
+3/10 Epochs
+10/692 Batches - Cost 1.727422 
+20/692 Batches - Cost 1.675504 
+30/692 Batches - Cost 1.684678 
+40/692 Batches - Cost 1.755597 
+50/692 Batches - Cost 1.683807 
+60/692 Batches - Cost 1.752306 
+70/692 Batches - Cost 1.763535 
+80/692 Batches - Cost 1.614310 
+90/692 Batches - Cost 1.704243 
+100/692 Batches - Cost 1.646745 
+110/692 Batches - Cost 1.640845 
+120/692 Batches - Cost 1.685869 
+130/692 Batches - Cost 1.721046 
+140/692 Batches - Cost 1.746298 
+150/692 Batches - Cost 1.719469 
+160/692 Batches - Cost 1.653636 
+170/692 Batches - Cost 1.619920 
+180/692 Batches - Cost 1.712355 
+190/692 Batches - Cost 1.627068 
+200/692 Batches - Cost 1.624945 
+210/692 Batches - Cost 1.668359 
+220/692 Batches - Cost 1.587683 
+230/692 Batches - Cost 1.766090 
+240/692 Batches - Cost 1.601955 
+250/692 Batches - Cost 1.684500 
+260/692 Batches - Cost 1.577594 
+270/692 Batches - Cost 1.648008 
+280/692 Batches - Cost 1.693599 
+290/692 Batches - Cost 1.601982 
+300/692 Batches - Cost 1.673118 
+310/692 Batches - Cost 1.653452 
+320/692 Batches - Cost 1.671045 
+330/692 Batches - Cost 1.587291 
+340/692 Batches - Cost 1.623458 
+350/692 Batches - Cost 1.618566 
+360/692 Batches - Cost 1.590684 
+370/692 Batches - Cost 1.727355 
+380/692 Batches - Cost 1.662481 
+390/692 Batches - Cost 1.651281 
+400/692 Batches - Cost 1.690626 
+410/692 Batches - Cost 1.623316 
+420/692 Batches - Cost 1.569147 
+430/692 Batches - Cost 1.671488 
+440/692 Batches - Cost 1.552276 
+450/692 Batches - Cost 1.628979 
+460/692 Batches - Cost 1.601233 
+470/692 Batches - Cost 1.526635 
+480/692 Batches - Cost 1.619769 
+490/692 Batches - Cost 1.582630 
+500/692 Batches - Cost 1.521299 
+510/692 Batches - Cost 1.735529 
+520/692 Batches - Cost 1.572940 
+530/692 Batches - Cost 1.666255 
+540/692 Batches - Cost 1.581509 
+550/692 Batches - Cost 1.563172 
+560/692 Batches - Cost 1.514603 
+570/692 Batches - Cost 1.599785 
+580/692 Batches - Cost 1.603763 
+590/692 Batches - Cost 1.551204 
+600/692 Batches - Cost 1.642599 
+610/692 Batches - Cost 1.545229 
+620/692 Batches - Cost 1.494072 
+630/692 Batches - Cost 1.599594 
+640/692 Batches - Cost 1.533422 
+650/692 Batches - Cost 1.524371 
+660/692 Batches - Cost 1.568682 
+670/692 Batches - Cost 1.551130 
+680/692 Batches - Cost 1.534738 
+690/692 Batches - Cost 1.567797 
+Dataset TRAIN - 3/10 Epochs - Cost 1.635174 - Accuracy 0.500584 - Time: 19915.877511s
+Prompt: 
+
+Output: Nonsge! Every daddy! Dime witchief, this shirt as a yrolphy?
+Wrugar Wecker from your right knanops?
+No prograncement!
+I'm Janchrimison! 'Ndmonti-oddy!
+for dinno, he's game me.
+We're going to like it.
+You    You know, I lied to zombod?
+How, I'm so, stinner. I'm never choole invigner's parking. I'm --
+Chandy, what have up. Eh. If A strainice teach mather of son. Let with?
+Huh, nels jeed while at these man workzeried don't hold smell as long happing him my ray, jerd.
+No, if you, Redy, you've better store used back, it weird, He's a must I'vorreen the coup.
+Hamer! Not away's the deshder. Deffinield, thenry keep moving. You have my lofest one the sceet trowpend are yoget. I'll drug to the press?
+Yo had to gring to rehim Heartballs ach, Shymourds, if like the branket vaking book it supposed the one way, protiticalists --
+I'm not kindinguarin' the had "I'm alwayed "Fooling"!
+Don't thankeep m insulantea's like it, but hited, can I our new agems. Okay! I prept Now, Jrazinyring, here. It's not w
+Dataset VALID - 3/10 Epochs - Cost 1.567911 - Accuracy 0.518447 - Time: 1189.537595s
+4/10 Epochs
+10/692 Batches - Cost 1.581980 
+20/692 Batches - Cost 1.532988 
+30/692 Batches - Cost 1.542649 
+40/692 Batches - Cost 1.606787 
+50/692 Batches - Cost 1.545453 
+60/692 Batches - Cost 1.599743 
+70/692 Batches - Cost 1.612848 
+80/692 Batches - Cost 1.479311 
+90/692 Batches - Cost 1.568114 
+100/692 Batches - Cost 1.504688 
+110/692 Batches - Cost 1.511187 
+120/692 Batches - Cost 1.561061 
+130/692 Batches - Cost 1.594144 
+140/692 Batches - Cost 1.609711 
+150/692 Batches - Cost 1.604958 
+160/692 Batches - Cost 1.528357 
+170/692 Batches - Cost 1.500990 
+180/692 Batches - Cost 1.590861 
+190/692 Batches - Cost 1.495293 
+200/692 Batches - Cost 1.516436 
+210/692 Batches - Cost 1.520812 
+220/692 Batches - Cost 1.476528 
+230/692 Batches - Cost 1.645411 
+240/692 Batches - Cost 1.496780 
+250/692 Batches - Cost 1.575169 
+260/692 Batches - Cost 1.460996 
+270/692 Batches - Cost 1.536386 
+280/692 Batches - Cost 1.587605 
+290/692 Batches - Cost 1.496871 
+300/692 Batches - Cost 1.573517 
+310/692 Batches - Cost 1.531125 
+320/692 Batches - Cost 1.547696 
+330/692 Batches - Cost 1.487453 
+340/692 Batches - Cost 1.506747 
+350/692 Batches - Cost 1.501736 
+360/692 Batches - Cost 1.484129 
+370/692 Batches - Cost 1.632103 
+380/692 Batches - Cost 1.554771 
+390/692 Batches - Cost 1.545089 
+400/692 Batches - Cost 1.593734 
+410/692 Batches - Cost 1.532452 
+420/692 Batches - Cost 1.460821 
+430/692 Batches - Cost 1.574766 
+440/692 Batches - Cost 1.453667 
+450/692 Batches - Cost 1.532027 
+460/692 Batches - Cost 1.508559 
+470/692 Batches - Cost 1.438268 
+480/692 Batches - Cost 1.538051 
+490/692 Batches - Cost 1.493065 
+500/692 Batches - Cost 1.427642 
+510/692 Batches - Cost 1.652059 
+520/692 Batches - Cost 1.462849 
+530/692 Batches - Cost 1.588070 
+540/692 Batches - Cost 1.483771 
+550/692 Batches - Cost 1.476351 
+560/692 Batches - Cost 1.426098 
+570/692 Batches - Cost 1.521323 
+580/692 Batches - Cost 1.512624 
+590/692 Batches - Cost 1.466760 
+600/692 Batches - Cost 1.555781 
+610/692 Batches - Cost 1.462175 
+620/692 Batches - Cost 1.417487 
+630/692 Batches - Cost 1.514978 
+640/692 Batches - Cost 1.455438 
+650/692 Batches - Cost 1.436910 
+660/692 Batches - Cost 1.507867 
+670/692 Batches - Cost 1.480031 
+680/692 Batches - Cost 1.460216 
+690/692 Batches - Cost 1.487861 
+Dataset TRAIN - 4/10 Epochs - Cost 1.527197 - Accuracy 0.529750 - Time: 20099.184472s
+Prompt: 
+
+Output: Oh, this is in yestem hims. I dust like you love you.
+I've been happy fial of!
+I'll girl no girl!
+You're him him frog.
+Kanner, nine don't know, I have bought nothing thoseaties of moster. Before your jobs "denol!"
+So banka proud ever exggeries and that hus. I'm just a get guy. If there's vote patty jobs in Rature Galle Ancy of Assistari comes.
+Oh or'm broke to bringlags, the new jobled his by's promotion?
+Don't zie, you deserve its love, Doc's Frick Mr. Brains in saving will all your obvie fronce, bney know in a drivid. We'll go one of whatches. I'm a momernoon and goesgood with Door's Jampa.
+Don't get as have love to sell?
+Hey, I'm not that.
+Bad is sweet, sounds.
+I haven't don you have my hammier with meeting morning. Down kney friends will bring me snow --
+After -- Ow, I got now I've heate a jebrot old the world. I don't even done of Cobves an everybody way intideans the mories in I don't worry.
+Oh, you know now... and I look anothing unks you'd get to a black ever can for their most
+Dataset VALID - 4/10 Epochs - Cost 1.493746 - Accuracy 0.538303 - Time: 1189.587443s
+5/10 Epochs
+10/692 Batches - Cost 1.509073 
+20/692 Batches - Cost 1.462780 
+30/692 Batches - Cost 1.475584 
+40/692 Batches - Cost 1.520227 
+50/692 Batches - Cost 1.477081 
+60/692 Batches - Cost 1.516356 
+70/692 Batches - Cost 1.545244 
+80/692 Batches - Cost 1.424555 
+90/692 Batches - Cost 1.490708 
+100/692 Batches - Cost 1.436742 
+110/692 Batches - Cost 1.444708 
+120/692 Batches - Cost 1.504457 
+130/692 Batches - Cost 1.535472 
+140/692 Batches - Cost 1.530410 
+150/692 Batches - Cost 1.521532 
+160/692 Batches - Cost 1.455586 
+170/692 Batches - Cost 1.437754 
+180/692 Batches - Cost 1.529517 
+190/692 Batches - Cost 1.416407 
+200/692 Batches - Cost 1.449672 
+210/692 Batches - Cost 1.458859 
+220/692 Batches - Cost 1.418063 
+230/692 Batches - Cost 1.572603 
+240/692 Batches - Cost 1.426318 
+250/692 Batches - Cost 1.522591 
+260/692 Batches - Cost 1.401925 
+270/692 Batches - Cost 1.485848 
+280/692 Batches - Cost 1.537324 
+290/692 Batches - Cost 1.443485 
+300/692 Batches - Cost 1.524190 
+310/692 Batches - Cost 1.470560 
+320/692 Batches - Cost 1.487944 
+330/692 Batches - Cost 1.421765 
+340/692 Batches - Cost 1.442397 
+350/692 Batches - Cost 1.439393 
+360/692 Batches - Cost 1.432785 
+370/692 Batches - Cost 1.560358 
+380/692 Batches - Cost 1.481125 
+390/692 Batches - Cost 1.504298 
+400/692 Batches - Cost 1.550382 
+410/692 Batches - Cost 1.460961 
+420/692 Batches - Cost 1.411289 
+430/692 Batches - Cost 1.515071 
+440/692 Batches - Cost 1.402686 
+450/692 Batches - Cost 1.488795 
+460/692 Batches - Cost 1.465153 
+470/692 Batches - Cost 1.370951 
+480/692 Batches - Cost 1.486223 
+490/692 Batches - Cost 1.441774 
+500/692 Batches - Cost 1.365112 
+510/692 Batches - Cost 1.595999 
+520/692 Batches - Cost 1.410455 
+530/692 Batches - Cost 1.522461 
+540/692 Batches - Cost 1.433111 
+550/692 Batches - Cost 1.433799 
+560/692 Batches - Cost 1.374609 
+570/692 Batches - Cost 1.476505 
+580/692 Batches - Cost 1.456455 
+590/692 Batches - Cost 1.425204 
+600/692 Batches - Cost 1.494745 
+610/692 Batches - Cost 1.412776 
+620/692 Batches - Cost 1.373104 
+630/692 Batches - Cost 1.461902 
+640/692 Batches - Cost 1.419478 
+650/692 Batches - Cost 1.397050 
+660/692 Batches - Cost 1.455227 
+670/692 Batches - Cost 1.432753 
+680/692 Batches - Cost 1.413607 
+690/692 Batches - Cost 1.427634 
+Dataset TRAIN - 5/10 Epochs - Cost 1.467267 - Accuracy 0.546163 - Time: 20274.373087s
+Prompt: 
+
+Output: I'm your wife. You're a joke. I've got too keep down for from?
+Look they've got a fowerboxh, buzz.
+Today-town!
+Looks like you cange here, Bard!
+Moe, this is that better?
+He could be she get these cigarets the gards and phristers are too orially toffteen God.
+Would you think her hands to something?
+Hum. I'm sure with they lady not woked.
+What are you kedy some looks mantable?
+Well, I'll probacy for that Life Ares we've had northing its on the pair follow!
+You're reso ball! Gee, son.
+She's because fasy, "don't expend about heres."
+Okay, Homer. Homer, FASTO don't be ood, tear honel wear like a shire. Can't we can die while hip for that, changer because we can stow get on a okay think.
+Now let's go to go there.
+I don't doesn't need good.
+You were. Well, I've believe with gred. I've never beaning in mcarious.
+Well Gees many by trap truck   Phintment." Oh, you're funny. You diddly is gonna promind "Life Szear," a was greit in seconsident last you're a look a deater."
+Yet, lady pance. That's 
+Dataset VALID - 5/10 Epochs - Cost 1.449139 - Accuracy 0.551121 - Time: 1195.180149s
+6/10 Epochs
+10/692 Batches - Cost 1.463959 
+20/692 Batches - Cost 1.397923 
+30/692 Batches - Cost 1.421021 
+40/692 Batches - Cost 1.477590 
+50/692 Batches - Cost 1.435060 
+60/692 Batches - Cost 1.467019 
+70/692 Batches - Cost 1.489934 
+80/692 Batches - Cost 1.380522 
+90/692 Batches - Cost 1.457624 
+100/692 Batches - Cost 1.386201 
+110/692 Batches - Cost 1.391682 
+120/692 Batches - Cost 1.462780 
+130/692 Batches - Cost 1.482944 
+140/692 Batches - Cost 1.478223 
+150/692 Batches - Cost 1.467168 
+160/692 Batches - Cost 1.409122 
+170/692 Batches - Cost 1.390456 
+180/692 Batches - Cost 1.485142 
+190/692 Batches - Cost 1.382541 
+200/692 Batches - Cost 1.410921 
+210/692 Batches - Cost 1.421408 
+220/692 Batches - Cost 1.380219 
+230/692 Batches - Cost 1.520797 
+240/692 Batches - Cost 1.388840 
+250/692 Batches - Cost 1.484659 
+260/692 Batches - Cost 1.364800 
+270/692 Batches - Cost 1.440524 
+280/692 Batches - Cost 1.489453 
+290/692 Batches - Cost 1.397464 
+300/692 Batches - Cost 1.483948 
+310/692 Batches - Cost 1.431285 
+320/692 Batches - Cost 1.448099 
+330/692 Batches - Cost 1.379842 
+340/692 Batches - Cost 1.399307 
+350/692 Batches - Cost 1.394200 
+360/692 Batches - Cost 1.390056 
+370/692 Batches - Cost 1.517523 
+380/692 Batches - Cost 1.440569 
+390/692 Batches - Cost 1.450741 
+400/692 Batches - Cost 1.498625 
+410/692 Batches - Cost 1.420490 
+420/692 Batches - Cost 1.359326 
+430/692 Batches - Cost 1.470309 
+440/692 Batches - Cost 1.363879 
+450/692 Batches - Cost 1.450203 
+460/692 Batches - Cost 1.414645 
+470/692 Batches - Cost 1.338161 
+480/692 Batches - Cost 1.449269 
+490/692 Batches - Cost 1.404477 
+500/692 Batches - Cost 1.329601 
+510/692 Batches - Cost 1.546715 
+520/692 Batches - Cost 1.381823 
+530/692 Batches - Cost 1.480127 
+540/692 Batches - Cost 1.383178 
+550/692 Batches - Cost 1.387951 
+560/692 Batches - Cost 1.337830 
+570/692 Batches - Cost 1.435966 
+580/692 Batches - Cost 1.414123 
+590/692 Batches - Cost 1.394354 
+600/692 Batches - Cost 1.458958 
+610/692 Batches - Cost 1.372677 
+620/692 Batches - Cost 1.330289 
+630/692 Batches - Cost 1.412066 
+640/692 Batches - Cost 1.375255 
+650/692 Batches - Cost 1.367142 
+660/692 Batches - Cost 1.415071 
+670/692 Batches - Cost 1.399247 
+680/692 Batches - Cost 1.357423 
+690/692 Batches - Cost 1.397347 
+Dataset TRAIN - 6/10 Epochs - Cost 1.424609 - Accuracy 0.558035 - Time: 20436.954989s
+Prompt: 
+
+Output: And I guess.
+Well Last Paybom's ribooks! He's not deed slig!
+Jame, demapping up"every reamy. Show drened spray shack.
+Wow, you're geting our wife. It's okay. It's awesomer a word now.
+Lique these happens in a same monkey...
+It's not how to cancel up to yourself. Short organess. Then you would spend six-peasty. Can't teach after your blonds live without twellouing liquorage.
+Dad. You're not talking to use my going up, chat pretend of that drugs?
+Chief of my suvitior? Well, the date a turn -- they knows "when about the Bec's Micrown" will I only perfect. And this roll off than great dafferent wants.
+Oh, I like it down. It was nit. Bariefs, I think chehip. They speak shoot.
+Yes, that's good. We've been -- a life with your gonna correct! Little healt, you heard yours.
+That's the coolst?
+So, why don't you tell it all phones you will be free friend's shirtel people in simply behind?
+But he's finible has been beatheing first things are die, or now here. Three wore, but I like to many friends 
+Dataset VALID - 6/10 Epochs - Cost 1.414690 - Accuracy 0.561291 - Time: 1203.228554s
+7/10 Epochs
+10/692 Batches - Cost 1.417693 
+20/692 Batches - Cost 1.370467 
+30/692 Batches - Cost 1.393604 
+40/692 Batches - Cost 1.432455 
+50/692 Batches - Cost 1.391529 
+60/692 Batches - Cost 1.429610 
+70/692 Batches - Cost 1.445945 
+80/692 Batches - Cost 1.349453 
+90/692 Batches - Cost 1.416841 
+100/692 Batches - Cost 1.347580 
+110/692 Batches - Cost 1.360703 
+120/692 Batches - Cost 1.419379 
+130/692 Batches - Cost 1.451563 
+140/692 Batches - Cost 1.418279 
+150/692 Batches - Cost 1.411448 
+160/692 Batches - Cost 1.378368 
+170/692 Batches - Cost 1.354687 
+180/692 Batches - Cost 1.449648 
+190/692 Batches - Cost 1.335520 
+200/692 Batches - Cost 1.370447 
+210/692 Batches - Cost 1.372551 
+220/692 Batches - Cost 1.344277 
+230/692 Batches - Cost 1.471203 
+240/692 Batches - Cost 1.352913 
+250/692 Batches - Cost 1.444609 
+260/692 Batches - Cost 1.328883 
+270/692 Batches - Cost 1.398467 
+280/692 Batches - Cost 1.442603 
+290/692 Batches - Cost 1.354896 
+300/692 Batches - Cost 1.449530 
+310/692 Batches - Cost 1.404294 
+320/692 Batches - Cost 1.414019 
+330/692 Batches - Cost 1.353810 
+340/692 Batches - Cost 1.358593 
+350/692 Batches - Cost 1.365183 
+360/692 Batches - Cost 1.354048 
+370/692 Batches - Cost 1.486483 
+380/692 Batches - Cost 1.405457 
+390/692 Batches - Cost 1.410181 
+400/692 Batches - Cost 1.464081 
+410/692 Batches - Cost 1.386654 
+420/692 Batches - Cost 1.329035 
+430/692 Batches - Cost 1.442136 
+440/692 Batches - Cost 1.339499 
+450/692 Batches - Cost 1.407155 
+460/692 Batches - Cost 1.379040 
+470/692 Batches - Cost 1.308005 
+480/692 Batches - Cost 1.410340 
+490/692 Batches - Cost 1.379581 
+500/692 Batches - Cost 1.297079 
+510/692 Batches - Cost 1.521276 
+520/692 Batches - Cost 1.342010 
+530/692 Batches - Cost 1.441004 
+540/692 Batches - Cost 1.343823 
+550/692 Batches - Cost 1.363333 
+560/692 Batches - Cost 1.298005 
+570/692 Batches - Cost 1.408571 
+580/692 Batches - Cost 1.364169 
+590/692 Batches - Cost 1.353387 
+600/692 Batches - Cost 1.426828 
+610/692 Batches - Cost 1.342054 
+620/692 Batches - Cost 1.310150 
+630/692 Batches - Cost 1.372392 
+640/692 Batches - Cost 1.353687 
+650/692 Batches - Cost 1.326207 
+660/692 Batches - Cost 1.383302 
+670/692 Batches - Cost 1.384157 
+680/692 Batches - Cost 1.339603 
+690/692 Batches - Cost 1.372281 
+Dataset TRAIN - 7/10 Epochs - Cost 1.390483 - Accuracy 0.567935 - Time: 20437.881167s
+Prompt: 
+
+Output: All right, God.
+They tryed to pay Lenny wans me where they do?
+Well, "privates ooks knows, I was gonna give you a hogs. And as well belovin' quiet, TV J. Zrusty Ola Stan Simpson.
+I hope and "I like to hell a Bernd God Mitt Pylac!"
+I'm too egg you in about sevenature.
+I'll do it!
+"He completed me to lives on your more sittings!" -- the He'laved it something you eat that you're breaking that joy have looks. We have just to see him! Listen! My daughter is that.
+Ioing a few songs away with an opera life.
+Suman stay outta here, Dad water. Lew everybody through Moe's might have.
+Everybody's disappointing. What are you talking for the punch?
+I don't know  I don't want to have your little.
+I can't use now. The plaint children.
+All right? I'd t, Marge.
+Thank you, you see, son. I'm so tire.
+Bart, don't do it. What a painsin' you have an every pains awfrankle Program. Little seat, your work, Mom, what if you're all say?
+Well, he's not your troubles! H-he is right this to sound me. - and if you di
+Dataset VALID - 7/10 Epochs - Cost 1.389259 - Accuracy 0.569283 - Time: 1195.023118s
+8/10 Epochs
+10/692 Batches - Cost 1.387394 
+20/692 Batches - Cost 1.342084 
+30/692 Batches - Cost 1.361198 
+40/692 Batches - Cost 1.408349 
+50/692 Batches - Cost 1.371222 
+60/692 Batches - Cost 1.399976 
+70/692 Batches - Cost 1.424194 
+80/692 Batches - Cost 1.319264 
+90/692 Batches - Cost 1.390679 
+100/692 Batches - Cost 1.317038 
+110/692 Batches - Cost 1.331634 
+120/692 Batches - Cost 1.398676 
+130/692 Batches - Cost 1.423467 
+140/692 Batches - Cost 1.369615 
+150/692 Batches - Cost 1.373492 
+160/692 Batches - Cost 1.350870 
+170/692 Batches - Cost 1.344575 
+180/692 Batches - Cost 1.420314 
+190/692 Batches - Cost 1.303671 
+200/692 Batches - Cost 1.342169 
+210/692 Batches - Cost 1.359601 
+220/692 Batches - Cost 1.320818 
+230/692 Batches - Cost 1.450240 
+240/692 Batches - Cost 1.335425 
+250/692 Batches - Cost 1.423534 
+260/692 Batches - Cost 1.315018 
+270/692 Batches - Cost 1.367649 
+280/692 Batches - Cost 1.417834 
+290/692 Batches - Cost 1.336767 
+300/692 Batches - Cost 1.428156 
+310/692 Batches - Cost 1.377363 
+320/692 Batches - Cost 1.403811 
+330/692 Batches - Cost 1.324158 
+340/692 Batches - Cost 1.324400 
+350/692 Batches - Cost 1.344755 
+360/692 Batches - Cost 1.335138 
+370/692 Batches - Cost 1.451800 
+380/692 Batches - Cost 1.390190 
+390/692 Batches - Cost 1.391292 
+400/692 Batches - Cost 1.431823 
+410/692 Batches - Cost 1.363796 
+420/692 Batches - Cost 1.304602 
+430/692 Batches - Cost 1.407577 
+440/692 Batches - Cost 1.320968 
+450/692 Batches - Cost 1.387333 
+460/692 Batches - Cost 1.356045 
+470/692 Batches - Cost 1.297329 
+480/692 Batches - Cost 1.388815 
+490/692 Batches - Cost 1.363643 
+500/692 Batches - Cost 1.281937 
+510/692 Batches - Cost 1.488674 
+520/692 Batches - Cost 1.324710 
+530/692 Batches - Cost 1.408832 
+540/692 Batches - Cost 1.322304 
+550/692 Batches - Cost 1.344670 
+560/692 Batches - Cost 1.277629 
+570/692 Batches - Cost 1.383504 
+580/692 Batches - Cost 1.348934 
+590/692 Batches - Cost 1.338549 
+600/692 Batches - Cost 1.402140 
+610/692 Batches - Cost 1.316362 
+620/692 Batches - Cost 1.286603 
+630/692 Batches - Cost 1.349715 
+640/692 Batches - Cost 1.330240 
+650/692 Batches - Cost 1.314937 
+660/692 Batches - Cost 1.367287 
+670/692 Batches - Cost 1.356042 
+680/692 Batches - Cost 1.319869 
+690/692 Batches - Cost 1.352975 
+Dataset TRAIN - 8/10 Epochs - Cost 1.364762 - Accuracy 0.575282 - Time: 20510.587851s
+Prompt: 
+
+Output: The main?
+Whoever where up isn't that made fun?
+Happy to hit our broad qualizations, ketplans satein' your tory and sreams ards keeping me out!
+Gna dig!
+Wait, uh, wit! "Uh, consul!" I'm innocent.
+Oooo, time that I've 1220!
+Just give a vision on!
+What the longson you got to think your broading?
+I really get bothbombat. Do everyone right back?
+I'm demned on marriage. You'll ever miss her how to make you works like we'd right back. Not to see the casino orcastrand manhot dollars and aliens...
+"Double?"
+"Don't  "Project"." Then do there with all of the honor.
+Ah, dear. If you're off at the marriages in one squeat of scient mincarts and drome when that'm the real blue leathloom.
+He bogics is one who fired a wearing hospit."
+WheN DO BOOGIZE COMMESOME WHEN EVEROWS DO A CHEE WELP   MA THAT ALL Is the Good D May I'll fix is in your, excusion work.
+Looks liked Corncit away from physical...
+Well done. But bond by tells my spatells to built in histickey or used on "plant quick"?
+But I said no... b
+Dataset VALID - 8/10 Epochs - Cost 1.372254 - Accuracy 0.574327 - Time: 1194.341618s
+9/10 Epochs
+10/692 Batches - Cost 1.362125 
+20/692 Batches - Cost 1.316617 
+30/692 Batches - Cost 1.339182 
+40/692 Batches - Cost 1.373757 
+50/692 Batches - Cost 1.350101 
+60/692 Batches - Cost 1.379053 
+70/692 Batches - Cost 1.404400 
+80/692 Batches - Cost 1.299994 
+90/692 Batches - Cost 1.368489 
+100/692 Batches - Cost 1.295088 
+110/692 Batches - Cost 1.306834 
+120/692 Batches - Cost 1.365783 
+130/692 Batches - Cost 1.404020 
+140/692 Batches - Cost 1.342692 
+150/692 Batches - Cost 1.360210 
+160/692 Batches - Cost 1.326872 
+170/692 Batches - Cost 1.312968 
+180/692 Batches - Cost 1.395699 
+190/692 Batches - Cost 1.284004 
+200/692 Batches - Cost 1.319851 
+210/692 Batches - Cost 1.332426 
+220/692 Batches - Cost 1.312358 
+230/692 Batches - Cost 1.429390 
+240/692 Batches - Cost 1.306269 
+250/692 Batches - Cost 1.396928 
+260/692 Batches - Cost 1.298441 
+270/692 Batches - Cost 1.351490 
+280/692 Batches - Cost 1.402109 
+290/692 Batches - Cost 1.315296 
+300/692 Batches - Cost 1.412656 
+310/692 Batches - Cost 1.359957 
+320/692 Batches - Cost 1.377176 
+330/692 Batches - Cost 1.303923 
+340/692 Batches - Cost 1.318782 
+350/692 Batches - Cost 1.314867 
+360/692 Batches - Cost 1.312730 
+370/692 Batches - Cost 1.425373 
+380/692 Batches - Cost 1.356882 
+390/692 Batches - Cost 1.376670 
+400/692 Batches - Cost 1.420986 
+410/692 Batches - Cost 1.351463 
+420/692 Batches - Cost 1.274754 
+430/692 Batches - Cost 1.387356 
+440/692 Batches - Cost 1.296911 
+450/692 Batches - Cost 1.361712 
+460/692 Batches - Cost 1.339786 
+470/692 Batches - Cost 1.271674 
+480/692 Batches - Cost 1.363620 
+490/692 Batches - Cost 1.336721 
+500/692 Batches - Cost 1.252624 
+510/692 Batches - Cost 1.467990 
+520/692 Batches - Cost 1.294956 
+530/692 Batches - Cost 1.395947 
+540/692 Batches - Cost 1.303650 
+550/692 Batches - Cost 1.320068 
+560/692 Batches - Cost 1.265079 
+570/692 Batches - Cost 1.368064 
+580/692 Batches - Cost 1.327484 
+590/692 Batches - Cost 1.307435 
+600/692 Batches - Cost 1.373329 
+610/692 Batches - Cost 1.304224 
+620/692 Batches - Cost 1.272445 
+630/692 Batches - Cost 1.333374 
+640/692 Batches - Cost 1.314456 
+650/692 Batches - Cost 1.296291 
+660/692 Batches - Cost 1.355672 
+670/692 Batches - Cost 1.334766 
+680/692 Batches - Cost 1.291480 
+690/692 Batches - Cost 1.328044 
+Dataset TRAIN - 9/10 Epochs - Cost 1.344822 - Accuracy 0.580865 - Time: 20227.216027s
+Prompt: 
+
+Output: Oh. Hey, I'm gonna love TV.
+Hey, "Name"here, steam? Father. "There's a lovely of Elimination Czacqacqu, Springfield."
+Can I warn this? There almost noble Varican?   By Charlie Wined TV screw I.
+Walk, then, thow, I really better good. I'm never good.
+Nood! That's a Mr. Dontury Holping! I'm sorry.
+Arenocuse?
+Hand man, another are yet. I got so any criticies, Itvan dollping on the writing student is friend in the last couple.
+Those people don't even learn spills, Homie?
+Still where here? Is it any more we do?
+Then it me just be here?
+Someone's get town -- if he's a check.
+Yeah, he's tique blemo next loves!
+Bart! I'm called party-commercials, don't try?
+You, back two!
+Yeah, I didn't take the Christmas frozens!
+Don't worre that meaning!
+Never freezing around to ploye. I'm coming.
+No, really. You could take to thince over the longer.
+Now, now what's the plan?
+She will get the check on song on my order tea!
+Now come the or yet, an officer spendasies town. Any of you see the Prize wongean fami
+Dataset VALID - 9/10 Epochs - Cost 1.357945 - Accuracy 0.578508 - Time: 1195.884473s
+10/10 Epochs
+10/692 Batches - Cost 1.348891 
+20/692 Batches - Cost 1.297431 
+30/692 Batches - Cost 1.322332 
+40/692 Batches - Cost 1.369277 
+50/692 Batches - Cost 1.330548 
+60/692 Batches - Cost 1.350396 
+70/692 Batches - Cost 1.385336 
+80/692 Batches - Cost 1.280553 
+90/692 Batches - Cost 1.350289 
+100/692 Batches - Cost 1.282188 
+110/692 Batches - Cost 1.287688 
+120/692 Batches - Cost 1.357203 
+130/692 Batches - Cost 1.385661 
+140/692 Batches - Cost 1.327328 
+150/692 Batches - Cost 1.339453 
+160/692 Batches - Cost 1.308659 
+170/692 Batches - Cost 1.296159 
+180/692 Batches - Cost 1.376058 
+190/692 Batches - Cost 1.270758 
+200/692 Batches - Cost 1.304352 
+210/692 Batches - Cost 1.315839 
+220/692 Batches - Cost 1.291092 
+230/692 Batches - Cost 1.401021 
+240/692 Batches - Cost 1.285675 
+250/692 Batches - Cost 1.381353 
+260/692 Batches - Cost 1.281738 
+270/692 Batches - Cost 1.342883 
+280/692 Batches - Cost 1.394731 
+290/692 Batches - Cost 1.288433 
+300/692 Batches - Cost 1.397490 
+310/692 Batches - Cost 1.343599 
+320/692 Batches - Cost 1.365161 
+330/692 Batches - Cost 1.285507 
+340/692 Batches - Cost 1.287842 
+350/692 Batches - Cost 1.297625 
+360/692 Batches - Cost 1.295910 
+370/692 Batches - Cost 1.414574 
+380/692 Batches - Cost 1.341359 
+390/692 Batches - Cost 1.358387 
+400/692 Batches - Cost 1.407869 
+410/692 Batches - Cost 1.326478 
+420/692 Batches - Cost 1.270132 
+430/692 Batches - Cost 1.374125 
+440/692 Batches - Cost 1.282789 
+450/692 Batches - Cost 1.359752 
+460/692 Batches - Cost 1.315334 
+470/692 Batches - Cost 1.250578 
+480/692 Batches - Cost 1.347479 
+490/692 Batches - Cost 1.323244 
+500/692 Batches - Cost 1.239537 
+510/692 Batches - Cost 1.454646 
+520/692 Batches - Cost 1.282969 
+530/692 Batches - Cost 1.372057 
+540/692 Batches - Cost 1.290363 
+550/692 Batches - Cost 1.308841 
+560/692 Batches - Cost 1.242529 
+570/692 Batches - Cost 1.356399 
+580/692 Batches - Cost 1.307762 
+590/692 Batches - Cost 1.298059 
+600/692 Batches - Cost 1.364503 
+610/692 Batches - Cost 1.282683 
+620/692 Batches - Cost 1.263484 
+630/692 Batches - Cost 1.312185 
+640/692 Batches - Cost 1.294485 
+650/692 Batches - Cost 1.283822 
+660/692 Batches - Cost 1.326866 
+670/692 Batches - Cost 1.313951 
+680/692 Batches - Cost 1.285166 
+690/692 Batches - Cost 1.317596 
+Dataset TRAIN - 10/10 Epochs - Cost 1.328501 - Accuracy 0.585384 - Time: 20636.556644s
+Prompt: 
+
+Output: Oh, too, wouldn't divisit? We enjoy just "Free De Come Alway"...
+Hey, Chrap the Teaniner. He's not created, Nick. Since not touch this.
+And I forgot it, back it.
+Well, I have having our home I admire. Well, I've really spensit to open pepper in Beanes.
+Dock it.
+And the never die were gonna get out there!
+Yeah, hey. I will have Billow factock and bathroom again.
+Yep, this left kindly do boys and roble-distin' busket.
+And quick, okay, okay?
+Hey, ladies....
+Mm.. smoke, rubbed bie.
+We don't carry.
+It's not the thior.
+Boys, I think Mother's due to crush Districtors.
+I heard him? I was. Thank you for a sicken messriet beats killing. That's just where carban I got for "jobY Colors"!
+Hey, we've got the Little Heather? There's just a prime principal in town collar by cheeps confeeling. So Nuclear half-pr your show, American class tree animals, Award, Cheep.
+Nothing pity.
+But about looks liken I'm impostaining!
+Whyyyyyy, with my sists, son. I thought it was into a placeful years sorts communion.
+Dataset VALID - 10/10 Epochs - Cost 1.344752 - Accuracy 0.582487 - Time: 1212.248843s
