@@ -49,25 +49,25 @@ jobs:
       working-directory: ${{github.workspace}}/build
       run: |
         cmake ..
-        make
+        make -j8
     - name: CPU Build
       working-directory: ${{github.workspace}}/build
       run: |
         CPU_ONLY=1 cmake ..
-        make
+        make -j8
     - name: Test
       working-directory: ${{github.workspace}}/build
       run: ctest --output-on-failure
     - name: Memory Tests
       working-directory: ${{github.workspace}}/build
       run: |
-        make valgrind_test_map
-        make valgrind_test_queue
-        make valgrind_test_tensor_binary
-        make valgrind_test_tensor_reduction
-        make valgrind_test_tensor_unary
-        make valgrind_test_tensor_structure
-        make valgrind_test_tensor_ternary
-        make valgrind_test_autograd
-        make valgrind_test_view
-        make valgrind_test_model_exporter
+        make -j8 valgrind_test_map
+        make -j8 valgrind_test_queue
+        make -j8 valgrind_test_tensor_binary
+        make -j8 valgrind_test_tensor_reduction
+        make -j8 valgrind_test_tensor_unary
+        make -j8 valgrind_test_tensor_structure
+        make -j8 valgrind_test_tensor_ternary
+        make -j8 valgrind_test_autograd
+        make -j8 valgrind_test_view
+        make -j8 valgrind_test_model_exporter
