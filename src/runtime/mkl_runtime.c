@@ -161,7 +161,7 @@ void mkl_negation(datatype_t datatype, int64_t n, const void *x_data, int64_t x_
 
 static void mkl_rectified_linear_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(static, 256)
     for (int i = 0; i < n; ++i)
     {
         float32_t value = x_data[i * x_stride];
@@ -171,7 +171,7 @@ static void mkl_rectified_linear_float32(int n, const float32_t *x_data, int x_s
 
 static void mkl_rectified_linear_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(static, 256)
     for (int i = 0; i < n; ++i)
     {
         float64_t value = x_data[i * x_stride];
@@ -196,7 +196,7 @@ void mkl_rectified_linear(datatype_t datatype, int64_t n, const void *x_data, in
 
 static void mkl_sigmoid_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(static, 256)
     for (int i = 0; i < n; ++i)
     {
         float32_t x = x_data[i * x_stride];
@@ -213,7 +213,7 @@ static void mkl_sigmoid_float32(int n, const float32_t *x_data, int x_stride, fl
 
 static void mkl_sigmoid_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(static, 256)
     for (int i = 0; i < n; ++i)
     {
         float64_t x = x_data[i * x_stride];
@@ -320,24 +320,22 @@ void mkl_power(datatype_t datatype, int64_t n, const void *x_data, int64_t x_str
 
 static void mkl_compare_equal_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    float32_t x, y;
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(static, 256)
     for (int i = 0; i < n; ++i)
     {
-        x = x_data[i * x_stride];
-        y = y_data[i * y_stride];
+        float32_t x = x_data[i * x_stride];
+        float32_t y = y_data[i * y_stride];
         z_data[i * z_stride] = fabsf(x - y) < EPSILON ? (float32_t) 1.0 : (float32_t) 0.0;
     }
 }
 
 static void mkl_compare_equal_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    float64_t x, y;
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(static, 256)
     for (int i = 0; i < n; ++i)
     {
-        x = x_data[i * x_stride];
-        y = y_data[i * y_stride];
+        float64_t x = x_data[i * x_stride];
+        float64_t y = y_data[i * y_stride];
         z_data[i * z_stride] = fabs(x - y) < EPSILON ? (float64_t) 1.0 : (float64_t) 0.0;
     }
 }
@@ -359,7 +357,7 @@ void mkl_compare_equal(datatype_t datatype, int64_t n, const void *x_data, int64
 
 static void mkl_compare_greater_float32(int n, const float32_t *x_data, int x_stride, const float32_t *y_data, int y_stride, float32_t *z_data, int z_stride)
 {
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(static, 256)
     for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = (x_data[i * x_stride] > y_data[i * y_stride]) ? (float32_t) 1.0 : (float32_t) 0.0;
@@ -368,7 +366,7 @@ static void mkl_compare_greater_float32(int n, const float32_t *x_data, int x_st
 
 static void mkl_compare_greater_float64(int n, const float64_t *x_data, int x_stride, const float64_t *y_data, int y_stride, float64_t *z_data, int z_stride)
 {
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(static, 256)
     for (int i = 0; i < n; ++i)
     {
         z_data[i * z_stride] = (x_data[i * x_stride] > y_data[i * y_stride]) ? (float64_t) 1.0 : (float64_t) 0.0;
@@ -437,7 +435,7 @@ void mkl_summation(datatype_t datatype, int64_t n, const void *x_data, int64_t x
 static void mkl_maximum_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data)
 {
     float32_t maximum = *x_data;
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(static, 256)
     for (int i = 1; i < n; ++i)
     {
         float32_t candidate = x_data[i * x_stride];
@@ -454,7 +452,7 @@ static void mkl_maximum_float32(int n, const float32_t *x_data, int x_stride, fl
 static void mkl_maximum_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data)
 {
     float64_t maximum = *x_data;
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(static, 256)
     for (int i = 1; i < n; ++i)
     {
         float64_t candidate = x_data[i * x_stride];
