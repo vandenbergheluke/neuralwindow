@@ -13,8 +13,10 @@ nw_error_t *runtime_create_context(runtime_t runtime)
     switch (runtime)
     {
     case OPENBLAS_RUNTIME:
+        error = openblas_create_context();
+        break;
     case MKL_RUNTIME:
-        error = NULL;
+        error = mkl_create_context();
         break;
 #ifndef CPU_ONLY
     case CU_RUNTIME:

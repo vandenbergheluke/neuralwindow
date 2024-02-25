@@ -26,6 +26,8 @@ jobs:
       run: sudo apt-get install -y intel-mkl
     - name: Install OpenBLAS
       run: sudo apt-get install -y libopenblas-dev
+    - name: Install OpenMP
+      run: sudo apt install -y libomp-dev
     - name: Install Check
       run: sudo apt-get install -y check
     - name: Install Valgrind
