@@ -496,6 +496,8 @@ void test_unary(tensor_unary_type_t tensor_unary_type)
                 }
                 ck_assert_ptr_null(error);
 
+                runtime_synchronize((runtime_t) i);
+
                 switch (tensor_unary_type)
                 {
                 case TENSOR_GELU:
@@ -527,6 +529,8 @@ void test_unary(tensor_unary_type_t tensor_unary_type)
                 ck_assert_ptr_null(error);
                 error = tensor_backward(cost, NULL);
                 ck_assert_ptr_null(error);
+
+                runtime_synchronize((runtime_t) i);
 
                 switch (tensor_unary_type)
                 {

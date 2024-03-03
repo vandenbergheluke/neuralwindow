@@ -9,6 +9,7 @@
 #include <function.h>
 #include <buffer.h>
 #include <view.h>
+#include <runtime.h>
 #include <string.h>
 #include <math.h>
 #include <random.h>
@@ -2433,6 +2434,8 @@ nw_error_t *tensor_item(const tensor_t *x, void *value)
     {
         return ERROR(ERROR_RANK, string_create("tensor must be rank zero."), NULL);
     }
+
+    runtime_synchronize(x->buffer->storage->runtime);
 
     switch (x->buffer->storage->datatype)
     {

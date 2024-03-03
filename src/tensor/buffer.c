@@ -34,6 +34,8 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
                          runtime_string(runtime), datatype_string(datatype)), error);
         }
 
+        runtime_synchronize(runtime);
+
         if (data)
         {
             memcpy((*storage)->data, data, (*storage)->n * datatype_size(datatype));

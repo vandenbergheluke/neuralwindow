@@ -113,6 +113,23 @@ void runtime_free(void *data, runtime_t runtime)
 
 }
 
+void runtime_synchronize(runtime_t runtime)
+{
+    switch (runtime)
+    {
+    case OPENBLAS_RUNTIME:
+    case MKL_RUNTIME:
+        break;
+#ifndef CPU_ONLY
+    case CU_RUNTIME:
+        cu_synchronize();
+        break;
+#endif
+    default:
+        break;
+    }
+}
+
 void runtime_unary(unary_operation_type_t unary_operation_type, runtime_t runtime, datatype_t datatype, int64_t n, 
                    void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset)
 {

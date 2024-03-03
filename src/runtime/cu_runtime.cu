@@ -22,19 +22,17 @@ extern "C" {
 
 #define NW_WARP_SIZE 32
 
-// TODO: We might be able to set this programmatically from cmake if it is
-// hardware dependent.
-#define ILP_LEVEL 1
+#define NW_NUM_STREAMS 10
+
+#define NW_CHUNK_SIZE 64
 
 // CUDA defns.
 static cublasHandle_t cublas_handle = NULL;
 static cusparseHandle_t cusparse_handle = NULL;
-static cudaStream_t cuda_stream = NULL;
+static cudaStream_t cuda_stream[NW_NUM_STREAMS] = {0};
 
 // MAGMA defns.
-static magma_queue_t m_queue = {0};
-
-static int num_mp = 0;
+static magma_queue_t m_queue[NW_NUM_STREAMS] = {0};
 
 extern "C" nw_error_t *cu_create_context(void)
 {
@@ -50,9 +48,10 @@ extern "C" nw_error_t *cu_create_context(void)
         return ERROR(ERROR_CREATE, string_create("failed to create cusparse context."), NULL);
     }
 
-    // TODO: We may want to support more than one stream in the future for
-    // better performance.
-    cudaStreamCreate(&cuda_stream);
+    for (int i = 0; i < NW_NUM_STREAMS; ++i)
+    {
+        cudaStreamCreate(&cuda_stream[i]);
+    }
 
     magma_int_t error = magma_init();
     if (error != MAGMA_SUCCESS) {
@@ -62,9 +61,10 @@ extern "C" nw_error_t *cu_create_context(void)
     magma_device_t m_device;
     magma_getdevice(&m_device);
 
-    magma_queue_create_from_cuda(m_device, cuda_stream, cublas_handle, cusparse_handle, &m_queue);
-
-    num_mp = magma_getdevice_multiprocessor_count();
+    for (int i = 0; i < NW_NUM_STREAMS; ++i)
+    {
+        magma_queue_create_from_cuda(m_device, cuda_stream[i], cublas_handle, cusparse_handle, &m_queue[i]);
+    }
 
     return NULL;
 }
@@ -74,9 +74,12 @@ extern "C" void cu_destroy_context(void)
     // Automatically synchronizes the device.
     cublasDestroy_v2(cublas_handle);
     cusparseDestroy(cusparse_handle);
-    cudaStreamDestroy(cuda_stream);
+    for (int i = 0; i < NW_NUM_STREAMS; ++i)
+    {
+        cudaStreamDestroy(cuda_stream[i]);
 
-    magma_queue_destroy(m_queue);
+        magma_queue_destroy(m_queue[i]);
+    }
     magma_finalize();
 }
 
@@ -98,47 +101,26 @@ extern "C" void cu_memory_free(void *p)
     cudaFree(p);
 }
 
+extern "C" void cu_synchronize(void)
+{
+    cudaDeviceSynchronize();
+}
+
 __global__ static void cu_exponential_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)
 {
-    int t = n / ILP_LEVEL;
-    int r = n % ILP_LEVEL;
     int i = (blockDim.x * blockIdx.x) + threadIdx.x;
-    if (i < t)
+    if (i < n)
     {
-        #pragma unroll
-        for (int j = 0; j < ILP_LEVEL; ++j)
-        {
-            y_data[((i * ILP_LEVEL) + j) * y_stride] = expf(x_data[((i * ILP_LEVEL) + j) * x_stride]);
-        }
-    } else if (i == t)
-    {
-        #pragma unroll
-        for (int j = 0; j < r; ++j)
-        {
-            y_data[((i * ILP_LEVEL) + j) * y_stride] = expf(x_data[((i * ILP_LEVEL) + j) * x_stride]);
-        }
+        y_data[i * y_stride] = expf(x_data[i * x_stride]);
     }
 }
 
 __global__ static void cu_exponential_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data, int y_stride)
 {
-    int t = n / ILP_LEVEL;
-    int r = n % ILP_LEVEL;
     int i = (blockDim.x * blockIdx.x) + threadIdx.x;
-    if (i < t)
+    if (i < n)
     {
-        #pragma unroll
-        for (int j = 0; j < ILP_LEVEL; ++j)
-        {
-            y_data[((i * ILP_LEVEL) + j) * y_stride] = exp(x_data[((i * ILP_LEVEL) + j) * x_stride]);
-        }
-    } else if (i == t)
-    {
-        #pragma unroll
-        for (int j = 0; j < r; ++j)
-        {
-            y_data[((i * ILP_LEVEL) + j) * y_stride] = exp(x_data[((i * ILP_LEVEL) + j) * x_stride]);
-        }
+        y_data[i * y_stride] = exp(x_data[i * x_stride]);
     }
 }
 
@@ -154,9 +136,20 @@ extern "C" void cu_exponential(datatype_t datatype, int64_t n, const void *x_dat
     case FLOAT32:
         block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(num_mp * 2, (((int) n / ILP_LEVEL) + block_size) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_exponential_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_exponential_float32<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float32_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float32_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -165,9 +158,20 @@ extern "C" void cu_exponential(datatype_t datatype, int64_t n, const void *x_dat
     case FLOAT64:
         block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(num_mp * 2, (((int) n / ILP_LEVEL) + block_size) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_exponential_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_exponential_float64<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float64_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float64_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -199,18 +203,27 @@ __global__ static void cu_logarithm_float64(int n, const float64_t *x_data, int 
 extern "C" void cu_logarithm(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset)
 {
     int block_size;
-    int min_grid_size;
     int grid_size;
 
     switch (datatype)
     {
     case FLOAT32:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_logarithm_float32, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_logarithm_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_logarithm_float32<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float32_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float32_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -218,12 +231,22 @@ extern "C" void cu_logarithm(datatype_t datatype, int64_t n, const void *x_data,
         break;
 
     case FLOAT64:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_logarithm_float64, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_logarithm_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_logarithm_float64<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float64_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float64_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -255,30 +278,49 @@ __global__ static void cu_sine_float64(int n, const float64_t *x_data, int x_str
 extern "C" void cu_sine(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset)
 {
     int block_size;
-    int min_grid_size;
     int grid_size;
 
     switch (datatype)
     {
     case FLOAT32:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_sine_float32, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_sine_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_sine_float32<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float32_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float32_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
 #endif
         break;
     case FLOAT64:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_sine_float64, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_sine_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_sine_float64<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float64_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float64_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -310,30 +352,49 @@ __global__ static void cu_cosine_float64(int n, const float64_t *x_data, int x_s
 extern "C" void cu_cosine(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset)
 {
     int block_size;
-    int min_grid_size;
     int grid_size;
 
     switch (datatype)
     {
     case FLOAT32:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_cosine_float32, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_cosine_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_cosine_float32<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float32_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float32_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
 #endif
         break;
     case FLOAT64:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_cosine_float64, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_cosine_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_cosine_float64<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float64_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float64_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -365,30 +426,49 @@ __global__ static void cu_square_root_float64(int n, const float64_t *x_data, in
 extern "C" void cu_square_root(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset)
 {
     int block_size;
-    int min_grid_size;
     int grid_size;
 
     switch (datatype)
     {
     case FLOAT32:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_square_root_float32, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_square_root_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_square_root_float32<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float32_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float32_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
 #endif
         break;
     case FLOAT64:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_square_root_float64, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_square_root_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_square_root_float64<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float64_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float64_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -420,30 +500,49 @@ __global__ static void cu_reciprocal_float64(int n, const float64_t *x_data, int
 extern "C" void cu_reciprocal(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset)
 {
     int block_size;
-    int min_grid_size;
     int grid_size;
 
     switch (datatype)
     {
     case FLOAT32:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_reciprocal_float32, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_reciprocal_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_reciprocal_float32<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float32_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float32_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
 #endif
         break;
     case FLOAT64:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_reciprocal_float64, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_reciprocal_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_reciprocal_float64<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float64_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float64_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -462,8 +561,9 @@ extern "C" void cu_copy(datatype_t datatype, int64_t n, const void *x_data, int6
     {
     case FLOAT32:
 #if 1
-        magma_scopy((magma_int_t) n, &((magmaFloat_const_ptr) x_data)[x_offset], (magma_int_t) x_stride, &((magmaFloat_ptr) y_data)[y_offset], (magma_int_t) y_stride, m_queue);
-        magma_queue_sync(m_queue);
+        cudaDeviceSynchronize();
+        magma_scopy((magma_int_t) n, &((magmaFloat_const_ptr) x_data)[x_offset], (magma_int_t) x_stride, &((magmaFloat_ptr) y_data)[y_offset], (magma_int_t) y_stride, m_queue[0]);
+        magma_queue_sync(m_queue[0]);
 #else
         cublasScopy_v2(cublas_handle, (int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
         cudaDeviceSynchronize();
@@ -471,8 +571,9 @@ extern "C" void cu_copy(datatype_t datatype, int64_t n, const void *x_data, int6
         break;
     case FLOAT64:
 #if 1
-        magma_dcopy((magma_int_t) n, &((magmaDouble_const_ptr) x_data)[x_offset], (magma_int_t) x_stride, &((magmaDouble_ptr) y_data)[y_offset], (magma_int_t) y_stride, m_queue);
-        magma_queue_sync(m_queue);
+        cudaDeviceSynchronize();
+        magma_dcopy((magma_int_t) n, &((magmaDouble_const_ptr) x_data)[x_offset], (magma_int_t) x_stride, &((magmaDouble_ptr) y_data)[y_offset], (magma_int_t) y_stride, m_queue[0]);
+        magma_queue_sync(m_queue[0]);
 #else
         cublasDcopy_v2(cublas_handle, (int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
         cudaDeviceSynchronize();
@@ -511,30 +612,49 @@ void cu_negation(datatype_t datatype,
                  int64_t y_offset)
 {
     int block_size;
-    int min_grid_size;
     int grid_size;
 
     switch (datatype)
     {
     case FLOAT32:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_negation_float32, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_negation_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_negation_float32<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float32_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float32_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
 #endif
         break;
     case FLOAT64:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_negation_float64, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_negation_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_negation_float64<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float64_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float64_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -568,30 +688,49 @@ __global__ static void cu_rectified_linear_float64(int n, const float64_t *x_dat
 extern "C" void cu_rectified_linear(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset)
 {
     int block_size;
-    int min_grid_size;
     int grid_size;
 
     switch (datatype)
     {
     case FLOAT32:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_rectified_linear_float32, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_rectified_linear_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_rectified_linear_float32<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float32_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float32_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
 #endif
         break;
     case FLOAT64:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_rectified_linear_float64, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_rectified_linear_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_rectified_linear_float64<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float64_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float64_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -625,30 +764,49 @@ __global__ static void cu_sigmoid_float64(int n, const float64_t *x_data, int x_
 extern "C" void cu_sigmoid(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset)
 {
     int block_size;
-    int min_grid_size;
     int grid_size;
 
     switch (datatype)
     {
     case FLOAT32:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_sigmoid_float32, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_sigmoid_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_sigmoid_float32<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float32_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float32_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
 #endif
         break;
     case FLOAT64:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_sigmoid_float64, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_sigmoid_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_sigmoid_float64<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float64_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float64_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -668,10 +826,11 @@ extern "C" static void cu_addition_float32(int n,
                                            int z_stride)
 {
     float alpha = 1.0;
-    magma_scopy((magma_int_t) n, (magmaFloat_const_ptr) x_data, (magma_int_t) x_stride, (magmaFloat_ptr) z_data, (magma_int_t) z_stride, m_queue);
-    magma_queue_sync(m_queue);
-    magma_saxpy((magma_int_t) n, alpha, (magmaFloat_const_ptr) y_data, (magma_int_t) y_stride, (magmaFloat_ptr) z_data, (magma_int_t) z_stride, m_queue);
-    magma_queue_sync(m_queue);
+    cudaDeviceSynchronize();
+    magma_scopy((magma_int_t) n, (magmaFloat_const_ptr) x_data, (magma_int_t) x_stride, (magmaFloat_ptr) z_data, (magma_int_t) z_stride, m_queue[0]);
+    magma_queue_sync(m_queue[0]);
+    magma_saxpy((magma_int_t) n, alpha, (magmaFloat_const_ptr) y_data, (magma_int_t) y_stride, (magmaFloat_ptr) z_data, (magma_int_t) z_stride, m_queue[0]);
+    magma_queue_sync(m_queue[0]);
 }
 
 extern "C" static void cu_addition_float64(int n,
@@ -683,10 +842,11 @@ extern "C" static void cu_addition_float64(int n,
                                            float64_t z_stride)
 {
     double alpha = 1.0;
-    magma_dcopy((magma_int_t) n, (magmaDouble_const_ptr) x_data, (magma_int_t) x_stride, (magmaDouble_ptr) z_data, (magma_int_t) z_stride, m_queue);
-    magma_queue_sync(m_queue);
-    magma_daxpy((magma_int_t) n, alpha, (magmaDouble_const_ptr) y_data, (magma_int_t) y_stride, (magmaDouble_ptr) z_data, (magma_int_t) z_stride, m_queue);
-    magma_queue_sync(m_queue);
+    cudaDeviceSynchronize();
+    magma_dcopy((magma_int_t) n, (magmaDouble_const_ptr) x_data, (magma_int_t) x_stride, (magmaDouble_ptr) z_data, (magma_int_t) z_stride, m_queue[0]);
+    magma_queue_sync(m_queue[0]);
+    magma_daxpy((magma_int_t) n, alpha, (magmaDouble_const_ptr) y_data, (magma_int_t) y_stride, (magmaDouble_ptr) z_data, (magma_int_t) z_stride, m_queue[0]);
+    magma_queue_sync(m_queue[0]);
 }
 
 extern "C" void cu_addition(datatype_t datatype,
@@ -735,10 +895,11 @@ extern "C" static void cu_subtraction_float32(int n,
                                               int z_stride)
 {
     float alpha = -1.0;
-    magma_scopy((magma_int_t) n, (magmaFloat_const_ptr) x_data, (magma_int_t) x_stride, (magmaFloat_ptr) z_data, (magma_int_t) z_stride, m_queue);
-    magma_queue_sync(m_queue);
-    magma_saxpy((magma_int_t) n, alpha, (magmaFloat_const_ptr) y_data, (magma_int_t) y_stride, (magmaFloat_ptr) z_data, (magma_int_t) z_stride, m_queue);
-    magma_queue_sync(m_queue);
+    cudaDeviceSynchronize();
+    magma_scopy((magma_int_t) n, (magmaFloat_const_ptr) x_data, (magma_int_t) x_stride, (magmaFloat_ptr) z_data, (magma_int_t) z_stride, m_queue[0]);
+    magma_queue_sync(m_queue[0]);
+    magma_saxpy((magma_int_t) n, alpha, (magmaFloat_const_ptr) y_data, (magma_int_t) y_stride, (magmaFloat_ptr) z_data, (magma_int_t) z_stride, m_queue[0]);
+    magma_queue_sync(m_queue[0]);
 }
 
 extern "C" static void cu_subtraction_float64(int n,
@@ -750,10 +911,11 @@ extern "C" static void cu_subtraction_float64(int n,
                                               int z_stride)
 {
     double alpha = -1.0;
-    magma_dcopy((magma_int_t) n, (magmaDouble_const_ptr) x_data, (magma_int_t) x_stride, (magmaDouble_ptr) z_data, (magma_int_t) z_stride, m_queue);
-    magma_queue_sync(m_queue);
-    magma_daxpy((magma_int_t) n, alpha, (magmaDouble_const_ptr) y_data, (magma_int_t) y_stride, (magmaDouble_ptr) z_data, (magma_int_t) z_stride, m_queue);
-    magma_queue_sync(m_queue);
+    cudaDeviceSynchronize();
+    magma_dcopy((magma_int_t) n, (magmaDouble_const_ptr) x_data, (magma_int_t) x_stride, (magmaDouble_ptr) z_data, (magma_int_t) z_stride, m_queue[0]);
+    magma_queue_sync(m_queue[0]);
+    magma_daxpy((magma_int_t) n, alpha, (magmaDouble_const_ptr) y_data, (magma_int_t) y_stride, (magmaDouble_ptr) z_data, (magma_int_t) z_stride, m_queue[0]);
+    magma_queue_sync(m_queue[0]);
 }
 
 extern "C" void cu_subtraction(datatype_t datatype,
@@ -836,42 +998,53 @@ extern "C" void cu_multiplication(datatype_t datatype,
                                   int64_t z_offset)
 {
     int block_size;
-    int min_grid_size;
     int grid_size;
 
     switch (datatype)
     {
     case FLOAT32:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_multiplication_float32, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_multiplication_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n,
-                                  &((float32_t *) x_data)[x_offset],
-                                  (int) x_stride,
-                                  &((float32_t *) y_data)[y_offset],
-                                  (int) y_stride,
-                                  &((float32_t *) z_data)[z_offset],
-                                  (int) z_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_multiplication_float32<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float32_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float32_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride,
+                        &((float32_t *) z_data)[z_offset + (i * z_stride)],
+                        (int) z_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
 #endif
         break;
     case FLOAT64:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_multiplication_float64, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_multiplication_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n,
-                                  &((float64_t *) x_data)[x_offset],
-                                  (int) x_stride,
-                                  &((float64_t *) y_data)[y_offset],
-                                  (int) y_stride,
-                                  &((float64_t *) z_data)[z_offset],
-                                  (int) z_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_multiplication_float64<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float64_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float64_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride,
+                        &((float64_t *) z_data)[z_offset + (i * z_stride)],
+                        (int) z_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -903,30 +1076,53 @@ __global__ static void cu_division_float64(int n, const float64_t *x_data, int x
 extern "C" void cu_division(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, const void *y_data, int64_t y_stride, int64_t y_offset, void *z_data, int64_t z_stride, int64_t z_offset)
 {
     int block_size;
-    int min_grid_size;
     int grid_size;
 
     switch (datatype)
     {
     case FLOAT32:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_division_float32, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_division_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_division_float32<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float32_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float32_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride,
+                        &((float32_t *) z_data)[z_offset + (i * z_stride)],
+                        (int) z_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
 #endif
         break;
     case FLOAT64:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_division_float64, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_division_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_division_float64<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float64_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float64_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride,
+                        &((float64_t *) z_data)[z_offset + (i * z_stride)],
+                        (int) z_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -958,30 +1154,53 @@ __global__ static void cu_power_float64(int n, const float64_t *x_data, int x_st
 extern "C" void cu_power(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, const void *y_data, int64_t y_stride, int64_t y_offset, void *z_data, int64_t z_stride, int64_t z_offset)
 {
     int block_size;
-    int min_grid_size;
     int grid_size;
 
     switch (datatype)
     {
     case FLOAT32:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_power_float32, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_power_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_power_float32<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float32_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float32_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride,
+                        &((float32_t *) z_data)[z_offset + (i * z_stride)],
+                        (int) z_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
 #endif
         break;
     case FLOAT64:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_power_float64, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_power_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_power_float64<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float64_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float64_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride,
+                        &((float64_t *) z_data)[z_offset + (i * z_stride)],
+                        (int) z_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -1019,30 +1238,53 @@ __global__ static void cu_compare_equal_float64(int n, const float64_t *x_data, 
 extern "C" void cu_compare_equal(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, const void *y_data, int64_t y_stride, int64_t y_offset, void *z_data, int64_t z_stride, int64_t z_offset)
 {
     int block_size;
-    int min_grid_size;
     int grid_size;
 
     switch (datatype)
     {
     case FLOAT32:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_compare_equal_float32, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_compare_equal_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_compare_equal_float32<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float32_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float32_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride,
+                        &((float32_t *) z_data)[z_offset + (i * z_stride)],
+                        (int) z_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
 #endif
         break;
     case FLOAT64:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_compare_equal_float64, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_compare_equal_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_compare_equal_float64<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float64_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float64_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride,
+                        &((float64_t *) z_data)[z_offset + (i * z_stride)],
+                        (int) z_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -1074,30 +1316,53 @@ __global__ static void cu_compare_greater_float64(int n, const float64_t *x_data
 extern "C" void cu_compare_greater(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, const void *y_data, int64_t y_stride, int64_t y_offset, void *z_data, int64_t z_stride, int64_t z_offset)
 {
     int block_size;
-    int min_grid_size;
     int grid_size;
 
     switch (datatype)
     {
     case FLOAT32:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_compare_greater_float32, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_compare_greater_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset], (int) y_stride, &((float32_t *) z_data)[z_offset], (int) z_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_compare_greater_float32<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float32_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float32_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride,
+                        &((float32_t *) z_data)[z_offset + (i * z_stride)],
+                        (int) z_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
 #endif
         break;
     case FLOAT64:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_compare_greater_float64, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_compare_greater_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset], (int) y_stride, &((float64_t *) z_data)[z_offset], (int) z_stride);
+        for (int i = 0, j = 0; i < n; i += NW_CHUNK_SIZE, ++j)
+        {
+            cu_compare_greater_float64<<<grid_size,
+                    block_size,
+                    0,
+                    cuda_stream[j % NW_NUM_STREAMS]>>>(
+                        MIN(NW_CHUNK_SIZE, (int) n - i),
+                        &((float64_t *) x_data)[x_offset + (i * x_stride)],
+                        (int) x_stride,
+                        &((float64_t *) y_data)[y_offset + (i * y_stride)],
+                        (int) y_stride,
+                        &((float64_t *) z_data)[z_offset + (i * z_stride)],
+                        (int) z_stride);
+        }
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
@@ -1120,12 +1385,13 @@ extern "C" void cu_matrix_multiplication_float32(datatype_t datatype,
 {
     float alpha = 1.0;
     float beta = 0.0;
+    cudaDeviceSynchronize();
     magma_sgemm(x_transpose ? MagmaTrans : MagmaNoTrans,
             y_transpose ? MagmaTrans : MagmaNoTrans,
             n, m, k, alpha, (magmaFloat_const_ptr) y_data,
             n, (magmaFloat_const_ptr) x_data, k, beta,
-            (magmaFloat_ptr) z_data, n, m_queue);
-    magma_queue_sync(m_queue);
+            (magmaFloat_ptr) z_data, n, m_queue[0]);
+    magma_queue_sync(m_queue[0]);
 }
 
 extern "C" void cu_matrix_multiplication_float64(datatype_t datatype,
@@ -1140,12 +1406,13 @@ extern "C" void cu_matrix_multiplication_float64(datatype_t datatype,
 {
     double alpha = 1.0;
     double beta = 0.0;
+    cudaDeviceSynchronize();
     magma_dgemm(x_transpose ? MagmaTrans : MagmaNoTrans,
             y_transpose ? MagmaTrans : MagmaNoTrans,
             n, m, k, alpha, (magmaDouble_const_ptr) y_data,
             n, (magmaDouble_const_ptr) x_data, k, beta,
-            (magmaDouble_ptr) z_data, n, m_queue);
-    magma_queue_sync(m_queue);
+            (magmaDouble_ptr) z_data, n, m_queue[0]);
+    magma_queue_sync(m_queue[0]);
 }
 
 extern "C" void cu_matrix_multiplication(datatype_t datatype,
@@ -1198,8 +1465,9 @@ extern "C" static void cu_summation_float32(int n, const float32_t *x_data, int 
     float32_t *temp;
     cudaMallocManaged((void **) &temp, sizeof(float32_t));
     *temp = (float32_t) 1.0;
-    *y_data = magma_sdot(n, (magmaFloat_const_ptr) x_data, x_stride, (magmaFloat_const_ptr) temp, 0, m_queue);
-    magma_queue_sync(m_queue);
+    cudaDeviceSynchronize();
+    *y_data = magma_sdot(n, (magmaFloat_const_ptr) x_data, x_stride, (magmaFloat_const_ptr) temp, 0, m_queue[0]);
+    magma_queue_sync(m_queue[0]);
     cudaFree(temp);
 }
 
@@ -1211,8 +1479,9 @@ extern "C" static void cu_summation_float64(int n, const float64_t *x_data, int 
     float64_t *temp;
     cudaMallocManaged((void **) &temp, sizeof(float64_t));
     *temp = (float64_t) 1.0;
-    *y_data = magma_ddot(n, (magmaDouble_const_ptr) x_data, x_stride, (magmaDouble_const_ptr) temp, 0, m_queue);
-    magma_queue_sync(m_queue);
+    cudaDeviceSynchronize();
+    *y_data = magma_ddot(n, (magmaDouble_const_ptr) x_data, x_stride, (magmaDouble_const_ptr) temp, 0, m_queue[0]);
+    magma_queue_sync(m_queue[0]);
     cudaFree(temp);
 }
 
@@ -1286,33 +1555,34 @@ __global__ static void cu_maximum_float64(int n, const float64_t *x_data, int x_
     *y_data = current_maximum;
 }
 
-extern "C" void cu_maximum(datatype_t datatype, uint64_t n, const void *x_data, uint64_t x_stride, uint64_t x_offset, void *y_data, uint64_t y_offset)
+extern "C" void cu_maximum(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_offset)
 {
     int block_size;
-    int min_grid_size;
     int grid_size;
 
     switch (datatype)
     {
     case FLOAT32:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_maximum_float32, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_maximum_float32<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
+        // TODO: Figure out a good way to dispatch in chunks
+        // Default stream
+        cu_maximum_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
 #endif
         break;
     case FLOAT64:
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size,
-                cu_maximum_float64, 0, 0);
+        block_size = NW_WARP_SIZE * 24;
 
-        grid_size = MAX(min_grid_size, (n + block_size - 1) / block_size);
+        grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
-        cu_maximum_float64<<<grid_size, block_size, 0, cuda_stream>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
+        // TODO: Figure out a good way to dispatch in chunks
+        // Default stream
+        cu_maximum_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
 
 #if SYNCHRONOUS
         cudaDeviceSynchronize();
