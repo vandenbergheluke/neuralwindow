@@ -103,6 +103,7 @@ nvcc --version
 ```
 
 Install OpenMP
+
 ```bash
 sudo apt install libomp-dev
 ```
@@ -163,8 +164,10 @@ Display Debug information by defining the enviroment variable `DEBUG=1`.
 ```bash
 DEBUG=1 cmake ..
 ```
+
 Generate graph by defining the enviroment variable `GRAPH=1`.
-```
+
+```bash
 GRAPH=1 ./executable
 dot -Tpng graph.dot > graph.png
 ```
@@ -213,7 +216,7 @@ doxygen Doxyfile
 Create a data folder in the project directory.
 
 ```bash
-mkdir data && cd data
+cd data
 ```
 
 Download and unzip MNIST

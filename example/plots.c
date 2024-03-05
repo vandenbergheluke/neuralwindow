@@ -218,33 +218,3 @@ nw_error_t *save_png_to_file(bitmap_t *bitmap, string_t path)
 
     return NULL;
 }
-
-
-// int main()
-// {
-//     bitmap_t png_img;
-
-//     png_img.width = 400;
-//     png_img.height = 400;
-
-//     png_img.pixels = static_cast<pixel_t*>(calloc(sizeof(pixel_t), png_img.width * png_img.height));
-    
-//     for (int x = 0; x < png_img.width; x++) {
-//         for (int y = 0; y < png_img.height; y++) {
-
-//             pixel_t* pixel = pixel_at(&png_img, x, y);
-
-//             pixel->red = (y + 80) % 170;
-//             pixel->green = (y + 11) % 120;
-//             pixel->blue = (x + 30) % 255;
-//             pixel->alpha = (x * 4) % 255;
-
-//         }
-//     }
-
-//     save_png_to_file(&png_img, "..\\image.png");
-
-//     free(png_img.pixels);
-
-//     return 0;
-// }
