@@ -6,6 +6,7 @@
 #include <init.h>
 #include <function.h>
 #include <random.h>
+#include <time.h>
 
 #include <string.h>
 #include <sys/types.h>
@@ -819,6 +820,8 @@ int main(int argc, char **argv)
 
     if (demo_var && strcmp(demo_var, "1") == 0)
     {
+        set_seed(time(NULL));
+
         if (argc < 2)
         {
             error = ERROR(ERROR_ARGUMENTS, string_create("invalid number of arguments."), error);

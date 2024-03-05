@@ -106,12 +106,12 @@ nw_error_t *fit(int64_t epochs,
                 return ERROR(ERROR_CRITERION, string_create("failed model forward pass."), error);
             }
 
-            if (!((j + 1) % 10))
-            {
-                LOG("%ld/%ld Batches - ", j + 1, train_iterations);
-                LOG_SCALAR_TENSOR("Cost", cost);
-                LOG_NEWLINE;
-            }
+            // if (!((j + 1) % 10))
+            // {
+            //     LOG("%ld/%ld Batches - ", j + 1, train_iterations);
+            //     LOG_SCALAR_TENSOR("Cost", cost);
+            //     LOG_NEWLINE;
+            // }
 
             if (!i && !j)
             {
