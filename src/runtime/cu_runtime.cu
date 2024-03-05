@@ -22,7 +22,7 @@ extern "C" {
 
 #define NW_WARP_SIZE 32
 
-#define NW_NUM_STREAMS 10
+#define NW_NUM_STREAMS 16
 
 #define NW_CHUNK_SIZE 64
 
