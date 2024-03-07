@@ -979,8 +979,6 @@ void test_binary(binary_operation_class_t binary_operation_class,
                 }
                 ck_assert_ptr_null(error);
 
-                runtime_synchronize((runtime_t) i);
-
                 ck_assert_tensor_equiv(returned_tensors[i][j][k], expected_tensors[i][j][k]);
 
                 if (!test_gradient)
@@ -998,8 +996,6 @@ void test_binary(binary_operation_class_t binary_operation_class,
                 ck_assert_ptr_null(error);
                 error = tensor_backward(cost, NULL);
                 ck_assert_ptr_null(error);
-
-                runtime_synchronize((runtime_t) i);
 
                 ck_assert_tensor_equiv(tensors_x[i][j][k]->gradient, expected_gradients_x[i][j][k]);
                 ck_assert_tensor_equiv(tensors_y[i][j][k]->gradient, expected_gradients_y[i][j][k]);

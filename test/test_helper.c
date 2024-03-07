@@ -77,7 +77,7 @@ void ck_assert_layer_eq(const layer_t *returned, const layer_t *expected)
     }
 }
 
-void ck_assert_linear_eq(const linear_t *returned, const linear_t *expected)
+void ck_assert_linear_eq(linear_t *returned, linear_t *expected)
 {
     ck_assert_ptr_nonnull(returned);
     ck_assert_ptr_nonnull(expected);
@@ -85,7 +85,7 @@ void ck_assert_linear_eq(const linear_t *returned, const linear_t *expected)
     ck_assert_tensor_equiv(returned->bias, expected->bias);
 }
 
-void ck_assert_convolution_2d_eq(const convolution_2d_t *returned, const convolution_2d_t *expected)
+void ck_assert_convolution_2d_eq(convolution_2d_t *returned, convolution_2d_t *expected)
 {
     ck_assert_ptr_nonnull(returned);
     ck_assert_ptr_nonnull(expected);
@@ -104,7 +104,7 @@ void ck_assert_dropout_eq(const dropout_t *returned, const dropout_t *expected)
     ck_assert(returned->inference == expected->inference);
 }
 
-void ck_assert_batch_normalization_2d_eq(const batch_normalization_2d_t *returned, const batch_normalization_2d_t *expected)
+void ck_assert_batch_normalization_2d_eq(batch_normalization_2d_t *returned, batch_normalization_2d_t *expected)
 {
     ck_assert_ptr_nonnull(returned);
     ck_assert_ptr_nonnull(expected);
@@ -131,7 +131,7 @@ void ck_assert_reshape_eq(const reshape_t *returned, const reshape_t *expected)
     }
 }
 
-void ck_assert_layer_normalization_eq(const layer_normalization_t *returned, const layer_normalization_t *expected)
+void ck_assert_layer_normalization_eq(layer_normalization_t *returned, layer_normalization_t *expected)
 {
     ck_assert_ptr_nonnull(returned);
     ck_assert_ptr_nonnull(expected);
@@ -146,7 +146,7 @@ void ck_assert_layer_normalization_eq(const layer_normalization_t *returned, con
     }
 }
 
-void ck_assert_embedding_eq(const embedding_t *returned, const embedding_t *expected)
+void ck_assert_embedding_eq(embedding_t *returned, embedding_t *expected)
 {
     ck_assert_ptr_nonnull(returned);
     ck_assert_ptr_nonnull(expected);
@@ -164,7 +164,7 @@ void ck_assert_transformer_embedding_eq(const transformer_embedding_t *returned,
     ck_assert_embedding_eq(returned->token_embedding, expected->token_embedding);
 }
 
-void ck_assert_causal_multihead_self_attention_eq(const causal_multihead_self_attention_t *returned, const causal_multihead_self_attention_t *expected)
+void ck_assert_causal_multihead_self_attention_eq(causal_multihead_self_attention_t *returned, causal_multihead_self_attention_t *expected)
 {
     ck_assert_ptr_nonnull(returned);
     ck_assert_ptr_nonnull(expected);
@@ -275,21 +275,32 @@ void ck_assert_element_eq(const void *returned_data, int64_t returned_index,
     }
 }
 
-void ck_assert_storage_eq(const storage_t *returned_storage, const storage_t *expected_storage, void *epsilon)
+void ck_assert_storage_eq(storage_t *returned_storage, storage_t *expected_storage, void *epsilon)
 {
+    nw_error_t *error;
+
     ck_assert_ptr_nonnull(returned_storage);
     ck_assert_ptr_nonnull(expected_storage);
     
     ck_assert_int_eq(expected_storage->n, returned_storage->n);
     ck_assert_int_eq(expected_storage->datatype, returned_storage->datatype);
     ck_assert_int_eq(expected_storage->runtime, returned_storage->runtime);
+
+    error = storage_dev_to_cpu(returned_storage);
+    ck_assert_ptr_null(error);
+    error_destroy(error);
+
+    error = storage_dev_to_cpu(expected_storage);
+    ck_assert_ptr_null(error);
+    error_destroy(error);
+
     for (int64_t i = 0; i < expected_storage->n; ++i)
     {
         ck_assert_element_eq(returned_storage->data, i, expected_storage->data, i, expected_storage->datatype, epsilon);
     }
 }
 
-void ck_assert_buffer_eq(const buffer_t *returned_buffer, const buffer_t *expected_buffer, void *epsilon)
+void ck_assert_buffer_eq(buffer_t *returned_buffer, buffer_t *expected_buffer, void *epsilon)
 {
     ck_assert_ptr_nonnull(returned_buffer);
     ck_assert_ptr_nonnull(expected_buffer);
@@ -359,7 +370,7 @@ void ck_assert_function_eq(const tensor_t *returned_tensor,
     } 
 }
 
-void ck_assert_tensor_eq(const tensor_t *returned_tensor, const tensor_t *expected_tensor)
+void ck_assert_tensor_eq(tensor_t *returned_tensor, tensor_t *expected_tensor)
 {
     PRINTLN_DEBUG_LOCATION("test");
     PRINTLN_DEBUG_TENSOR("returned", returned_tensor);
@@ -470,12 +481,14 @@ void ck_assert_data_equiv(const void *returned_data, const int64_t *returned_str
     }
 }
 
-static void _ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tensor_t *expected_tensor, void *epsilon)
+static void _ck_assert_tensor_equiv(tensor_t *returned_tensor, tensor_t *expected_tensor, void *epsilon)
 {
     PRINTLN_DEBUG_LOCATION("test");
     PRINTLN_DEBUG_TENSOR("returned", returned_tensor);
     PRINTLN_DEBUG_TENSOR("expected", expected_tensor);
     PRINT_DEBUG_NEWLINE;
+
+    nw_error_t *error;
 
     if (!expected_tensor)
     {
@@ -498,23 +511,31 @@ static void _ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tenso
     }
     ck_assert_int_eq(returned_tensor->buffer->storage->datatype, expected_tensor->buffer->storage->datatype);
 
+    error = storage_dev_to_cpu(returned_tensor->buffer->storage);
+    ck_assert_ptr_null(error);
+    error_destroy(error);
+
+    error = storage_dev_to_cpu(expected_tensor->buffer->storage);
+    ck_assert_ptr_null(error);
+    error_destroy(error);
+
     ck_assert_data_equiv(returned_tensor->buffer->storage->data, returned_tensor->buffer->view->strides, returned_tensor->buffer->view->offset,
                          expected_tensor->buffer->storage->data, expected_tensor->buffer->view->strides, expected_tensor->buffer->view->offset,
                          expected_tensor->buffer->view->shape, expected_tensor->buffer->view->rank, expected_tensor->buffer->storage->datatype, epsilon);
 
 }
 
-void ck_assert_tensor_equiv(const tensor_t *returned_tensor, const tensor_t *expected_tensor)
+void ck_assert_tensor_equiv(tensor_t *returned_tensor, tensor_t *expected_tensor)
 {
     _ck_assert_tensor_equiv(returned_tensor, expected_tensor, NULL);
 }
 
-void ck_assert_tensor_equiv_flt(const tensor_t *returned_tensor, const tensor_t *expected_tensor, float32_t abs_epsilon)
+void ck_assert_tensor_equiv_flt(tensor_t *returned_tensor, tensor_t *expected_tensor, float32_t abs_epsilon)
 {
     _ck_assert_tensor_equiv(returned_tensor, expected_tensor, &abs_epsilon);
 }
 
-void ck_assert_tensor_equiv_dbl(const tensor_t *returned_tensor, const tensor_t *expected_tensor, float64_t abs_epsilon)
+void ck_assert_tensor_equiv_dbl(tensor_t *returned_tensor, tensor_t *expected_tensor, float64_t abs_epsilon)
 {
     _ck_assert_tensor_equiv(returned_tensor, expected_tensor, &abs_epsilon);
 }

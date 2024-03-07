@@ -109,6 +109,8 @@ nw_error_t *plot(string_t title, string_t save_path, string_t x_str, void* x, in
 
 nw_error_t *save_tensor_grayscale_to_png_file(tensor_t *tensor, string_t path)
 {
+    nw_error_t *error;
+
     bitmap_t png_img;
 
     int64_t batch_size = tensor->buffer->view->shape[0];
@@ -119,7 +121,13 @@ nw_error_t *save_tensor_grayscale_to_png_file(tensor_t *tensor, string_t path)
     png_img.height = grid_length * image_height;
 
     png_img.pixels = (pixel_t *) calloc(sizeof(pixel_t), png_img.width * png_img.height);
-    
+
+    error = storage_dev_to_cpu(tensor->buffer->storage);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_COPY, string_create("failed to copy device memory to CPU."), error);
+    }
+
     for (size_t x = 0; x < png_img.width; x++)
     {
         for (size_t y = 0; y < png_img.height; y++)

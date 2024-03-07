@@ -227,8 +227,6 @@ void test_structure(tensor_structure_type_t tensor_structure_type, std::vector<i
                 }
                 ck_assert_ptr_null(error);
 
-                runtime_synchronize((runtime_t) i);
-
                 ck_assert_tensor_equiv(returned_tensors[tensor_structure_type][i][j][k], expected_tensors[tensor_structure_type][i][j][k]);
 
                 // Back prop
@@ -239,8 +237,6 @@ void test_structure(tensor_structure_type_t tensor_structure_type, std::vector<i
                 ck_assert_ptr_null(error);
                 error = tensor_backward(cost, NULL);
                 ck_assert_ptr_null(error);
-
-                runtime_synchronize((runtime_t) i);
 
                 ck_assert_tensor_equiv(tensors[tensor_structure_type][i][j][k]->gradient, expected_gradient[tensor_structure_type][i][j][k]);
             }

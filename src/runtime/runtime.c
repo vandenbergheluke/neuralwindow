@@ -53,7 +53,7 @@ void runtime_destroy_context(runtime_t runtime)
     }
 }
 
-nw_error_t *runtime_malloc(void **data, int64_t n, datatype_t datatype, runtime_t runtime)
+nw_error_t *runtime_malloc(void **data, void **ddata, int64_t n, datatype_t datatype, runtime_t runtime)
 {
     if (!n)
     {
@@ -66,14 +66,17 @@ nw_error_t *runtime_malloc(void **data, int64_t n, datatype_t datatype, runtime_
     switch (runtime)
     {
     case OPENBLAS_RUNTIME:
-        error = openblas_memory_allocate(data, size);
+        error = openblas_memory_allocate(ddata, size);
+        *data = *ddata;
         break;
     case MKL_RUNTIME:
-        error = mkl_memory_allocate(data, size);
+        error = mkl_memory_allocate(ddata, size);
+        *data = *ddata;
         break;
 #ifndef CPU_ONLY
     case CU_RUNTIME:
-        error = cu_memory_allocate(data, size);
+        error = cu_memory_allocate(ddata, size);
+        *data = malloc(size);
         break;
 #endif
     default:
@@ -113,7 +116,7 @@ void runtime_free(void *data, runtime_t runtime)
 
 }
 
-void runtime_synchronize(runtime_t runtime)
+void runtime_dev_to_cpu(void *data, void *ddata, int64_t n, datatype_t datatype, runtime_t runtime)
 {
     switch (runtime)
     {
@@ -122,7 +125,24 @@ void runtime_synchronize(runtime_t runtime)
         break;
 #ifndef CPU_ONLY
     case CU_RUNTIME:
-        cu_synchronize();
+        cu_dev_to_cpu(data, ddata, n * datatype_size(datatype));
+        break;
+#endif
+    default:
+        break;
+    }
+}
+
+void runtime_cpu_to_dev(void *data, void *ddata, int64_t n, datatype_t datatype, runtime_t runtime)
+{
+    switch (runtime)
+    {
+    case OPENBLAS_RUNTIME:
+    case MKL_RUNTIME:
+        break;
+#ifndef CPU_ONLY
+    case CU_RUNTIME:
+        cu_cpu_to_dev(data, ddata, n * datatype_size(datatype));
         break;
 #endif
     default:

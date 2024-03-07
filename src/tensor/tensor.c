@@ -9,7 +9,6 @@
 #include <function.h>
 #include <buffer.h>
 #include <view.h>
-#include <runtime.h>
 #include <string.h>
 #include <math.h>
 #include <random.h>
@@ -2426,16 +2425,22 @@ nw_error_t *tensor_item(const tensor_t *x, void *value)
     CHECK_NULL_ARGUMENT(x, "x");
     CHECK_NULL_ARGUMENT(x->buffer, "x->buffer");
     CHECK_NULL_ARGUMENT(x->buffer->storage, "x->buffer->storage");
-    CHECK_NULL_ARGUMENT(x->buffer->storage->data, "x->buffer->storage->data");
+    CHECK_NULL_ARGUMENT(x->buffer->storage->ddata, "x->buffer->storage->ddata");
     CHECK_NULL_ARGUMENT(x->buffer->view, "x->buffer->view");
     CHECK_NULL_ARGUMENT(value, "value");
+
+    nw_error_t *error = NULL;
 
     if (x->buffer->view->rank)
     {
         return ERROR(ERROR_RANK, string_create("tensor must be rank zero."), NULL);
     }
 
-    runtime_synchronize(x->buffer->storage->runtime);
+    error = storage_dev_to_cpu(x->buffer->storage);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_COPY, string_create("failed to copy device memory to CPU."), error);
+    }
 
     switch (x->buffer->storage->datatype)
     {
@@ -4776,7 +4781,7 @@ nw_error_t *tensor_multinomial_sample(tensor_t *probabilities, void *sample)
     CHECK_NULL_ARGUMENT(probabilities, "probabilities");
     CHECK_NULL_ARGUMENT(probabilities->buffer, "probabilities->buffer");
     CHECK_NULL_ARGUMENT(probabilities->buffer->storage, "probabilities->buffer->storage");
-    CHECK_NULL_ARGUMENT(probabilities->buffer->storage->data, "probabilities->buffer->storage->data");
+    CHECK_NULL_ARGUMENT(probabilities->buffer->storage->ddata, "probabilities->buffer->storage->ddata");
     CHECK_NULL_ARGUMENT(sample, "sample");
     
     nw_error_t *error = NULL;
@@ -4797,6 +4802,12 @@ nw_error_t *tensor_multinomial_sample(tensor_t *probabilities, void *sample)
     {
         error = ERROR(ERROR_CONTIGUOUS, string_create("failed to make tensor contiguous."), error);
         goto cleanup;
+    }
+
+    error = storage_dev_to_cpu(probabilities_contiguous->buffer->storage);
+    if (error != NULL)
+    {
+        return ERROR(ERROR_COPY, string_create("failed to copy device memory to CPU."), error);
     }
 
     switch (probabilities_contiguous->buffer->storage->datatype)
