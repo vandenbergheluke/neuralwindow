@@ -71,11 +71,7 @@ void storage_destroy(storage_t *storage)
     {
         if (storage->reference_count < 2)
         {
-            runtime_free(storage->ddata, storage->runtime);
-            if (storage->data != storage->ddata)
-            {
-                free(storage->data);
-            }
+            runtime_free(storage->data, storage->ddata, storage->runtime);
             free(storage);
         }
         else
