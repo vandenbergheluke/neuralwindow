@@ -23,13 +23,14 @@ jobs:
       with:
         cuda: '12.1.0'
     - name: Cache Magma
-      id: cache-magma
+      id: cache-magma-2.7.2
       uses: actions/cache@v4
       with:
-        path: magma-2.7.2/build
-        key: ${{ runner.os }}-magma
+        path: magma-2.7.2
+        key: ${{ runner.os }}-magma-2.7.2
     - name: Install Magma Not Cached
-      if: steps.cache-magma.outputs.cache-hit != 'true'
+      if: steps.cache-magma-2.7.2.outputs.cache-hit != 'true'
+      working-directory: ${{github.workspace}}
       # I'm not sure if there's a way to get this precompiled.
       run: |
         sudo wget https://icl.utk.edu/projectsfiles/magma/downloads/magma-2.7.2.tar.gz
@@ -40,8 +41,8 @@ jobs:
         make
         sudo make install
     - name: Install Magma Cached
-      if: steps.cache-magma.outputs.cache-hit == 'true'
-        # TODO: Hopefully this works.
+      if: steps.cache-magma-2.7.2.outputs.cache-hit == 'true'
+      working-directory: ${{github.workspace}}
       run: |
         cd magma-2.7.2/build
         sudo make install
