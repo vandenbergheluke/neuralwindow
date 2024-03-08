@@ -1243,8 +1243,8 @@ static nw_error_t *runtime_reduction_dimension(reduction_operation_type_t reduct
     CHECK_NULL_ARGUMENT(y_buffer->view->shape, "y_buffer->view->shape");
     CHECK_NULL_ARGUMENT(x_buffer->storage, "x_buffer->storage");
     CHECK_NULL_ARGUMENT(y_buffer->storage, "y_buffer->storage");
-    CHECK_NULL_ARGUMENT(x_buffer->storage->data, "x_buffer->storage->data");
-    CHECK_NULL_ARGUMENT(y_buffer->storage->data, "y_buffer->storage->data");
+    CHECK_NULL_ARGUMENT(x_buffer->storage->ddata, "x_buffer->storage->ddata");
+    CHECK_NULL_ARGUMENT(y_buffer->storage->ddata, "y_buffer->storage->ddata");
 
     int64_t idim;
     int64_t jdim;
