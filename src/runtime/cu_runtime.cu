@@ -1570,7 +1570,7 @@ extern "C" void cu_maximum(datatype_t datatype, int64_t n, const void *x_data, i
         grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
         // TODO: Figure out a good way to dispatch in chunks
-        // Default stream
+        cudaDeviceSynchronize();
         cu_maximum_float32<<<grid_size, block_size>>>((int) n, &((float32_t *) x_data)[x_offset], (int) x_stride, &((float32_t *) y_data)[y_offset]);
 
 #if SYNCHRONOUS
@@ -1583,7 +1583,7 @@ extern "C" void cu_maximum(datatype_t datatype, int64_t n, const void *x_data, i
         grid_size = (MIN(NW_CHUNK_SIZE, n) + block_size - 1) / block_size;
 
         // TODO: Figure out a good way to dispatch in chunks
-        // Default stream
+        cudaDeviceSynchronize();
         cu_maximum_float64<<<grid_size, block_size>>>((int) n, &((float64_t *) x_data)[x_offset], (int) x_stride, &((float64_t *) y_data)[y_offset]);
 
 #if SYNCHRONOUS
