@@ -1471,22 +1471,19 @@ extern "C" static void cu_summation_float32(int n, const float32_t *x_data, int 
     cudaMallocManaged((void **) &temp, sizeof(float32_t));
     *temp = (float32_t) 1.0;
     cudaDeviceSynchronize();
-    *y_data = magma_sdot(n, (magmaFloat_const_ptr) x_data, x_stride, (magmaFloat_const_ptr) temp, 0, m_queue[0]);
-    magma_queue_sync(m_queue[0]);
+    cublasSdot(cublas_handle, n, x_data, x_stride, temp, 0, y_data);
+    cudaDeviceSynchronize();
     cudaFree(temp);
 }
 
 extern "C" static void cu_summation_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data)
 {
-    // This one is a tossup with cublas in terms of performance, and we have a
-    // bit of a blindspot when it comes to smaller matrices, but we'll use
-    // MAGMA for now.
     float64_t *temp;
     cudaMallocManaged((void **) &temp, sizeof(float64_t));
     *temp = (float64_t) 1.0;
     cudaDeviceSynchronize();
-    *y_data = magma_ddot(n, (magmaDouble_const_ptr) x_data, x_stride, (magmaDouble_const_ptr) temp, 0, m_queue[0]);
-    magma_queue_sync(m_queue[0]);
+    cublasDdot(cublas_handle, n, x_data, x_stride, temp, 0, y_data);
+    cudaDeviceSynchronize();
     cudaFree(temp);
 }
 

@@ -7,6 +7,8 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
 {
     CHECK_NULL_ARGUMENT(storage, "storage");
 
+    nw_error_t *error;
+
     *storage = (storage_t *) malloc(sizeof(storage_t));
     if (!*storage)
     {
@@ -25,7 +27,7 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
 
     if (copy)
     {
-        nw_error_t *error = runtime_malloc(&(*storage)->data, &(*storage)->ddata, n, datatype, runtime);
+        error = runtime_malloc(&(*storage)->data, &(*storage)->ddata, n, datatype, runtime);
         if (error)
         {
             free(*storage);
@@ -37,12 +39,26 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
         if (data)
         {
             memcpy((*storage)->data, data, (*storage)->n * datatype_size(datatype));
+
+            error = storage_cpu_to_dev(*storage);
+            if (error != NULL)
+            {
+                storage_destroy(*storage);
+                return ERROR(ERROR_COPY, string_create("failed to copy device memory to CPU."), error);
+            }
         }
 
     }
     else
     {
         (*storage)->data = data;
+
+        error = storage_cpu_to_dev(*storage);
+        if (error != NULL)
+        {
+            storage_destroy(*storage);
+            return ERROR(ERROR_COPY, string_create("failed to copy device memory to CPU."), error);
+        }
     }
 
 
@@ -1239,35 +1255,11 @@ static nw_error_t *runtime_reduction_dimension(reduction_operation_type_t reduct
     runtime_t runtime = x_buffer->storage->runtime;
     int64_t rank = x_buffer->view->rank;
     int64_t n = x_buffer->view->shape[axis];
-    void *x_data;
-    void *y_data;
+    void *x_data = x_buffer->storage->ddata;
+    void *y_data = y_buffer->storage->ddata;
     int64_t x_stride = x_buffer->view->strides[axis];
     int64_t x_offset;
     int64_t y_offset;
-
-    nw_error_t *error = NULL;
-
-    // FIXME: Make this cleaner somehow
-    switch (reduction_operation_type)
-    {
-    case MAXIMUM_OPERATION:
-        x_data = x_buffer->storage->ddata;
-        y_data = y_buffer->storage->ddata;
-        break;
-    case SUMMATION_OPERATION:
-        error = storage_dev_to_cpu(x_buffer->storage);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_COPY, string_create("failed to copy device memory to CPU."), error);
-        }
-
-        x_data = x_buffer->storage->data;
-        y_data = y_buffer->storage->data;
-        break;
-    default:
-        return ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) reduction_operation_type), NULL);
-        break;
-    }
 
     switch (rank)
     {
@@ -1441,12 +1433,6 @@ static nw_error_t *runtime_reduction_dimension(reduction_operation_type_t reduct
         break;
     default:
         return ERROR(ERROR_RANK, string_create("unsupported rank %d", (int) x_buffer->view->rank), NULL);
-    }
-
-    error = storage_cpu_to_dev(y_buffer->storage);
-    if (error != NULL)
-    {
-        return ERROR(ERROR_COPY, string_create("failed to copy CPU memory to device."), error);
     }
 
     return NULL;
