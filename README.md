@@ -48,6 +48,16 @@ Install OpenBLAS
 sudo apt-get install -y libopenblas-dev
 ```
 
+Install MAGMA
+```bash
+sudo wget https://icl.utk.edu/projectsfiles/magma/downloads/magma-2.7.2.tar.gz
+tar -xvzf magma-2.7.2.tar.gz
+cd magma-2.7.2
+mkdir build && cd build
+cmake -DUSE_FORTRAN=off ..
+make && make install
+```
+
 Install Check
 
 ```bash
@@ -159,10 +169,11 @@ To build and test without CUDA define enviroment variable `CPU_ONLY=1`.
 CPU_ONLY=1 cmake ..
 ```
 
-Display Debug information by defining the enviroment variable `DEBUG=1`.
+Display Debug information by defining the enviroment variable `DEBUG=1` and
+skipping plotting with `-DPLOT=OFF`.
 
 ```bash
-DEBUG=1 cmake ..
+DEBUG=1 cmake -DCMAKE_PREFIX_PATH=../libtorch/ -DPLOT=OFF ..
 ```
 
 Generate graph by defining the enviroment variable `GRAPH=1`.

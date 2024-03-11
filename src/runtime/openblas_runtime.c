@@ -601,12 +601,12 @@ void openblas_summation(datatype_t datatype, int64_t n, const void *x_data, int6
 static void openblas_maximum_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data)
 {
     float32_t maximum = *x_data;
-    #pragma omp parallel for schedule(static, 256)
+    //#pragma omp parallel for schedule(static, 256)
     for (int i = 1; i < n; ++i)
     {
         float32_t candidate = x_data[i * x_stride];
         // TODO: CAS loop might be faster
-        #pragma omp critical
+        //#pragma omp critical
         if (maximum < candidate)
         {
             maximum = candidate;
@@ -618,12 +618,12 @@ static void openblas_maximum_float32(int n, const float32_t *x_data, int x_strid
 static void openblas_maximum_float64(int n, const float64_t *x_data, int x_stride, float64_t *y_data)
 {
     float64_t maximum = *x_data;
-    #pragma omp parallel for schedule(static, 256)
+    //#pragma omp parallel for schedule(static, 256)
     for (int i = 1; i < n; ++i)
     {
         float64_t candidate = x_data[i * x_stride];
         // TODO: CAS loop might be faster
-        #pragma omp critical
+        //#pragma omp critical
         if (maximum < candidate)
         {
             maximum = candidate;

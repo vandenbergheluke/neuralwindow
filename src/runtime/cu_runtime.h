@@ -1,5 +1,5 @@
 /**@file cu_runtime.h
- * @brief
+ * @brief Provides low level matrix operations using CUDA kernels and CuBLAS.
  *
  */
 
@@ -13,6 +13,8 @@ nw_error_t *cu_memory_allocate(void **pp, size_t size);
 void cu_memory_free(void *p);
 nw_error_t *cu_create_context(void);
 void cu_destroy_context(void);
+void cu_dev_to_cpu(void *data, void *ddata, size_t size);
+void cu_cpu_to_dev(void *data, void *ddata, size_t size);
 void cu_exponential(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset);
 void cu_logarithm(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset);
 void cu_sine(datatype_t datatype, int64_t n, const void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset);

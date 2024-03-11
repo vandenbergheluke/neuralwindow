@@ -3,6 +3,7 @@ set(TENSOR_DIR "tensor")
 set(RUNTIME_DIR "runtime")
 set(NN_DIR "nn")
 set(MKL_DIR "/usr/include/mkl")
+set(MAGMA_DIR "/usr/local/magma")
 
 set(
     SOURCE 
@@ -85,6 +86,8 @@ set(
 set(
     GPU_LIBRARIES
     cublas
+    cusparse
+    "${MAGMA_DIR}/lib/libmagma.so"
 )
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
@@ -98,10 +101,12 @@ if (NOT DEFINED ENV{CPU_ONLY})
     target_link_libraries(${PROJECT_NAME} PUBLIC ${CPU_LIBRARIES} ${GPU_LIBRARIES} ${GRAPHVIZ_CDT_LIBRARY} ${GRAPHVIZ_GVC_LIBRARY} ${GRAPHVIZ_CGRAPH_LIBRARY} ${GRAPHVIZ_PATHPLAN_LIBRARY} OpenMP::OpenMP_C)
     set_target_properties(${PROJECT_NAME} PROPERTIES SOVERSION 1)
     set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${HEADERS} ${CUDA_HEADERS}")
+    target_include_directories(${PROJECT_NAME} PUBLIC ${TENSOR_DIR} ${UTIL_DIR} ${RUNTIME_DIR} ${MKL_DIR} "${MAGMA_DIR}/include" ${NN_DIR} ${INCLUDE_DIR})
 else()
     add_library(${PROJECT_NAME} STATIC ${SOURCE})
     target_link_libraries(${PROJECT_NAME} PUBLIC ${CPU_LIBRARIES} ${GRAPHVIZ_CDT_LIBRARY} ${GRAPHVIZ_GVC_LIBRARY} ${GRAPHVIZ_CGRAPH_LIBRARY} ${GRAPHVIZ_PATHPLAN_LIBRARY} OpenMP::OpenMP_C)
     set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${HEADERS}")
+    target_include_directories(${PROJECT_NAME} PUBLIC ${TENSOR_DIR} ${UTIL_DIR} ${RUNTIME_DIR} ${MKL_DIR} ${NN_DIR} ${INCLUDE_DIR})
 endif()
 target_include_directories(${PROJECT_NAME} PUBLIC ${TENSOR_DIR} ${UTIL_DIR} ${RUNTIME_DIR} ${MKL_DIR} ${NN_DIR} ${INCLUDE_DIR} ${GRAPHVIZ_INCLUDE_DIRS})
 install(
