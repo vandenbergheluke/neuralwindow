@@ -17,22 +17,6 @@ jobs:
       uses: actions/checkout@v3
     - name: Update
       run: sudo apt-get update
-    - name: Install CUDA Toolkit
-      uses: Jimver/cuda-toolkit@v0.2.11
-      id: cuda-toolkit
-      with:
-        cuda: '12.1.0'
-    - name: Install Magma
-      working-directory: ${{github.workspace}}
-      # I'm not sure if there's a way to get this precompiled.
-      run: |
-        sudo wget https://icl.utk.edu/projectsfiles/magma/downloads/magma-2.7.2.tar.gz
-        tar -xvzf magma-2.7.2.tar.gz
-        cd magma-2.7.2
-        mkdir build && cd build
-        cmake -DUSE_FORTRAN=off ..
-        make
-        sudo make install
     - name: Install Intel MKL
       run: sudo apt-get install -y intel-mkl
     - name: Install OpenBLAS
@@ -56,11 +40,6 @@ jobs:
     - name: Setup Build Directory
       working-directory: ${{github.workspace}}
       run: mkdir build
-    - name: GPU Build
-      working-directory: ${{github.workspace}}/build
-      run: |
-        cmake ..
-        make
     - name: CPU Build
       working-directory: ${{github.workspace}}/build
       run: |
