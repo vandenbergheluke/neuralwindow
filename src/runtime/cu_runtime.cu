@@ -87,7 +87,7 @@ extern "C" nw_error_t *cu_memory_allocate(void **pp, size_t size)
 {
     CHECK_NULL_ARGUMENT(pp, "pp");
 
-    cudaError_t error = cudaMalloc(pp, size);
+    cudaError_t error = cudaMallocManaged(pp, size);
     if (error != cudaSuccess)
     {
         return ERROR(ERROR_MEMORY_ALLOCATION, string_create("failed to allocate %zu bytes %s.", size, cudaGetErrorString(error)), NULL);
@@ -101,14 +101,9 @@ extern "C" void cu_memory_free(void *p)
     cudaFree(p);
 }
 
-extern "C" void cu_dev_to_cpu(void *data, void *ddata, size_t size)
+extern "C" void cu_synchronize(void)
 {
-    cudaMemcpy(data, ddata, size, cudaMemcpyDeviceToHost);
-}
-
-extern "C" void cu_cpu_to_dev(void *data, void *ddata, size_t size)
-{
-    cudaMemcpy(ddata, data, size, cudaMemcpyHostToDevice);
+    cudaDeviceSynchronize();
 }
 
 __global__ static void cu_exponential_float32(int n, const float32_t *x_data, int x_stride, float32_t *y_data, int y_stride)

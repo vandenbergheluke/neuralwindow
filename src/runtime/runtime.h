@@ -28,10 +28,9 @@ typedef enum runtime_t
 
 nw_error_t *runtime_create_context(runtime_t runtime);
 void runtime_destroy_context(runtime_t runtime);
-nw_error_t *runtime_malloc(void **data, void **ddata, int64_t n, datatype_t datatype, runtime_t runtime);
+nw_error_t *runtime_malloc(void **data, int64_t n, datatype_t datatype, runtime_t runtime);
 void runtime_free(void *data, runtime_t runtime);
-void runtime_dev_to_cpu(void *data, void *ddata, int64_t n, datatype_t datatype, runtime_t runtime);
-void runtime_cpu_to_dev(void *data, void *ddata, int64_t n, datatype_t datatype, runtime_t runtime);
+void runtime_synchronize(runtime_t runtime);
 void runtime_unary(unary_operation_type_t unary_operation_type, runtime_t runtime, datatype_t datatype, int64_t n, 
                    void *x_data, int64_t x_stride, int64_t x_offset, void *y_data, int64_t y_stride, int64_t y_offset);
 void runtime_binary_elementwise(binary_operation_type_t binary_operation_type, runtime_t runtime, datatype_t datatype, int64_t n,

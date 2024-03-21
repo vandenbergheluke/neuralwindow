@@ -25,7 +25,7 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
 
     if (copy)
     {
-        nw_error_t *error = runtime_malloc(&(*storage)->data, &(*storage)->ddata, n, datatype, runtime);
+        nw_error_t *error = runtime_malloc(&(*storage)->data, n, datatype, runtime);
         if (error)
         {
             free(*storage);
@@ -33,6 +33,8 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
                          string_create("failed to allocate buffer data for runtime %s and datatype %s.",
                          runtime_string(runtime), datatype_string(datatype)), error);
         }
+
+        runtime_synchronize(runtime);
 
         if (data)
         {
@@ -55,11 +57,7 @@ void storage_destroy(storage_t *storage)
     {
         if (storage->reference_count < 2)
         {
-            runtime_free(storage->ddata, storage->runtime);
-            if (storage->data != storage->ddata)
-            {
-                free(storage->data);
-            }
+            runtime_free(storage->data, storage->runtime);
             free(storage);
         }
         else
@@ -67,32 +65,6 @@ void storage_destroy(storage_t *storage)
             --(storage->reference_count);
         }
     }
-}
-
-nw_error_t *storage_dev_to_cpu(storage_t *storage)
-{
-    CHECK_NULL_ARGUMENT(storage, "storage");
-
-    runtime_dev_to_cpu(storage->data,
-                       storage->ddata,
-                       storage->n,
-                       storage->datatype,
-                       storage->runtime);
-
-    return NULL;
-}
-
-nw_error_t *storage_cpu_to_dev(storage_t *storage)
-{
-    CHECK_NULL_ARGUMENT(storage, "storage");
-
-    runtime_cpu_to_dev(storage->data,
-                       storage->ddata,
-                       storage->n,
-                       storage->datatype,
-                       storage->runtime);
-
-    return NULL;
 }
 
 nw_error_t *buffer_create(buffer_t **buffer, view_t *view, storage_t *storage, bool_t copy)
@@ -113,12 +85,6 @@ nw_error_t *buffer_create(buffer_t **buffer, view_t *view, storage_t *storage, b
 
     if (copy)
     {
-        error = storage_dev_to_cpu(storage);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_COPY, string_create("failed to copy device memory to CPU."), error);
-        }
-
         error = storage_create(&(*buffer)->storage, storage->runtime, storage->datatype, storage->n, storage->data, copy);
         if (error)
         {
@@ -149,14 +115,6 @@ nw_error_t *storage_save(storage_t *storage, FILE *file)
 {
     CHECK_NULL_ARGUMENT(storage, "storage");
     CHECK_NULL_ARGUMENT(file, "file");
-
-    nw_error_t *error = NULL;
-
-    error = storage_dev_to_cpu(storage);
-    if (error != NULL)
-    {
-        return ERROR(ERROR_COPY, string_create("failed to copy device memory to CPU."), error);
-    }
 
     if (!fwrite(&storage->n, sizeof(int64_t), 1, file))
     {
@@ -216,7 +174,7 @@ nw_error_t *storage_load(storage_t **storage, FILE *file)
         goto cleanup;
     }
 
-    error = runtime_malloc(&(*storage)->data, (*storage)->ddata, (*storage)->n, (*storage)->datatype, (*storage)->runtime);
+    error = runtime_malloc(&(*storage)->data, (*storage)->n, (*storage)->datatype, (*storage)->runtime);
     if (error)
     {
         error = ERROR(ERROR_MEMORY_ALLOCATION,
@@ -230,12 +188,6 @@ nw_error_t *storage_load(storage_t **storage, FILE *file)
     {
         error = ERROR(ERROR_READ, string_create("failed to read from file."), NULL);
         goto cleanup;
-    }
-
-    error = storage_cpu_to_dev(*storage);
-    if (error != NULL)
-    {
-        return ERROR(ERROR_COPY, string_create("failed to copy device memory to CPU."), error);
     }
 
     (*storage)->reference_count = 1;
@@ -320,7 +272,7 @@ nw_error_t *buffer_unary(unary_operation_type_t unary_operation_type, buffer_t *
     CHECK_NULL_ARGUMENT(x_buffer->view->strides, "x_buffer->view->strides");
     CHECK_NULL_ARGUMENT(x_buffer->view->shape, "x_buffer->view->shape");
     CHECK_NULL_ARGUMENT(x_buffer->storage, "x_buffer->storage");
-    CHECK_NULL_ARGUMENT(x_buffer->storage->ddata, "x_buffer->storage->ddata");
+    CHECK_NULL_ARGUMENT(x_buffer->storage->data, "x_buffer->storage->data");
 
     nw_error_t *error = NULL;
     bool_t overwrite = (bool_t) *y_buffer;
@@ -359,8 +311,8 @@ nw_error_t *buffer_unary(unary_operation_type_t unary_operation_type, buffer_t *
     datatype_t datatype = (*y_buffer)->storage->datatype;
     runtime_t runtime = (*y_buffer)->storage->runtime;
     int64_t rank = (*y_buffer)->view->rank;
-    void *x_data = x_buffer->storage->ddata;
-    void *y_data = (*y_buffer)->storage->ddata;
+    void *x_data = x_buffer->storage->data;
+    void *y_data = (*y_buffer)->storage->data;
 
     int64_t n;
     int64_t x_stride;
@@ -498,8 +450,8 @@ static nw_error_t *buffer_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_
     CHECK_NULL_ARGUMENT(y_buffer->view->shape, "y_buffer->view->shape");
     CHECK_NULL_ARGUMENT(x_buffer->storage, "x_buffer->storage");
     CHECK_NULL_ARGUMENT(y_buffer->storage, "y_buffer->storage");
-    CHECK_NULL_ARGUMENT(x_buffer->storage->ddata, "x_buffer->storage->ddata");
-    CHECK_NULL_ARGUMENT(y_buffer->storage->ddata, "y_buffer->storage->ddata");
+    CHECK_NULL_ARGUMENT(x_buffer->storage->data, "x_buffer->storage->data");
+    CHECK_NULL_ARGUMENT(y_buffer->storage->data, "y_buffer->storage->data");
 
     nw_error_t *error = NULL;
     bool_t overwrite = (bool_t) *z_buffer;
@@ -545,9 +497,9 @@ static nw_error_t *buffer_matrix_multiplication(buffer_t *x_buffer, buffer_t *y_
         }
     }
 
-    void *x_data = x_buffer->storage->ddata;
-    void *y_data = y_buffer->storage->ddata;
-    void *z_data = (*z_buffer)->storage->ddata;
+    void *x_data = x_buffer->storage->data;
+    void *y_data = y_buffer->storage->data;
+    void *z_data = (*z_buffer)->storage->data;
     int64_t m = x_buffer->view->shape[x_buffer->view->rank - 2];
     int64_t k = x_buffer->view->shape[x_buffer->view->rank - 1];
     int64_t n = y_buffer->view->shape[y_buffer->view->rank - 1];
@@ -669,8 +621,8 @@ static nw_error_t *buffer_binary_elementwise(binary_operation_type_t binary_oper
     CHECK_NULL_ARGUMENT(y_buffer->view->shape, "y_buffer->view->shape");
     CHECK_NULL_ARGUMENT(x_buffer->storage, "x_buffer->storage");
     CHECK_NULL_ARGUMENT(y_buffer->storage, "y_buffer->storage");
-    CHECK_NULL_ARGUMENT(x_buffer->storage->ddata, "x_buffer->storage->ddata");
-    CHECK_NULL_ARGUMENT(y_buffer->storage->ddata, "y_buffer->storage->ddata");
+    CHECK_NULL_ARGUMENT(x_buffer->storage->data, "x_buffer->storage->data");
+    CHECK_NULL_ARGUMENT(y_buffer->storage->data, "y_buffer->storage->data");
 
     nw_error_t *error = NULL;
     bool_t overwrite = (bool_t) *z_buffer;
@@ -719,9 +671,9 @@ static nw_error_t *buffer_binary_elementwise(binary_operation_type_t binary_oper
         }
     }
 
-    void *x_data = x_buffer->storage->ddata;
-    void *y_data = y_buffer->storage->ddata;
-    void *z_data = (*z_buffer)->storage->ddata;
+    void *x_data = x_buffer->storage->data;
+    void *y_data = y_buffer->storage->data;
+    void *z_data = (*z_buffer)->storage->data;
 
     int64_t n;
     int64_t x_stride;
@@ -946,9 +898,9 @@ nw_error_t *buffer_ternary(ternary_operation_type_t ternary_operation_type, buff
     CHECK_NULL_ARGUMENT(w_buffer->storage, "w_buffer->storage");
     CHECK_NULL_ARGUMENT(x_buffer->storage, "x_buffer->storage");
     CHECK_NULL_ARGUMENT(y_buffer->storage, "y_buffer->storage");
-    CHECK_NULL_ARGUMENT(w_buffer->storage->ddata, "w_buffer->storage->ddata");
-    CHECK_NULL_ARGUMENT(x_buffer->storage->ddata, "x_buffer->storage->ddata");
-    CHECK_NULL_ARGUMENT(y_buffer->storage->ddata, "y_buffer->storage->ddata");
+    CHECK_NULL_ARGUMENT(w_buffer->storage->data, "w_buffer->storage->data");
+    CHECK_NULL_ARGUMENT(x_buffer->storage->data, "x_buffer->storage->data");
+    CHECK_NULL_ARGUMENT(y_buffer->storage->data, "y_buffer->storage->data");
 
     nw_error_t *error = NULL;
     bool_t overwrite = (bool_t) *z_buffer;
@@ -1007,10 +959,10 @@ nw_error_t *buffer_ternary(ternary_operation_type_t ternary_operation_type, buff
         }
     }
 
-    void *w_data = w_buffer->storage->ddata;
-    void *x_data = x_buffer->storage->ddata;
-    void *y_data = y_buffer->storage->ddata;
-    void *z_data = (*z_buffer)->storage->ddata;
+    void *w_data = w_buffer->storage->data;
+    void *x_data = x_buffer->storage->data;
+    void *y_data = y_buffer->storage->data;
+    void *z_data = (*z_buffer)->storage->data;
 
     int64_t n;
     int64_t w_stride;
@@ -1239,35 +1191,11 @@ static nw_error_t *runtime_reduction_dimension(reduction_operation_type_t reduct
     runtime_t runtime = x_buffer->storage->runtime;
     int64_t rank = x_buffer->view->rank;
     int64_t n = x_buffer->view->shape[axis];
-    void *x_data;
-    void *y_data;
+    void *x_data = x_buffer->storage->data;
+    void *y_data = y_buffer->storage->data;
     int64_t x_stride = x_buffer->view->strides[axis];
     int64_t x_offset;
     int64_t y_offset;
-
-    nw_error_t *error = NULL;
-
-    // FIXME: Make this cleaner somehow
-    switch (reduction_operation_type)
-    {
-    case MAXIMUM_OPERATION:
-        x_data = x_buffer->storage->ddata;
-        y_data = y_buffer->storage->ddata;
-        break;
-    case SUMMATION_OPERATION:
-        error = storage_dev_to_cpu(x_buffer->storage);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_COPY, string_create("failed to copy device memory to CPU."), error);
-        }
-
-        x_data = x_buffer->storage->data;
-        y_data = y_buffer->storage->data;
-        break;
-    default:
-        return ERROR(ERROR_OPERATION_TYPE, string_create("unknown operation type %d.", (int) reduction_operation_type), NULL);
-        break;
-    }
 
     switch (rank)
     {
@@ -1441,12 +1369,6 @@ static nw_error_t *runtime_reduction_dimension(reduction_operation_type_t reduct
         break;
     default:
         return ERROR(ERROR_RANK, string_create("unsupported rank %d", (int) x_buffer->view->rank), NULL);
-    }
-
-    error = storage_cpu_to_dev(y_buffer->storage);
-    if (error != NULL)
-    {
-        return ERROR(ERROR_COPY, string_create("failed to copy CPU memory to device."), error);
     }
 
     return NULL;
@@ -1644,21 +1566,7 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
             return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
         }
 
-        // Reading from x on cpu side, must be up to date
-        error = storage_dev_to_cpu(x->storage);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_COPY, string_create("failed to copy device memory to CPU."), error);
-        }
-
         runtime_padding(x, *result, arguments, length, 0, true, x->view->offset, (*result)->view->offset);
-
-        // Update GPU side data in result.
-        error = storage_cpu_to_dev((*result)->storage);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_COPY, string_create("failed to copy CPU memory to device."), error);
-        }
 
         view_destroy(view);
 
@@ -1707,21 +1615,9 @@ nw_error_t *buffer_structure(structure_operation_type_t structure_operation_type
             free(value);
             return ERROR(ERROR_CREATE, string_create("failed to create buffer."), error);
         }
-
-        error = storage_dev_to_cpu(x->storage);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_COPY, string_create("failed to copy device memory to CPU."), error);
-        }
-
         runtime_image_to_column(datatype, x->storage->data, batch_size, channels, height, width, kernel_size, 
                                 output_height, output_width, stride, padding, (*result)->storage->data, !im2col, value);
 
-        error = storage_cpu_to_dev((*result)->storage);
-        if (error != NULL)
-        {
-            return ERROR(ERROR_COPY, string_create("failed to copy CPU memory to device."), error);
-        }
 
         free(value);
         return error;
@@ -1904,13 +1800,6 @@ static nw_error_t *buffer_create_init(buffer_t **buffer, creation_operation_type
         error = ERROR(ERROR_INITIALIZATION, string_create("failed to initialize buffer."), error);
         goto cleanup;
     }
-
-    error = storage_cpu_to_dev((*buffer)->storage);
-    if (error != NULL)
-    {
-        return ERROR(ERROR_COPY, string_create("failed to copy CPU memory to device."), error);
-    }
-
 
     return error;
 
