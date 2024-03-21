@@ -228,7 +228,7 @@ nw_error_t *storage_load(storage_t **storage, FILE *file)
         goto cleanup;
     }
 
-    error = runtime_malloc(&(*storage)->data, &(*storage)->ddata, (*storage)->n, (*storage)->datatype, (*storage)->runtime);
+    error = runtime_malloc(&(*storage)->data, (*storage)->ddata, (*storage)->n, (*storage)->datatype, (*storage)->runtime);
     if (error)
     {
         error = ERROR(ERROR_MEMORY_ALLOCATION,
