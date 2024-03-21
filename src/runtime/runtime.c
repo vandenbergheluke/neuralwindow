@@ -92,22 +92,21 @@ nw_error_t *runtime_malloc(void **data, void **ddata, int64_t n, datatype_t data
     return NULL;
 }
 
-void runtime_free(void *data, void *ddata, runtime_t runtime)
+void runtime_free(void *data, runtime_t runtime)
 {
     if (data)
     {
         switch (runtime)
         {
         case OPENBLAS_RUNTIME:
-            openblas_memory_free(ddata);
+            openblas_memory_free(data);
             break;
         case MKL_RUNTIME:
-            mkl_memory_free(ddata);
+            mkl_memory_free(data);
             break;
 #ifndef CPU_ONLY
         case CU_RUNTIME:
-            cu_memory_free(ddata);
-            free(data);
+            cu_memory_free(data);
             break;
 #endif
         default:
