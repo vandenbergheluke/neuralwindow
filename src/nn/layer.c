@@ -3671,8 +3671,10 @@ cleanup:
 nw_error_t *model_parameter_count(model_t *model, int64_t *count)
 {
     CHECK_NULL_ARGUMENT(model, "model");
+    CHECK_NULL_ARGUMENT(count, "count");
 
     nw_error_t *error = NULL;
+    *count = 0;
 
     error = block_parameter_count(model->block, count);
     if (error)

@@ -427,7 +427,7 @@ int main(void)
         goto cleanup;
     }
 
-    int64_t count = 0;
+    int64_t count;
     error = model_parameter_count(model, &count);
     if (error)
     {
