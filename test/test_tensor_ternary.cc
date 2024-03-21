@@ -746,6 +746,8 @@ void test_ternary(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                 }
                 ck_assert_ptr_null(error);
 
+                runtime_synchronize((runtime_t) i);
+
                 ck_assert_tensor_equiv(returned_tensors[i][j][k], expected_tensors[i][j][k]);
                 switch (tensor_ternary_operation_type)
                 {
@@ -778,6 +780,8 @@ void test_ternary(tensor_ternary_operation_type_t tensor_ternary_operation_type)
                 ck_assert_ptr_null(error);
                 error = tensor_backward(cost, NULL);
                 ck_assert_ptr_null(error);
+
+                runtime_synchronize((runtime_t) i);
 
                 switch (tensor_ternary_operation_type)
                 {

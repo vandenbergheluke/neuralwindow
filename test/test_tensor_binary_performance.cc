@@ -297,6 +297,7 @@ void performance_test(std::string op_name, datatype_t datatype,
 
                     nw_start = get_time_nanoseconds();
                     error = nw_op(tensor_x, tensor_y, &returned_tensor);
+                    runtime_synchronize((runtime_t) i);
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);
 
@@ -561,6 +562,7 @@ void performance_test(std::string op_name, datatype_t datatype,
 
                     nw_start = get_time_nanoseconds();
                     error = nw_op(tensor_x, tensor_y, &returned_tensor);
+                    runtime_synchronize((runtime_t) i);
                     nw_end = get_time_nanoseconds();
                     ck_assert_ptr_null(error);
 

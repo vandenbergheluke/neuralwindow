@@ -69,4 +69,7 @@ data/*ubyte
 # MathGL
 mathgl*
 
+#Magma
+magma*
+
 backup/

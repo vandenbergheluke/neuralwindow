@@ -725,7 +725,7 @@ int main(int argc, char **argv)
         .block_size = 256,
         .prompt = (argc == 3) ? argv[2] : "\n",
         .prompt_length = 1,
-        .max_tokens = 1000,
+        .max_tokens = 128,
     };
 
     nw_error_t *error = simpsons_setup(&simpsons_dataset);

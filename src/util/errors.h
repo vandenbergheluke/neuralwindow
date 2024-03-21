@@ -59,7 +59,7 @@
     else\
     {\
         fprintf(stderr, "(");\
-        for (uint64_t _i = 0; _i < (length); ++_i)\
+        for (int64_t _i = 0; _i < (length); ++_i)\
         {\
             if (!_i)\
             {\
@@ -122,8 +122,8 @@
         else\
         {\
             fprintf(stderr, "(");\
-            uint64_t _n = MIN((storage)->n, MAX_DATA);\
-            for (uint64_t _j = 0; _j < _n; ++_j)\
+            int64_t _n = MIN((storage)->n, MAX_DATA);\
+            for (int64_t _j = 0; _j < _n; ++_j)\
             {\
                 switch((storage)->datatype)\
                 {\
