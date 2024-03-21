@@ -7,6 +7,7 @@
 #include <function.h>
 #include <random.h>
 #include <time.h>
+#include <graph.h>
 
 #include <string.h>
 #include <sys/types.h>
@@ -542,6 +543,11 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
                 goto cleanup;
             }
 
+            if (!i && !j)
+            {
+                start_graph();
+            }
+
             error = model_forward(discriminator, real_images, &real_output);
             if (error)
             {
@@ -554,6 +560,11 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
             {
                 error = ERROR(ERROR_CRITERION, string_create("failed to compute cost."), error);
                 goto cleanup;
+            }
+
+            if (!i && !j)
+            {
+                end_graph();
             }
 
             LOG_SCALAR_TENSOR("Discriminator Cost Real", discriminator_cost_real);
@@ -589,11 +600,21 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
                 goto cleanup;
             }
 
+            if (!i && !j)
+            {
+                start_graph();
+            }
+
             error = model_forward(generator, noise, &fake_images);
             if (error)
             {
                 error = ERROR(ERROR_FORWARD, string_create("failed to apply model."), error);
                 goto cleanup;
+            }
+
+            if (!i && !j)
+            {
+                end_graph();
             }
 
             if (!((iteration + 1) % 100))
@@ -623,6 +644,11 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
                 goto cleanup;
             }
 
+            if (!i && !j)
+            {
+                start_graph();
+            }
+
             error = model_forward(discriminator, fake_images_detached, &fake_output);
             if (error)
             {
@@ -635,6 +661,11 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
             {
                 error = ERROR(ERROR_CRITERION, string_create("failed to compute cost."), error);
                 goto cleanup;
+            }
+
+            if (!i && !j)
+            {
+                end_graph();
             }
 
             LOG_SCALAR_TENSOR("Discriminator Cost Fake", discriminator_cost_fake);
@@ -680,6 +711,11 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
                 goto cleanup;
             }
 
+            if (!i && !j)
+            {
+                start_graph();
+            }
+
             error = model_forward(discriminator, fake_images, &fake_output);
             if (error)
             {
@@ -692,6 +728,11 @@ nw_error_t *dcgan_fit(int64_t epochs, int64_t number_of_samples, batch_t *batch,
             {
                 error = ERROR(ERROR_CRITERION, string_create("failed to compute cost."), error);
                 goto cleanup;
+            }
+
+            if (!i && !j)
+            {
+                end_graph();
             }
 
             LOG_SCALAR_TENSOR("Generator Loss", generator_loss);

@@ -34,7 +34,7 @@ cmake .. && make
 Generate image with trained GAN. Image saved in `build/img/demo.png`.
 
 ```bash
-DEMO=1 ./example/deep_convolutional_gan ../example/models/gernerator.bin
+DEMO=1 ./example/deep_convolutional_gan ../example/models/generator.bin
 ```
 
 <p align="center">

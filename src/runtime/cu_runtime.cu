@@ -1480,7 +1480,7 @@ extern "C" static void cu_summation_float64(int n, const float64_t *x_data, int 
     cudaMallocManaged((void **) &temp, sizeof(float64_t));
     *temp = (float64_t) 1.0;
     cudaDeviceSynchronize();
-    cublasSdot(cublas_handle, n, x_data, x_stride, temp, 0, y_data);
+    cublasDdot(cublas_handle, n, x_data, x_stride, temp, 0, y_data);
     cudaDeviceSynchronize();
     cudaFree(temp);
 }
