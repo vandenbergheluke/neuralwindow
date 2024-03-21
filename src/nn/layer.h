@@ -251,6 +251,17 @@ nw_error_t *embedding_forward(embedding_t *embedding, tensor_t *x, tensor_t **y)
 nw_error_t *transformer_embedding_forward(transformer_embedding_t *transformer_embedding, tensor_t *x, tensor_t **y);
 nw_error_t *causal_multihead_self_attention_forward(causal_multihead_self_attention_t *causal_multihead_self_attention, tensor_t *x, tensor_t **y);
 
+// Parameter Count
+nw_error_t *model_parameter_count(model_t *model, int64_t *count);
+nw_error_t *block_parameter_count(block_t *block, int64_t *count);
+nw_error_t *linear_parameter_count(linear_t *linear, int64_t *count);
+nw_error_t *convolution_2d_parameter_count(convolution_2d_t *convolution_2d, int64_t *count);
+nw_error_t *batch_normalization_2d_parameter_count(batch_normalization_2d_t *batch_normalization_2d, int64_t *count);
+nw_error_t *layer_normalization_parameter_count(layer_normalization_t *layer_normalization, int64_t *count);
+nw_error_t *embedding_parameter_count(embedding_t *embedding, int64_t *count);
+nw_error_t *transformer_embedding_parameter_count(transformer_embedding_t *transformer_embedding, int64_t *count);
+nw_error_t *causal_multihead_self_attention_parameter_count(causal_multihead_self_attention_t *causal_multihead_self_attention, int64_t *count);
+
 // Inference set
 nw_error_t *model_inference(model_t *model, bool_t inference);
 nw_error_t *block_inference(block_t *block, bool_t inference);

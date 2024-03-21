@@ -959,6 +959,25 @@ int main(int argc, char **argv)
             goto cleanup;
         }
 
+        int64_t count = 0;
+        error = model_parameter_count(generator, &count);
+        if (error)
+        {
+            error = ERROR(ERROR_N, string_create("failed to count parameters."), error);
+            goto cleanup;
+
+        }
+        printf("Number of generator parameters %ld.\n", count);
+
+        error = model_parameter_count(discriminator, &count);
+        if (error)
+        {
+            error = ERROR(ERROR_N, string_create("failed to count parameters."), error);
+            goto cleanup;
+
+        }
+        printf("Number of discriminator parameters %ld.\n", count);
+
         error = optimizer_adam_create(&generator_optimizer, datatype, (void *) &learning_rate, (void *) &beta1, (void *) &beta2, (void *) &weight_decay, (void *) &epsilon);
         if (error)
         {
