@@ -969,6 +969,7 @@ int main(int argc, char **argv)
         }
         printf("Number of generator parameters %ld.\n", count);
 
+        count = 0;
         error = model_parameter_count(discriminator, &count);
         if (error)
         {
