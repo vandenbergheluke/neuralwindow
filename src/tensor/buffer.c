@@ -23,6 +23,8 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
     (*storage)->n = n;
     (*storage)->reference_count = 0;
 
+    runtime_synchronize(runtime);
+
     if (copy)
     {
         nw_error_t *error = runtime_malloc(&(*storage)->data, n, datatype, runtime);
@@ -33,8 +35,6 @@ nw_error_t *storage_create(storage_t **storage, runtime_t runtime, datatype_t da
                          string_create("failed to allocate buffer data for runtime %s and datatype %s.",
                          runtime_string(runtime), datatype_string(datatype)), error);
         }
-
-        runtime_synchronize(runtime);
 
         if (data)
         {
