@@ -3667,3 +3667,332 @@ cleanup:
 
     return error;
 }
+
+nw_error_t *model_parameter_count(model_t *model, int64_t *count)
+{
+    CHECK_NULL_ARGUMENT(model, "model");
+    CHECK_NULL_ARGUMENT(count, "count");
+
+    nw_error_t *error = NULL;
+    *count = 0;
+
+    error = block_parameter_count(model->block, count);
+    if (error)
+    {
+        return ERROR(ERROR_N, string_create("failed count parameters."), error);
+    }
+
+    return error;
+}
+
+nw_error_t *block_parameter_count(block_t *block, int64_t *count)
+{
+    CHECK_NULL_ARGUMENT(block, "block");
+    CHECK_NULL_ARGUMENT(block->layers, "block->layers");
+
+    nw_error_t *error = NULL;
+
+    for (int64_t i = 0; i < block->depth; ++i)
+    {
+        layer_t *layer = block->layers[i];
+        if (!layer)
+        {
+            return ERROR(ERROR_NULL, string_create("layer is null."), NULL);
+        }
+
+        transform_type_t transform_type = layer->transform_type;
+        transform_t *transform = layer->transform;
+        if (!transform)
+        {
+            return ERROR(ERROR_NULL, string_create("transform is null."), NULL);
+        }
+
+        switch (transform_type)
+        {
+        case LINEAR:
+            error = linear_parameter_count(transform->linear, count);
+            break;
+        case CONVOLUTION_2D:
+        case CONVOLUTION_TRANSPOSE_2D:
+            error = convolution_2d_parameter_count(transform->convolution_2d, count);
+            break;
+        case BATCH_NORMALIZATION_2D:
+            error = batch_normalization_2d_parameter_count(transform->batch_normalization_2d, count);
+            break;
+        case LAYER_NORMALIZATION:
+            error = layer_normalization_parameter_count(transform->layer_normalization, count);
+            break;
+        case EMBEDDING:
+            error = embedding_parameter_count(transform->embedding, count);
+            break;
+        case TRANSFORMER_EMBEDDING:
+            error = transformer_embedding_parameter_count(transform->transformer_embedding, count);
+            break;
+        case CAUSAL_MULTIHEAD_SELF_ATTENTION:
+            error = causal_multihead_self_attention_parameter_count(transform->causal_multihead_self_attention, count);
+            break;
+        case ACTIVATION:
+        case RESHAPE:
+        case MAX_POOLING_2D:
+        case AVERAGE_POOLING_2D:
+        case DROPOUT:
+            break;
+        case RESIDUAL_BLOCK:
+        case BLOCK:
+            error = block_parameter_count(transform->block, count);
+            break;
+        default:
+            error = ERROR(ERROR_LAYER_TYPE, string_create("unknown transform type %d.", (int) transform_type), NULL);
+            break;
+        }
+
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    return error;
+}
+
+nw_error_t *linear_parameter_count(linear_t *linear, int64_t *count)
+{
+    CHECK_NULL_ARGUMENT(linear, "linear");
+    CHECK_NULL_ARGUMENT(count, "count");
+
+    nw_error_t *error = NULL;
+    int64_t size = 0;
+
+    if (linear->weights) 
+    {
+        error = view_physical_size(linear->weights->buffer->view, &size);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    if (linear->bias) 
+    {
+        error = view_physical_size(linear->bias->buffer->view, &size);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    return error;
+}
+
+nw_error_t *convolution_2d_parameter_count(convolution_2d_t *convolution_2d, int64_t *count)
+{
+    CHECK_NULL_ARGUMENT(convolution_2d, "convolution_2d");
+    CHECK_NULL_ARGUMENT(count, "count");
+
+    nw_error_t *error = NULL;
+    int64_t size = 0;
+
+    if (convolution_2d->kernel) 
+    {
+        error = view_physical_size(convolution_2d->kernel->buffer->view, &size);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    if (convolution_2d->bias) 
+    {
+        error = view_physical_size(convolution_2d->bias->buffer->view, &size);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    return error;
+}
+
+nw_error_t *batch_normalization_2d_parameter_count(batch_normalization_2d_t *batch_normalization_2d, int64_t *count)
+{
+    CHECK_NULL_ARGUMENT(batch_normalization_2d, "batch_normalization_2d");
+    CHECK_NULL_ARGUMENT(count, "count");
+
+    nw_error_t *error = NULL;
+    int64_t size = 0;
+
+    if (batch_normalization_2d->weights) 
+    {
+        error = view_physical_size(batch_normalization_2d->weights->buffer->view, &size);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    if (batch_normalization_2d->bias) 
+    {
+        error = view_physical_size(batch_normalization_2d->bias->buffer->view, &size);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    return error;
+}
+
+nw_error_t *layer_normalization_parameter_count(layer_normalization_t *layer_normalization, int64_t *count)
+{
+    CHECK_NULL_ARGUMENT(layer_normalization, "layer_normalization");
+    CHECK_NULL_ARGUMENT(count, "count");
+
+    nw_error_t *error = NULL;
+    int64_t size = 0;
+
+    if (layer_normalization->weights) 
+    {
+        error = view_physical_size(layer_normalization->weights->buffer->view, &size);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    if (layer_normalization->bias) 
+    {
+        error = view_physical_size(layer_normalization->bias->buffer->view, &size);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    return error;
+}
+
+nw_error_t *embedding_parameter_count(embedding_t *embedding, int64_t *count)
+{
+    CHECK_NULL_ARGUMENT(embedding, "embedding");
+    CHECK_NULL_ARGUMENT(count, "count");
+
+    nw_error_t *error = NULL;
+    int64_t size = 0;
+
+    if (embedding->weights) 
+    {
+        error = view_physical_size(embedding->weights->buffer->view, &size);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    return error;
+}
+
+nw_error_t *transformer_embedding_parameter_count(transformer_embedding_t *transformer_embedding, int64_t *count)
+{
+    CHECK_NULL_ARGUMENT(transformer_embedding, "transformer_embedding");
+    CHECK_NULL_ARGUMENT(count, "count");
+
+    nw_error_t *error = NULL;
+    int64_t size = 0;
+
+    if (transformer_embedding->position_embedding) 
+    {
+        error = embedding_parameter_count(transformer_embedding->position_embedding, count);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    if (transformer_embedding->token_embedding) 
+    {
+        error = embedding_parameter_count(transformer_embedding->token_embedding, count);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    return error;
+}
+
+nw_error_t *causal_multihead_self_attention_parameter_count(causal_multihead_self_attention_t *causal_multihead_self_attention, int64_t *count)
+{
+    CHECK_NULL_ARGUMENT(causal_multihead_self_attention, "causal_multihead_self_attention");
+    CHECK_NULL_ARGUMENT(count, "count");
+
+    nw_error_t *error = NULL;
+    int64_t size = 0;
+
+    if (causal_multihead_self_attention->input_weights) 
+    {
+        error = view_physical_size(causal_multihead_self_attention->input_weights->buffer->view, &size);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    if (causal_multihead_self_attention->input_bias) 
+    {
+        error = view_physical_size(causal_multihead_self_attention->input_bias->buffer->view, &size);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    if (causal_multihead_self_attention->output_weights) 
+    {
+        error = view_physical_size(causal_multihead_self_attention->output_weights->buffer->view, &size);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    if (causal_multihead_self_attention->output_bias) 
+    {
+        error = view_physical_size(causal_multihead_self_attention->output_bias->buffer->view, &size);
+        if (error)
+        {
+            return ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        }
+    }
+
+    *count += size;
+
+    return error;
+}

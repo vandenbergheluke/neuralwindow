@@ -818,6 +818,16 @@ int main(int argc, char **argv)
             goto cleanup;
         }
 
+        int64_t count;
+        error = model_parameter_count(model, &count);
+        if (error)
+        {
+            error = ERROR(ERROR_N, string_create("failed to count parameters."), error);
+            goto cleanup;
+
+        }
+        printf("Number of model parameters %ld.\n", count);
+
         error = optimizer_adam_create(&optimizer, datatype, (void *) &learning_rate, (void *) &beta1, (void *) &beta2, (void *) &weight_decay, (void *) &epsilon);
         if (error)
         {

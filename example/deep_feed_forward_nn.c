@@ -427,6 +427,16 @@ int main(void)
         goto cleanup;
     }
 
+    int64_t count;
+    error = model_parameter_count(model, &count);
+    if (error)
+    {
+        error = ERROR(ERROR_N, string_create("failed to count parameters."), error);
+        goto cleanup;
+
+    }
+    printf("Number of model parameters %ld.\n", count);
+
     error = optimizer_stochastic_gradient_descent_create(&optimizer, datatype, (void *) &learning_rate, (void *) &momentum, (void *) &dampening, &weight_decay, nesterov);
     if (error)
     {
