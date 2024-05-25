@@ -6,7 +6,7 @@
 
 <div align="center">
   
-  [![Build Unit Tests](https://github.com/vandluke/neuralwindow/actions/workflows/cmake.yml/badge.svg)](https://github.com/vandluke/neuralwindow/actions/workflows/cmake.yml)
+  [![Build Unit Tests](https://github.com/vandenbergheluke/neuralwindow/actions/workflows/cmake.yml/badge.svg)](https://github.com/vandenbergheluke/neuralwindow/actions/workflows/cmake.yml)
   
 </div>
 
@@ -19,7 +19,7 @@ A basic deep learning library written in C.
 Clone the repository
 
 ```bash
-git clone https://github.com/vandluke/neuralwindow.git
+git clone https://github.com/vandenbergheluke/neuralwindow.git
 ```
 
 Make project the current working directory
